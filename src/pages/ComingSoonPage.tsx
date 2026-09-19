@@ -53,7 +53,7 @@ function PlaceholderShell({ children }: { children: ReactNode }) {
             Home
           </Link>
         </Button>
-        <OmnicianWordmark className="text-xl sm:text-2xl" />
+        <OmnicianWordmark className="h-7 w-auto sm:h-8" />
         <span className="w-[4.5rem]" aria-hidden />
       </header>
       <main className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-2 pb-16 text-center">
