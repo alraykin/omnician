@@ -1,0 +1,83 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: #a855f7;
+  --radius-lg: 1rem;
+}
+
+:root {
+  --background: #0b0f1a;
+  --foreground: #f8fafc;
+  color-scheme: dark;
+}
+
+html {
+  background: #0b0f1a;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(168, 85, 247, 0.18), transparent 55%),
+    #0b0f1a;
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+.stage-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: auto;
+  left: 50%;
+  top: -8rem;
+  height: 22rem;
+  width: 42rem;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: radial-gradient(
+    circle,
+    rgba(168, 85, 247, 0.28),
+    rgba(168, 85, 247, 0.05) 42%,
+    transparent 70%
+  );
+  filter: blur(8px);
+}
+
+.sound-rings {
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  top: 5.5rem;
+  height: 28rem;
+  width: 28rem;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, transparent 34%, rgba(168, 85, 247, 0.08) 35%, transparent 36%),
+    radial-gradient(circle, transparent 52%, rgba(255, 255, 255, 0.05) 53%, transparent 54%),
+    radial-gradient(circle, transparent 70%, rgba(168, 85, 247, 0.06) 71%, transparent 72%);
+  mask-image: radial-gradient(circle, black 20%, transparent 72%);
+}
+
+@media (min-width: 640px) {
+  .sound-rings {
+    top: 4rem;
+    height: 36rem;
+    width: 36rem;
+  }
+}
