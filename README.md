@@ -75,7 +75,7 @@ Click the terminal window and press **Control + C**.
 ## What you will see
 
 - **Home** — branding, the greeting *Hello — are you ready to rock?*, and three tools
-- **Tuner** — tap **Start Tuning**, allow the microphone, then play a note. You will see the note name, octave, and cents sharp or flat
+- **Tuner** — tap **Start Tuning**, allow the microphone, then play a note. Pick Chromatic or an instrument family (guitar, bass, uke, banjo, and more), set Low/Medium/High sensitivity, and save a custom 4–10 string tuning on this device
 - **Metronome / Drum Machine** — placeholder pages that say **Coming in V1**
 - A quiet note that more can unlock with a subscription later (there are **no payments** yet)
 

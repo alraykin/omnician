@@ -1,7 +1,7 @@
 export const A4_HZ = 440
 export const IN_TUNE_CENTS = 8
 
-const SHARP_NAMES = [
+export const SHARP_NAMES = [
   'C',
   'C♯',
   'D',
@@ -31,30 +31,49 @@ const FLAT_NAMES = [
   'B',
 ] as const
 
-export type InstrumentPreset = 'chromatic' | 'guitar' | 'bass'
-
 export type InstrumentString = {
   id: string
   label: string
   midi: number
   stringNo: number
+  octave: number
 }
 
-export const GUITAR_STRINGS: InstrumentString[] = [
-  { id: 'E2', label: 'E', midi: 40, stringNo: 6 },
-  { id: 'A2', label: 'A', midi: 45, stringNo: 5 },
-  { id: 'D3', label: 'D', midi: 50, stringNo: 4 },
-  { id: 'G3', label: 'G', midi: 55, stringNo: 3 },
-  { id: 'B3', label: 'B', midi: 59, stringNo: 2 },
-  { id: 'E4', label: 'e', midi: 64, stringNo: 1 },
-]
+export function pitchClassName(midi: number): {
+  sharpName: string
+  flatName: string
+  octave: number
+  isNatural: boolean
+} {
+  const pitchClass = ((midi % 12) + 12) % 12
+  const sharpName = SHARP_NAMES[pitchClass]
+  const flatName = FLAT_NAMES[pitchClass]
+  return {
+    sharpName,
+    flatName,
+    octave: Math.floor(midi / 12) - 1,
+    isNatural: sharpName === flatName,
+  }
+}
 
-export const BASS_STRINGS: InstrumentString[] = [
-  { id: 'E1', label: 'E', midi: 28, stringNo: 4 },
-  { id: 'A1', label: 'A', midi: 33, stringNo: 3 },
-  { id: 'D2', label: 'D', midi: 38, stringNo: 2 },
-  { id: 'G2', label: 'G', midi: 43, stringNo: 1 },
-]
+export function midiFromNote(pitchClass: number, octave: number): number {
+  return pitchClass + (octave + 1) * 12
+}
+
+export function stringsFromMidis(midis: readonly number[]): InstrumentString[] {
+  const count = midis.length
+  return midis.map((midi, index) => {
+    const pitch = pitchClassName(midi)
+    const stringNo = count - index
+    return {
+      id: `${pitch.sharpName}${pitch.octave}-${stringNo}`,
+      label: pitch.sharpName,
+      midi,
+      stringNo,
+      octave: pitch.octave,
+    }
+  })
+}
 
 export type DetectedNote = {
   frequency: number
@@ -112,14 +131,6 @@ export function nearestString(
   }
 
   return best
-}
-
-export function stringsForPreset(
-  preset: InstrumentPreset,
-): readonly InstrumentString[] {
-  if (preset === 'guitar') return GUITAR_STRINGS
-  if (preset === 'bass') return BASS_STRINGS
-  return []
 }
 
 export function rms(buffer: Float32Array): number {

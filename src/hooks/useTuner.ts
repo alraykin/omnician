@@ -6,12 +6,10 @@ import {
   estimatePitch,
   PITCH_BUFFER_SIZE,
 } from '@/lib/pitch-detector'
+import { SENSITIVITY, type Sensitivity } from '@/lib/sensitivity'
 
-const MIN_HZ = 32
+const MIN_HZ = 20
 const MAX_HZ = 2000
-const MIN_CLARITY = 0.82
-const MIN_RMS = 0.007
-const HOLD_MS = 180
 
 export type TunerStatus =
   | 'idle'
@@ -76,7 +74,7 @@ function isUnavailableError(error: unknown): boolean {
   )
 }
 
-export function useTuner() {
+export function useTuner(sensitivity: Sensitivity) {
   const [status, setStatus] = useState<TunerStatus>('idle')
   const [reading, setReading] = useState<TunerReading | null>(null)
   const [level, setLevel] = useState(0)
@@ -89,8 +87,10 @@ export function useTuner() {
   const lastHeardRef = useRef(0)
   const smoothHzRef = useRef<number | null>(null)
   const sessionRef = useRef(0)
+  const sensitivityRef = useRef(sensitivity)
 
   statusRef.current = status
+  sensitivityRef.current = sensitivity
 
   const stop = useCallback(() => {
     sessionRef.current += 1
@@ -238,24 +238,26 @@ export function useTuner() {
         audio.sampleRate,
       )
       const now = performance.now()
+      const feel = SENSITIVITY[sensitivityRef.current]
       const strong =
         Number.isFinite(frequency) &&
         frequency >= MIN_HZ &&
         frequency <= MAX_HZ &&
-        clarity >= MIN_CLARITY &&
-        signal >= MIN_RMS
+        clarity >= feel.minClarity &&
+        signal >= feel.minRms
 
       if (strong) {
         const previous = smoothHzRef.current
         const next =
-          previous && Math.abs(12 * Math.log2(frequency / previous)) < 0.7
-            ? previous * 0.62 + frequency * 0.38
+          previous &&
+          Math.abs(12 * Math.log2(frequency / previous)) < feel.jumpSemitones
+            ? previous * feel.smoothPrev + frequency * feel.smoothNext
             : frequency
         smoothHzRef.current = next
         lastHeardRef.current = now
         const note = analyzeFrequency(next)
         setReading({ ...note, clarity })
-      } else if (now - lastHeardRef.current > HOLD_MS) {
+      } else if (now - lastHeardRef.current > feel.holdMs) {
         smoothHzRef.current = null
         setReading(null)
       }

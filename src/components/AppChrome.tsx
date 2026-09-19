@@ -13,7 +13,7 @@ type AppChromeProps = {
 
 export function AppChrome({ children, align = 'center' }: AppChromeProps) {
   return (
-    <div className="relative flex min-h-svh flex-col overflow-hidden px-5 py-6 sm:px-8 sm:py-8">
+    <div className="relative flex min-h-svh flex-col overflow-x-hidden px-5 py-6 sm:px-8 sm:py-8">
       <div className="stage-glow" aria-hidden />
       <header className="relative z-10 mx-auto flex w-full max-w-lg items-center justify-between">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
@@ -29,7 +29,7 @@ export function AppChrome({ children, align = 'center' }: AppChromeProps) {
         className={cn(
           'relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col pb-8',
           align === 'center' && 'items-center justify-center px-2 text-center',
-          align === 'fill' && 'pt-6',
+          align === 'fill' && 'pt-6 sm:max-w-xl',
         )}
       >
         {children}
