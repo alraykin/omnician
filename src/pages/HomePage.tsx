@@ -9,8 +9,8 @@ export function HomePage() {
       <div className="sound-rings" aria-hidden />
 
       <header className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center text-center">
-        <p className="mb-5 text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-[#C084FC]/80 sm:text-xs">
-          Practice companion
+        <p className="mb-5 max-w-sm text-[0.65rem] font-semibold uppercase leading-4 tracking-[0.16em] text-[#C084FC]/80 sm:text-xs sm:tracking-[0.22em]">
+          The ultimate practice companion
         </p>
         <OmnicianWordmark className="h-14 w-auto sm:h-[4.75rem] md:h-24" />
         <p className="mt-4 max-w-md text-base text-slate-400 sm:text-lg">

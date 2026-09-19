@@ -13,7 +13,7 @@ export const practiceTools: PracticeTool[] = [
     name: 'Tuner',
     blurb: 'Match your pitch before you play.',
     coming:
-      'Get a clear in-tune signal so every practice starts on pitch. The tuner is coming in V1.',
+      'A live tuner is ready now — tap Tuner on the home screen.',
   },
   {
     slug: 'metronome',

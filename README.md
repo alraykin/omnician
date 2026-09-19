@@ -2,7 +2,7 @@
 
 **You're becoming an Omnician.**
 
-Omnician is a music practice companion — a simple home base for the tools you reach for before you play. This first version is the splash screen plus three upcoming rooms: **Tuner**, **Metronome**, and **Drum Machine**.
+Omnician is **the ultimate practice companion** — a simple home base for the tools you reach for before you play. This version includes a live **Tuner** (uses your microphone) plus upcoming rooms for **Metronome** and **Drum Machine**.
 
 You do **not** need to know how to program. Follow the steps below on your computer, then open the app in a web browser.
 
@@ -75,10 +75,11 @@ Click the terminal window and press **Control + C**.
 ## What you will see
 
 - **Home** — branding, the greeting *Hello — are you ready to rock?*, and three tools
-- **Tuner / Metronome / Drum Machine** — placeholder pages that say **Coming in V1**
+- **Tuner** — tap **Start Tuning**, allow the microphone, then play a note. You will see the note name, octave, and cents sharp or flat
+- **Metronome / Drum Machine** — placeholder pages that say **Coming in V1**
 - A quiet note that more can unlock with a subscription later (there are **no payments** yet)
 
-There is no account sign-in, no microphone, and no real audio in this version. Those come later.
+There is no account sign-in and nothing to pay. The tuner needs microphone permission. If the browser blocks the mic, allow it for this site and tap Start Tuning again.
 
 ---
 
