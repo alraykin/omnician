@@ -190,9 +190,9 @@ function layoutGuitar6(slots: PegSlot[]): Drawn {
   const cx = G6_CX
   const hexR = 25
   const stub = 7
-  const rowGap = 62
-  const firstY = 78
-  const nutY = firstY + 2 * rowGap + 58
+  const rowGap = 60
+  const firstY = 74
+  const nutY = firstY + 2 * rowGap + 78
   const neckH = 108
   const height = nutY + neckH
   const nutWidth = G6_NUT
@@ -251,11 +251,12 @@ function guitar6Half(y: number, nutY: number, inset = 0): number {
   const t = Math.max(0, Math.min(1, (y - topY) / Math.max(1, nutY - topY)))
   const keys: Array<[number, number]> = [
     [0, G6_HORN],
-    [0.14, 59],
-    [0.34, 56],
-    [0.56, 54],
-    [0.72, 51],
-    [0.86, 44],
+    [0.12, 58],
+    [0.28, 55],
+    [0.48, 55],
+    [0.64, 54],
+    [0.78, 52],
+    [0.9, 46],
     [1, nutHalf + 2],
   ]
   let half = keys[keys.length - 1][1]
