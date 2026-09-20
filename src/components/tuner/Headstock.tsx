@@ -37,109 +37,158 @@ export function Headstock({
         </p>
         <label className="flex items-center gap-2 text-xs font-semibold text-slate-300">
           Auto strings
-          <button
-            type="button"
-            role="switch"
-            aria-checked={autoString}
-            onClick={() => onAutoChange(!autoString)}
-            className={cn(
-              'relative h-6 w-11 rounded-full transition-colors',
-              autoString ? 'bg-[#A855F7]' : 'bg-white/15',
-            )}
-          >
-            <span
-              className={cn(
-                'absolute top-0.5 size-5 rounded-full bg-white transition-transform',
-                autoString ? 'translate-x-5' : 'translate-x-0.5',
-              )}
-            />
-          </button>
+          <AutoSwitch on={autoString} onChange={onAutoChange} />
         </label>
       </div>
 
-      <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#151B2C] px-2 pb-3 pt-3 sm:px-3">
-        <div className="flex justify-center">
-          <OmnicianMark className="h-10 w-10 sm:h-12 sm:w-12" title="Omnician" />
-        </div>
-
-        <div
-          className="mt-2 grid items-start gap-x-2"
-          style={{ gridTemplateColumns: '1fr 2.4rem 1fr' }}
-        >
-          <div className="flex flex-col items-end gap-1.5">
-            {Array.from({ length: rows }, (_, row) => {
-              const slot = left[row]
-              if (!slot) return <div key={`l-empty-${row}`} className="h-11" />
-              return (
-                <PegButton
-                  key={slot.string.id}
-                  string={slot.string}
-                  selected={slot.string.id === selectedId}
-                  tuned={tunedIds.has(slot.string.id)}
-                  align="right"
-                  onClick={() => onTapPeg(slot.string)}
-                />
-              )
-            })}
+      <div className="relative mx-auto w-full max-w-sm">
+        <HeadstockSilhouette rows={rows} />
+        <div className="relative z-10 px-1 pb-2 pt-2">
+          <div className="flex justify-center pb-1">
+            <OmnicianMark className="h-11 w-11 sm:h-12 sm:w-12" title="Omnician" />
           </div>
-
-          <div className="relative mx-auto h-full min-h-16 w-7">
-            <div className="absolute inset-y-1 left-1/2 w-px -translate-x-1/2 bg-white/20" />
-            {strings.map((string, index) => (
-              <div
-                key={string.id}
-                className={cn(
-                  'absolute left-1/2 w-px -translate-x-1/2',
-                  tunedIds.has(string.id) ? 'bg-emerald-400/80' : 'bg-white/25',
-                )}
-                style={{
-                  top: `${8 + index * 4}%`,
-                  bottom: 0,
-                  marginLeft: `${(index - (strings.length - 1) / 2) * 3}px`,
-                }}
+          <div
+            className="grid items-center gap-x-1"
+            style={{ gridTemplateColumns: '1fr minmax(3.5rem, 28%) 1fr' }}
+          >
+            <div className="flex flex-col items-end justify-between gap-1 self-stretch py-1">
+              {Array.from({ length: rows }, (_, row) => {
+                const slot = left[row]
+                if (!slot) return <div key={`l-empty-${row}`} className="h-11" />
+                return (
+                  <PegButton
+                    key={slot.string.id}
+                    string={slot.string}
+                    selected={slot.string.id === selectedId}
+                    tuned={tunedIds.has(slot.string.id)}
+                    align="right"
+                    onClick={() => onTapPeg(slot.string)}
+                  />
+                )
+              })}
+            </div>
+            <div className="min-h-16" aria-hidden />
+            <div className="flex flex-col items-start justify-between gap-1 self-stretch py-1">
+              {Array.from({ length: rows }, (_, row) => {
+                const slot = right[row]
+                if (!slot) return <div key={`r-empty-${row}`} className="h-11" />
+                return (
+                  <PegButton
+                    key={slot.string.id}
+                    string={slot.string}
+                    selected={slot.string.id === selectedId}
+                    tuned={tunedIds.has(slot.string.id)}
+                    align="left"
+                    onClick={() => onTapPeg(slot.string)}
+                  />
+                )
+              })}
+            </div>
+          </div>
+          {fifth ? (
+            <div className="mt-1 flex justify-start pl-2">
+              <PegButton
+                string={fifth.string}
+                selected={fifth.string.id === selectedId}
+                tuned={tunedIds.has(fifth.string.id)}
+                align="center"
+                fifth
+                onClick={() => onTapPeg(fifth.string)}
               />
-            ))}
-          </div>
-
-          <div className="flex flex-col items-start gap-1.5">
-            {Array.from({ length: rows }, (_, row) => {
-              const slot = right[row]
-              if (!slot) return <div key={`r-empty-${row}`} className="h-11" />
-              return (
-                <PegButton
-                  key={slot.string.id}
-                  string={slot.string}
-                  selected={slot.string.id === selectedId}
-                  tuned={tunedIds.has(slot.string.id)}
-                  align="left"
-                  onClick={() => onTapPeg(slot.string)}
-                />
-              )
-            })}
-          </div>
+            </div>
+          ) : null}
         </div>
-
-        {fifth ? (
-          <div className="mt-2 flex justify-center">
-            <PegButton
-              string={fifth.string}
-              selected={fifth.string.id === selectedId}
-              tuned={tunedIds.has(fifth.string.id)}
-              align="center"
-              fifth
-              onClick={() => onTapPeg(fifth.string)}
-            />
-          </div>
-        ) : null}
-
-        <div className="mx-auto mt-3 h-2 w-[72%] rounded-sm bg-[#C9A36A]/80 shadow-[0_0_12px_rgba(201,163,106,0.25)]" />
-        <p className="mt-2 text-center text-[0.65rem] text-slate-500">
-          Tap a peg to hear its pitch. Red is the string you are on; green stays
-          until it is played out of tune.
-        </p>
       </div>
+      <p className="mt-2 text-center text-[0.65rem] leading-4 text-slate-500">
+        Tap a peg to hear its pitch and set the target. Red is the active string;
+        green stays until that string is played out of tune.
+      </p>
     </div>
   )
+}
+
+function AutoSwitch({
+  on,
+  onChange,
+}: {
+  on: boolean
+  onChange: (value: boolean) => void
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label="Auto strings"
+      onClick={() => onChange(!on)}
+      className={cn(
+        'inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors',
+        on ? 'justify-end bg-[#A855F7]' : 'justify-start bg-white/15',
+      )}
+    >
+      <span className="block size-6 shrink-0 rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.45)]" />
+    </button>
+  )
+}
+
+function HeadstockSilhouette({ rows }: { rows: number }) {
+  const height = 168 + rows * 38
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 h-full w-full"
+      viewBox={`0 0 220 ${height}`}
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden
+    >
+      <path
+        d={silhouettePath(height)}
+        fill="#1A2233"
+        stroke="#8B6B3D"
+        strokeWidth="3"
+      />
+      <path
+        d={silhouettePath(height)}
+        fill="none"
+        stroke="rgba(168, 85, 247, 0.28)"
+        strokeWidth="1.2"
+        transform="translate(0 1)"
+      />
+      <rect
+        x="78"
+        y={height - 18}
+        width="64"
+        height="10"
+        rx="1.5"
+        fill="#C9A36A"
+      />
+      {Array.from({ length: 6 }, (_, index) => (
+        <line
+          key={index}
+          x1={88 + index * 7.2}
+          y1={height - 18}
+          x2={88 + index * 7.2}
+          y2={height - 8}
+          stroke="#3B2A14"
+          strokeWidth="0.8"
+        />
+      ))}
+    </svg>
+  )
+}
+
+function silhouettePath(height: number): string {
+  const nut = height - 22
+  return [
+    'M 78 14',
+    'C 48 14 32 36 32 64',
+    `L 36 ${nut - 36}`,
+    `L 72 ${nut}`,
+    `L 148 ${nut}`,
+    `L 184 ${nut - 36}`,
+    'L 188 64',
+    'C 188 36 172 14 142 14',
+    'Z',
+  ].join(' ')
 }
 
 function PegButton({
@@ -164,7 +213,7 @@ function PegButton({
       onClick={onClick}
       aria-label={`String ${string.stringNo}, ${string.label}${string.octave}${tuned ? ', in tune' : ''}`}
       className={cn(
-        'flex items-center gap-2 rounded-2xl px-1.5 py-1',
+        'flex items-center gap-1.5 rounded-2xl px-1 py-0.5',
         align === 'right' && 'flex-row-reverse text-right',
         align === 'center' && 'flex-col',
       )}
@@ -176,10 +225,10 @@ function PegButton({
             'bg-emerald-400 ring-emerald-200 shadow-[0_0_14px_rgba(52,211,153,0.7)]',
           tone === 'red' &&
             'bg-red-500 ring-red-300 shadow-[0_0_14px_rgba(239,68,68,0.65)]',
-          tone === 'idle' && 'bg-[#2A3348] ring-white/20',
+          tone === 'idle' && 'bg-[#2A3348] ring-[#C9A36A]/70',
         )}
       />
-      <span className="min-w-8">
+      <span className="min-w-7">
         <span className="block text-sm font-bold leading-none text-white">
           {string.label}
         </span>

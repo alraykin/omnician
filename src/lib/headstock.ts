@@ -33,8 +33,8 @@ export function layoutPegs(
 
   const ordered = [...body].sort((a, b) => b.stringNo - a.stringNo)
   const { left: leftCount } = splitCounts(ordered.length)
-  const left = ordered.slice(0, leftCount)
-  const right = ordered.slice(leftCount).reverse()
+  const left = ordered.slice(0, leftCount).reverse()
+  const right = ordered.slice(leftCount)
 
   const slots: PegSlot[] = [
     ...left.map((string, row) => ({ string, side: 'left' as const, row })),

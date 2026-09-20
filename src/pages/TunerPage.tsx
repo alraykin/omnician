@@ -14,7 +14,7 @@ import { useTuner, type TunerStatus } from '@/hooks/useTuner'
 import { loadTunerPrefs, saveTunerPrefs } from '@/lib/custom-presets'
 import { IN_TUNE_CENTS } from '@/lib/feel'
 import { playInTuneChime } from '@/lib/in-tune-chime'
-import { centsBetween, matchString, midiToFreq, STRING_LOCK_CENTS } from '@/lib/notes'
+import { centsBetween, midiToFreq } from '@/lib/notes'
 import {
   customToPreset,
   familyHasSubmenu,
@@ -65,54 +65,26 @@ export function TunerPage() {
     setTunedIds(new Set())
   }, [current.id])
 
-  const demoTone = useMemo(() => {
-    const hz = Number(new URLSearchParams(window.location.search).get('demo'))
-    return Number.isFinite(hz) && hz > 20 && hz < 4000
-  }, [])
-
   const strings = current.strings
   const instrumentMode = strings.length > 0
   const safeFocus = Math.min(focusIndex, Math.max(0, strings.length - 1))
   const focusString = instrumentMode ? strings[safeFocus] ?? null : null
-
-  const nearest =
-    reading && instrumentMode && !autoString
-      ? matchString(reading.frequency, strings, a4Hz)
-      : null
-  const focused =
-    reading && instrumentMode && autoString && focusString
-      ? {
-          string: focusString,
-          cents: centsBetween(reading.frequency, focusString.midi, a4Hz),
-        }
-      : null
-  const locked = autoString
-    ? focused && Math.abs(focused.cents) <= STRING_LOCK_CENTS
-      ? focused
-      : null
-    : nearest
-  const activeString = autoString ? focusString : (locked?.string ?? null)
-  const displayCents = demoTone
-    ? (reading?.cents ?? null)
-    : autoString && focused
-      ? focused.cents
-      : locked
-        ? locked.cents
-        : (reading?.cents ?? null)
+  const displayCents =
+    reading && instrumentMode && focusString
+      ? centsBetween(reading.frequency, focusString.midi, a4Hz)
+      : (reading?.cents ?? null)
   const inTune =
-    displayCents !== null &&
-    Math.abs(displayCents) <= IN_TUNE_CENTS &&
-    (demoTone || !instrumentMode || locked !== null)
+    displayCents !== null && Math.abs(displayCents) <= IN_TUNE_CENTS
   const live = status === 'listening' && reading !== null
+  const activeString = focusString
   const holdTarget = instrumentMode
     ? (activeString?.id ?? null)
     : live
       ? 'chromatic'
       : null
-  const unmatchedNote =
-    live && instrumentMode && !locked && !demoTone && reading && !autoString
-      ? `${reading.sharpName}${reading.octave}`
-      : null
+  const targetLabel = activeString
+    ? `${activeString.label}${activeString.octave}`
+    : null
 
   const markComplete = useCallback((id: string) => {
     playInTuneChime()
@@ -141,16 +113,17 @@ export function TunerPage() {
   const { progress, complete } = useInTuneHold(inTune, live, holdTarget, markComplete)
 
   useEffect(() => {
-    if (!locked || complete) return
-    if (!tunedIds.has(locked.string.id)) return
-    if (Math.abs(locked.cents) > IN_TUNE_CENTS + 10) {
+    if (!focusString || displayCents === null || complete) return
+    if (!tunedIds.has(focusString.id)) return
+    if (Math.abs(displayCents) > IN_TUNE_CENTS + 10) {
+      const id = focusString.id
       setTunedIds((currentIds) => {
         const next = new Set(currentIds)
-        next.delete(locked.string.id)
+        next.delete(id)
         return next
       })
     }
-  }, [complete, locked, tunedIds])
+  }, [complete, displayCents, focusString, tunedIds])
 
   const openEdit = (id: string) => {
     setPickerOpen(false)
@@ -233,7 +206,7 @@ export function TunerPage() {
             )}
           >
             {live && displayCents !== null
-              ? formatCents(displayCents, complete)
+              ? formatCents(displayCents, complete, targetLabel)
               : '— cents'}
           </p>
 
@@ -275,7 +248,7 @@ export function TunerPage() {
           )}
 
           <p className="mt-4 min-h-10 text-center text-sm leading-6 text-slate-400">
-            {statusMessage(status, live, instrumentMode, unmatchedNote, autoString)}
+            {statusMessage(status, live, instrumentMode, autoString)}
           </p>
         </section>
 
@@ -419,19 +392,23 @@ function LevelMeter({ level, on }: { level: number; on: boolean }) {
   )
 }
 
-function formatCents(cents: number, complete: boolean): string {
+function formatCents(
+  cents: number,
+  complete: boolean,
+  targetLabel: string | null,
+): string {
   const rounded = Math.round(cents)
-  if (complete && Math.abs(rounded) <= 1) return '0 cents · in tune'
-  if (Math.abs(rounded) <= 1) return '0 cents · hold…'
-  if (rounded > 0) return `${rounded} cents sharp`
-  return `${Math.abs(rounded)} cents flat`
+  const vs = targetLabel ? ` of ${targetLabel}` : ''
+  if (complete && Math.abs(rounded) <= 1) return `0 cents · in tune${vs}`
+  if (Math.abs(rounded) <= 1) return `0 cents · hold…${vs}`
+  if (rounded > 0) return `${rounded} cents sharp${vs}`
+  return `${Math.abs(rounded)} cents flat${vs}`
 }
 
 function statusMessage(
   status: TunerStatus,
   live: boolean,
   instrumentMode: boolean,
-  unmatchedNote: string | null,
   autoString: boolean,
 ): string {
   if (status === 'idle') {
@@ -448,9 +425,6 @@ function statusMessage(
     return 'Something went wrong starting the tuner. Close other apps using the mic, then try again.'
   }
   if (status === 'listening' && !live) return 'Play a note…'
-  if (unmatchedNote) {
-    return `Heard ${unmatchedNote} — not in this tuning. Play a string from the headstock.`
-  }
   if (instrumentMode && autoString) {
     return 'Auto strings is on. Hold the red peg in the green for about two seconds to lock it and move on.'
   }
