@@ -28,7 +28,8 @@ export function usesGuitarShape(config: InstrumentId): boolean {
     config === 'banjo' ||
     config === 'mandolin' ||
     config === 'violin' ||
-    config === 'bouzouki'
+    config === 'bouzouki' ||
+    config === 'custom'
   )
 }
 
