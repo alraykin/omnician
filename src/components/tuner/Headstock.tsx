@@ -89,11 +89,13 @@ function layout(
   const left = slots.filter((slot) => slot.side === 'left')
   const right = slots.filter((slot) => slot.side === 'right')
   const rows = Math.max(left.length, right.length, 1)
+  const leftPad = rows - left.length
+  const rightPad = rows - right.length
   const banjo = config === 'banjo'
   const neckH = banjo ? 128 : 82
-  const hexR = clover ? (rows <= 2 ? 24 : 21) : rows >= 4 ? 18 : 20
-  const barrel = clover ? 24 : 14
-  const rowGap = Math.max(rows <= 2 ? 62 : rows === 3 ? 54 : 46, hexR * 2 + 8)
+  const hexR = clover ? (rows <= 2 ? 22 : rows === 3 ? 20 : 18) : rows >= 4 ? 18 : 20
+  const barrel = clover ? 20 : 14
+  const rowGap = Math.max(rows <= 2 ? 62 : rows === 3 ? 52 : 44, hexR * 2 + 10)
   const firstY = rows <= 2 ? 56 : 52
   const lastY = firstY + (rows - 1) * rowGap
   const nutY = lastY + 62
@@ -133,8 +135,10 @@ function layout(
       }
     }
 
-    const postY = firstY + slot.row * rowGap
-    const stagger = slot.row * (rows >= 4 ? 3 : rows === 3 ? 1.5 : 0)
+    const rowIndex =
+      slot.row + (slot.side === 'left' ? leftPad : rightPad)
+    const postY = firstY + rowIndex * rowGap
+    const stagger = rowIndex * (rows >= 4 ? 3 : rows === 3 ? 1.5 : 0)
     const postCol = rows <= 2 ? 48 : 46
     const postX =
       slot.side === 'left' ? CX - postCol - stagger : CX + postCol + stagger
@@ -491,7 +495,7 @@ function Peg({
         stroke={stroke}
         strokeWidth="2"
       />
-      {clover ? (
+      {clover || peg.side === 'fifth' ? (
         <>
           <circle
             cx={shaftEnd - dir * 11}
@@ -524,12 +528,12 @@ function Peg({
       )}
 
       {clover ? (
-        <Clover
-          cx={peg.buttonX}
-          cy={peg.buttonY}
-          dir={dir}
+        <path
+          d={cloverPath(peg.buttonX, peg.buttonY, dir, hexR)}
           fill={fill}
           stroke={stroke}
+          strokeWidth="2.15"
+          strokeLinejoin="round"
         />
       ) : (
         <path
@@ -541,7 +545,7 @@ function Peg({
         />
       )}
       <text
-        x={peg.buttonX}
+        x={peg.buttonX - (clover ? dir * 2.5 : 0)}
         y={peg.buttonY + 6}
         textAnchor="middle"
         fill={text}
@@ -605,40 +609,18 @@ function hexPath(cx: number, cy: number, r: number): string {
   return `M ${pts.join(' L ')} Z`
 }
 
-function Clover({
-  cx,
-  cy,
-  dir,
-  fill,
-  stroke,
-}: {
-  cx: number
-  cy: number
-  dir: number
-  fill: string
-  stroke: string
-}) {
-  const lobes: [number, number, number][] = [
-    [cx - dir * 8, cy, 11.2],
-    [cx + dir * 2.5, cy - 9.6, 10.4],
-    [cx + dir * 2.5, cy + 9.6, 10.4],
-  ]
-  return (
-    <g>
-      {lobes.map(([x, y, r]) => (
-        <circle
-          key={`${x}-${y}`}
-          cx={x}
-          cy={y}
-          r={r}
-          fill={fill}
-          stroke={stroke}
-          strokeWidth="2.15"
-        />
-      ))}
-      <circle cx={cx - dir * 1.5} cy={cy} r="9.5" fill={fill} stroke="none" />
-    </g>
-  )
+function cloverPath(cx: number, cy: number, dir: number, size: number): string {
+  const a = size * 0.92
+  const steps = 60
+  const pts: string[] = []
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * Math.PI * 2
+    const r = a * (0.7 + 0.3 * -Math.cos(3 * t))
+    const x = cx + dir * r * Math.cos(t)
+    const y = cy + r * Math.sin(t) * 0.96
+    pts.push(`${x.toFixed(2)},${y.toFixed(2)}`)
+  }
+  return `M ${pts.join(' L ')} Z`
 }
 
 function AutoSwitch({

@@ -36,7 +36,7 @@ export function layoutPegs(
     : [...strings]
 
   const ordered = [...body].sort((a, b) => b.stringNo - a.stringNo)
-  const { left: leftCount } = splitCounts(ordered.length)
+  const { left: leftCount } = splitCounts(ordered.length, usesCloverPegs(config))
   const left = ordered.slice(0, leftCount).reverse()
   const right = ordered.slice(leftCount)
 
@@ -52,13 +52,16 @@ export function layoutPegs(
   return slots
 }
 
-export function splitCounts(count: number): { left: number; right: number } {
+export function splitCounts(
+  count: number,
+  bass = false,
+): { left: number; right: number } {
   if (count <= 0) return { left: 0, right: 0 }
   if (count === 1) return { left: 1, right: 0 }
   if (count === 2) return { left: 1, right: 1 }
   if (count === 3) return { left: 2, right: 1 }
   if (count === 4) return { left: 2, right: 2 }
-  if (count === 5) return { left: 3, right: 2 }
+  if (count === 5) return bass ? { left: 2, right: 3 } : { left: 3, right: 2 }
   if (count === 6) return { left: 3, right: 3 }
   if (count === 7) return { left: 4, right: 3 }
   if (count === 8) return { left: 4, right: 4 }
