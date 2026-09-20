@@ -264,8 +264,8 @@ function guitar6EdgeX(
 function guitar6Batwing(nutY: number, nutHalf: number, inset: number): string {
   const cx = G6_CX
   const horn = 44 - inset * 0.5
-  const peakY = 7 + inset * 0.28
-  const valleyY = 38 + inset * 0.32
+  const peakY = 8 + inset * 0.28
+  const valleyY = 34 + inset * 0.28
   const sideTop = 20 + inset * 0.2
   const ySide = 50 + inset * 0.15
   const mid = 42 - inset * 0.4
@@ -278,8 +278,8 @@ function guitar6Batwing(nutY: number, nutHalf: number, inset: number): string {
     `M ${cx - horn} ${ySide}`,
     `L ${cx - horn} ${sideTop}`,
     `L ${cx - horn + 1.5} ${peakY}`,
-    `C ${cx - horn + 12} ${peakY + 4}, ${cx - 14} ${valleyY}, ${cx} ${valleyY}`,
-    `C ${cx + 14} ${valleyY}, ${cx + horn - 12} ${peakY + 4}, ${cx + horn - 1.5} ${peakY}`,
+    `C ${cx - horn + 14} ${peakY + 6}, ${cx - 18} ${valleyY}, ${cx} ${valleyY}`,
+    `C ${cx + 18} ${valleyY}, ${cx + horn - 14} ${peakY + 6}, ${cx + horn - 1.5} ${peakY}`,
     `L ${cx + horn} ${sideTop}`,
     `L ${cx + horn} ${ySide}`,
     `C ${cx + horn + 1} ${yMid}, ${cx + mid + 1} ${yLow}, ${cx + bot} ${nutY - 7}`,
@@ -442,7 +442,7 @@ export function Headstock({
                 strokeLinejoin="round"
               />
               <path
-                d={guitar6Batwing(drawn.nutY, drawn.nutWidth / 2, 6.5)}
+                d={guitar6Batwing(drawn.nutY, drawn.nutWidth / 2, 5.5)}
                 fill="none"
                 stroke={WHITE}
                 strokeWidth="1.15"
@@ -809,8 +809,8 @@ function nubHexPath(
   edgeX: number,
 ): string {
   const rx = r
-  const ry = r * 0.76
-  const stubH = ry * 0.72
+  const ry = r * 0.88
+  const stubH = ry * 0.68
   const hex = (deg: number) => {
     const angle = (Math.PI / 180) * deg
     return `${cx + rx * Math.cos(angle)},${cy + ry * Math.sin(angle)}`
@@ -818,9 +818,9 @@ function nubHexPath(
   const stubTop = `${edgeX},${cy - stubH}`
   const stubBot = `${edgeX},${cy + stubH}`
   if (dir === 1) {
-    return `M ${stubTop} L ${stubBot} L ${hex(300)} L ${hex(240)} L ${hex(180)} L ${hex(120)} L ${hex(60)} Z`
+    return `M ${stubTop} L ${hex(300)} L ${hex(240)} L ${hex(180)} L ${hex(120)} L ${hex(60)} L ${stubBot} Z`
   }
-  return `M ${stubTop} L ${hex(120)} L ${hex(60)} L ${hex(0)} L ${hex(300)} L ${hex(240)} L ${stubBot} Z`
+  return `M ${stubTop} L ${hex(240)} L ${hex(300)} L ${hex(0)} L ${hex(60)} L ${hex(120)} L ${stubBot} Z`
 }
 
 function cloverPath(cx: number, cy: number, dir: number, size: number): string {
