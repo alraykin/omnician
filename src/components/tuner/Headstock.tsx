@@ -865,11 +865,11 @@ function Peg({
             strokeLinejoin="round"
           />
           <rect
-            x={dir === 1 ? peg.edgeX - Math.max(4.2, hexR * 0.26) : peg.edgeX}
-            y={peg.buttonY - hexR * 0.22}
-            width={Math.max(4.2, hexR * 0.26)}
-            height={hexR * 0.44}
-            rx="0.8"
+            x={dir === 1 ? peg.edgeX - Math.max(3.6, hexR * 0.22) : peg.edgeX}
+            y={peg.buttonY - hexR * 0.13}
+            width={Math.max(3.6, hexR * 0.22)}
+            height={hexR * 0.26}
+            rx="0.7"
             fill={INK}
             stroke={stroke}
             strokeWidth="1.45"
@@ -1026,9 +1026,9 @@ function nubHexPath(
 ): string {
   const rx = r
   const ry = r * 0.84
-  const barrelH = ry * 0.56
-  const collarH = ry * 0.34
-  const collarW = Math.max(5, r * 0.28)
+  const barrelH = ry * 0.32
+  const collarH = ry * 0.2
+  const collarW = Math.max(4.2, r * 0.24)
   const innerX = cx + dir * rx * 0.5
   const hex = (deg: number) => {
     const angle = (Math.PI / 180) * deg
