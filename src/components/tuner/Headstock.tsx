@@ -1039,43 +1039,53 @@ function nubHexPath(
 ): string {
   const rx = r
   const ry = r * 0.84
-  const barrelH = ry * 0.58
-  const collarH = ry * 0.36
-  const collarW = Math.max(5, r * 0.3)
+  const barrelH = ry * 0.56
+  const collarH = ry * 0.34
+  const collarW = Math.max(5, r * 0.28)
+  const innerX = cx + dir * rx * 0.5
   const hex = (deg: number) => {
     const angle = (Math.PI / 180) * deg
     return `${(cx + rx * Math.cos(angle)).toFixed(1)},${(cy + ry * Math.sin(angle)).toFixed(1)}`
   }
   const collarX = (edgeX - dir * collarW).toFixed(1)
+  const shaftX = innerX.toFixed(1)
   const edge = edgeX.toFixed(1)
+  const topC = (cy - collarH).toFixed(1)
+  const botC = (cy + collarH).toFixed(1)
+  const topB = (cy - barrelH).toFixed(1)
+  const botB = (cy + barrelH).toFixed(1)
   if (dir === 1) {
     return [
-      `M ${edge},${(cy - collarH).toFixed(1)}`,
-      `L ${collarX},${(cy - collarH).toFixed(1)}`,
-      `L ${collarX},${(cy - barrelH).toFixed(1)}`,
+      `M ${edge},${topC}`,
+      `L ${collarX},${topC}`,
+      `L ${collarX},${topB}`,
+      `L ${shaftX},${topB}`,
       `L ${hex(300)}`,
       `L ${hex(240)}`,
       `L ${hex(180)}`,
       `L ${hex(120)}`,
       `L ${hex(60)}`,
-      `L ${collarX},${(cy + barrelH).toFixed(1)}`,
-      `L ${collarX},${(cy + collarH).toFixed(1)}`,
-      `L ${edge},${(cy + collarH).toFixed(1)}`,
+      `L ${shaftX},${botB}`,
+      `L ${collarX},${botB}`,
+      `L ${collarX},${botC}`,
+      `L ${edge},${botC}`,
       'Z',
     ].join(' ')
   }
   return [
-    `M ${edge},${(cy - collarH).toFixed(1)}`,
-    `L ${collarX},${(cy - collarH).toFixed(1)}`,
-    `L ${collarX},${(cy - barrelH).toFixed(1)}`,
+    `M ${edge},${topC}`,
+    `L ${collarX},${topC}`,
+    `L ${collarX},${topB}`,
+    `L ${shaftX},${topB}`,
     `L ${hex(240)}`,
     `L ${hex(300)}`,
     `L ${hex(0)}`,
     `L ${hex(60)}`,
     `L ${hex(120)}`,
-    `L ${collarX},${(cy + barrelH).toFixed(1)}`,
-    `L ${collarX},${(cy + collarH).toFixed(1)}`,
-    `L ${edge},${(cy + collarH).toFixed(1)}`,
+    `L ${shaftX},${botB}`,
+    `L ${collarX},${botB}`,
+    `L ${collarX},${botC}`,
+    `L ${edge},${botC}`,
     'Z',
   ].join(' ')
 }
