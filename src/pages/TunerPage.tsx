@@ -13,7 +13,7 @@ import { useCustomTunings } from '@/hooks/useCustomTunings'
 import { useTuner, type TunerStatus } from '@/hooks/useTuner'
 import { loadTunerPrefs, saveTunerPrefs } from '@/lib/custom-presets'
 import { playInTuneChime } from '@/lib/in-tune-chime'
-import { centsBetween, nearestString } from '@/lib/notes'
+import { matchString } from '@/lib/notes'
 import {
   customToPreset,
   findInstrument,
@@ -50,25 +50,35 @@ export function TunerPage() {
     })
   }, [activeInstrument, a4Hz, current.id, sensitivity])
 
+  const demoTone = useMemo(() => {
+    const hz = Number(new URLSearchParams(window.location.search).get('demo'))
+    return Number.isFinite(hz) && hz > 20 && hz < 4000
+  }, [])
+
   const strings = current.strings
   const instrumentMode = strings.length > 0
-  const activeString =
-    reading && instrumentMode
-      ? nearestString(reading.frequency, strings, a4Hz)
-      : null
-  const displayCents =
-    reading && instrumentMode && activeString
-      ? centsBetween(reading.frequency, activeString.midi, a4Hz)
+  const locked = reading && instrumentMode
+    ? matchString(reading.frequency, strings, a4Hz)
+    : null
+  const activeString = locked?.string ?? null
+  const displayCents = demoTone
+    ? (reading?.cents ?? null)
+    : locked
+      ? locked.cents
       : (reading?.cents ?? null)
   const inTuneWindow = SENSITIVITY[sensitivity].inTuneCents
   const inTune =
-    displayCents !== null && Math.abs(displayCents) <= inTuneWindow
+    displayCents !== null &&
+    Math.abs(displayCents) <= inTuneWindow &&
+    (demoTone || !instrumentMode || locked !== null)
   const live = status === 'listening' && reading !== null
-  const stringInTune =
-    reading && activeString
-      ? Math.abs(centsBetween(reading.frequency, activeString.midi, a4Hz)) <=
-        inTuneWindow
-      : false
+  const stringInTune = Boolean(
+    locked && Math.abs(locked.cents) <= inTuneWindow,
+  )
+  const unmatchedNote =
+    live && instrumentMode && !locked && !demoTone && reading
+      ? `${reading.sharpName}${reading.octave}`
+      : null
 
   const wasInTune = useRef(false)
   useEffect(() => {
@@ -160,7 +170,7 @@ export function TunerPage() {
             )}
           >
             {live && displayCents !== null
-              ? formatCents(displayCents)
+              ? formatCents(displayCents, inTune)
               : '— cents'}
           </p>
 
@@ -183,7 +193,7 @@ export function TunerPage() {
           )}
 
           <p className="mt-5 min-h-10 text-center text-sm leading-6 text-slate-400">
-            {statusMessage(status, live, instrumentMode)}
+            {statusMessage(status, live, instrumentMode, unmatchedNote)}
           </p>
         </section>
 
@@ -327,9 +337,10 @@ function LevelMeter({ level, on }: { level: number; on: boolean }) {
   )
 }
 
-function formatCents(cents: number): string {
+function formatCents(cents: number, inTune: boolean): string {
   const rounded = Math.round(cents)
-  if (Math.abs(rounded) <= 1) return '0 cents · in tune'
+  if (inTune && Math.abs(rounded) <= 1) return '0 cents · in tune'
+  if (Math.abs(rounded) <= 1) return '0 cents'
   if (rounded > 0) return `${rounded} cents sharp`
   return `${Math.abs(rounded)} cents flat`
 }
@@ -338,6 +349,7 @@ function statusMessage(
   status: TunerStatus,
   live: boolean,
   instrumentMode: boolean,
+  unmatchedNote: string | null,
 ): string {
   if (status === 'idle') {
     return 'Tap Start Tuning, allow the microphone, then play a note near the phone.'
@@ -353,6 +365,9 @@ function statusMessage(
     return 'Something went wrong starting the tuner. Close other apps using the mic, then try again.'
   }
   if (status === 'listening' && !live) return 'Play a note…'
+  if (unmatchedNote) {
+    return `Heard ${unmatchedNote} — not in this tuning. Play a string from the set below.`
+  }
   return instrumentMode
     ? 'Needle eases toward the highlighted string. Hold until the checkmark lands.'
     : 'Hold steady until the needle settles and the checkmark appears.'

@@ -121,6 +121,8 @@ export function centsBetween(
   return (freqToMidi(frequency, a4) - targetMidi) * 100
 }
 
+export const STRING_LOCK_CENTS = 90
+
 export function nearestString(
   frequency: number,
   strings: readonly InstrumentString[],
@@ -138,6 +140,19 @@ export function nearestString(
   }
 
   return best
+}
+
+export function matchString(
+  frequency: number,
+  strings: readonly InstrumentString[],
+  a4 = A4_HZ,
+  lockCents = STRING_LOCK_CENTS,
+): { string: InstrumentString; cents: number } | null {
+  if (strings.length === 0) return null
+  const matched = nearestString(frequency, strings, a4)
+  const cents = centsBetween(frequency, matched.midi, a4)
+  if (Math.abs(cents) > lockCents) return null
+  return { string: matched, cents }
 }
 
 export function rms(buffer: Float32Array): number {
