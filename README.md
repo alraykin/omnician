@@ -81,7 +81,7 @@ Click the terminal window and press **Control + C**.
   - Tunings are grouped under **Standard**, **Drop**, **Double Drop**, **Open**, and **Alternate / Other**, with the note string under each name (for example `E A D G B E`)
   - Chromatic hides the string list and shows an A4 calibration slider
   - A large trail shows how far off you are, with a live cents bubble on the tip (for example −18). When a note sits in tune, the needle holds the center and the display turns green
-  - Instrument presets show illustrated maple headstocks with chrome tuners, a short fretboard past the nut, and a small Omnician O+pick branded in the wood. Auto nearest-string, sticky green note chips, a lock chime, and tap-to-hear are included
+  - Instrument presets show neon white line-art headstocks (batwing 3+3 / 4+3 / 4+4, bass 2+2) with hex or clover pegs. The active string, post, and peg turn red until in tune, then green. Auto nearest-string, sticky locked pegs, a lock chime, a cents bubble on the trail, and tap-to-hear are included
   - Custom 4–10 string tunings save on this device only
 - **Metronome / Drum Machine** — placeholder pages that say **Coming in V1**
 - A quiet note that more can unlock with a subscription later (there are **no payments** yet)

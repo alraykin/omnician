@@ -284,6 +284,8 @@ export function TunerPage() {
                 config={activeInstrument}
                 selectedId={activeString?.id ?? null}
                 tunedIds={tunedIds}
+                inTune={inTune}
+                live={live}
                 autoString={autoString}
                 onAutoChange={(value) => {
                   setAutoString(value)

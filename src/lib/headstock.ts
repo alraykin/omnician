@@ -1,15 +1,13 @@
 import type { InstrumentString } from '@/lib/notes'
 import type { FamilyId, InstrumentId } from '@/lib/presets'
 
-export type PegSide = 'left' | 'right' | 'fifth' | 'inline'
+export type PegSide = 'left' | 'right' | 'fifth'
 
 export type PegSlot = {
   string: InstrumentString
   side: PegSide
   row: number
 }
-
-export type HeadKind = 'split' | 'inline' | 'scroll' | 'banjo' | 'crown'
 
 export function familyTone(family: FamilyId): 'guitar' | 'bass' | 'ukulele' | 'folk' {
   if (family === 'bass') return 'bass'
@@ -18,14 +16,8 @@ export function familyTone(family: FamilyId): 'guitar' | 'bass' | 'ukulele' | 'f
   return 'guitar'
 }
 
-export function headKindFor(config: InstrumentId): HeadKind {
-  if (config === 'violin') return 'scroll'
-  if (config === 'banjo') return 'banjo'
-  if (config === 'ukulele' || config === 'mandolin' || config === 'bouzouki') {
-    return 'crown'
-  }
-  if (config === 'bass-4' || config === 'bass-5') return 'inline'
-  return 'split'
+export function usesCloverPegs(config: InstrumentId): boolean {
+  return config.startsWith('bass')
 }
 
 export function layoutPegs(
@@ -34,9 +26,8 @@ export function layoutPegs(
 ): PegSlot[] {
   if (strings.length === 0) return []
 
-  const kind = headKindFor(config)
   const banjoFifth =
-    kind === 'banjo' && strings.length === 5
+    config === 'banjo' && strings.length === 5
       ? strings.find((item) => item.stringNo === 5) ?? strings[0]
       : null
 
@@ -45,15 +36,6 @@ export function layoutPegs(
     : [...strings]
 
   const ordered = [...body].sort((a, b) => b.stringNo - a.stringNo)
-
-  if (kind === 'inline') {
-    return ordered.map((string, row) => ({
-      string,
-      side: 'inline' as const,
-      row,
-    }))
-  }
-
   const { left: leftCount } = splitCounts(ordered.length)
   const left = ordered.slice(0, leftCount).reverse()
   const right = ordered.slice(leftCount)
@@ -70,7 +52,7 @@ export function layoutPegs(
   return slots
 }
 
-function splitCounts(count: number): { left: number; right: number } {
+export function splitCounts(count: number): { left: number; right: number } {
   if (count <= 0) return { left: 0, right: 0 }
   if (count === 1) return { left: 1, right: 0 }
   if (count === 2) return { left: 1, right: 1 }
@@ -84,4 +66,14 @@ function splitCounts(count: number): { left: number; right: number } {
   if (count === 10) return { left: 5, right: 5 }
   const left = Math.ceil(count / 2)
   return { left, right: count - left }
+}
+
+export function pegLetter(
+  string: InstrumentString,
+  all: readonly InstrumentString[],
+): string {
+  const same = all.filter((item) => item.label === string.label)
+  if (same.length < 2) return string.label
+  const highest = Math.min(...same.map((item) => item.stringNo))
+  return string.stringNo === highest ? string.label.toLowerCase() : string.label
 }

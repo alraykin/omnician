@@ -1,4 +1,9 @@
-import { headKindFor, layoutPegs, type HeadKind, type PegSlot } from '@/lib/headstock'
+import {
+  layoutPegs,
+  pegLetter,
+  usesCloverPegs,
+  type PegSlot,
+} from '@/lib/headstock'
 import type { InstrumentString } from '@/lib/notes'
 import type { InstrumentId } from '@/lib/presets'
 import { cn } from '@/lib/utils'
@@ -8,13 +13,22 @@ type HeadstockProps = {
   config: InstrumentId
   selectedId: string | null
   tunedIds: ReadonlySet<string>
+  inTune: boolean
+  live: boolean
   autoString: boolean
   onAutoChange: (value: boolean) => void
   onTapPeg: (string: InstrumentString) => void
 }
 
-const VIEW_W = 340
-const NECK_H = 58
+const VIEW_W = 400
+const CX = VIEW_W / 2
+const WHITE = '#F4F7FB'
+const RED = '#EF4444'
+const GREEN = '#22C55E'
+const INK = '#0B1020'
+const NECK_H = 72
+
+type Tone = 'idle' | 'selected' | 'red' | 'green' | 'sticky'
 
 type PegGeom = PegSlot & {
   postX: number
@@ -23,169 +37,107 @@ type PegGeom = PegSlot & {
   buttonY: number
   nutX: number
   nutY: number
-  chipX: number
-  chipY: number
 }
 
-type Layout = {
-  kind: HeadKind
+function toneFor(
+  id: string,
+  selectedId: string | null,
+  tunedIds: ReadonlySet<string>,
+  inTune: boolean,
+  live: boolean,
+): Tone {
+  if (id === selectedId) {
+    if (live && inTune) return 'green'
+    if (live) return 'red'
+    return 'selected'
+  }
+  if (tunedIds.has(id)) return 'sticky'
+  return 'idle'
+}
+
+function colors(tone: Tone): { fill: string; stroke: string; text: string } {
+  if (tone === 'red') return { fill: RED, stroke: RED, text: '#fff' }
+  if (tone === 'green' || tone === 'sticky') {
+    return { fill: GREEN, stroke: GREEN, text: '#fff' }
+  }
+  if (tone === 'selected') return { fill: WHITE, stroke: WHITE, text: INK }
+  return { fill: 'none', stroke: WHITE, text: WHITE }
+}
+
+function layout(slots: PegSlot[]): {
   height: number
   nutY: number
   nutLeft: number
   nutWidth: number
   pegs: PegGeom[]
-  logo: { x: number; y: number; r: number }
-  body: string
-  neck: { x: number; y: number; w: number; h: number; boardX: number; boardW: number }
-}
-
-function layout(slots: PegSlot[], kind: HeadKind): Layout {
+  rows: number
+} {
   const left = slots.filter((slot) => slot.side === 'left')
   const right = slots.filter((slot) => slot.side === 'right')
-  const inline = slots.filter((slot) => slot.side === 'inline')
-  const rows = Math.max(left.length, right.length, inline.length, 1)
-  const rowGap = kind === 'inline' ? 38 : rows <= 2 ? 50 : rows <= 3 ? 44 : 36
-  const crown = kind === 'scroll' ? 64 : kind === 'inline' ? 52 : kind === 'crown' ? 62 : 70
-  const nutY = crown + Math.max(rows - 1, 0) * rowGap + 38
-  const height = nutY + 10 + NECK_H
-  const nutWidth = kind === 'inline' ? 58 : kind === 'crown' ? 72 : 82
-  const nutLeft = (VIEW_W - nutWidth) / 2
-  const bodySlots = slots.filter((slot) => slot.side !== 'fifth')
-  const maxNo = Math.max(...bodySlots.map((slot) => slot.string.stringNo), 1)
-  const minNo = Math.min(...bodySlots.map((slot) => slot.string.stringNo), 1)
+  const rows = Math.max(left.length, right.length, 1)
+  const rowGap = rows <= 2 ? 58 : rows <= 3 ? 50 : 42
+  const firstY = 52
+  const nutY = firstY + (rows - 1) * rowGap + 56
+  const height = nutY + NECK_H
+  const nutWidth = 18 + rows * 14
+  const nutLeft = CX - nutWidth / 2
+
+  const body = slots.filter((slot) => slot.side !== 'fifth')
+  const maxNo = Math.max(...body.map((slot) => slot.string.stringNo), 1)
+  const minNo = Math.min(...body.map((slot) => slot.string.stringNo), 1)
   const span = Math.max(1, maxNo - minNo)
+  const pad = 5
 
   const pegs: PegGeom[] = slots.map((slot) => {
-    const nutX = nutLeft + 8 + ((maxNo - slot.string.stringNo) / span) * (nutWidth - 16)
-    if (slot.side === 'inline') {
-      const postY = crown + slot.row * rowGap
-      return {
-        ...slot,
-        postX: 128,
-        postY,
-        buttonX: 58,
-        buttonY: postY,
-        chipX: 28,
-        chipY: postY,
-        nutX,
-        nutY,
-      }
-    }
+    const nutX = nutLeft + pad + ((maxNo - slot.string.stringNo) / span) * (nutWidth - pad * 2)
     if (slot.side === 'fifth') {
       return {
         ...slot,
-        postX: 112,
-        postY: nutY - 14,
-        buttonX: 58,
-        buttonY: nutY - 6,
-        chipX: 28,
-        chipY: nutY - 6,
-        nutX: nutLeft + 6,
+        postX: CX - 34,
+        postY: nutY - 16,
+        buttonX: 52,
+        buttonY: nutY - 8,
+        nutX: nutLeft + pad,
         nutY,
       }
     }
-    const leftSide = slot.side === 'left'
-    const postX = leftSide ? 118 : VIEW_W - 118
-    const buttonX = leftSide ? 58 : VIEW_W - 58
-    const chipX = leftSide ? 26 : VIEW_W - 26
-    const postY = crown + slot.row * rowGap
+    const postY = firstY + slot.row * rowGap
+    const postX = slot.side === 'left' ? CX - 40 : CX + 40
+    const buttonX = slot.side === 'left' ? 54 : VIEW_W - 54
     return {
       ...slot,
       postX,
       postY,
       buttonX,
       buttonY: postY,
-      chipX,
-      chipY: postY,
       nutX,
       nutY,
     }
   })
 
-  const logo =
-    kind === 'inline'
-      ? { x: 210, y: 44, r: 11 }
-      : kind === 'scroll'
-        ? { x: VIEW_W / 2, y: 28, r: 9 }
-        : { x: VIEW_W / 2, y: kind === 'crown' ? 32 : 34, r: 11 }
-
-  const boardW = nutWidth - 6
-  return {
-    kind,
-    height,
-    nutY,
-    nutLeft,
-    nutWidth,
-    pegs,
-    logo,
-    body: bodyPath(kind, nutY),
-    neck: {
-      x: nutLeft - 7,
-      y: nutY + 7,
-      w: nutWidth + 14,
-      h: NECK_H,
-      boardX: (VIEW_W - boardW) / 2,
-      boardW,
-    },
-  }
+  return { height, nutY, nutLeft, nutWidth, pegs, rows }
 }
 
-function bodyPath(kind: HeadKind, nutY: number): string {
-  const cx = VIEW_W / 2
-  if (kind === 'crown') {
-    return [
-      `M ${cx} 8`,
-      `C ${cx - 14} 10 ${cx - 28} 8 ${cx - 42} 22`,
-      `C ${cx - 62} 38 ${cx - 74} 58 ${cx - 76} 86`,
-      `L ${cx - 74} ${nutY - 6}`,
-      `C ${cx - 72} ${nutY + 4} ${cx - 36} ${nutY + 8} ${cx - 28} ${nutY + 8}`,
-      `L ${cx + 28} ${nutY + 8}`,
-      `C ${cx + 36} ${nutY + 8} ${cx + 72} ${nutY + 4} ${cx + 74} ${nutY - 6}`,
-      `L ${cx + 76} 86`,
-      `C ${cx + 74} 58 ${cx + 62} 38 ${cx + 42} 22`,
-      `C ${cx + 28} 8 ${cx + 14} 10 ${cx} 8`,
-      'Z',
-    ].join(' ')
-  }
-  if (kind === 'inline') {
-    return [
-      `M 198 10`,
-      `C 168 8 142 22 130 54`,
-      `L 118 ${nutY - 8}`,
-      `C 116 ${nutY + 4} 136 ${nutY + 8} 152 ${nutY + 8}`,
-      `L 214 ${nutY + 8}`,
-      `C 232 ${nutY + 6} 240 ${nutY - 4} 236 ${nutY - 16}`,
-      `L 228 52`,
-      `C 222 24 216 10 198 10`,
-      'Z',
-    ].join(' ')
-  }
-  if (kind === 'scroll') {
-    return [
-      `M ${cx + 10} 6`,
-      `C ${cx + 32} 8 ${cx + 40} 26 ${cx + 32} 40`,
-      `C ${cx + 26} 50 ${cx + 16} 54 ${cx + 16} 54`,
-      `L ${cx + 42} ${nutY - 8}`,
-      `C ${cx + 44} ${nutY + 4} ${cx + 20} ${nutY + 8} ${cx} ${nutY + 8}`,
-      `C ${cx - 20} ${nutY + 8} ${cx - 44} ${nutY + 4} ${cx - 42} ${nutY - 8}`,
-      `L ${cx - 16} 54`,
-      `C ${cx - 16} 54 ${cx - 26} 50 ${cx - 32} 40`,
-      `C ${cx - 36} 22 ${cx - 16} 6 ${cx + 10} 6`,
-      'Z',
-    ].join(' ')
-  }
-  const flare = kind === 'banjo' ? 78 : 72
+function batwing(nutY: number, inset: number): string {
+  const top = 12 + inset
+  const dip = 28 + inset * 0.4
+  const bottom = nutY - inset
+  const topHalf = 62 - inset * 0.4
+  const midHalf = 54 - inset * 0.35
+  const nutHalf = 38 - inset
+  const waist = top + (bottom - top) * 0.4
+
   return [
-    `M ${cx} 10`,
-    `C ${cx - 36} 10 ${cx - 58} 22 ${cx - flare} 48`,
-    `C ${cx - flare - 8} 70 ${cx - flare - 10} 100 ${cx - flare - 8} 128`,
-    `L ${cx - flare - 6} ${nutY - 8}`,
-    `C ${cx - flare - 4} ${nutY + 4} ${cx - 40} ${nutY + 8} ${cx - 32} ${nutY + 8}`,
-    `L ${cx + 32} ${nutY + 8}`,
-    `C ${cx + 40} ${nutY + 8} ${cx + flare + 4} ${nutY + 4} ${cx + flare + 6} ${nutY - 8}`,
-    `L ${cx + flare + 8} 128`,
-    `C ${cx + flare + 10} 100 ${cx + flare + 8} 70 ${cx + flare} 48`,
-    `C ${cx + 58} 22 ${cx + 36} 10 ${cx} 10`,
+    `M ${CX - topHalf} ${top + 10}`,
+    `C ${CX - topHalf + 12} ${top - 1}, ${CX - 22} ${dip}, ${CX} ${dip}`,
+    `C ${CX + 22} ${dip}, ${CX + topHalf - 12} ${top - 1}, ${CX + topHalf} ${top + 10}`,
+    `C ${CX + topHalf + 8} ${waist - 8}, ${CX + midHalf + 10} ${waist + 8}, ${CX + midHalf} ${waist + 28}`,
+    `L ${CX + nutHalf + 10} ${bottom - 20}`,
+    `C ${CX + nutHalf + 6} ${bottom - 6}, ${CX + nutHalf + 2} ${bottom}, ${CX + nutHalf - 2} ${bottom}`,
+    `L ${CX - nutHalf + 2} ${bottom}`,
+    `C ${CX - nutHalf - 2} ${bottom}, ${CX - nutHalf - 6} ${bottom - 6}, ${CX - nutHalf - 10} ${bottom - 20}`,
+    `L ${CX - midHalf} ${waist + 28}`,
+    `C ${CX - midHalf - 10} ${waist + 8}, ${CX - topHalf - 8} ${waist - 8}, ${CX - topHalf} ${top + 10}`,
     'Z',
   ].join(' ')
 }
@@ -195,13 +147,19 @@ export function Headstock({
   config,
   selectedId,
   tunedIds,
+  inTune,
+  live,
   autoString,
   onAutoChange,
   onTapPeg,
 }: HeadstockProps) {
-  const kind = headKindFor(config)
+  const clover = usesCloverPegs(config)
   const slots = layoutPegs(strings, config)
-  const drawn = layout(slots, kind)
+  const drawn = layout(slots)
+  const neckLeft = drawn.nutLeft - 3
+  const neckWidth = drawn.nutWidth + 6
+  const active = drawn.pegs.find((peg) => peg.string.id === selectedId) ?? null
+  const rest = drawn.pegs.filter((peg) => peg.string.id !== selectedId)
 
   return (
     <div className="w-full">
@@ -215,231 +173,169 @@ export function Headstock({
         </label>
       </div>
 
-      <div className="relative mx-auto w-full max-w-sm">
+      <div className="relative mx-auto w-full max-w-md">
         <svg
           viewBox={`0 0 ${VIEW_W} ${drawn.height}`}
-          className="mx-auto block h-auto w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.45)]"
+          className="mx-auto block h-auto w-full"
           role="img"
           aria-label="Instrument headstock"
         >
-          <Defs />
-
-          <ellipse
-            cx={VIEW_W / 2}
-            cy={drawn.height - 8}
-            rx={drawn.neck.w * 0.55}
-            ry="10"
-            fill="rgba(0,0,0,0.35)"
-          />
-
           <rect
-            x={drawn.neck.x}
-            y={drawn.neck.y}
-            width={drawn.neck.w}
-            height={drawn.neck.h}
-            rx="3"
-            fill="url(#omni-maple)"
-            filter="url(#omni-grain)"
+            x={neckLeft}
+            y={drawn.nutY}
+            width={neckWidth}
+            height={NECK_H}
+            fill={INK}
+            stroke={WHITE}
+            strokeWidth="2.2"
           />
           <rect
-            x={drawn.neck.boardX}
-            y={drawn.nutY + 8}
-            width={drawn.neck.boardW}
-            height={drawn.neck.h - 2}
-            fill="url(#omni-ebony)"
+            x={neckLeft + 4}
+            y={drawn.nutY}
+            width={neckWidth - 8}
+            height={NECK_H}
+            fill="none"
+            stroke={WHITE}
+            strokeWidth="1.1"
+            opacity="0.85"
           />
-          {[18, 36].map((offset) => (
-            <rect
-              key={offset}
-              x={drawn.neck.boardX}
-              y={drawn.nutY + 8 + offset}
-              width={drawn.neck.boardW}
-              height="1.4"
-              fill="#c9b48a"
-              opacity="0.55"
+          {[0.28, 0.52, 0.76].map((t) => (
+            <line
+              key={t}
+              x1={neckLeft}
+              y1={drawn.nutY + NECK_H * t}
+              x2={neckLeft + neckWidth}
+              y2={drawn.nutY + NECK_H * t}
+              stroke={WHITE}
+              strokeWidth="1.1"
             />
           ))}
 
+          <path d={batwing(drawn.nutY, 0)} fill={INK} stroke={WHITE} strokeWidth="2.4" strokeLinejoin="round" />
           <path
-            d={drawn.body}
-            fill="url(#omni-maple)"
-            filter="url(#omni-grain)"
-          />
-          <path
-            d={drawn.body}
-            fill="url(#omni-wood-light)"
-            opacity="0.35"
-          />
-          <path
-            d={drawn.body}
+            d={batwing(drawn.nutY, 6)}
             fill="none"
-            stroke="#6b4424"
-            strokeWidth="1.2"
+            stroke={WHITE}
+            strokeWidth="1.15"
             strokeLinejoin="round"
           />
 
-          <WoodMark cx={drawn.logo.x} cy={drawn.logo.y} r={drawn.logo.r} />
-
           <rect
             x={drawn.nutLeft}
-            y={drawn.nutY + 1}
+            y={drawn.nutY - 3}
             width={drawn.nutWidth}
-            height="8"
-            rx="1.2"
-            fill="url(#omni-bone)"
-            stroke="#c8b48a"
-            strokeWidth="0.6"
+            height="6"
+            fill={INK}
+            stroke={WHITE}
+            strokeWidth="1.6"
           />
 
-          {drawn.pegs.map((peg) => (
-            <path
-              key={`string-${peg.string.id}`}
-              d={`M ${peg.postX} ${peg.postY} C ${peg.postX} ${(peg.postY + peg.nutY) / 2} ${peg.nutX} ${peg.nutY - 8} ${peg.nutX} ${peg.nutY + 5}`}
-              fill="none"
-              stroke="url(#omni-string)"
-              strokeWidth={1.05 + (peg.string.stringNo - 1) * 0.18}
-              strokeLinecap="round"
+          {rest.map((peg) => (
+            <StringRun
+              key={`s-${peg.string.id}`}
+              peg={peg}
+              color={WHITE}
+              width={1.35}
+              toNeck={drawn.height}
             />
           ))}
-          {drawn.pegs
-            .filter((peg) => peg.side !== 'fifth')
-            .map((peg) => (
-              <line
-                key={`board-${peg.string.id}`}
-                x1={peg.nutX}
-                y1={drawn.nutY + 9}
-                x2={peg.nutX}
-                y2={drawn.height - 4}
-                stroke="#d7d2c8"
-                strokeWidth={0.85 + (peg.string.stringNo - 1) * 0.12}
-                opacity="0.85"
-              />
-            ))}
+          {rest.map((peg) => (
+            <Peg
+              key={peg.string.id}
+              peg={peg}
+              clover={clover}
+              letter={pegLetter(peg.string, strings)}
+              tone={toneFor(peg.string.id, selectedId, tunedIds, inTune, live)}
+              onClick={() => onTapPeg(peg.string)}
+            />
+          ))}
 
-          {drawn.pegs.map((peg) => {
-            const tone = tunedIds.has(peg.string.id)
-              ? 'green'
-              : peg.string.id === selectedId
-                ? 'red'
-                : 'idle'
-            return (
-              <MachineHead
-                key={peg.string.id}
-                peg={peg}
-                tone={tone}
-                onClick={() => onTapPeg(peg.string)}
+          {active ? (
+            <>
+              <StringRun
+                peg={active}
+                color={
+                  toneFor(active.string.id, selectedId, tunedIds, inTune, live) === 'green'
+                    ? GREEN
+                    : toneFor(active.string.id, selectedId, tunedIds, inTune, live) === 'red'
+                      ? RED
+                      : WHITE
+                }
+                width={2.4}
+                toNeck={drawn.height}
               />
-            )
-          })}
+              <Peg
+                peg={active}
+                clover={clover}
+                letter={pegLetter(active.string, strings)}
+                tone={toneFor(active.string.id, selectedId, tunedIds, inTune, live)}
+                onClick={() => onTapPeg(active.string)}
+              />
+            </>
+          ) : null}
         </svg>
       </div>
       <p className="mt-2 text-center text-[0.65rem] leading-4 text-slate-500">
-        Tap a note to hear its pitch and set the target. Red is the active string;
-        green stays until that string is played clearly out of tune.
+        Tap a peg to hear its pitch and set the target. The active string turns red
+        until it locks green.
       </p>
     </div>
   )
 }
 
-function Defs() {
+function StringRun({
+  peg,
+  color,
+  width,
+  toNeck,
+}: {
+  peg: PegGeom
+  color: string
+  width: number
+  toNeck: number
+}) {
+  const midY = (peg.nutY + peg.postY) / 2
+  const inward = peg.side === 'right' ? -6 : peg.side === 'left' ? 6 : 0
   return (
-    <defs>
-      <linearGradient id="omni-maple" x1="0.2" y1="0" x2="0.9" y2="1">
-        <stop offset="0%" stopColor="#E8C399" />
-        <stop offset="38%" stopColor="#D2A06A" />
-        <stop offset="72%" stopColor="#C48A52" />
-        <stop offset="100%" stopColor="#A86B3A" />
-      </linearGradient>
-      <linearGradient id="omni-wood-light" x1="0" y1="0" x2="1" y2="0.2">
-        <stop offset="0%" stopColor="#fff6e8" stopOpacity="0.55" />
-        <stop offset="45%" stopColor="#fff6e8" stopOpacity="0" />
-        <stop offset="100%" stopColor="#5a3418" stopOpacity="0.18" />
-      </linearGradient>
-      <linearGradient id="omni-ebony" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#2A2420" />
-        <stop offset="100%" stopColor="#12100E" />
-      </linearGradient>
-      <linearGradient id="omni-bone" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#F7F1E1" />
-        <stop offset="100%" stopColor="#D9CBA8" />
-      </linearGradient>
-      <linearGradient id="omni-string" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#F3F0EA" />
-        <stop offset="100%" stopColor="#9A958C" />
-      </linearGradient>
-      <radialGradient id="omni-chrome" cx="32%" cy="28%" r="75%">
-        <stop offset="0%" stopColor="#FFFFFF" />
-        <stop offset="28%" stopColor="#E2E6EE" />
-        <stop offset="62%" stopColor="#9AA3B0" />
-        <stop offset="100%" stopColor="#4A5160" />
-      </radialGradient>
-      <linearGradient id="omni-chrome-bar" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#F5F7FA" />
-        <stop offset="45%" stopColor="#B8C0CC" />
-        <stop offset="100%" stopColor="#5C6573" />
-      </linearGradient>
-      <filter id="omni-grain" x="-5%" y="-5%" width="110%" height="110%">
-        <feTurbulence
-          type="fractalNoise"
-          baseFrequency="0.035 0.55"
-          numOctaves="4"
-          seed="4"
-          result="noise"
-        />
-        <feColorMatrix
-          in="noise"
-          type="matrix"
-          values="0 0 0 0 0.55  0 0 0 0 0.32  0 0 0 0 0.14  0 0 0 0.42 0"
-          result="grain"
-        />
-        <feBlend in="SourceGraphic" in2="grain" mode="multiply" />
-      </filter>
-      <filter id="omni-soft" x="-30%" y="-30%" width="160%" height="160%">
-        <feDropShadow dx="0" dy="2" stdDeviation="1.6" floodColor="#000" floodOpacity="0.35" />
-      </filter>
-    </defs>
-  )
-}
-
-function WoodMark({ cx, cy, r }: { cx: number; cy: number; r: number }) {
-  const s = r / 12
-  return (
-    <g transform={`translate(${cx} ${cy})`} opacity="0.72">
-      <g
-        transform={`scale(${s})`}
-        fill="none"
-        stroke="#3B2414"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle r="8.15" strokeWidth="1.7" />
-        <path
-          d="M 0 -3.05 C 2.5 -3.05 3.45 -0.65 3 1.8 C 2.3 4.25 0 5.4 0 5.4 C 0 5.4 -2.3 4.25 -3 1.8 C -3.45 -0.65 -2.5 -3.05 0 -3.05 Z"
-          strokeWidth="1.45"
-        />
-        <path d="M -1.5 -0.1 L 0 -1.65 L 1.5 -0.1" strokeWidth="1.25" />
-      </g>
+    <g stroke={color} fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <line
+        x1={peg.nutX}
+        y1={toNeck - 2}
+        x2={peg.nutX}
+        y2={peg.nutY}
+        strokeWidth={width}
+      />
+      <path
+        d={`M ${peg.nutX} ${peg.nutY} Q ${peg.nutX + inward} ${midY} ${peg.postX} ${peg.postY}`}
+        strokeWidth={width}
+      />
     </g>
   )
 }
 
-function MachineHead({
+function Peg({
   peg,
+  clover,
+  letter,
   tone,
   onClick,
 }: {
   peg: PegGeom
-  tone: 'green' | 'red' | 'idle'
+  clover: boolean
+  letter: string
+  tone: Tone
   onClick: () => void
 }) {
-  const towardPost = peg.side === 'right' ? -1 : 1
-  const shaftX2 = peg.postX - towardPost * 6
+  const { fill, stroke, text } = colors(tone)
+  const inner = peg.side === 'right' ? -1 : 1
+  const stemX = peg.buttonX + inner * 17
+  const glow = tone === 'red' || tone === 'green'
 
   return (
     <g
       role="button"
       tabIndex={0}
-      aria-label={`String ${peg.string.stringNo}, ${peg.string.label}${peg.string.octave}${tone === 'green' ? ', in tune' : ''}`}
+      aria-label={`String ${peg.string.stringNo}, ${letter}${tone === 'green' || tone === 'sticky' ? ', in tune' : ''}`}
       onClick={onClick}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -448,107 +344,79 @@ function MachineHead({
         }
       }}
       className="cursor-pointer"
-      filter="url(#omni-soft)"
     >
+      {glow ? (
+        <circle cx={peg.postX} cy={peg.postY} r="11" fill={stroke} opacity="0.22" />
+      ) : null}
       <line
-        x1={peg.buttonX}
+        x1={stemX}
         y1={peg.buttonY}
-        x2={shaftX2}
+        x2={peg.postX}
         y2={peg.postY}
-        stroke="url(#omni-chrome-bar)"
-        strokeWidth="4.4"
+        stroke={stroke}
+        strokeWidth="3.2"
         strokeLinecap="round"
       />
-      <rect
-        x={peg.side === 'right' ? peg.postX + 1 : peg.postX - 14}
-        y={peg.postY - 5}
-        width="13"
-        height="10"
-        rx="2"
-        fill="url(#omni-chrome-bar)"
+      <circle
+        cx={peg.postX}
+        cy={peg.postY}
+        r="7.2"
+        fill={INK}
+        stroke={stroke}
+        strokeWidth={tone === 'idle' ? 2 : 2.6}
       />
-      <circle cx={peg.postX} cy={peg.postY} r="6.4" fill="url(#omni-chrome)" />
-      <circle cx={peg.postX} cy={peg.postY} r="3.4" fill="#1A1C22" />
-      <circle cx={peg.postX - 1.2} cy={peg.postY - 1.4} r="1.1" fill="rgba(255,255,255,0.35)" />
-
-      <ellipse
-        cx={peg.buttonX + 1}
-        cy={peg.buttonY + 3}
-        rx="11"
-        ry="5"
-        fill="rgba(0,0,0,0.28)"
-      />
-      <ellipse
-        cx={peg.buttonX}
-        cy={peg.buttonY}
-        rx="12.2"
-        ry="13.6"
-        fill="url(#omni-chrome)"
-        stroke="#6d7380"
-        strokeWidth="0.7"
-      />
-      <ellipse
-        cx={peg.buttonX}
-        cy={peg.buttonY}
-        rx="8.4"
-        ry="9.4"
-        fill="none"
-        stroke="rgba(255,255,255,0.28)"
-        strokeWidth="1.1"
-      />
-      <ellipse
-        cx={peg.buttonX - 3.4}
-        cy={peg.buttonY - 4.2}
-        rx="4.6"
-        ry="3.4"
-        fill="rgba(255,255,255,0.55)"
-      />
-      <circle cx={peg.buttonX} cy={peg.buttonY + 0.6} r="2.1" fill="#5a6270" />
-      <circle cx={peg.buttonX - 0.5} cy={peg.buttonY} r="0.8" fill="#d7dce6" />
-
-      <NoteChip x={peg.chipX} y={peg.chipY} label={peg.string.label} tone={tone} />
+      <circle cx={peg.postX} cy={peg.postY} r="3.1" fill="none" stroke={stroke} strokeWidth="1.4" />
+      {clover ? (
+        <path
+          d={cloverPath(peg.buttonX, peg.buttonY)}
+          fill={fill === 'none' ? INK : fill}
+          stroke={stroke}
+          strokeWidth="2.1"
+          strokeLinejoin="round"
+        />
+      ) : (
+        <path
+          d={hexPath(peg.buttonX, peg.buttonY, 21)}
+          fill={fill === 'none' ? INK : fill}
+          stroke={stroke}
+          strokeWidth="2.1"
+          strokeLinejoin="round"
+        />
+      )}
+      <text
+        x={peg.buttonX}
+        y={peg.buttonY + 6}
+        textAnchor="middle"
+        fill={text}
+        fontSize="16"
+        fontWeight="700"
+        fontFamily="Outfit, sans-serif"
+      >
+        {letter}
+      </text>
     </g>
   )
 }
 
-function NoteChip({
-  x,
-  y,
-  label,
-  tone,
-}: {
-  x: number
-  y: number
-  label: string
-  tone: 'green' | 'red' | 'idle'
-}) {
-  const fill =
-    tone === 'green' ? '#22c55e' : tone === 'red' ? '#ef4444' : 'transparent'
-  const ring =
-    tone === 'green' ? '#86efac' : tone === 'red' ? '#fca5a5' : 'transparent'
-  return (
-    <g>
-      <circle
-        cx={x}
-        cy={y}
-        r="13"
-        fill={fill}
-        stroke={ring}
-        strokeWidth={tone === 'idle' ? 0 : 1.6}
-      />
-      <text
-        x={x}
-        y={y + 4.2}
-        textAnchor="middle"
-        fill={tone === 'idle' ? '#F8FAFC' : '#0B1020'}
-        fontSize="13"
-        fontWeight="700"
-        fontFamily="Outfit, sans-serif"
-      >
-        {label}
-      </text>
-    </g>
-  )
+function hexPath(cx: number, cy: number, r: number): string {
+  const pts = Array.from({ length: 6 }, (_, index) => {
+    const angle = (Math.PI / 180) * (60 * index)
+    return `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`
+  })
+  return `M ${pts.join(' L ')} Z`
+}
+
+function cloverPath(cx: number, cy: number): string {
+  return [
+    `M ${cx} ${cy - 13}`,
+    `C ${cx + 7} ${cy - 13}, ${cx + 12} ${cy - 8}, ${cx + 12} ${cy - 3}`,
+    `C ${cx + 17} ${cy - 2}, ${cx + 20} ${cy + 4}, ${cx + 17} ${cy + 9}`,
+    `C ${cx + 14} ${cy + 14}, ${cx + 7} ${cy + 15}, ${cx} ${cy + 13}`,
+    `C ${cx - 7} ${cy + 15}, ${cx - 14} ${cy + 14}, ${cx - 17} ${cy + 9}`,
+    `C ${cx - 20} ${cy + 4}, ${cx - 17} ${cy - 2}, ${cx - 12} ${cy - 3}`,
+    `C ${cx - 12} ${cy - 8}, ${cx - 7} ${cy - 13}, ${cx} ${cy - 13}`,
+    'Z',
+  ].join(' ')
 }
 
 function AutoSwitch({
