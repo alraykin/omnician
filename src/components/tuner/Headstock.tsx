@@ -193,15 +193,17 @@ function layout(
   }
 }
 
-function guitarMetrics(rows: number, pairedNut: boolean) {
+function guitarMetrics(rows: number, pairedNut: boolean, bass = false) {
+  const extraNut = bass ? (rows <= 2 ? 12 : rows === 3 ? 10 : 8) : 0
+  const extraPeg = bass && rows <= 3 ? 1 : 0
   if (rows <= 3) {
     return {
-      hexR: 22,
-      barrel: 16,
-      rowGap: 60,
+      hexR: 22 + extraPeg,
+      barrel: bass ? 14 : 16,
+      rowGap: bass && rows <= 2 ? 68 : 60,
       firstY: 68,
       tail: 80,
-      nutWidth: 84,
+      nutWidth: 84 + extraNut,
       postInset: 10,
       bodyHalf: 69,
       neckH: 100,
@@ -210,11 +212,11 @@ function guitarMetrics(rows: number, pairedNut: boolean) {
   if (rows === 4) {
     return {
       hexR: 19,
-      barrel: 14,
+      barrel: bass ? 13 : 14,
       rowGap: 48,
       firstY: 56,
       tail: 68,
-      nutWidth: 90,
+      nutWidth: 90 + extraNut,
       postInset: 9,
       bodyHalf: 72,
       neckH: 96,
@@ -251,12 +253,13 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
   const right = slots.filter((slot) => slot.side === 'right')
   const rows = Math.max(left.length, right.length, 1)
   const pairedNut = config === 'guitar-12' && slots.length === 12
-  const m = guitarMetrics(rows, pairedNut)
+  const bass = usesCloverPegs(config)
+  const m = guitarMetrics(rows, pairedNut, bass)
   const leftCount = left.length
   const rightCount = right.length
   const nutY = m.firstY + (rows - 1) * m.rowGap + m.tail
   const height = nutY + m.neckH
-  const pegOut = m.hexR + m.barrel
+  const pegOut = (bass ? m.hexR * 1.18 : m.hexR) + m.barrel
   const viewW = Math.round(2 * (m.bodyHalf + pegOut + 80))
   const cx = viewW / 2
   const nutLeft = cx - m.nutWidth / 2
@@ -675,7 +678,7 @@ export function Headstock({
                 color={tone === 'sticky' ? GREEN : WHITE}
                 width={
                   clover
-                    ? 1.7
+                    ? 2.55
                     : drawn.guitarShape
                       ? octave
                         ? 1.15
@@ -711,7 +714,7 @@ export function Headstock({
                 }
                 width={
                   clover
-                    ? 2.6
+                    ? 3.45
                     : drawn.guitarShape
                       ? drawn.courses.length > 0
                         ? isOctaveOfCourse(active.string, strings)
@@ -856,25 +859,54 @@ function Peg({
       ) : null}
 
       {peg.nub ? (
-        <>
-          <path
-            d={nubHexPath(peg.buttonX, peg.buttonY, hexR, dir, peg.edgeX)}
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="2.15"
-            strokeLinejoin="round"
-          />
-          <rect
-            x={dir === 1 ? peg.edgeX - Math.max(3.6, hexR * 0.22) : peg.edgeX}
-            y={peg.buttonY - hexR * 0.13}
-            width={Math.max(3.6, hexR * 0.22)}
-            height={hexR * 0.26}
-            rx="0.7"
-            fill={INK}
-            stroke={stroke}
-            strokeWidth="1.45"
-          />
-        </>
+        clover ? (
+          <>
+            <path
+              d={nubPolePath(peg.buttonX, peg.buttonY, hexR, dir, peg.edgeX, 0.38)}
+              fill={fill}
+              stroke={stroke}
+              strokeWidth="2.05"
+              strokeLinejoin="round"
+            />
+            <path
+              d={cloverPath(peg.buttonX, peg.buttonY, dir, hexR)}
+              fill={fill}
+              stroke={stroke}
+              strokeWidth="2.15"
+              strokeLinejoin="round"
+            />
+            <rect
+              x={dir === 1 ? peg.edgeX - Math.max(3.6, hexR * 0.22) : peg.edgeX}
+              y={peg.buttonY - hexR * 0.13}
+              width={Math.max(3.6, hexR * 0.22)}
+              height={hexR * 0.26}
+              rx="0.7"
+              fill={INK}
+              stroke={stroke}
+              strokeWidth="1.45"
+            />
+          </>
+        ) : (
+          <>
+            <path
+              d={nubHexPath(peg.buttonX, peg.buttonY, hexR, dir, peg.edgeX)}
+              fill={fill}
+              stroke={stroke}
+              strokeWidth="2.15"
+              strokeLinejoin="round"
+            />
+            <rect
+              x={dir === 1 ? peg.edgeX - Math.max(3.6, hexR * 0.22) : peg.edgeX}
+              y={peg.buttonY - hexR * 0.13}
+              width={Math.max(3.6, hexR * 0.22)}
+              height={hexR * 0.26}
+              rx="0.7"
+              fill={INK}
+              stroke={stroke}
+              strokeWidth="1.45"
+            />
+          </>
+        )
       ) : (
         <>
           <rect
@@ -1015,6 +1047,32 @@ function hexPath(cx: number, cy: number, r: number, flat = 0.9): string {
     return `${cx + rx * Math.cos(angle)},${cy + ry * Math.sin(angle)}`
   })
   return `M ${pts.join(' L ')} Z`
+}
+
+function nubPolePath(
+  cx: number,
+  cy: number,
+  r: number,
+  dir: number,
+  edgeX: number,
+  reach = 0.5,
+): string {
+  const innerX = cx + dir * r * reach
+  const barrelH = r * 0.24
+  const collarH = r * 0.15
+  const collarW = Math.max(4, r * 0.22)
+  const collarX = edgeX - dir * collarW
+  return [
+    `M ${edgeX.toFixed(1)},${(cy - collarH).toFixed(1)}`,
+    `L ${collarX.toFixed(1)},${(cy - collarH).toFixed(1)}`,
+    `L ${collarX.toFixed(1)},${(cy - barrelH).toFixed(1)}`,
+    `L ${innerX.toFixed(1)},${(cy - barrelH).toFixed(1)}`,
+    `L ${innerX.toFixed(1)},${(cy + barrelH).toFixed(1)}`,
+    `L ${collarX.toFixed(1)},${(cy + barrelH).toFixed(1)}`,
+    `L ${collarX.toFixed(1)},${(cy + collarH).toFixed(1)}`,
+    `L ${edgeX.toFixed(1)},${(cy + collarH).toFixed(1)}`,
+    'Z',
+  ].join(' ')
 }
 
 function nubHexPath(

@@ -27,7 +27,8 @@ export function usesGuitarShape(config: InstrumentId): boolean {
     config === 'guitar-8' ||
     config === 'guitar-9' ||
     config === 'guitar-10' ||
-    config === 'guitar-12'
+    config === 'guitar-12' ||
+    config.startsWith('bass-')
   )
 }
 
