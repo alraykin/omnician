@@ -197,12 +197,12 @@ function guitarMetrics(rows: number, pairedNut: boolean) {
   if (rows <= 3) {
     return {
       hexR: 22,
-      stub: 11,
+      barrel: 16,
       rowGap: 60,
       firstY: 68,
       tail: 80,
       nutWidth: 84,
-      postCol: 41,
+      postInset: 10,
       bodyHalf: 69,
       neckH: 100,
     }
@@ -210,12 +210,12 @@ function guitarMetrics(rows: number, pairedNut: boolean) {
   if (rows === 4) {
     return {
       hexR: 19,
-      stub: 10,
+      barrel: 14,
       rowGap: 48,
       firstY: 56,
       tail: 68,
       nutWidth: 90,
-      postCol: 40,
+      postInset: 9,
       bodyHalf: 72,
       neckH: 96,
     }
@@ -223,24 +223,24 @@ function guitarMetrics(rows: number, pairedNut: boolean) {
   if (rows === 5) {
     return {
       hexR: 16,
-      stub: 9,
+      barrel: 13,
       rowGap: 42,
       firstY: 50,
       tail: 60,
       nutWidth: 104,
-      postCol: 38,
+      postInset: 8,
       bodyHalf: 74,
       neckH: 92,
     }
   }
   return {
     hexR: 15,
-    stub: 8,
+    barrel: 12,
     rowGap: 38,
     firstY: 46,
     tail: 54,
     nutWidth: pairedNut ? 112 : 100,
-    postCol: 40,
+    postInset: 8,
     bodyHalf: pairedNut ? 78 : 76,
     neckH: pairedNut ? 108 : 90,
   }
@@ -252,9 +252,12 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
   const rows = Math.max(left.length, right.length, 1)
   const pairedNut = config === 'guitar-12' && slots.length === 12
   const m = guitarMetrics(rows, pairedNut)
+  const leftCount = left.length
+  const rightCount = right.length
   const nutY = m.firstY + (rows - 1) * m.rowGap + m.tail
   const height = nutY + m.neckH
-  const viewW = Math.round(2 * (m.bodyHalf + m.hexR + m.stub + 80))
+  const pegOut = m.hexR + m.barrel
+  const viewW = Math.round(2 * (m.bodyHalf + pegOut + 80))
   const cx = viewW / 2
   const nutLeft = cx - m.nutWidth / 2
   const pad = 8
@@ -266,11 +269,14 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
 
   const pegs: PegGeom[] = slots.map((slot) => {
     const nutX = nutXs.get(slot.string.id) ?? cx
-    const postY = m.firstY + slot.row * m.rowGap
+    const count = slot.side === 'left' ? leftCount : rightCount
+    const other = slot.side === 'left' ? rightCount : leftCount
+    const stagger = count < other ? m.rowGap * 0.5 : 0
+    const postY = m.firstY + stagger + slot.row * m.rowGap
     const dir = slot.side === 'left' ? 1 : -1
-    const postX = slot.side === 'left' ? cx - m.postCol : cx + m.postCol
     const edgeX = guitarEdgeX(postY, slot.side, nutY, cx, m.nutWidth / 2, m.bodyHalf)
-    const buttonX = edgeX - dir * (m.hexR * 0.5 + m.stub)
+    const postX = edgeX + dir * m.postInset
+    const buttonX = edgeX - dir * (m.hexR + m.barrel)
     return {
       ...slot,
       postX,
@@ -863,13 +869,25 @@ function Peg({
       ) : null}
 
       {peg.nub ? (
-        <path
-          d={nubHexPath(peg.buttonX, peg.buttonY, hexR, dir, peg.edgeX)}
-          fill={fill}
-          stroke={stroke}
-          strokeWidth="2.15"
-          strokeLinejoin="round"
-        />
+        <>
+          <path
+            d={nubHexPath(peg.buttonX, peg.buttonY, hexR, dir, peg.edgeX)}
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="2.15"
+            strokeLinejoin="round"
+          />
+          <rect
+            x={dir === 1 ? peg.edgeX - Math.max(4.2, hexR * 0.26) : peg.edgeX}
+            y={peg.buttonY - hexR * 0.22}
+            width={Math.max(4.2, hexR * 0.26)}
+            height={hexR * 0.44}
+            rx="0.8"
+            fill={INK}
+            stroke={stroke}
+            strokeWidth="1.45"
+          />
+        </>
       ) : (
         <>
           <rect
@@ -1020,18 +1038,46 @@ function nubHexPath(
   edgeX: number,
 ): string {
   const rx = r
-  const ry = r * 0.78
-  const stubH = ry * 0.68
+  const ry = r * 0.84
+  const barrelH = ry * 0.58
+  const collarH = ry * 0.36
+  const collarW = Math.max(5, r * 0.3)
   const hex = (deg: number) => {
     const angle = (Math.PI / 180) * deg
-    return `${cx + rx * Math.cos(angle)},${cy + ry * Math.sin(angle)}`
+    return `${(cx + rx * Math.cos(angle)).toFixed(1)},${(cy + ry * Math.sin(angle)).toFixed(1)}`
   }
-  const stubTop = `${edgeX},${cy - stubH}`
-  const stubBot = `${edgeX},${cy + stubH}`
+  const collarX = (edgeX - dir * collarW).toFixed(1)
+  const edge = edgeX.toFixed(1)
   if (dir === 1) {
-    return `M ${stubTop} L ${hex(300)} L ${hex(240)} L ${hex(180)} L ${hex(120)} L ${hex(60)} L ${stubBot} Z`
+    return [
+      `M ${edge},${(cy - collarH).toFixed(1)}`,
+      `L ${collarX},${(cy - collarH).toFixed(1)}`,
+      `L ${collarX},${(cy - barrelH).toFixed(1)}`,
+      `L ${hex(300)}`,
+      `L ${hex(240)}`,
+      `L ${hex(180)}`,
+      `L ${hex(120)}`,
+      `L ${hex(60)}`,
+      `L ${collarX},${(cy + barrelH).toFixed(1)}`,
+      `L ${collarX},${(cy + collarH).toFixed(1)}`,
+      `L ${edge},${(cy + collarH).toFixed(1)}`,
+      'Z',
+    ].join(' ')
   }
-  return `M ${stubTop} L ${hex(240)} L ${hex(300)} L ${hex(0)} L ${hex(60)} L ${hex(120)} L ${stubBot} Z`
+  return [
+    `M ${edge},${(cy - collarH).toFixed(1)}`,
+    `L ${collarX},${(cy - collarH).toFixed(1)}`,
+    `L ${collarX},${(cy - barrelH).toFixed(1)}`,
+    `L ${hex(240)}`,
+    `L ${hex(300)}`,
+    `L ${hex(0)}`,
+    `L ${hex(60)}`,
+    `L ${hex(120)}`,
+    `L ${collarX},${(cy + barrelH).toFixed(1)}`,
+    `L ${collarX},${(cy + collarH).toFixed(1)}`,
+    `L ${edge},${(cy + collarH).toFixed(1)}`,
+    'Z',
+  ].join(' ')
 }
 
 function cloverPath(cx: number, cy: number, dir: number, size: number): string {
