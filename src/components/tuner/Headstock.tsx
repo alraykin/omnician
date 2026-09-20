@@ -23,10 +23,10 @@ type HeadstockProps = {
 
 const VIEW_W = 480
 const CX = VIEW_W / 2
-const G6_VIEW = 360
+const G6_VIEW = 380
 const G6_CX = G6_VIEW / 2
-const G6_HORN = 62
-const G6_NUT = 72
+const G6_NUT = 84
+const G6_TOP = 10
 const WHITE = '#F4F7FB'
 const RED = '#EF4444'
 const GREEN = '#22C55E'
@@ -188,18 +188,17 @@ function layout(
 
 function layoutGuitar6(slots: PegSlot[]): Drawn {
   const cx = G6_CX
-  const hexR = 25
-  const stub = 7
+  const hexR = 22
+  const stub = 11
   const rowGap = 60
-  const firstY = 74
-  const nutY = firstY + 2 * rowGap + 78
-  const neckH = 108
+  const firstY = 68
+  const nutY = firstY + 2 * rowGap + 80
+  const neckH = 100
   const height = nutY + neckH
   const nutWidth = G6_NUT
   const nutLeft = cx - nutWidth / 2
   const pad = 8
-  const topHalf = G6_HORN
-  const postCol = 32
+  const postCol = 41
 
   const byNo = [...slots].sort((a, b) => b.string.stringNo - a.string.stringNo)
   const span = Math.max(1, slots.length - 1)
@@ -240,24 +239,29 @@ function layoutGuitar6(slots: PegSlot[]): Drawn {
     neckH,
     rows: 3,
     pegs,
-    topHalf,
+    topHalf: guitar6Half(G6_TOP + 8, nutY),
     guitar6: true,
   }
 }
 
 function guitar6Half(y: number, nutY: number, inset = 0): number {
   const nutHalf = G6_NUT / 2
-  const topY = 18
-  const t = Math.max(0, Math.min(1, (y - topY) / Math.max(1, nutY - topY)))
+  const t = Math.max(
+    0,
+    Math.min(1, (y - G6_TOP) / Math.max(1, nutY - G6_TOP)),
+  )
+  // Traced from the reference: nearly parallel through the pegs,
+  // then a short tuck into the nut.
   const keys: Array<[number, number]> = [
-    [0, G6_HORN],
-    [0.12, 58],
-    [0.28, 55],
-    [0.48, 55],
-    [0.64, 54],
-    [0.78, 52],
-    [0.9, 46],
-    [1, nutHalf + 2],
+    [0.0, 73],
+    [0.1, 72],
+    [0.22, 70],
+    [0.45, 69],
+    [0.7, 69],
+    [0.84, 69],
+    [0.89, 62],
+    [0.94, 52],
+    [1.0, nutHalf + 1.4],
   ]
   let half = keys[keys.length - 1][1]
   for (let i = 0; i < keys.length - 1; i++) {
@@ -279,34 +283,30 @@ function guitar6EdgeX(y: number, side: PegSide, nutY: number): number {
 
 function guitar6Batwing(nutY: number, nutHalf: number, inset: number): string {
   const cx = G6_CX
-  const horn = guitar6Half(22, nutY, inset)
-  const peakY = 8 + inset * 0.28
-  const valleyY = 32 + inset * 0.3
-  const sideTop = 21 + inset * 0.2
-  const ySide = 50 + inset * 0.1
-  const yMid = ySide + (nutY - ySide) * 0.38
-  const yLow = ySide + (nutY - ySide) * 0.68
-  const yTuck = nutY - 26 + inset * 0.1
-  const mid = guitar6Half(yMid, nutY, inset)
-  const low = guitar6Half(yLow, nutY, inset)
-  const tuck = guitar6Half(yTuck, nutY, inset)
-  const nut = nutHalf + 1.4 - inset
+  const horn = guitar6Half(G6_TOP + 24, nutY, inset)
+  const peakY = 8 + inset * 0.25
+  const valleyY = 30 + inset * 0.4
+  const sideY = 36 + inset * 0.15
+  const nut = nutHalf + 1.2 - inset
+
+  const right: string[] = []
+  for (let y = sideY; y < nutY - 1; y += 7) {
+    right.push(`L ${(cx + guitar6Half(y, nutY, inset)).toFixed(1)} ${y.toFixed(1)}`)
+  }
+  right.push(`L ${(cx + nut).toFixed(1)} ${nutY}`)
+
+  const left: string[] = []
+  for (let y = nutY - 7; y >= sideY; y -= 7) {
+    left.push(`L ${(cx - guitar6Half(y, nutY, inset)).toFixed(1)} ${y.toFixed(1)}`)
+  }
 
   return [
-    `M ${cx - horn} ${ySide}`,
-    `L ${cx - horn} ${sideTop}`,
-    `L ${cx - horn + 2} ${peakY}`,
-    `C ${cx - horn + 16} ${peakY + 7}, ${cx - 20} ${valleyY}, ${cx} ${valleyY}`,
-    `C ${cx + 20} ${valleyY}, ${cx + horn - 16} ${peakY + 7}, ${cx + horn - 2} ${peakY}`,
-    `L ${cx + horn} ${sideTop}`,
-    `L ${cx + horn} ${ySide}`,
-    `C ${cx + horn + 1} ${yMid}, ${cx + mid + 1} ${yLow}, ${cx + low} ${yLow + 6}`,
-    `C ${cx + low - 1} ${yTuck}, ${cx + tuck + 3} ${nutY - 10}, ${cx + tuck} ${nutY - 8}`,
-    `C ${cx + tuck - 2} ${nutY - 2}, ${cx + nut + 2} ${nutY}, ${cx + nut} ${nutY}`,
+    `M ${cx - horn} ${sideY}`,
+    `C ${cx - horn - 1} ${peakY + 1}, ${cx - 24} ${valleyY}, ${cx} ${valleyY}`,
+    `C ${cx + 24} ${valleyY}, ${cx + horn + 1} ${peakY + 1}, ${cx + horn} ${sideY}`,
+    ...right,
     `L ${cx - nut} ${nutY}`,
-    `C ${cx - nut - 2} ${nutY}, ${cx - tuck + 2} ${nutY - 2}, ${cx - tuck} ${nutY - 8}`,
-    `C ${cx - tuck - 3} ${nutY - 10}, ${cx - low + 1} ${yTuck}, ${cx - low} ${yLow + 6}`,
-    `C ${cx - mid - 1} ${yLow}, ${cx - horn - 1} ${yMid}, ${cx - horn} ${ySide}`,
+    ...left,
     'Z',
   ].join(' ')
 }
@@ -372,8 +372,8 @@ export function Headstock({
   const clover = usesCloverPegs(config)
   const slots = layoutPegs(strings, config)
   const drawn = layout(slots, config, clover)
-  const neckLeft = drawn.nutLeft - 4
-  const neckWidth = drawn.nutWidth + 8
+  const neckLeft = drawn.guitar6 ? drawn.nutLeft : drawn.nutLeft - 4
+  const neckWidth = drawn.guitar6 ? drawn.nutWidth : drawn.nutWidth + 8
   const active = drawn.pegs.find((peg) => peg.string.id === selectedId) ?? null
   const rest = drawn.pegs.filter((peg) => peg.string.id !== selectedId)
   const fretCount = config === 'banjo' ? 6 : 3
@@ -393,7 +393,7 @@ export function Headstock({
       <div
         className={cn(
           'relative mx-auto w-full',
-          drawn.guitar6 ? 'max-w-[22rem]' : 'max-w-md',
+          drawn.guitar6 ? 'max-w-[24rem]' : 'max-w-md',
         )}
       >
         <svg
@@ -462,7 +462,7 @@ export function Headstock({
                 strokeLinejoin="round"
               />
               <path
-                d={guitar6Batwing(drawn.nutY, drawn.nutWidth / 2, 5.5)}
+                d={guitar6Batwing(drawn.nutY, drawn.nutWidth / 2, 7)}
                 fill="none"
                 stroke={WHITE}
                 strokeWidth="1.15"
@@ -829,7 +829,7 @@ function nubHexPath(
   edgeX: number,
 ): string {
   const rx = r
-  const ry = r * 0.88
+  const ry = r * 0.78
   const stubH = ry * 0.68
   const hex = (deg: number) => {
     const angle = (Math.PI / 180) * deg
