@@ -284,26 +284,33 @@ function guitar6EdgeX(y: number, side: PegSide, nutY: number): number {
 function guitar6Batwing(nutY: number, nutHalf: number, inset: number): string {
   const cx = G6_CX
   const horn = guitar6Half(G6_TOP + 24, nutY, inset)
-  const peakY = 8 + inset * 0.25
-  const valleyY = 30 + inset * 0.4
-  const sideY = 36 + inset * 0.15
+  const peakY = 8 + inset * 0.2
+  const valleyY = 28 + inset * 0.4
+  const sideY = 38 + inset * 0.1
   const nut = nutHalf + 1.2 - inset
 
   const right: string[] = []
-  for (let y = sideY; y < nutY - 1; y += 7) {
-    right.push(`L ${(cx + guitar6Half(y, nutY, inset)).toFixed(1)} ${y.toFixed(1)}`)
+  for (let y = sideY + 6; y < nutY - 1; y += 6) {
+    right.push(
+      `L ${(cx + guitar6Half(y, nutY, inset)).toFixed(1)} ${y.toFixed(1)}`,
+    )
   }
   right.push(`L ${(cx + nut).toFixed(1)} ${nutY}`)
 
   const left: string[] = []
-  for (let y = nutY - 7; y >= sideY; y -= 7) {
-    left.push(`L ${(cx - guitar6Half(y, nutY, inset)).toFixed(1)} ${y.toFixed(1)}`)
+  for (let y = nutY - 6; y > sideY; y -= 6) {
+    left.push(
+      `L ${(cx - guitar6Half(y, nutY, inset)).toFixed(1)} ${y.toFixed(1)}`,
+    )
   }
 
   return [
     `M ${cx - horn} ${sideY}`,
-    `C ${cx - horn - 1} ${peakY + 1}, ${cx - 24} ${valleyY}, ${cx} ${valleyY}`,
-    `C ${cx + 24} ${valleyY}, ${cx + horn + 1} ${peakY + 1}, ${cx + horn} ${sideY}`,
+    `L ${cx - horn} ${18 + inset * 0.15}`,
+    `C ${cx - horn} ${peakY}, ${cx - horn + 10} ${peakY}, ${cx - 22} ${valleyY}`,
+    `C ${cx - 8} ${valleyY + 1}, ${cx + 8} ${valleyY + 1}, ${cx + 22} ${valleyY}`,
+    `C ${cx + horn - 10} ${peakY}, ${cx + horn} ${peakY}, ${cx + horn} ${18 + inset * 0.15}`,
+    `L ${cx + horn} ${sideY}`,
     ...right,
     `L ${cx - nut} ${nutY}`,
     ...left,
