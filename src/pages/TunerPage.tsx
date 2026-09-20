@@ -12,6 +12,7 @@ import { useCustomTunings } from '@/hooks/useCustomTunings'
 import { useTuner, type TunerStatus } from '@/hooks/useTuner'
 import { loadTunerPrefs, saveTunerPrefs } from '@/lib/custom-presets'
 import {
+  GREEN_CLEAR_CENTS,
   IN_TUNE_CENTS,
   IN_TUNE_EXIT_CENTS,
   STRING_HYSTERESIS_CENTS,
@@ -119,6 +120,11 @@ export function TunerPage() {
     : (reading?.cents ?? null)
 
   useEffect(() => {
+    inTuneRef.current = false
+    setInTune(false)
+  }, [activeString?.id])
+
+  useEffect(() => {
     if (!live || rawCents === null) {
       if (inTuneRef.current) {
         inTuneRef.current = false
@@ -132,34 +138,39 @@ export function TunerPage() {
     if (abs <= IN_TUNE_CENTS) next = true
     else if (abs > IN_TUNE_EXIT_CENTS) next = false
 
-    if (next === inTuneRef.current) return
-    inTuneRef.current = next
-    setInTune(next)
+    const crossedIn = next && !inTuneRef.current
+    if (next !== inTuneRef.current) {
+      inTuneRef.current = next
+      setInTune(next)
+    }
 
-    if (!next) return
-    playInTuneChime()
-    const id = instrumentMode ? activeString?.id : 'chromatic'
-    if (!id || id === 'chromatic') return
-    setTunedIds((currentIds) => {
-      if (currentIds.has(id)) return currentIds
-      const nextIds = new Set(currentIds)
-      nextIds.add(id)
-      return nextIds
-    })
-  }, [activeString?.id, instrumentMode, live, rawCents])
-
-  useEffect(() => {
-    if (!live || !activeString || rawCents === null) return
-    if (!tunedIds.has(activeString.id)) return
-    if (Math.abs(rawCents) <= IN_TUNE_EXIT_CENTS + 6) return
+    if (!instrumentMode) {
+      if (crossedIn) playInTuneChime()
+      return
+    }
+    if (!activeString) return
     const id = activeString.id
-    setTunedIds((currentIds) => {
-      if (!currentIds.has(id)) return currentIds
-      const nextIds = new Set(currentIds)
-      nextIds.delete(id)
-      return nextIds
-    })
-  }, [activeString, live, rawCents, tunedIds])
+
+    if (next && abs <= IN_TUNE_CENTS && !tunedIds.has(id)) {
+      playInTuneChime()
+      setTunedIds((currentIds) => {
+        if (currentIds.has(id)) return currentIds
+        const nextIds = new Set(currentIds)
+        nextIds.add(id)
+        return nextIds
+      })
+      return
+    }
+
+    if (tunedIds.has(id) && abs > GREEN_CLEAR_CENTS) {
+      setTunedIds((currentIds) => {
+        if (!currentIds.has(id)) return currentIds
+        const nextIds = new Set(currentIds)
+        nextIds.delete(id)
+        return nextIds
+      })
+    }
+  }, [activeString, instrumentMode, live, rawCents, tunedIds])
 
   const displayCents =
     rawCents === null ? null : settleCents(rawCents, inTune)

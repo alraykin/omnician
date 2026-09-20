@@ -1,6 +1,8 @@
 export const IN_TUNE_CENTS = 5
 export const IN_TUNE_EXIT_CENTS = 8
 export const STRING_HYSTERESIS_CENTS = 36
+/** Peg stays green until this string is clearly off, not on small wobbles. */
+export const GREEN_CLEAR_CENTS = 32
 
 export const TUNER_FEEL = {
   inTuneCents: IN_TUNE_CENTS,

@@ -1,13 +1,15 @@
 import type { InstrumentString } from '@/lib/notes'
 import type { FamilyId, InstrumentId } from '@/lib/presets'
 
-export type PegSide = 'left' | 'right' | 'fifth'
+export type PegSide = 'left' | 'right' | 'fifth' | 'inline'
 
 export type PegSlot = {
   string: InstrumentString
   side: PegSide
   row: number
 }
+
+export type HeadKind = 'split' | 'inline' | 'scroll' | 'banjo' | 'small'
 
 export function familyTone(family: FamilyId): 'guitar' | 'bass' | 'ukulele' | 'folk' {
   if (family === 'bass') return 'bass'
@@ -16,14 +18,25 @@ export function familyTone(family: FamilyId): 'guitar' | 'bass' | 'ukulele' | 'f
   return 'guitar'
 }
 
+export function headKindFor(config: InstrumentId): HeadKind {
+  if (config === 'violin') return 'scroll'
+  if (config === 'banjo') return 'banjo'
+  if (config === 'ukulele' || config === 'mandolin' || config === 'bouzouki') {
+    return 'small'
+  }
+  if (config === 'bass-4' || config === 'bass-5') return 'inline'
+  return 'split'
+}
+
 export function layoutPegs(
   strings: readonly InstrumentString[],
   config: InstrumentId,
 ): PegSlot[] {
   if (strings.length === 0) return []
 
+  const kind = headKindFor(config)
   const banjoFifth =
-    config === 'banjo' && strings.length === 5
+    kind === 'banjo' && strings.length === 5
       ? strings.find((item) => item.stringNo === 5) ?? strings[0]
       : null
 
@@ -32,6 +45,15 @@ export function layoutPegs(
     : [...strings]
 
   const ordered = [...body].sort((a, b) => b.stringNo - a.stringNo)
+
+  if (kind === 'inline') {
+    return ordered.map((string, row) => ({
+      string,
+      side: 'inline' as const,
+      row,
+    }))
+  }
+
   const { left: leftCount } = splitCounts(ordered.length)
   const left = ordered.slice(0, leftCount).reverse()
   const right = ordered.slice(leftCount)

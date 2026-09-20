@@ -1,4 +1,4 @@
-import { layoutPegs, type PegSlot } from '@/lib/headstock'
+import { headKindFor, layoutPegs, type HeadKind, type PegSlot } from '@/lib/headstock'
 import type { InstrumentString } from '@/lib/notes'
 import type { InstrumentId } from '@/lib/presets'
 import { cn } from '@/lib/utils'
@@ -13,7 +13,7 @@ type HeadstockProps = {
   onTapPeg: (string: InstrumentString) => void
 }
 
-const VIEW_W = 280
+const VIEW_W = 300
 
 type PegGeom = PegSlot & {
   postX: number
@@ -24,69 +24,137 @@ type PegGeom = PegSlot & {
   nutY: number
 }
 
-function geometry(
-  slots: PegSlot[],
-  rows: number,
-): { height: number; nutY: number; pegs: PegGeom[]; nutLeft: number; nutWidth: number } {
-  const top = 78
-  const rowGap = rows <= 2 ? 52 : rows <= 3 ? 48 : 42
-  const nutY = top + Math.max(rows - 1, 0) * rowGap + 46
-  const height = nutY + 22
-  const bodyLeft = 62
-  const bodyRight = VIEW_W - 62
-  const postInset = 20
-  const buttonOut = 26
-  const nutWidth = 78
-  const nutLeft = (VIEW_W - nutWidth) / 2
+type Layout = {
+  kind: HeadKind
+  height: number
+  nutY: number
+  nutLeft: number
+  nutWidth: number
+  pegs: PegGeom[]
+  logo: { x: number; y: number; r: number }
+  body: string
+}
 
-  const body = slots.filter((slot) => slot.side !== 'fifth')
-  const maxNo = Math.max(...body.map((slot) => slot.string.stringNo), 1)
-  const minNo = Math.min(...body.map((slot) => slot.string.stringNo), 1)
+function layout(
+  slots: PegSlot[],
+  kind: HeadKind,
+): Layout {
+  const left = slots.filter((slot) => slot.side === 'left')
+  const right = slots.filter((slot) => slot.side === 'right')
+  const inline = slots.filter((slot) => slot.side === 'inline')
+  const rows = Math.max(left.length, right.length, inline.length, 1)
+  const rowGap = kind === 'inline' ? 36 : rows <= 2 ? 46 : rows <= 3 ? 42 : 36
+  const crown = kind === 'scroll' ? 70 : kind === 'inline' ? 56 : 72
+  const nutY = crown + Math.max(rows - 1, 0) * rowGap + (kind === 'scroll' ? 36 : 40)
+  const height = nutY + 20
+  const nutWidth = kind === 'inline' ? 64 : kind === 'small' ? 70 : 78
+  const nutLeft = (VIEW_W - nutWidth) / 2
+  const bodySlots = slots.filter((slot) => slot.side !== 'fifth')
+  const maxNo = Math.max(...bodySlots.map((slot) => slot.string.stringNo), 1)
+  const minNo = Math.min(...bodySlots.map((slot) => slot.string.stringNo), 1)
   const span = Math.max(1, maxNo - minNo)
 
   const pegs: PegGeom[] = slots.map((slot) => {
+    const nutX = nutLeft + 9 + ((maxNo - slot.string.stringNo) / span) * (nutWidth - 18)
+    if (slot.side === 'inline') {
+      const postY = crown + slot.row * rowGap
+      return {
+        ...slot,
+        postX: 108,
+        postY,
+        buttonX: 46,
+        buttonY: postY,
+        nutX,
+        nutY,
+      }
+    }
     if (slot.side === 'fifth') {
       return {
         ...slot,
-        postX: bodyLeft + 18,
-        postY: nutY - 18,
-        buttonX: buttonOut + 4,
-        buttonY: nutY - 10,
+        postX: 96,
+        postY: nutY - 16,
+        buttonX: 44,
+        buttonY: nutY - 8,
         nutX: nutLeft + 6,
         nutY,
       }
     }
-    const postX = slot.side === 'left' ? bodyLeft + postInset : bodyRight - postInset
-    const buttonX = slot.side === 'left' ? buttonOut : VIEW_W - buttonOut
-    const postY = top + slot.row * rowGap
-    const t = span === 0 ? 0.5 : (maxNo - slot.string.stringNo) / span
+    const postX = slot.side === 'left' ? 92 : VIEW_W - 92
+    const buttonX = slot.side === 'left' ? 38 : VIEW_W - 38
+    const postY = crown + slot.row * rowGap
     return {
       ...slot,
       postX,
       postY,
       buttonX,
       buttonY: postY,
-      nutX: nutLeft + 8 + t * (nutWidth - 16),
+      nutX,
       nutY,
     }
   })
 
-  return { height, nutY, pegs, nutLeft, nutWidth }
+  const logo =
+    kind === 'inline'
+      ? { x: 186, y: 46, r: 16 }
+      : kind === 'scroll'
+        ? { x: VIEW_W / 2, y: 36, r: 13 }
+        : { x: VIEW_W / 2, y: 38, r: 17 }
+
+  return {
+    kind,
+    height,
+    nutY,
+    nutLeft,
+    nutWidth,
+    pegs,
+    logo,
+    body: bodyPath(kind, nutY),
+  }
 }
 
-function bodyPath(nutY: number): string {
-  const top = 10
-  const shoulder = 50
-  const waist = nutY - 10
+function bodyPath(kind: HeadKind, nutY: number): string {
+  const cx = VIEW_W / 2
+  if (kind === 'inline') {
+    return [
+      `M 172 10`,
+      `C 148 10 126 24 116 52`,
+      `L 100 ${nutY - 16}`,
+      `C 96 ${nutY + 2} 118 ${nutY + 11} 136 ${nutY + 11}`,
+      `L 198 ${nutY + 11}`,
+      `C 218 ${nutY + 10} 226 ${nutY - 2} 222 ${nutY - 16}`,
+      `L 208 58`,
+      `C 202 26 192 10 172 10`,
+      'Z',
+    ].join(' ')
+  }
+  if (kind === 'scroll') {
+    return [
+      `M ${cx + 8} 8`,
+      `C ${cx + 28} 8 ${cx + 38} 22 ${cx + 34} 38`,
+      `C ${cx + 30} 52 ${cx + 18} 58 ${cx + 18} 58`,
+      `L ${cx + 40} ${nutY - 14}`,
+      `C ${cx + 42} ${nutY + 2} ${cx + 22} ${nutY + 11} ${cx} ${nutY + 11}`,
+      `L ${cx} ${nutY + 11}`,
+      `C ${cx - 22} ${nutY + 11} ${cx - 42} ${nutY + 2} ${cx - 40} ${nutY - 14}`,
+      `L ${cx - 18} 58`,
+      `C ${cx - 18} 58 ${cx - 30} 52 ${cx - 34} 38`,
+      `C ${cx - 38} 22 ${cx - 20} 8 ${cx + 8} 8`,
+      'Z',
+    ].join(' ')
+  }
+  const flare = kind === 'small' ? 52 : kind === 'banjo' ? 64 : 60
+  const top = kind === 'small' ? 12 : 10
   return [
-    `M ${VIEW_W / 2 - 34} ${top}`,
-    `C 86 ${top} 64 20 58 ${shoulder}`,
-    `L 54 ${waist}`,
-    `C 54 ${nutY - 2} 86 ${nutY + 8} ${VIEW_W / 2 - 40} ${nutY + 10}`,
-    `L ${VIEW_W / 2 + 40} ${nutY + 10}`,
-    `C ${VIEW_W - 86} ${nutY + 8} ${VIEW_W - 54} ${nutY - 2} ${VIEW_W - 54} ${waist}`,
-    `L ${VIEW_W - 58} ${shoulder}`,
-    `C ${VIEW_W - 64} 20 ${VIEW_W - 86} ${top} ${VIEW_W / 2 + 34} ${top}`,
+    `M ${cx} ${top}`,
+    `C ${cx - 30} ${top} ${cx - 50} ${top + 10} ${cx - flare} ${top + 32}`,
+    `C ${cx - flare - 10} ${top + 52} ${cx - flare - 12} 96 ${cx - flare - 14} 120`,
+    `L ${cx - flare - 16} ${nutY - 16}`,
+    `C ${cx - flare - 16} ${nutY} ${cx - 36} ${nutY + 11} ${cx - 30} ${nutY + 11}`,
+    `L ${cx + 30} ${nutY + 11}`,
+    `C ${cx + 36} ${nutY + 11} ${cx + flare + 16} ${nutY} ${cx + flare + 16} ${nutY - 16}`,
+    `L ${cx + flare + 14} 120`,
+    `C ${cx + flare + 12} 96 ${cx + flare + 10} ${top + 52} ${cx + flare} ${top + 32}`,
+    `C ${cx + 50} ${top + 10} ${cx + 30} ${top} ${cx} ${top}`,
     'Z',
   ].join(' ')
 }
@@ -100,11 +168,9 @@ export function Headstock({
   onAutoChange,
   onTapPeg,
 }: HeadstockProps) {
+  const kind = headKindFor(config)
   const slots = layoutPegs(strings, config)
-  const left = slots.filter((slot) => slot.side === 'left')
-  const right = slots.filter((slot) => slot.side === 'right')
-  const rows = Math.max(left.length, right.length, 1)
-  const { height, nutY, pegs, nutLeft, nutWidth } = geometry(slots, rows)
+  const drawn = layout(slots, kind)
 
   return (
     <div className="w-full">
@@ -120,88 +186,74 @@ export function Headstock({
 
       <div className="relative mx-auto w-full max-w-sm">
         <svg
-          viewBox={`0 0 ${VIEW_W} ${height}`}
+          viewBox={`0 0 ${VIEW_W} ${drawn.height}`}
           className="mx-auto block h-auto w-full"
           role="img"
           aria-label="Instrument headstock"
         >
           <defs>
-            <linearGradient id="omni-wood" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#243044" />
-              <stop offset="45%" stopColor="#1A2233" />
-              <stop offset="100%" stopColor="#141A28" />
+            <linearGradient id="omni-wood" x1="0.15" y1="0" x2="0.9" y2="1">
+              <stop offset="0%" stopColor="#2A3348" />
+              <stop offset="48%" stopColor="#1A2233" />
+              <stop offset="100%" stopColor="#121826" />
             </linearGradient>
-            <linearGradient id="omni-gold" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#E8D5A3" />
-              <stop offset="55%" stopColor="#C9A36A" />
-              <stop offset="100%" stopColor="#8B6B3D" />
-            </linearGradient>
-            <linearGradient id="omni-metal" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#F3E6C4" />
-              <stop offset="100%" stopColor="#A4844C" />
+            <linearGradient id="omni-brass" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#E6D3A6" />
+              <stop offset="50%" stopColor="#C4A56A" />
+              <stop offset="100%" stopColor="#8A6A3A" />
             </linearGradient>
           </defs>
 
           <path
-            d={bodyPath(nutY)}
+            d={drawn.body}
             fill="url(#omni-wood)"
-            stroke="url(#omni-gold)"
-            strokeWidth="3.2"
+            stroke="url(#omni-brass)"
+            strokeWidth="2.4"
             strokeLinejoin="round"
           />
           <path
-            d={bodyPath(nutY)}
+            d={drawn.body}
             fill="none"
-            stroke="rgba(168, 85, 247, 0.22)"
-            strokeWidth="1.1"
+            stroke="rgba(168, 85, 247, 0.16)"
+            strokeWidth="1"
           />
 
-          <circle cx={VIEW_W / 2} cy="34" r="18.5" fill="#ffffff" />
-          <circle
-            cx={VIEW_W / 2}
-            cy="34"
-            r="18.5"
-            fill="none"
-            stroke="#C9A36A"
-            strokeWidth="1.6"
-          />
+          <Medallion cx={drawn.logo.x} cy={drawn.logo.y} r={drawn.logo.r} />
 
           <rect
-            x={nutLeft}
-            y={nutY + 2}
-            width={nutWidth}
-            height="7"
-            rx="1.4"
-            fill="url(#omni-gold)"
+            x={drawn.nutLeft}
+            y={drawn.nutY + 2}
+            width={drawn.nutWidth}
+            height="6"
+            rx="1.2"
+            fill="url(#omni-brass)"
           />
-          {pegs
+          {drawn.pegs
             .filter((peg) => peg.side !== 'fifth')
             .map((peg) => (
               <line
                 key={`slot-${peg.string.id}`}
                 x1={peg.nutX}
-                y1={nutY + 2}
+                y1={drawn.nutY + 2}
                 x2={peg.nutX}
-                y2={nutY + 9}
-                stroke="#3B2A14"
-                strokeWidth="1"
+                y2={drawn.nutY + 8}
+                stroke="#2A1E10"
+                strokeWidth="0.9"
               />
             ))}
 
-          {pegs.map((peg) => (
-            <line
+          {drawn.pegs.map((peg) => (
+            <path
               key={`string-${peg.string.id}`}
-              x1={peg.nutX}
-              y1={nutY + 2}
-              x2={peg.postX}
-              y2={peg.postY}
-              stroke="rgba(226, 214, 180, 0.42)"
-              strokeWidth={1.1 + (peg.string.stringNo - 1) * 0.12}
+              d={`M ${peg.nutX} ${drawn.nutY + 2} Q ${(peg.nutX + peg.postX) / 2} ${(drawn.nutY + peg.postY) / 2 + 4} ${peg.postX} ${peg.postY}`}
+              fill="none"
+              stroke="rgba(232, 220, 188, 0.38)"
+              strokeWidth={0.9 + (peg.string.stringNo - 1) * 0.1}
               strokeLinecap="round"
             />
           ))}
 
-          {pegs.map((peg) => {
+          {drawn.pegs.map((peg) => {
             const tone = tunedIds.has(peg.string.id)
               ? 'green'
               : peg.string.id === selectedId
@@ -217,22 +269,31 @@ export function Headstock({
             )
           })}
         </svg>
-        <div
-          className="pointer-events-none absolute left-1/2 z-10 flex -translate-x-1/2 items-center justify-center rounded-full"
-          style={{ top: '5.8%', width: '13.2%', aspectRatio: '1' }}
-        >
-          <img
-            src="/omnician-mark.png"
-            alt=""
-            className="h-[72%] w-[72%] invert"
-          />
-        </div>
       </div>
       <p className="mt-2 text-center text-[0.65rem] leading-4 text-slate-500">
         Tap a peg to hear its pitch and set the target. Red is the active string;
-        green stays until that string is played out of tune.
+        green stays until that string is played clearly out of tune.
       </p>
     </div>
+  )
+}
+
+/** Official O + pick, geometrically centered in a light medallion. */
+function Medallion({ cx, cy, r }: { cx: number; cy: number; r: number }) {
+  const s = r / 12
+  return (
+    <g transform={`translate(${cx} ${cy})`}>
+      <circle r={r} fill="#F4F0E6" />
+      <circle r={r - 0.4} fill="none" stroke="#1A1D27" strokeWidth="0.7" />
+      <g transform={`scale(${s})`} fill="none" stroke="#14161F" strokeLinecap="round">
+        <circle r="8.2" strokeWidth="1.85" />
+        <path
+          d="M 0 -3.1 C 2.55 -3.1 3.55 -0.7 3.05 1.85 C 2.35 4.35 0 5.55 0 5.55 C 0 5.55 -2.35 4.35 -3.05 1.85 C -3.55 -0.7 -2.55 -3.1 0 -3.1 Z"
+          strokeWidth="1.55"
+        />
+        <path d="M -1.55 -0.15 L 0 -1.7 L 1.55 -0.15" strokeWidth="1.35" />
+      </g>
+    </g>
   )
 }
 
@@ -245,19 +306,19 @@ function MachineHead({
   tone: 'green' | 'red' | 'idle'
   onClick: () => void
 }) {
-  const outward = peg.side === 'right' || peg.side === 'fifth' ? 1 : -1
+  const side = peg.side === 'right' ? 1 : -1
   const buttonFill =
-    tone === 'green' ? '#34d399' : tone === 'red' ? '#ef4444' : '#E8D5B0'
+    tone === 'green' ? '#34d399' : tone === 'red' ? '#ef4444' : '#EDE4D0'
   const ring =
-    tone === 'green' ? '#a7f3d0' : tone === 'red' ? '#fca5a5' : '#C9A36A'
+    tone === 'green' ? '#a7f3d0' : tone === 'red' ? '#fca5a5' : '#C4A56A'
   const glow =
     tone === 'green'
-      ? 'rgba(52,211,153,0.55)'
+      ? 'rgba(52,211,153,0.45)'
       : tone === 'red'
-        ? 'rgba(239,68,68,0.5)'
+        ? 'rgba(239,68,68,0.4)'
         : 'transparent'
-  const labelX = peg.buttonX + outward * 16
-  const fifth = peg.side === 'fifth'
+  const labelX = peg.buttonX + side * 18
+  const housingX = side < 0 ? peg.postX - 15 : peg.postX + 2
 
   return (
     <g
@@ -278,48 +339,42 @@ function MachineHead({
         y1={peg.buttonY}
         x2={peg.postX}
         y2={peg.postY}
-        stroke="#8B6B3D"
-        strokeWidth="3.4"
+        stroke="url(#omni-brass)"
+        strokeWidth="2.6"
         strokeLinecap="round"
       />
       <rect
-        x={peg.side === 'left' ? peg.postX - 18 : peg.postX + 4}
-        y={peg.postY - 5}
-        width="14"
-        height="10"
-        rx="2"
-        fill="url(#omni-metal)"
+        x={housingX}
+        y={peg.postY - 4.2}
+        width="13"
+        height="8.4"
+        rx="1.6"
+        fill="url(#omni-brass)"
       />
-      <circle cx={peg.postX} cy={peg.postY} r="7.2" fill="url(#omni-metal)" />
-      <circle cx={peg.postX} cy={peg.postY} r="3.1" fill="#1A1520" />
-      <circle
-        cx={peg.buttonX}
-        cy={peg.buttonY}
-        r="12.5"
-        fill={glow}
-        opacity={tone === 'idle' ? 0 : 0.9}
-      />
+      <circle cx={peg.postX} cy={peg.postY} r="5.6" fill="url(#omni-brass)" />
+      <circle cx={peg.postX} cy={peg.postY} r="2.4" fill="#14161F" />
+      <circle cx={peg.buttonX} cy={peg.buttonY} r="11" fill={glow} />
       <ellipse
         cx={peg.buttonX}
         cy={peg.buttonY}
-        rx="10.5"
-        ry="13"
+        rx="8.2"
+        ry="10.4"
         fill={buttonFill}
         stroke={ring}
-        strokeWidth="2"
+        strokeWidth="1.6"
       />
       <ellipse
-        cx={peg.buttonX - 2}
-        cy={peg.buttonY - 3}
-        rx="4.2"
-        ry="5"
+        cx={peg.buttonX - 1.6}
+        cy={peg.buttonY - 2.6}
+        rx="3.1"
+        ry="4.2"
         fill="rgba(255,255,255,0.28)"
       />
       <text
         x={labelX}
-        y={peg.buttonY - 3}
+        y={peg.buttonY - 2}
         textAnchor="middle"
-        fill="white"
+        fill="#F8FAFC"
         fontSize="11"
         fontWeight="700"
         fontFamily="Outfit, sans-serif"
@@ -330,12 +385,12 @@ function MachineHead({
         x={labelX}
         y={peg.buttonY + 10}
         textAnchor="middle"
-        fill="#cbd5e1"
-        fontSize="9"
+        fill="#94A3B8"
+        fontSize="8.5"
         fontWeight="600"
         fontFamily="Outfit, sans-serif"
       >
-        {fifth ? '5th' : `${peg.string.stringNo}`}
+        {peg.side === 'fifth' ? '5th' : `${peg.string.stringNo}`}
       </text>
     </g>
   )
