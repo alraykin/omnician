@@ -60,6 +60,10 @@ export function midiFromNote(pitchClass: number, octave: number): number {
   return pitchClass + (octave + 1) * 12
 }
 
+export function notesLabel(midis: readonly number[]): string {
+  return midis.map((midi) => pitchClassName(midi).sharpName).join(' ')
+}
+
 export function stringsFromMidis(midis: readonly number[]): InstrumentString[] {
   const count = midis.length
   return midis.map((midi, index) => {
@@ -85,45 +89,48 @@ export type DetectedNote = {
   isNatural: boolean
 }
 
-export function midiToFreq(midi: number): number {
-  return A4_HZ * 2 ** ((midi - 69) / 12)
+export function midiToFreq(midi: number, a4 = A4_HZ): number {
+  return a4 * 2 ** ((midi - 69) / 12)
 }
 
-export function freqToMidi(frequency: number): number {
-  return 69 + 12 * Math.log2(frequency / A4_HZ)
+export function freqToMidi(frequency: number, a4 = A4_HZ): number {
+  return 69 + 12 * Math.log2(frequency / a4)
 }
 
-export function analyzeFrequency(frequency: number): DetectedNote {
-  const midiExact = freqToMidi(frequency)
+export function analyzeFrequency(frequency: number, a4 = A4_HZ): DetectedNote {
+  const midiExact = freqToMidi(frequency, a4)
   const midi = Math.round(midiExact)
-  const pitchClass = ((midi % 12) + 12) % 12
-  const sharpName = SHARP_NAMES[pitchClass]
-  const flatName = FLAT_NAMES[pitchClass]
+  const pitch = pitchClassName(midi)
 
   return {
     frequency,
     midi,
     cents: (midiExact - midi) * 100,
-    octave: Math.floor(midi / 12) - 1,
-    sharpName,
-    flatName,
-    isNatural: sharpName === flatName,
+    octave: pitch.octave,
+    sharpName: pitch.sharpName,
+    flatName: pitch.flatName,
+    isNatural: pitch.isNatural,
   }
 }
 
-export function centsBetween(frequency: number, targetMidi: number): number {
-  return (freqToMidi(frequency) - targetMidi) * 100
+export function centsBetween(
+  frequency: number,
+  targetMidi: number,
+  a4 = A4_HZ,
+): number {
+  return (freqToMidi(frequency, a4) - targetMidi) * 100
 }
 
 export function nearestString(
   frequency: number,
   strings: readonly InstrumentString[],
+  a4 = A4_HZ,
 ): InstrumentString {
   let best = strings[0]
   let bestDelta = Number.POSITIVE_INFINITY
 
   for (const string of strings) {
-    const delta = Math.abs(centsBetween(frequency, string.midi))
+    const delta = Math.abs(centsBetween(frequency, string.midi, a4))
     if (delta < bestDelta) {
       best = string
       bestDelta = delta

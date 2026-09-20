@@ -1,20 +1,25 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Check } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AppChrome } from '@/components/AppChrome'
+import { ChromaticCalibration } from '@/components/tuner/ChromaticCalibration'
 import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
-import { PresetPicker } from '@/components/tuner/PresetPicker'
 import { SensitivityControl } from '@/components/tuner/SensitivityControl'
 import { StringStrip } from '@/components/tuner/StringStrip'
 import { TunerGauge } from '@/components/tuner/TunerGauge'
+import { TuningSheet } from '@/components/tuner/TuningSheet'
 import { Button } from '@/components/ui/button'
 import { useCustomTunings } from '@/hooks/useCustomTunings'
 import { useTuner, type TunerStatus } from '@/hooks/useTuner'
 import { loadTunerPrefs, saveTunerPrefs } from '@/lib/custom-presets'
-import { A4_HZ, centsBetween, nearestString } from '@/lib/notes'
+import { playInTuneChime } from '@/lib/in-tune-chime'
+import { centsBetween, nearestString } from '@/lib/notes'
 import {
-  BUILTIN_PRESETS,
   customToPreset,
-  findBuiltinPreset,
+  findInstrument,
+  inferInstrument,
+  resolvePreset,
+  type InstrumentId,
 } from '@/lib/presets'
 import { SENSITIVITY, type Sensitivity } from '@/lib/sensitivity'
 import { cn } from '@/lib/utils'
@@ -23,30 +28,37 @@ export function TunerPage() {
   const prefs = useMemo(() => loadTunerPrefs(), [])
   const { tunings, upsert, remove } = useCustomTunings()
   const [presetId, setPresetId] = useState(prefs.presetId)
+  const [instrumentId, setInstrumentId] = useState<InstrumentId>(prefs.instrumentId)
   const [sensitivity, setSensitivity] = useState<Sensitivity>(prefs.sensitivity)
+  const [a4Hz, setA4Hz] = useState(prefs.a4Hz)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [editor, setEditor] = useState<null | { id?: string }>(null)
 
-  const { status, reading, level, start, stop } = useTuner(sensitivity)
+  const { status, reading, level, start, stop } = useTuner(sensitivity, a4Hz)
 
   const customPresets = tunings.map(customToPreset)
-  const current =
-    findBuiltinPreset(presetId) ??
-    customPresets.find((preset) => preset.id === presetId) ??
-    findBuiltinPreset('chromatic') ??
-    BUILTIN_PRESETS[0]
+  const current = resolvePreset(presetId, customPresets)
+  const activeInstrument = inferInstrument(current, instrumentId)
+  const instrument = findInstrument(activeInstrument)
 
   useEffect(() => {
-    saveTunerPrefs({ presetId: current.id, sensitivity })
-  }, [current.id, sensitivity])
+    saveTunerPrefs({
+      presetId: current.id,
+      instrumentId: activeInstrument,
+      sensitivity,
+      a4Hz,
+    })
+  }, [activeInstrument, a4Hz, current.id, sensitivity])
 
   const strings = current.strings
   const instrumentMode = strings.length > 0
   const activeString =
-    reading && instrumentMode ? nearestString(reading.frequency, strings) : null
+    reading && instrumentMode
+      ? nearestString(reading.frequency, strings, a4Hz)
+      : null
   const displayCents =
     reading && instrumentMode && activeString
-      ? centsBetween(reading.frequency, activeString.midi)
+      ? centsBetween(reading.frequency, activeString.midi, a4Hz)
       : (reading?.cents ?? null)
   const inTuneWindow = SENSITIVITY[sensitivity].inTuneCents
   const inTune =
@@ -54,9 +66,18 @@ export function TunerPage() {
   const live = status === 'listening' && reading !== null
   const stringInTune =
     reading && activeString
-      ? Math.abs(centsBetween(reading.frequency, activeString.midi)) <=
+      ? Math.abs(centsBetween(reading.frequency, activeString.midi, a4Hz)) <=
         inTuneWindow
       : false
+
+  const wasInTune = useRef(false)
+  useEffect(() => {
+    const celebrating = live && inTune
+    if (celebrating && !wasInTune.current) {
+      playInTuneChime()
+    }
+    wasInTune.current = celebrating
+  }, [inTune, live])
 
   const openEdit = (id: string) => {
     setPickerOpen(false)
@@ -66,7 +87,10 @@ export function TunerPage() {
   const deleteCustom = (id: string) => {
     if (!window.confirm('Delete this saved tuning from this device?')) return
     remove(id)
-    if (presetId === id) setPresetId('chromatic')
+    if (presetId === id) {
+      setPresetId('chromatic')
+      setInstrumentId('chromatic')
+    }
   }
 
   return (
@@ -76,29 +100,38 @@ export function TunerPage() {
           Tuner
         </h1>
         <p className="mt-1 text-center text-sm text-slate-400">
-          A4 = {A4_HZ} Hz · equal temperament
+          A4 = {a4Hz} Hz · equal temperament
         </p>
 
         <div className="mt-5 space-y-3">
-          <PresetPicker
-            open={pickerOpen}
-            onOpenChange={setPickerOpen}
-            current={current}
-            builtins={BUILTIN_PRESETS}
-            customs={customPresets}
-            onSelect={setPresetId}
-            onCreate={() => {
-              setPickerOpen(false)
-              setEditor({})
-            }}
-            onEdit={openEdit}
-            onDelete={deleteCustom}
-          />
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-[#141A28] px-4 py-3 text-left"
+          >
+            <span>
+              <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
+                {instrument.label}
+              </span>
+              <span className="mt-0.5 block text-sm font-semibold text-white">
+                {current.name}
+              </span>
+              <span className="block font-mono text-xs tracking-wide text-slate-500">
+                {current.notes}
+              </span>
+            </span>
+            <span className="text-xs font-semibold text-slate-400">Change</span>
+          </button>
           <SensitivityControl value={sensitivity} onChange={setSensitivity} />
         </div>
 
         <section
-          className="mt-5 flex flex-1 flex-col items-center rounded-3xl border border-white/10 bg-[#141A28]/80 px-4 py-6 sm:px-6"
+          className={cn(
+            'mt-5 flex flex-1 flex-col items-center rounded-3xl border px-4 py-6 sm:px-6',
+            live && inTune
+              ? 'border-emerald-400/40 bg-emerald-500/8'
+              : 'border-white/10 bg-[#141A28]/80',
+          )}
           aria-live="polite"
         >
           <NoteDisplay
@@ -143,7 +176,11 @@ export function TunerPage() {
                 inTune={stringInTune}
               />
             </div>
-          ) : null}
+          ) : (
+            <div className="mt-4 w-full">
+              <ChromaticCalibration a4Hz={a4Hz} onChange={setA4Hz} compact />
+            </div>
+          )}
 
           <p className="mt-5 min-h-10 text-center text-sm leading-6 text-slate-400">
             {statusMessage(status, live, instrumentMode)}
@@ -175,6 +212,26 @@ export function TunerPage() {
         </div>
       </div>
 
+      <TuningSheet
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        current={current}
+        instrumentId={activeInstrument}
+        customs={customPresets}
+        a4Hz={a4Hz}
+        onA4Change={setA4Hz}
+        onConfirm={({ instrumentId: nextInstrument, presetId: nextPreset }) => {
+          setInstrumentId(nextInstrument)
+          setPresetId(nextPreset)
+        }}
+        onCreate={() => {
+          setPickerOpen(false)
+          setEditor({})
+        }}
+        onEdit={openEdit}
+        onDelete={deleteCustom}
+      />
+
       {editor !== null ? (
         <CustomPresetEditor
           draft={
@@ -185,7 +242,10 @@ export function TunerPage() {
           onClose={() => setEditor(null)}
           onSave={(draft) => {
             const id = upsert(draft)
-            if (id) setPresetId(id)
+            if (id) {
+              setPresetId(id)
+              setInstrumentId('custom')
+            }
             return id
           }}
         />
@@ -226,7 +286,7 @@ function NoteDisplay({
     <div className="text-center">
       <div
         className={cn(
-          'text-6xl font-extrabold tracking-tight sm:text-7xl',
+          'relative inline-flex items-start text-6xl font-extrabold tracking-tight sm:text-7xl',
           inTune ? 'text-emerald-300' : 'text-white',
         )}
       >
@@ -234,6 +294,11 @@ function NoteDisplay({
         <span className="ml-1 align-super text-2xl font-semibold text-slate-400 sm:text-3xl">
           {octave}
         </span>
+        {inTune ? (
+          <span className="omni-in-tune-pop absolute -right-8 top-1 flex size-7 items-center justify-center rounded-full bg-emerald-400 text-[#06281c] sm:-right-9">
+            <Check className="size-4 stroke-[3]" />
+          </span>
+        ) : null}
       </div>
       <p className="mt-1 text-sm text-slate-400">
         {isNatural ? 'Natural' : `${sharpName} / ${flatName}`}
@@ -289,8 +354,8 @@ function statusMessage(
   }
   if (status === 'listening' && !live) return 'Play a note…'
   return instrumentMode
-    ? 'Needle is versus the highlighted string. Hold until it sits in the green.'
-    : 'Hold steady until the needle sits in the green.'
+    ? 'Needle eases toward the highlighted string. Hold until the checkmark lands.'
+    : 'Hold steady until the needle settles and the checkmark appears.'
 }
 
 function ordinal(value: number): string {

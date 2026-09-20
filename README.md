@@ -75,7 +75,12 @@ Click the terminal window and press **Control + C**.
 ## What you will see
 
 - **Home** — branding, the greeting *Hello — are you ready to rock?*, and three tools
-- **Tuner** — tap **Start Tuning**, allow the microphone, then play a note. Pick Chromatic or an instrument family (guitar, bass, uke, banjo, and more), set Low/Medium/High sensitivity, and save a custom 4–10 string tuning on this device
+- **Tuner**
+  - Tap **Change** to pick an instrument from the horizontal chips (Chromatic, Acoustic, Electric, Bass 4/5, 7-string, 12-string, Ukulele, Banjo, Mandolin, Violin, My customs)
+  - Instrument tunings are grouped under **Standard**, **Drop**, **Open**, **Alternate / Other**, and **Left-handed**, with the note string under each name (for example `E A D G B E`)
+  - Chromatic hides the string list and shows an A4 calibration slider
+  - The needle eases toward center, shifts off → closer → green, then lands a checkmark and a short in-tune chime
+  - Custom 4–10 string tunings save on this device only
 - **Metronome / Drum Machine** — placeholder pages that say **Coming in V1**
 - A quiet note that more can unlock with a subscription later (there are **no payments** yet)
 

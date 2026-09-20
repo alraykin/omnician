@@ -1,3 +1,10 @@
+import { A4_HZ } from '@/lib/notes'
+import {
+  isInstrumentId,
+  type InstrumentId,
+} from '@/lib/presets'
+import type { Sensitivity } from '@/lib/sensitivity'
+
 const STORAGE_KEY = 'omnician.custom-presets.v1'
 const PREFS_KEY = 'omnician.tuner-prefs.v1'
 
@@ -9,11 +16,15 @@ export type CustomTuning = {
 
 export type TunerPrefs = {
   presetId: string
-  sensitivity: 'low' | 'medium' | 'high'
+  instrumentId: InstrumentId
+  sensitivity: Sensitivity
+  a4Hz: number
 }
 
 const MIN_MIDI = 12
 const MAX_MIDI = 96
+const MIN_A4 = 415
+const MAX_A4 = 466
 
 function isMidi(value: unknown): value is number {
   return (
@@ -23,6 +34,13 @@ function isMidi(value: unknown): value is number {
     value <= MAX_MIDI
   )
 }
+
+export function clampA4(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return A4_HZ
+  return Math.round(Math.min(MAX_A4, Math.max(MIN_A4, value)))
+}
+
+export const A4_RANGE = { min: MIN_A4, max: MAX_A4 } as const
 
 export function loadCustomTunings(): CustomTuning[] {
   if (typeof localStorage === 'undefined') return []
@@ -58,7 +76,9 @@ export function createCustomId(): string {
 export function loadTunerPrefs(): TunerPrefs {
   const fallback: TunerPrefs = {
     presetId: 'guitar-6-standard',
+    instrumentId: 'acoustic-guitar',
     sensitivity: 'medium',
+    a4Hz: A4_HZ,
   }
   if (typeof localStorage === 'undefined') return fallback
   try {
@@ -66,19 +86,30 @@ export function loadTunerPrefs(): TunerPrefs {
     if (!raw) return fallback
     const parsed: unknown = JSON.parse(raw)
     if (!parsed || typeof parsed !== 'object') return fallback
-    const row = parsed as { presetId?: unknown; sensitivity?: unknown }
+    const row = parsed as {
+      presetId?: unknown
+      instrumentId?: unknown
+      sensitivity?: unknown
+      a4Hz?: unknown
+    }
     const sensitivity =
       row.sensitivity === 'low' ||
       row.sensitivity === 'medium' ||
       row.sensitivity === 'high'
         ? row.sensitivity
         : fallback.sensitivity
+    const instrumentId =
+      typeof row.instrumentId === 'string' && isInstrumentId(row.instrumentId)
+        ? row.instrumentId
+        : fallback.instrumentId
     return {
       presetId:
         typeof row.presetId === 'string' && row.presetId
           ? row.presetId
           : fallback.presetId,
+      instrumentId,
       sensitivity,
+      a4Hz: clampA4(row.a4Hz),
     }
   } catch {
     return fallback

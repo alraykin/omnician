@@ -81,3 +81,47 @@ body {
     width: 36rem;
   }
 }
+
+@keyframes omni-in-tune-pop {
+  0% {
+    transform: scale(0.35);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.16);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.omni-in-tune-pop {
+  animation: omni-in-tune-pop 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.omni-slider {
+  appearance: none;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(168, 85, 247, 0.35), rgba(52, 211, 153, 0.55));
+}
+
+.omni-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  background: #a855f7;
+  border: 2px solid #f8fafc;
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.2);
+}
+
+.omni-slider::-moz-range-thumb {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  background: #a855f7;
+  border: 2px solid #f8fafc;
+}
