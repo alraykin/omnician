@@ -44,6 +44,11 @@ type PegGeom = PegSlot & {
   nub: boolean
 }
 
+type CourseSlot = {
+  leftX: number
+  rightX: number
+}
+
 type Drawn = {
   viewW: number
   cx: number
@@ -57,6 +62,7 @@ type Drawn = {
   topHalf: number
   bodyHalf: number
   guitarShape: boolean
+  courses: CourseSlot[]
 }
 
 function toneFor(
@@ -183,6 +189,7 @@ function layout(
     topHalf,
     bodyHalf: topHalf,
     guitarShape: false,
+    courses: [],
   }
 }
 
@@ -220,7 +227,7 @@ function guitarMetrics(rows: number, pairedNut: boolean) {
       rowGap: 42,
       firstY: 50,
       tail: 60,
-      nutWidth: 96,
+      nutWidth: 104,
       postCol: 38,
       bodyHalf: 74,
       neckH: 92,
@@ -232,10 +239,10 @@ function guitarMetrics(rows: number, pairedNut: boolean) {
     rowGap: 38,
     firstY: 46,
     tail: 54,
-    nutWidth: pairedNut ? 108 : 100,
+    nutWidth: pairedNut ? 112 : 100,
     postCol: 40,
-    bodyHalf: 76,
-    neckH: 90,
+    bodyHalf: pairedNut ? 78 : 76,
+    neckH: pairedNut ? 108 : 90,
   }
 }
 
@@ -250,11 +257,12 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
   const viewW = Math.round(2 * (m.bodyHalf + m.hexR + m.stub + 80))
   const cx = viewW / 2
   const nutLeft = cx - m.nutWidth / 2
-  const pad = pairedNut ? 10 : 8
+  const pad = 8
 
-  const nutXs = pairedNut
+  const nutLayout = pairedNut
     ? pairedNutXs(slots, nutLeft, m.nutWidth, pad)
-    : evenNutXs(slots, nutLeft, m.nutWidth, pad, cx)
+    : { nutXs: evenNutXs(slots, nutLeft, m.nutWidth, pad, cx), courses: [] as CourseSlot[] }
+  const nutXs = nutLayout.nutXs
 
   const pegs: PegGeom[] = slots.map((slot) => {
     const nutX = nutXs.get(slot.string.id) ?? cx
@@ -290,6 +298,7 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
     topHalf: guitarHalf(GUITAR_TOP + 8, nutY, m.nutWidth / 2, m.bodyHalf),
     bodyHalf: m.bodyHalf,
     guitarShape: true,
+    courses: nutLayout.courses,
   }
 }
 
@@ -316,25 +325,40 @@ function pairedNutXs(
   nutLeft: number,
   nutWidth: number,
   pad: number,
-): Map<string, number> {
+): { nutXs: Map<string, number>; courses: CourseSlot[] } {
   const byNo = [...slots].sort((a, b) => b.string.stringNo - a.string.stringNo)
-  const courses: PegSlot[][] = []
+  const grouped: PegSlot[][] = []
   for (let i = 0; i < byNo.length; i += 2) {
-    courses.push(byNo.slice(i, i + 2))
+    grouped.push(byNo.slice(i, i + 2))
   }
-  const span = Math.max(1, courses.length - 1)
+  const span = Math.max(1, grouped.length - 1)
   const inner = nutWidth - pad * 2
-  const pairGap = 6
+  // Tight within a course, wider between courses — like a real 12-string nut.
+  const pairGap = 7
   const nutXs = new Map<string, number>()
-  courses.forEach((course, index) => {
-    const t = courses.length === 1 ? 0.5 : index / span
+  const courses: CourseSlot[] = []
+  grouped.forEach((course, index) => {
+    const t = grouped.length === 1 ? 0.5 : index / span
     const center = nutLeft + pad + t * inner
     const pair = [...course].sort((a, b) => b.string.stringNo - a.string.stringNo)
-    if (pair[0]) nutXs.set(pair[0].string.id, center - pairGap / 2)
-    if (pair[1]) nutXs.set(pair[1].string.id, center + pairGap / 2)
-    else if (pair[0]) nutXs.set(pair[0].string.id, center)
+    const leftX = center - pairGap / 2
+    const rightX = center + pairGap / 2
+    if (pair[0]) nutXs.set(pair[0].string.id, pair[1] ? leftX : center)
+    if (pair[1]) nutXs.set(pair[1].string.id, rightX)
+    courses.push({ leftX: pair[1] ? leftX : center, rightX: pair[1] ? rightX : center })
   })
-  return nutXs
+  return { nutXs, courses }
+}
+
+function isOctaveOfCourse(
+  string: InstrumentString,
+  strings: readonly InstrumentString[],
+): boolean {
+  const mateNo =
+    string.stringNo % 2 === 0 ? string.stringNo - 1 : string.stringNo + 1
+  const mate = strings.find((item) => item.stringNo === mateNo)
+  if (!mate) return false
+  return string.midi > mate.midi
 }
 
 function guitarHalf(
@@ -508,6 +532,7 @@ export function Headstock({
       </div>
 
       <div
+        id="headstock"
         className={cn(
           'relative mx-auto w-full',
           drawn.guitarShape ? 'max-w-[24rem]' : 'max-w-md',
@@ -626,6 +651,19 @@ export function Headstock({
             stroke={WHITE}
             strokeWidth="1.6"
           />
+          {drawn.courses.map((course, index) => (
+            <rect
+              key={`course-${index}`}
+              x={course.leftX - 1.8}
+              y={drawn.nutY - 4.4}
+              width={Math.max(4, course.rightX - course.leftX + 3.6)}
+              height="8.8"
+              rx="1.6"
+              fill={INK}
+              stroke={WHITE}
+              strokeWidth="1.15"
+            />
+          ))}
 
           {rest.map((peg) => {
             const tone = toneFor(
@@ -635,12 +673,24 @@ export function Headstock({
               inTune,
               live,
             )
+            const paired = drawn.courses.length > 0
+            const octave = paired && isOctaveOfCourse(peg.string, strings)
             return (
               <StringRun
                 key={`s-${peg.string.id}`}
                 peg={peg}
                 color={tone === 'sticky' ? GREEN : WHITE}
-                width={clover ? 1.7 : drawn.guitarShape ? 1.45 : 1.35}
+                width={
+                  clover
+                    ? 1.7
+                    : drawn.guitarShape
+                      ? octave
+                        ? 1.15
+                        : paired
+                          ? 1.7
+                          : 1.45
+                      : 1.35
+                }
                 wound={clover}
                 toNeck={drawn.height}
               />
@@ -666,7 +716,17 @@ export function Headstock({
                     toneFor(active.string.id, selectedId, tunedIds, inTune, live),
                   ) ?? WHITE
                 }
-                width={clover ? 2.6 : drawn.guitarShape ? 2.2 : 2.35}
+                width={
+                  clover
+                    ? 2.6
+                    : drawn.guitarShape
+                      ? drawn.courses.length > 0
+                        ? isOctaveOfCourse(active.string, strings)
+                          ? 1.7
+                          : 2.15
+                        : 2.2
+                      : 2.35
+                }
                 wound={clover}
                 toNeck={drawn.height}
               />
@@ -877,7 +937,9 @@ function Peg({
         y={peg.buttonY + (peg.nub ? 7 : 6)}
         textAnchor="middle"
         fill={text}
-        fontSize={letter.length > 1 ? 13 : peg.nub ? 18 : 16}
+        fontSize={
+          letter.length > 1 ? (hexR < 17 ? 10 : 12) : peg.nub ? (hexR < 17 ? 15 : 18) : 16
+        }
         fontWeight="700"
         fontFamily="Outfit, sans-serif"
       >
