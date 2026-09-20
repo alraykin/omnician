@@ -21,7 +21,7 @@ type HeadstockProps = {
   onTapPeg: (string: InstrumentString) => void
 }
 
-const VIEW_W = 440
+const VIEW_W = 480
 const CX = VIEW_W / 2
 const WHITE = '#F4F7FB'
 const RED = '#EF4444'
@@ -38,6 +38,7 @@ type PegGeom = PegSlot & {
   nutX: number
   nutY: number
   edgeX: number
+  hexR: number
 }
 
 function toneFor(
@@ -89,19 +90,21 @@ function layout(
   const right = slots.filter((slot) => slot.side === 'right')
   const rows = Math.max(left.length, right.length, 1)
   const banjo = config === 'banjo'
-  const neckH = banjo ? 118 : 78
-  const rowGap = rows <= 2 ? 58 : rows === 3 ? 50 : 40
-  const firstY = rows <= 2 ? 52 : 48
+  const neckH = banjo ? 128 : 82
+  const hexR = clover ? (rows <= 2 ? 24 : 21) : rows >= 4 ? 18 : 20
+  const barrel = clover ? 26 : 22
+  const rowGap = Math.max(rows <= 2 ? 62 : rows === 3 ? 54 : 46, hexR * 2 + 8)
+  const firstY = rows <= 2 ? 56 : 52
   const lastY = firstY + (rows - 1) * rowGap
-  const nutY = lastY + 48
+  const nutY = lastY + 62
   const height = nutY + neckH
 
   const neckCount = slots.length
-  const nutWidth = 20 + neckCount * 13
+  const nutWidth = 24 + neckCount * 14
   const nutLeft = CX - nutWidth / 2
-  const pad = 7
+  const pad = 8
   const span = Math.max(1, neckCount - 1)
-  const topHalf = rows <= 2 ? 82 : rows === 3 ? 76 : 70
+  const topHalf = rows <= 2 ? 108 : rows === 3 ? 100 : 94
 
   const byNo = [...slots].sort((a, b) => b.string.stringNo - a.string.stringNo)
   const nutXs = new Map<string, number>()
@@ -113,32 +116,31 @@ function layout(
   const pegs: PegGeom[] = slots.map((slot) => {
     const nutX = nutXs.get(slot.string.id) ?? CX
     if (slot.side === 'fifth') {
-      const buttonY = nutY + 38
+      const buttonY = nutY + 42
       const neckLeft = nutLeft - 4
-      const hexR = 20
-      const barrel = 18
+      const fifthR = 18
+      const fifthBarrel = 28
       return {
         ...slot,
-        postX: neckLeft + 8,
+        postX: neckLeft + 7,
         postY: buttonY,
-        buttonX: neckLeft - (hexR * 0.52 + barrel),
+        buttonX: neckLeft - fifthR - fifthBarrel,
         buttonY,
         nutX,
         nutY,
         edgeX: neckLeft,
+        hexR: fifthR,
       }
     }
 
     const postY = firstY + slot.row * rowGap
-    const stagger = slot.row * (rows >= 4 ? 4.5 : rows === 3 ? 2.5 : 0)
-    const postCol = rows <= 2 ? 40 : 38
+    const stagger = slot.row * (rows >= 4 ? 3 : rows === 3 ? 1.5 : 0)
+    const postCol = rows <= 2 ? 48 : 46
     const postX =
       slot.side === 'left' ? CX - postCol - stagger : CX + postCol + stagger
     const dir = slot.side === 'left' ? 1 : -1
     const edgeX = bodyEdgeX(postY, slot.side, nutY, nutWidth / 2, topHalf)
-    const barrel = clover ? 22 : 16
-    const hexR = clover ? 23 : 21
-    const buttonX = edgeX - dir * (hexR * 0.52 + barrel)
+    const buttonX = edgeX - dir * (hexR + barrel)
     return {
       ...slot,
       postX,
@@ -148,6 +150,7 @@ function layout(
       nutX,
       nutY,
       edgeX,
+      hexR,
     }
   })
 
@@ -161,13 +164,13 @@ function bodyEdgeX(
   nutHalf: number,
   topHalf: number,
 ): number {
-  const t = Math.max(0, Math.min(1, (y - 18) / Math.max(1, nutY - 18)))
-  const midHalf = topHalf * 0.78
-  const botHalf = nutHalf + 11
+  const t = Math.max(0, Math.min(1, (y - 16) / Math.max(1, nutY - 16)))
+  const midHalf = topHalf * 0.94
+  const botHalf = nutHalf + 10
   const half =
-    t < 0.42
-      ? topHalf + (midHalf - topHalf) * (t / 0.42)
-      : midHalf + (botHalf - midHalf) * ((t - 0.42) / 0.58)
+    t < 0.72
+      ? topHalf + (midHalf - topHalf) * (t / 0.72)
+      : midHalf + (botHalf - midHalf) * ((t - 0.72) / 0.28)
   return side === 'right' ? CX + half : CX - half
 }
 
@@ -177,26 +180,26 @@ function batwing(
   inset: number,
   topHalf: number,
 ): string {
-  const top = 8 + inset
-  const dip = 26 + inset * 0.45
-  const horn = topHalf - inset * 0.55
-  const mid = topHalf * 0.78 - inset * 0.45
+  const top = 10 + inset
+  const dip = 28 + inset * 0.4
+  const horn = topHalf - inset * 0.5
+  const mid = topHalf * 0.94 - inset * 0.4
   const bot = nutHalf + 12 - inset
   const nut = nutHalf + 3 - inset
-  const yMid = top + (nutY - top) * 0.4
-  const yLow = nutY - 34 + inset * 0.15
+  const yMid = top + (nutY - top) * 0.48
+  const yLow = nutY - 28 + inset * 0.1
 
   return [
-    `M ${CX - horn} ${top + 15}`,
-    `C ${CX - horn + 7} ${top - 3}, ${CX - 30} ${dip + 1}, ${CX} ${dip}`,
-    `C ${CX + 30} ${dip + 1}, ${CX + horn - 7} ${top - 3}, ${CX + horn} ${top + 15}`,
-    `C ${CX + horn + 7} ${top + 44}, ${CX + mid + 10} ${yMid}, ${CX + mid} ${yMid + 18}`,
-    `C ${CX + mid - 1} ${yLow - 8}, ${CX + bot + 8} ${yLow}, ${CX + bot} ${nutY - 16}`,
-    `C ${CX + bot - 1} ${nutY - 5}, ${CX + nut + 5} ${nutY}, ${CX + nut} ${nutY}`,
+    `M ${CX - horn} ${top + 16}`,
+    `C ${CX - horn + 10} ${top - 4}, ${CX - 34} ${dip}, ${CX} ${dip}`,
+    `C ${CX + 34} ${dip}, ${CX + horn - 10} ${top - 4}, ${CX + horn} ${top + 16}`,
+    `C ${CX + horn + 5} ${top + 48}, ${CX + mid + 6} ${yMid}, ${CX + mid} ${yMid + 10}`,
+    `C ${CX + mid - 2} ${yLow - 4}, ${CX + bot + 10} ${yLow}, ${CX + bot} ${nutY - 14}`,
+    `C ${CX + bot - 2} ${nutY - 4}, ${CX + nut + 4} ${nutY}, ${CX + nut} ${nutY}`,
     `L ${CX - nut} ${nutY}`,
-    `C ${CX - nut - 5} ${nutY}, ${CX - bot + 1} ${nutY - 5}, ${CX - bot} ${nutY - 16}`,
-    `C ${CX - bot - 8} ${yLow}, ${CX - mid + 1} ${yLow - 8}, ${CX - mid} ${yMid + 18}`,
-    `C ${CX - mid - 10} ${yMid}, ${CX - horn - 7} ${top + 44}, ${CX - horn} ${top + 15}`,
+    `C ${CX - nut - 4} ${nutY}, ${CX - bot + 2} ${nutY - 4}, ${CX - bot} ${nutY - 14}`,
+    `C ${CX - bot - 10} ${yLow}, ${CX - mid + 2} ${yLow - 4}, ${CX - mid} ${yMid + 10}`,
+    `C ${CX - mid - 6} ${yMid}, ${CX - horn - 5} ${top + 48}, ${CX - horn} ${top + 16}`,
     'Z',
   ].join(' ')
 }
@@ -446,10 +449,10 @@ function Peg({
   const { fill, stroke, text } = colors(tone)
   const glow = tone === 'red' || tone === 'green' || tone === 'selected'
   const dir = peg.side === 'right' ? -1 : 1
-  const hexR = clover ? 23 : 21
-  const shaftInner = hexR * (clover ? 0.42 : 0.48)
-  const shaftEnd = peg.edgeX - dir * 2
-  const shaftY = clover ? 5.2 : 4.6
+  const hexR = peg.hexR
+  const shaftInner = hexR * (clover ? 0.38 : 0.72)
+  const shaftEnd = peg.edgeX - dir * 1.5
+  const shaftY = clover ? 5.4 : 4.8
   const shaftX = peg.buttonX + dir * shaftInner
   const shaftW = (shaftEnd - shaftX) * dir
 
@@ -605,12 +608,11 @@ function hexPath(cx: number, cy: number, r: number): string {
 function cloverPath(cx: number, cy: number, dir: number): string {
   const s = dir
   return [
-    `M ${cx + s * -17} ${cy}`,
-    `C ${cx + s * -18} ${cy - 11}, ${cx + s * -8} ${cy - 18}, ${cx + s * 1} ${cy - 13}`,
-    `C ${cx + s * 4} ${cy - 20}, ${cx + s * 16} ${cy - 16}, ${cx + s * 15} ${cy - 5}`,
-    `C ${cx + s * 19} ${cy - 2}, ${cx + s * 19} ${cy + 2}, ${cx + s * 15} ${cy + 5}`,
-    `C ${cx + s * 16} ${cy + 16}, ${cx + s * 4} ${cy + 20}, ${cx + s * 1} ${cy + 13}`,
-    `C ${cx + s * -8} ${cy + 18}, ${cx + s * -18} ${cy + 11}, ${cx + s * -17} ${cy}`,
+    `M ${cx + s * 10} ${cy - 3}`,
+    `C ${cx + s * 12} ${cy - 18}, ${cx + s * -4} ${cy - 24}, ${cx + s * -8} ${cy - 12}`,
+    `C ${cx + s * -22} ${cy - 16}, ${cx + s * -26} ${cy + 0}, ${cx + s * -12} ${cy + 2}`,
+    `C ${cx + s * -26} ${cy + 16}, ${cx + s * -8} ${cy + 24}, ${cx + s * -4} ${cy + 12}`,
+    `C ${cx + s * 12} ${cy + 18}, ${cx + s * 12} ${cy + 4}, ${cx + s * 10} ${cy + 3}`,
     'Z',
   ].join(' ')
 }
