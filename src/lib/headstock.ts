@@ -40,8 +40,8 @@ export function layoutPegs(
 
   if (config === 'guitar-12' && strings.length === 12) {
     const byNo = new Map(strings.map((item) => [item.stringNo, item]))
-    // Same nut order as the strings: no crossing. Left E/E a/A d/D, right g/G B/B e/e.
-    const leftNos = [12, 11, 10, 9, 8, 7]
+    // Left column reversed: D/d A/a E/E top→bottom. Right stays g/G B/B e/e.
+    const leftNos = [7, 8, 9, 10, 11, 12]
     const rightNos = [6, 5, 4, 3, 2, 1]
     const slots: PegSlot[] = []
     leftNos.forEach((stringNo, row) => {
