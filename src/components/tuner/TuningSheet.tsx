@@ -1,15 +1,20 @@
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { ChevronRight, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { ChromaticCalibration } from '@/components/tuner/ChromaticCalibration'
 import { Button } from '@/components/ui/button'
 import {
+  configsForFamily,
   defaultTuningId,
-  findInstrument,
+  FAMILIES,
+  familyHasSubmenu,
+  familyOf,
+  findConfig,
+  findFamily,
   groupTunings,
-  INSTRUMENTS,
   matchesQuery,
   tuningsForInstrument,
+  type FamilyId,
   type InstrumentId,
   type TuningPreset,
 } from '@/lib/presets'
@@ -42,41 +47,65 @@ export function TuningSheet({
   onEdit,
   onDelete,
 }: TuningSheetProps) {
-  const [draftInstrument, setDraftInstrument] = useState(instrumentId)
+  const [draftFamily, setDraftFamily] = useState<FamilyId>(familyOf(instrumentId))
+  const [draftConfig, setDraftConfig] = useState<InstrumentId>(instrumentId)
   const [draftPresetId, setDraftPresetId] = useState(current.id)
   const [query, setQuery] = useState('')
 
   useEffect(() => {
     if (!open) return
-    setDraftInstrument(instrumentId)
+    setDraftFamily(familyOf(instrumentId))
+    setDraftConfig(instrumentId)
     setDraftPresetId(current.id)
     setQuery('')
   }, [open, instrumentId, current.id])
 
+  const submenu = familyHasSubmenu(draftFamily)
+  const configs = configsForFamily(draftFamily)
+  const lookingAtTunings = !submenu || configs.some((item) => item.id === draftConfig)
   const tunings = useMemo(
-    () => tuningsForInstrument(draftInstrument, customs),
-    [customs, draftInstrument],
+    () => (lookingAtTunings ? tuningsForInstrument(draftConfig, customs) : []),
+    [customs, draftConfig, lookingAtTunings],
   )
-
   const visible = useMemo(
     () => tunings.filter((item) => matchesQuery(item, query)),
     [query, tunings],
   )
-
   const grouped = useMemo(() => groupTunings(visible), [visible])
-  const instrument = findInstrument(draftInstrument)
+  const family = findFamily(draftFamily)
+  const config = findConfig(draftConfig)
   const canSelect =
-    draftInstrument === 'chromatic' ||
-    visible.some((item) => item.id === draftPresetId)
+    draftFamily === 'chromatic' ||
+    (lookingAtTunings && visible.some((item) => item.id === draftPresetId))
 
-  const chooseInstrument = (id: InstrumentId) => {
-    setDraftInstrument(id)
+  const chooseFamily = (id: FamilyId) => {
+    setDraftFamily(id)
     setQuery('')
+    const nextConfigs = configsForFamily(id)
     if (id === 'chromatic') {
+      setDraftConfig('chromatic')
       setDraftPresetId('chromatic')
       return
     }
-    if (current.families.includes(id) || (id === 'custom' && current.families.includes('custom'))) {
+    if (id === 'custom') {
+      setDraftConfig('custom')
+      setDraftPresetId(current.config === 'custom' ? current.id : defaultTuningId('custom', customs))
+      return
+    }
+    if (familyOf(instrumentId) === id) {
+      setDraftConfig(instrumentId)
+      setDraftPresetId(current.id)
+      return
+    }
+    const first = nextConfigs[0]
+    setDraftConfig(first.id)
+    setDraftPresetId(defaultTuningId(first.id, customs))
+  }
+
+  const chooseConfig = (id: InstrumentId) => {
+    setDraftConfig(id)
+    setQuery('')
+    if (current.config === id) {
       setDraftPresetId(current.id)
       return
     }
@@ -86,8 +115,8 @@ export function TuningSheet({
   const confirm = () => {
     if (!canSelect) return
     onConfirm({
-      instrumentId: draftInstrument,
-      presetId: draftInstrument === 'chromatic' ? 'chromatic' : draftPresetId,
+      instrumentId: draftFamily === 'chromatic' ? 'chromatic' : draftConfig,
+      presetId: draftFamily === 'chromatic' ? 'chromatic' : draftPresetId,
     })
     onOpenChange(false)
   }
@@ -109,17 +138,17 @@ export function TuningSheet({
             id="tuning-sheet-title"
             className="mt-1 text-xl font-bold tracking-tight text-white"
           >
-            {instrument.label}
+            {submenu ? `${family.label} · ${config.label}` : family.label}
           </h2>
 
           <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {INSTRUMENTS.map((item) => {
-              const selected = item.id === draftInstrument
+            {FAMILIES.map((item) => {
+              const selected = item.id === draftFamily
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => chooseInstrument(item.id)}
+                  onClick={() => chooseFamily(item.id)}
                   className={cn(
                     'shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap',
                     selected
@@ -127,15 +156,39 @@ export function TuningSheet({
                       : 'bg-white/6 text-slate-300 ring-1 ring-white/10',
                   )}
                 >
-                  {item.shortLabel}
+                  {item.label}
                 </button>
               )
             })}
           </div>
+
+          {submenu ? (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {configs.map((item) => {
+                const selected = item.id === draftConfig
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => chooseConfig(item.id)}
+                    className={cn(
+                      'flex items-center justify-between rounded-2xl px-3 py-2.5 text-left text-sm font-semibold',
+                      selected
+                        ? 'bg-[#A855F7]/20 text-white ring-1 ring-[#A855F7]/60'
+                        : 'bg-white/5 text-slate-300 ring-1 ring-white/8',
+                    )}
+                  >
+                    {item.label}
+                    <ChevronRight className="size-4 text-slate-500" />
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
-          {draftInstrument === 'chromatic' ? (
+          {draftFamily === 'chromatic' ? (
             <ChromaticCalibration a4Hz={a4Hz} onChange={onA4Change} />
           ) : (
             <>
@@ -149,7 +202,7 @@ export function TuningSheet({
                 />
               </label>
 
-              {draftInstrument === 'custom' ? (
+              {draftFamily === 'custom' ? (
                 <CustomList
                   items={visible}
                   selectedId={draftPresetId}
@@ -160,7 +213,7 @@ export function TuningSheet({
                 />
               ) : grouped.length === 0 ? (
                 <p className="px-1 py-6 text-center text-sm text-slate-500">
-                  No tunings match “{query}”.
+                  {query ? `No tunings match “${query}”.` : 'Pick a configuration above.'}
                 </p>
               ) : (
                 grouped.map((group) => (

@@ -1,6 +1,6 @@
 import { A4_HZ } from '@/lib/notes'
 import {
-  isInstrumentId,
+  normalizeInstrumentId,
   type InstrumentId,
 } from '@/lib/presets'
 import type { Sensitivity } from '@/lib/sensitivity'
@@ -76,7 +76,7 @@ export function createCustomId(): string {
 export function loadTunerPrefs(): TunerPrefs {
   const fallback: TunerPrefs = {
     presetId: 'guitar-6-standard',
-    instrumentId: 'acoustic-guitar',
+    instrumentId: 'guitar-6',
     sensitivity: 'medium',
     a4Hz: A4_HZ,
   }
@@ -99,8 +99,8 @@ export function loadTunerPrefs(): TunerPrefs {
         ? row.sensitivity
         : fallback.sensitivity
     const instrumentId =
-      typeof row.instrumentId === 'string' && isInstrumentId(row.instrumentId)
-        ? row.instrumentId
+      typeof row.instrumentId === 'string'
+        ? (normalizeInstrumentId(row.instrumentId) ?? fallback.instrumentId)
         : fallback.instrumentId
     return {
       presetId:

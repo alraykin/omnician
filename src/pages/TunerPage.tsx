@@ -16,7 +16,10 @@ import { playInTuneChime } from '@/lib/in-tune-chime'
 import { matchString } from '@/lib/notes'
 import {
   customToPreset,
-  findInstrument,
+  familyHasSubmenu,
+  familyOf,
+  findConfig,
+  findFamily,
   inferInstrument,
   resolvePreset,
   type InstrumentId,
@@ -39,7 +42,11 @@ export function TunerPage() {
   const customPresets = tunings.map(customToPreset)
   const current = resolvePreset(presetId, customPresets)
   const activeInstrument = inferInstrument(current, instrumentId)
-  const instrument = findInstrument(activeInstrument)
+  const config = findConfig(activeInstrument)
+  const family = findFamily(familyOf(activeInstrument))
+  const instrumentLabel = familyHasSubmenu(family.id)
+    ? `${family.label} · ${config.label}`
+    : family.label
 
   useEffect(() => {
     saveTunerPrefs({
@@ -105,15 +112,15 @@ export function TunerPage() {
 
   return (
     <AppChrome align="fill">
-      <div className="flex flex-1 flex-col">
-        <h1 className="text-center text-2xl font-bold tracking-tight text-white">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <h1 className="text-center text-xl font-bold tracking-tight text-white sm:text-2xl">
           Tuner
         </h1>
         <p className="mt-1 text-center text-sm text-slate-400">
           A4 = {a4Hz} Hz · equal temperament
         </p>
 
-        <div className="mt-5 space-y-3">
+        <div className="mt-4 space-y-3">
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
@@ -121,7 +128,7 @@ export function TunerPage() {
           >
             <span>
               <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
-                {instrument.label}
+                {instrumentLabel}
               </span>
               <span className="mt-0.5 block text-sm font-semibold text-white">
                 {current.name}
@@ -137,7 +144,7 @@ export function TunerPage() {
 
         <section
           className={cn(
-            'mt-5 flex flex-1 flex-col items-center rounded-3xl border px-4 py-6 sm:px-6',
+            'mt-4 flex min-h-0 flex-1 flex-col items-center rounded-3xl border px-4 py-4 sm:px-6 sm:py-5',
             live && inTune
               ? 'border-emerald-400/40 bg-emerald-500/8'
               : 'border-white/10 bg-[#141A28]/80',
@@ -174,7 +181,9 @@ export function TunerPage() {
               : '— cents'}
           </p>
 
-          <TunerGauge cents={displayCents} inTune={inTune} active={live} />
+          <div className="mt-3 flex min-h-0 w-full flex-1 flex-col">
+            <TunerGauge cents={displayCents} inTune={inTune} active={live} />
+          </div>
 
           <LevelMeter level={level} on={status === 'listening'} />
 
@@ -369,8 +378,8 @@ function statusMessage(
     return `Heard ${unmatchedNote} — not in this tuning. Play a string from the set below.`
   }
   return instrumentMode
-    ? 'Needle eases toward the highlighted string. Hold until the checkmark lands.'
-    : 'Hold steady until the needle settles and the checkmark appears.'
+    ? 'The trail eases toward center. Hold until the checkmark lands.'
+    : 'Hold steady until the trail settles and the checkmark appears.'
 }
 
 function ordinal(value: number): string {

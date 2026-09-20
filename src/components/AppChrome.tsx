@@ -29,7 +29,7 @@ export function AppChrome({ children, align = 'center' }: AppChromeProps) {
         className={cn(
           'relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col pb-8',
           align === 'center' && 'items-center justify-center px-2 text-center',
-          align === 'fill' && 'pt-6 sm:max-w-xl',
+          align === 'fill' && 'pt-4 sm:max-w-xl',
         )}
       >
         {children}
