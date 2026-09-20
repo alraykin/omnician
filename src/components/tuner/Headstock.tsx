@@ -28,7 +28,7 @@ function geometry(
   slots: PegSlot[],
   rows: number,
 ): { height: number; nutY: number; pegs: PegGeom[]; nutLeft: number; nutWidth: number } {
-  const top = 64
+  const top = 78
   const rowGap = rows <= 2 ? 52 : rows <= 3 ? 48 : 42
   const nutY = top + Math.max(rows - 1, 0) * rowGap + 46
   const height = nutY + 22
@@ -140,31 +140,7 @@ export function Headstock({
               <stop offset="0%" stopColor="#F3E6C4" />
               <stop offset="100%" stopColor="#A4844C" />
             </linearGradient>
-            <filter id="omni-invert" colorInterpolationFilters="sRGB">
-              <feColorMatrix
-                type="matrix"
-                values="-1 0 0 0 1  0 -1 0 0 1  0 0 -1 0 1  0 0 0 1 0"
-              />
-            </filter>
           </defs>
-
-          <circle cx={VIEW_W / 2} cy="32" r="17.5" fill="#ffffff" />
-          <circle
-            cx={VIEW_W / 2}
-            cy="32"
-            r="17.5"
-            fill="none"
-            stroke="#C9A36A"
-            strokeWidth="1.4"
-          />
-          <image
-            href="/omnician-mark.png"
-            x={VIEW_W / 2 - 12.5}
-            y="19.5"
-            width="25"
-            height="25"
-            filter="url(#omni-invert)"
-          />
 
           <path
             d={bodyPath(nutY)}
@@ -178,6 +154,16 @@ export function Headstock({
             fill="none"
             stroke="rgba(168, 85, 247, 0.22)"
             strokeWidth="1.1"
+          />
+
+          <circle cx={VIEW_W / 2} cy="34" r="18.5" fill="#ffffff" />
+          <circle
+            cx={VIEW_W / 2}
+            cy="34"
+            r="18.5"
+            fill="none"
+            stroke="#C9A36A"
+            strokeWidth="1.6"
           />
 
           <rect
@@ -231,6 +217,16 @@ export function Headstock({
             )
           })}
         </svg>
+        <div
+          className="pointer-events-none absolute left-1/2 z-10 flex -translate-x-1/2 items-center justify-center rounded-full"
+          style={{ top: '5.8%', width: '13.2%', aspectRatio: '1' }}
+        >
+          <img
+            src="/omnician-mark.png"
+            alt=""
+            className="h-[72%] w-[72%] invert"
+          />
+        </div>
       </div>
       <p className="mt-2 text-center text-[0.65rem] leading-4 text-slate-500">
         Tap a peg to hear its pitch and set the target. Red is the active string;
