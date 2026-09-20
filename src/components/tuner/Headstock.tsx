@@ -610,14 +610,14 @@ function hexPath(cx: number, cy: number, r: number): string {
 }
 
 function cloverPath(cx: number, cy: number, dir: number, size: number): string {
-  const a = size * 0.92
-  const steps = 60
+  const a = size * 1.08
+  const steps = 72
   const pts: string[] = []
   for (let i = 0; i <= steps; i++) {
     const t = (i / steps) * Math.PI * 2
-    const r = a * (0.7 + 0.3 * -Math.cos(3 * t))
+    const r = a * (0.84 + 0.16 * -Math.cos(3 * t))
     const x = cx + dir * r * Math.cos(t)
-    const y = cy + r * Math.sin(t) * 0.96
+    const y = cy + r * Math.sin(t)
     pts.push(`${x.toFixed(2)},${y.toFixed(2)}`)
   }
   return `M ${pts.join(' L ')} Z`
