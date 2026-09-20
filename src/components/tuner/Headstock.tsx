@@ -2,6 +2,7 @@ import {
   layoutPegs,
   pegLetter,
   usesCloverPegs,
+  type PegSide,
   type PegSlot,
 } from '@/lib/headstock'
 import type { InstrumentString } from '@/lib/notes'
@@ -20,13 +21,12 @@ type HeadstockProps = {
   onTapPeg: (string: InstrumentString) => void
 }
 
-const VIEW_W = 400
+const VIEW_W = 440
 const CX = VIEW_W / 2
 const WHITE = '#F4F7FB'
 const RED = '#EF4444'
 const GREEN = '#22C55E'
-const INK = '#0B1020'
-const NECK_H = 72
+const INK = '#070B16'
 
 type Tone = 'idle' | 'selected' | 'red' | 'green' | 'sticky'
 
@@ -37,6 +37,7 @@ type PegGeom = PegSlot & {
   buttonY: number
   nutX: number
   nutY: number
+  edgeX: number
 }
 
 function toneFor(
@@ -61,49 +62,83 @@ function colors(tone: Tone): { fill: string; stroke: string; text: string } {
     return { fill: GREEN, stroke: GREEN, text: '#fff' }
   }
   if (tone === 'selected') return { fill: WHITE, stroke: WHITE, text: INK }
-  return { fill: 'none', stroke: WHITE, text: WHITE }
+  return { fill: INK, stroke: WHITE, text: WHITE }
 }
 
-function layout(slots: PegSlot[]): {
+function activeColor(tone: Tone): string | null {
+  if (tone === 'green') return GREEN
+  if (tone === 'red') return RED
+  return null
+}
+
+function layout(
+  slots: PegSlot[],
+  config: InstrumentId,
+  clover: boolean,
+): {
   height: number
   nutY: number
   nutLeft: number
   nutWidth: number
-  pegs: PegGeom[]
+  neckH: number
   rows: number
+  pegs: PegGeom[]
+  topHalf: number
 } {
   const left = slots.filter((slot) => slot.side === 'left')
   const right = slots.filter((slot) => slot.side === 'right')
   const rows = Math.max(left.length, right.length, 1)
-  const rowGap = rows <= 2 ? 58 : rows <= 3 ? 50 : 42
-  const firstY = 52
-  const nutY = firstY + (rows - 1) * rowGap + 56
-  const height = nutY + NECK_H
-  const nutWidth = 18 + rows * 14
-  const nutLeft = CX - nutWidth / 2
+  const banjo = config === 'banjo'
+  const neckH = banjo ? 118 : 78
+  const rowGap = rows <= 2 ? 58 : rows === 3 ? 50 : 40
+  const firstY = rows <= 2 ? 52 : 48
+  const lastY = firstY + (rows - 1) * rowGap
+  const nutY = lastY + 48
+  const height = nutY + neckH
 
-  const body = slots.filter((slot) => slot.side !== 'fifth')
-  const maxNo = Math.max(...body.map((slot) => slot.string.stringNo), 1)
-  const minNo = Math.min(...body.map((slot) => slot.string.stringNo), 1)
-  const span = Math.max(1, maxNo - minNo)
-  const pad = 5
+  const neckCount = slots.length
+  const nutWidth = 20 + neckCount * 13
+  const nutLeft = CX - nutWidth / 2
+  const pad = 7
+  const span = Math.max(1, neckCount - 1)
+  const topHalf = rows <= 2 ? 82 : rows === 3 ? 76 : 70
+
+  const byNo = [...slots].sort((a, b) => b.string.stringNo - a.string.stringNo)
+  const nutXs = new Map<string, number>()
+  byNo.forEach((slot, index) => {
+    const t = neckCount === 1 ? 0.5 : index / span
+    nutXs.set(slot.string.id, nutLeft + pad + t * (nutWidth - pad * 2))
+  })
 
   const pegs: PegGeom[] = slots.map((slot) => {
-    const nutX = nutLeft + pad + ((maxNo - slot.string.stringNo) / span) * (nutWidth - pad * 2)
+    const nutX = nutXs.get(slot.string.id) ?? CX
     if (slot.side === 'fifth') {
+      const buttonY = nutY + 38
+      const neckLeft = nutLeft - 4
+      const hexR = 20
+      const barrel = 18
       return {
         ...slot,
-        postX: CX - 34,
-        postY: nutY - 16,
-        buttonX: 52,
-        buttonY: nutY - 8,
-        nutX: nutLeft + pad,
+        postX: neckLeft + 8,
+        postY: buttonY,
+        buttonX: neckLeft - (hexR * 0.52 + barrel),
+        buttonY,
+        nutX,
         nutY,
+        edgeX: neckLeft,
       }
     }
+
     const postY = firstY + slot.row * rowGap
-    const postX = slot.side === 'left' ? CX - 40 : CX + 40
-    const buttonX = slot.side === 'left' ? 54 : VIEW_W - 54
+    const stagger = slot.row * (rows >= 4 ? 4.5 : rows === 3 ? 2.5 : 0)
+    const postCol = rows <= 2 ? 40 : 38
+    const postX =
+      slot.side === 'left' ? CX - postCol - stagger : CX + postCol + stagger
+    const dir = slot.side === 'left' ? 1 : -1
+    const edgeX = bodyEdgeX(postY, slot.side, nutY, nutWidth / 2, topHalf)
+    const barrel = clover ? 22 : 16
+    const hexR = clover ? 23 : 21
+    const buttonX = edgeX - dir * (hexR * 0.52 + barrel)
     return {
       ...slot,
       postX,
@@ -112,32 +147,56 @@ function layout(slots: PegSlot[]): {
       buttonY: postY,
       nutX,
       nutY,
+      edgeX,
     }
   })
 
-  return { height, nutY, nutLeft, nutWidth, pegs, rows }
+  return { height, nutY, nutLeft, nutWidth, neckH, rows, pegs, topHalf }
 }
 
-function batwing(nutY: number, inset: number): string {
-  const top = 12 + inset
-  const dip = 28 + inset * 0.4
-  const bottom = nutY - inset
-  const topHalf = 62 - inset * 0.4
-  const midHalf = 54 - inset * 0.35
-  const nutHalf = 38 - inset
-  const waist = top + (bottom - top) * 0.4
+function bodyEdgeX(
+  y: number,
+  side: PegSide,
+  nutY: number,
+  nutHalf: number,
+  topHalf: number,
+): number {
+  const t = Math.max(0, Math.min(1, (y - 18) / Math.max(1, nutY - 18)))
+  const midHalf = topHalf * 0.78
+  const botHalf = nutHalf + 11
+  const half =
+    t < 0.42
+      ? topHalf + (midHalf - topHalf) * (t / 0.42)
+      : midHalf + (botHalf - midHalf) * ((t - 0.42) / 0.58)
+  return side === 'right' ? CX + half : CX - half
+}
+
+function batwing(
+  nutY: number,
+  nutHalf: number,
+  inset: number,
+  topHalf: number,
+): string {
+  const top = 8 + inset
+  const dip = 26 + inset * 0.45
+  const horn = topHalf - inset * 0.55
+  const mid = topHalf * 0.78 - inset * 0.45
+  const bot = nutHalf + 12 - inset
+  const nut = nutHalf + 3 - inset
+  const yMid = top + (nutY - top) * 0.4
+  const yLow = nutY - 34 + inset * 0.15
 
   return [
-    `M ${CX - topHalf} ${top + 10}`,
-    `C ${CX - topHalf + 12} ${top - 1}, ${CX - 22} ${dip}, ${CX} ${dip}`,
-    `C ${CX + 22} ${dip}, ${CX + topHalf - 12} ${top - 1}, ${CX + topHalf} ${top + 10}`,
-    `C ${CX + topHalf + 8} ${waist - 8}, ${CX + midHalf + 10} ${waist + 8}, ${CX + midHalf} ${waist + 28}`,
-    `L ${CX + nutHalf + 10} ${bottom - 20}`,
-    `C ${CX + nutHalf + 6} ${bottom - 6}, ${CX + nutHalf + 2} ${bottom}, ${CX + nutHalf - 2} ${bottom}`,
-    `L ${CX - nutHalf + 2} ${bottom}`,
-    `C ${CX - nutHalf - 2} ${bottom}, ${CX - nutHalf - 6} ${bottom - 6}, ${CX - nutHalf - 10} ${bottom - 20}`,
-    `L ${CX - midHalf} ${waist + 28}`,
-    `C ${CX - midHalf - 10} ${waist + 8}, ${CX - topHalf - 8} ${waist - 8}, ${CX - topHalf} ${top + 10}`,
+    `M ${CX - horn} ${top + 15}`,
+    `C ${CX - horn + 7} ${top - 3}, ${CX - 30} ${dip + 1}, ${CX} ${dip}`,
+    `C ${CX + 30} ${dip + 1}, ${CX + horn - 7} ${top - 3}, ${CX + horn} ${top + 15}`,
+    `C ${CX + horn + 7} ${top + 44}, ${CX + mid + 10} ${yMid}, ${CX + mid} ${yMid + 18}`,
+    `C ${CX + mid - 1} ${yLow - 8}, ${CX + bot + 8} ${yLow}, ${CX + bot} ${nutY - 16}`,
+    `C ${CX + bot - 1} ${nutY - 5}, ${CX + nut + 5} ${nutY}, ${CX + nut} ${nutY}`,
+    `L ${CX - nut} ${nutY}`,
+    `C ${CX - nut - 5} ${nutY}, ${CX - bot + 1} ${nutY - 5}, ${CX - bot} ${nutY - 16}`,
+    `C ${CX - bot - 8} ${yLow}, ${CX - mid + 1} ${yLow - 8}, ${CX - mid} ${yMid + 18}`,
+    `C ${CX - mid - 10} ${yMid}, ${CX - horn - 7} ${top + 44}, ${CX - horn} ${top + 15}`,
     'Z',
   ].join(' ')
 }
@@ -155,11 +214,12 @@ export function Headstock({
 }: HeadstockProps) {
   const clover = usesCloverPegs(config)
   const slots = layoutPegs(strings, config)
-  const drawn = layout(slots)
-  const neckLeft = drawn.nutLeft - 3
-  const neckWidth = drawn.nutWidth + 6
+  const drawn = layout(slots, config, clover)
+  const neckLeft = drawn.nutLeft - 4
+  const neckWidth = drawn.nutWidth + 8
   const active = drawn.pegs.find((peg) => peg.string.id === selectedId) ?? null
   const rest = drawn.pegs.filter((peg) => peg.string.id !== selectedId)
+  const fretCount = config === 'banjo' ? 6 : 3
 
   return (
     <div className="w-full">
@@ -180,11 +240,27 @@ export function Headstock({
           role="img"
           aria-label="Instrument headstock"
         >
+          <defs>
+            <filter
+              id="omnician-peg-glow"
+              x="-40%"
+              y="-40%"
+              width="180%"
+              height="180%"
+            >
+              <feGaussianBlur stdDeviation="2.4" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
           <rect
             x={neckLeft}
             y={drawn.nutY}
             width={neckWidth}
-            height={NECK_H}
+            height={drawn.neckH}
             fill={INK}
             stroke={WHITE}
             strokeWidth="2.2"
@@ -193,27 +269,36 @@ export function Headstock({
             x={neckLeft + 4}
             y={drawn.nutY}
             width={neckWidth - 8}
-            height={NECK_H}
+            height={drawn.neckH}
             fill="none"
             stroke={WHITE}
             strokeWidth="1.1"
-            opacity="0.85"
+            opacity="0.9"
           />
-          {[0.28, 0.52, 0.76].map((t) => (
-            <line
-              key={t}
-              x1={neckLeft}
-              y1={drawn.nutY + NECK_H * t}
-              x2={neckLeft + neckWidth}
-              y2={drawn.nutY + NECK_H * t}
-              stroke={WHITE}
-              strokeWidth="1.1"
-            />
-          ))}
+          {Array.from({ length: fretCount }, (_, index) => {
+            const t = (index + 1) / (fretCount + 1)
+            return (
+              <line
+                key={t}
+                x1={neckLeft}
+                y1={drawn.nutY + drawn.neckH * t}
+                x2={neckLeft + neckWidth}
+                y2={drawn.nutY + drawn.neckH * t}
+                stroke={WHITE}
+                strokeWidth="1.1"
+              />
+            )
+          })}
 
-          <path d={batwing(drawn.nutY, 0)} fill={INK} stroke={WHITE} strokeWidth="2.4" strokeLinejoin="round" />
           <path
-            d={batwing(drawn.nutY, 6)}
+            d={batwing(drawn.nutY, drawn.nutWidth / 2, 0, drawn.topHalf)}
+            fill={INK}
+            stroke={WHITE}
+            strokeWidth="2.35"
+            strokeLinejoin="round"
+          />
+          <path
+            d={batwing(drawn.nutY, drawn.nutWidth / 2, 7, drawn.topHalf)}
             fill="none"
             stroke={WHITE}
             strokeWidth="1.15"
@@ -222,9 +307,9 @@ export function Headstock({
 
           <rect
             x={drawn.nutLeft}
-            y={drawn.nutY - 3}
+            y={drawn.nutY - 3.5}
             width={drawn.nutWidth}
-            height="6"
+            height="7"
             fill={INK}
             stroke={WHITE}
             strokeWidth="1.6"
@@ -235,7 +320,8 @@ export function Headstock({
               key={`s-${peg.string.id}`}
               peg={peg}
               color={WHITE}
-              width={1.35}
+              width={clover ? 1.7 : 1.35}
+              wound={clover}
               toNeck={drawn.height}
             />
           ))}
@@ -255,13 +341,12 @@ export function Headstock({
               <StringRun
                 peg={active}
                 color={
-                  toneFor(active.string.id, selectedId, tunedIds, inTune, live) === 'green'
-                    ? GREEN
-                    : toneFor(active.string.id, selectedId, tunedIds, inTune, live) === 'red'
-                      ? RED
-                      : WHITE
+                  activeColor(
+                    toneFor(active.string.id, selectedId, tunedIds, inTune, live),
+                  ) ?? WHITE
                 }
-                width={2.4}
+                width={clover ? 2.6 : 2.35}
+                wound={clover}
                 toNeck={drawn.height}
               />
               <Peg
@@ -287,28 +372,60 @@ function StringRun({
   peg,
   color,
   width,
+  wound,
   toNeck,
 }: {
   peg: PegGeom
   color: string
   width: number
+  wound: boolean
   toNeck: number
 }) {
-  const midY = (peg.nutY + peg.postY) / 2
-  const inward = peg.side === 'right' ? -6 : peg.side === 'left' ? 6 : 0
+  const neckEnd = peg.side === 'fifth' ? peg.buttonY : peg.nutY
+  const headPath =
+    peg.side === 'fifth'
+      ? null
+      : `M ${peg.nutX} ${peg.nutY} Q ${peg.nutX + (peg.side === 'right' ? -5 : 5)} ${(peg.nutY + peg.postY) / 2} ${peg.postX} ${peg.postY}`
+
   return (
     <g stroke={color} fill="none" strokeLinecap="round" strokeLinejoin="round">
-      <line
-        x1={peg.nutX}
-        y1={toNeck - 2}
-        x2={peg.nutX}
-        y2={peg.nutY}
-        strokeWidth={width}
-      />
-      <path
-        d={`M ${peg.nutX} ${peg.nutY} Q ${peg.nutX + inward} ${midY} ${peg.postX} ${peg.postY}`}
-        strokeWidth={width}
-      />
+      {wound ? (
+        <>
+          <line
+            x1={peg.nutX - 0.7}
+            y1={toNeck - 2}
+            x2={peg.nutX - 0.7}
+            y2={neckEnd}
+            strokeWidth={width}
+          />
+          <line
+            x1={peg.nutX + 0.7}
+            y1={toNeck - 2}
+            x2={peg.nutX + 0.7}
+            y2={neckEnd}
+            strokeWidth={width * 0.55}
+            opacity="0.7"
+          />
+        </>
+      ) : (
+        <line
+          x1={peg.nutX}
+          y1={toNeck - 2}
+          x2={peg.nutX}
+          y2={neckEnd}
+          strokeWidth={width}
+        />
+      )}
+      {headPath ? (
+        wound ? (
+          <>
+            <path d={headPath} strokeWidth={width} />
+            <path d={headPath} strokeWidth={width * 0.45} opacity="0.55" />
+          </>
+        ) : (
+          <path d={headPath} strokeWidth={width} />
+        )
+      ) : null}
     </g>
   )
 }
@@ -327,9 +444,14 @@ function Peg({
   onClick: () => void
 }) {
   const { fill, stroke, text } = colors(tone)
-  const inner = peg.side === 'right' ? -1 : 1
-  const stemX = peg.buttonX + inner * 17
-  const glow = tone === 'red' || tone === 'green'
+  const glow = tone === 'red' || tone === 'green' || tone === 'selected'
+  const dir = peg.side === 'right' ? -1 : 1
+  const hexR = clover ? 23 : 21
+  const shaftInner = hexR * (clover ? 0.42 : 0.48)
+  const shaftEnd = peg.edgeX - dir * 2
+  const shaftY = clover ? 5.2 : 4.6
+  const shaftX = peg.buttonX + dir * shaftInner
+  const shaftW = (shaftEnd - shaftX) * dir
 
   return (
     <g
@@ -344,42 +466,74 @@ function Peg({
         }
       }}
       className="cursor-pointer"
+      filter={glow ? 'url(#omnician-peg-glow)' : undefined}
     >
-      {glow ? (
-        <circle cx={peg.postX} cy={peg.postY} r="11" fill={stroke} opacity="0.22" />
+      {peg.side !== 'fifth' ? (
+        <Post
+          x={peg.postX}
+          y={peg.postY}
+          stroke={stroke}
+          wound={clover}
+          lit={tone !== 'idle'}
+        />
       ) : null}
-      <line
-        x1={stemX}
-        y1={peg.buttonY}
-        x2={peg.postX}
-        y2={peg.postY}
+
+      <rect
+        x={dir === 1 ? shaftX : shaftX + (shaftEnd - shaftX)}
+        y={peg.buttonY - shaftY}
+        width={Math.max(10, shaftW)}
+        height={shaftY * 2}
+        rx={clover ? 2.2 : 2}
+        fill={fill}
         stroke={stroke}
-        strokeWidth="3.2"
-        strokeLinecap="round"
+        strokeWidth="2"
       />
-      <circle
-        cx={peg.postX}
-        cy={peg.postY}
-        r="7.2"
-        fill={INK}
-        stroke={stroke}
-        strokeWidth={tone === 'idle' ? 2 : 2.6}
-      />
-      <circle cx={peg.postX} cy={peg.postY} r="3.1" fill="none" stroke={stroke} strokeWidth="1.4" />
+      {clover ? (
+        <>
+          <circle
+            cx={shaftEnd - dir * 11}
+            cy={peg.buttonY}
+            r="3.1"
+            fill={INK}
+            stroke={stroke}
+            strokeWidth="1.5"
+          />
+          <circle
+            cx={shaftEnd - dir * 5}
+            cy={peg.buttonY}
+            r="3.1"
+            fill={INK}
+            stroke={stroke}
+            strokeWidth="1.5"
+          />
+        </>
+      ) : (
+        <rect
+          x={dir === 1 ? shaftEnd - 6 : shaftEnd}
+          y={peg.buttonY - 4}
+          width="6"
+          height="8"
+          rx="1.6"
+          fill={fill}
+          stroke={stroke}
+          strokeWidth="1.6"
+        />
+      )}
+
       {clover ? (
         <path
-          d={cloverPath(peg.buttonX, peg.buttonY)}
-          fill={fill === 'none' ? INK : fill}
+          d={cloverPath(peg.buttonX, peg.buttonY, dir)}
+          fill={fill}
           stroke={stroke}
-          strokeWidth="2.1"
+          strokeWidth="2.15"
           strokeLinejoin="round"
         />
       ) : (
         <path
-          d={hexPath(peg.buttonX, peg.buttonY, 21)}
-          fill={fill === 'none' ? INK : fill}
+          d={hexPath(peg.buttonX, peg.buttonY, hexR)}
+          fill={fill}
           stroke={stroke}
-          strokeWidth="2.1"
+          strokeWidth="2.15"
           strokeLinejoin="round"
         />
       )}
@@ -388,7 +542,7 @@ function Peg({
         y={peg.buttonY + 6}
         textAnchor="middle"
         fill={text}
-        fontSize="16"
+        fontSize={letter.length > 1 ? 13 : 16}
         fontWeight="700"
         fontFamily="Outfit, sans-serif"
       >
@@ -398,23 +552,65 @@ function Peg({
   )
 }
 
+function Post({
+  x,
+  y,
+  stroke,
+  wound,
+  lit,
+}: {
+  x: number
+  y: number
+  stroke: string
+  wound: boolean
+  lit: boolean
+}) {
+  return (
+    <g>
+      {lit ? <circle cx={x} cy={y} r="11" fill={stroke} opacity="0.2" /> : null}
+      <circle
+        cx={x}
+        cy={y}
+        r="7.4"
+        fill={INK}
+        stroke={stroke}
+        strokeWidth={lit ? 2.6 : 2.05}
+      />
+      <circle cx={x} cy={y} r="3.2" fill="none" stroke={stroke} strokeWidth="1.45" />
+      {wound ? (
+        <line
+          x1={x - 4.2}
+          y1={y - 4.2}
+          x2={x + 4.2}
+          y2={y + 4.2}
+          stroke={stroke}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      ) : null}
+    </g>
+  )
+}
+
 function hexPath(cx: number, cy: number, r: number): string {
+  const rx = r
+  const ry = r * 0.9
   const pts = Array.from({ length: 6 }, (_, index) => {
     const angle = (Math.PI / 180) * (60 * index)
-    return `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`
+    return `${cx + rx * Math.cos(angle)},${cy + ry * Math.sin(angle)}`
   })
   return `M ${pts.join(' L ')} Z`
 }
 
-function cloverPath(cx: number, cy: number): string {
+function cloverPath(cx: number, cy: number, dir: number): string {
+  const s = dir
   return [
-    `M ${cx} ${cy - 13}`,
-    `C ${cx + 7} ${cy - 13}, ${cx + 12} ${cy - 8}, ${cx + 12} ${cy - 3}`,
-    `C ${cx + 17} ${cy - 2}, ${cx + 20} ${cy + 4}, ${cx + 17} ${cy + 9}`,
-    `C ${cx + 14} ${cy + 14}, ${cx + 7} ${cy + 15}, ${cx} ${cy + 13}`,
-    `C ${cx - 7} ${cy + 15}, ${cx - 14} ${cy + 14}, ${cx - 17} ${cy + 9}`,
-    `C ${cx - 20} ${cy + 4}, ${cx - 17} ${cy - 2}, ${cx - 12} ${cy - 3}`,
-    `C ${cx - 12} ${cy - 8}, ${cx - 7} ${cy - 13}, ${cx} ${cy - 13}`,
+    `M ${cx + s * -17} ${cy}`,
+    `C ${cx + s * -18} ${cy - 11}, ${cx + s * -8} ${cy - 18}, ${cx + s * 1} ${cy - 13}`,
+    `C ${cx + s * 4} ${cy - 20}, ${cx + s * 16} ${cy - 16}, ${cx + s * 15} ${cy - 5}`,
+    `C ${cx + s * 19} ${cy - 2}, ${cx + s * 19} ${cy + 2}, ${cx + s * 15} ${cy + 5}`,
+    `C ${cx + s * 16} ${cy + 16}, ${cx + s * 4} ${cy + 20}, ${cx + s * 1} ${cy + 13}`,
+    `C ${cx + s * -8} ${cy + 18}, ${cx + s * -18} ${cy + 11}, ${cx + s * -17} ${cy}`,
     'Z',
   ].join(' ')
 }
