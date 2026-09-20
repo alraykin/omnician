@@ -232,7 +232,7 @@ function PegButton({
         <span className="block text-sm font-bold leading-none text-white">
           {string.label}
         </span>
-        <span className="block text-[0.6rem] uppercase tracking-wider text-slate-500">
+        <span className="block text-[0.7rem] font-semibold tabular-nums text-slate-300">
           {fifth ? '5th' : `${string.stringNo}`}
         </span>
       </span>
