@@ -78,9 +78,10 @@ Click the terminal window and press **Control + C**.
 - **Tuner**
   - Tap **Change** for top-level chips: Chromatic, Guitar, Bass, Ukulele, Folk, My customs
   - Guitar opens a submenu by setup (6 / 7 / 8 / 9 / 10 / 12-string and Baritone). Bass opens 4–8 string. Folk holds Banjo, Mandolin, Violin / Fiddle, and Bouzouki
-  - Tunings are grouped under **Standard**, **Drop**, **Double Drop**, **Open**, **Alternate / Other**, and **Left-handed**, with the note string under each name (for example `E A D G B E`)
+  - Tunings are grouped under **Standard**, **Drop**, **Double Drop**, **Open**, and **Alternate / Other**, with the note string under each name (for example `E A D G B E`)
   - Chromatic hides the string list and shows an A4 calibration slider
-  - A large trail shows recent pitch movement as it settles toward center, then a checkmark and a short in-tune chime
+  - A large, slower trail shows how far off you are, then a hold bar fills for about two seconds before a green glow
+  - Instrument presets show a headstock with the Omnician O, red/green pegs, auto-advance, and a tap-to-hear reference tone
   - Custom 4–10 string tunings save on this device only
 - **Metronome / Drum Machine** — placeholder pages that say **Coming in V1**
 - A quiet note that more can unlock with a subscription later (there are **no payments** yet)

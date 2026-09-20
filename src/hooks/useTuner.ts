@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { TUNER_FEEL } from '@/lib/feel'
 import { A4_HZ, analyzeFrequency, rms, type DetectedNote } from '@/lib/notes'
 import {
   createPitchDetector,
   estimatePitch,
   PITCH_BUFFER_SIZE,
 } from '@/lib/pitch-detector'
-import { SENSITIVITY, type Sensitivity } from '@/lib/sensitivity'
 
 const MIN_HZ = 28
 const MAX_HZ = 2000
 const LOW_BAND_HZ = 80
 const RUMBLE_HZ = 50
+const AGC_TARGET = 0.07
+const AGC_MIN = 1.2
+const AGC_MAX = 16
 
 export type TunerStatus =
   | 'idle'
@@ -41,7 +44,7 @@ async function requestMic(): Promise<MediaStream> {
   const detailed: MediaStreamConstraints = {
     audio: {
       echoCancellation: false,
-      autoGainControl: false,
+      autoGainControl: true,
       noiseSuppression: false,
       channelCount: 1,
     },
@@ -80,28 +83,50 @@ function passesConfidence(
   frequency: number,
   clarity: number,
   signal: number,
-  minClarity: number,
-  minRms: number,
 ): boolean {
   if (!Number.isFinite(frequency) || frequency < MIN_HZ || frequency > MAX_HZ) {
     return false
   }
 
-  let clarityFloor = minClarity
-  let rmsFloor = minRms
+  let clarityFloor = TUNER_FEEL.minClarity
+  let rmsFloor = TUNER_FEEL.minRms
 
   if (frequency < RUMBLE_HZ) {
-    clarityFloor = Math.max(clarityFloor, 0.93)
-    rmsFloor = Math.max(rmsFloor, 0.018)
+    clarityFloor = Math.max(clarityFloor, 0.88)
+    rmsFloor = Math.max(rmsFloor, 0.01)
   } else if (frequency < LOW_BAND_HZ) {
-    clarityFloor = Math.max(clarityFloor, 0.89)
-    rmsFloor = Math.max(rmsFloor, 0.012)
+    clarityFloor = Math.max(clarityFloor, 0.82)
+    rmsFloor = Math.max(rmsFloor, 0.005)
   }
 
   return clarity >= clarityFloor && signal >= rmsFloor
 }
 
-export function useTuner(sensitivity: Sensitivity, a4Hz = A4_HZ) {
+function connectInput(audio: AudioContext, source: AudioNode, analyser: AnalyserNode) {
+  const highpass = audio.createBiquadFilter()
+  highpass.type = 'highpass'
+  highpass.frequency.value = 32
+  highpass.Q.value = 0.7
+
+  const compressor = audio.createDynamicsCompressor()
+  compressor.threshold.value = -38
+  compressor.knee.value = 28
+  compressor.ratio.value = 10
+  compressor.attack.value = 0.004
+  compressor.release.value = 0.16
+
+  const makeup = audio.createGain()
+  makeup.gain.value = 3.2
+
+  source.connect(highpass)
+  highpass.connect(compressor)
+  compressor.connect(makeup)
+  makeup.connect(analyser)
+
+  return makeup
+}
+
+export function useTuner(a4Hz = A4_HZ) {
   const [status, setStatus] = useState<TunerStatus>('idle')
   const [reading, setReading] = useState<TunerReading | null>(null)
   const [level, setLevel] = useState(0)
@@ -110,17 +135,17 @@ export function useTuner(sensitivity: Sensitivity, a4Hz = A4_HZ) {
   const audioRef = useRef<AudioContext | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const oscRef = useRef<OscillatorNode | null>(null)
+  const makeupRef = useRef<GainNode | null>(null)
   const rafRef = useRef(0)
   const lastHeardRef = useRef(0)
   const smoothHzRef = useRef<number | null>(null)
   const pendingHzRef = useRef<number | null>(null)
   const pendingCountRef = useRef(0)
+  const agcRef = useRef(4)
   const sessionRef = useRef(0)
-  const sensitivityRef = useRef(sensitivity)
   const a4Ref = useRef(a4Hz)
 
   statusRef.current = status
-  sensitivityRef.current = sensitivity
   a4Ref.current = a4Hz
 
   const stop = useCallback(() => {
@@ -131,6 +156,8 @@ export function useTuner(sensitivity: Sensitivity, a4Hz = A4_HZ) {
     smoothHzRef.current = null
     pendingHzRef.current = null
     pendingCountRef.current = 0
+    makeupRef.current = null
+    agcRef.current = 4
 
     const stream = streamRef.current
     streamRef.current = null
@@ -205,11 +232,11 @@ export function useTuner(sensitivity: Sensitivity, a4Hz = A4_HZ) {
     if (useDemo) {
       const oscillator = audio.createOscillator()
       const gain = audio.createGain()
-      gain.gain.value = 0.25
+      gain.gain.value = 0.22
       oscillator.type = 'sine'
       oscillator.frequency.value = demoHz
       oscillator.connect(gain)
-      gain.connect(analyser)
+      makeupRef.current = connectInput(audio, gain, analyser)
       oscillator.start()
       oscRef.current = oscillator
     } else {
@@ -236,12 +263,17 @@ export function useTuner(sensitivity: Sensitivity, a4Hz = A4_HZ) {
         return
       }
 
-      audio.createMediaStreamSource(stream).connect(analyser)
+      makeupRef.current = connectInput(
+        audio,
+        audio.createMediaStreamSource(stream),
+        analyser,
+      )
       streamRef.current = stream
     }
 
     const detector = createPitchDetector()
     const buffer = new Float32Array(PITCH_BUFFER_SIZE)
+    const boosted = new Float32Array(PITCH_BUFFER_SIZE)
 
     audioRef.current = audio
 
@@ -262,46 +294,57 @@ export function useTuner(sensitivity: Sensitivity, a4Hz = A4_HZ) {
     const tick = () => {
       if (sessionRef.current !== session) return
       analyser.getFloatTimeDomainData(buffer)
-      const signal = rms(buffer)
-      setLevel(Math.min(1, signal * 12))
+      const raw = rms(buffer)
+      if (raw > 0.0006) {
+        const desired = Math.min(AGC_MAX, Math.max(AGC_MIN, AGC_TARGET / raw))
+        agcRef.current = agcRef.current * 0.9 + desired * 0.1
+      } else {
+        agcRef.current = agcRef.current * 0.98 + AGC_MIN * 0.02
+      }
+      const agc = agcRef.current
+      const makeup = makeupRef.current
+      if (makeup) {
+        const nextGain = Math.min(10, 1.4 + agc * 0.35)
+        makeup.gain.value = makeup.gain.value * 0.85 + nextGain * 0.15
+      }
+
+      for (let i = 0; i < buffer.length; i += 1) {
+        const sample = buffer[i] * agc
+        boosted[i] = Math.max(-1, Math.min(1, sample))
+      }
+      const signal = rms(boosted)
+      setLevel(Math.min(1, signal * 8))
 
       const { frequency, clarity } = estimatePitch(
         detector,
-        buffer,
+        boosted,
         audio.sampleRate,
       )
       const now = performance.now()
-      const feel = SENSITIVITY[sensitivityRef.current]
-      const strong = passesConfidence(
-        frequency,
-        clarity,
-        signal,
-        feel.minClarity,
-        feel.minRms,
-      )
+      const strong = passesConfidence(frequency, clarity, signal)
 
       if (strong) {
         const pending = pendingHzRef.current
         const samePitch =
           pending !== null &&
-          Math.abs(12 * Math.log2(frequency / pending)) < 0.32
+          Math.abs(12 * Math.log2(frequency / pending)) < 0.38
 
         if (samePitch && pending !== null) {
-          pendingHzRef.current = pending * 0.55 + frequency * 0.45
+          pendingHzRef.current = pending * 0.5 + frequency * 0.5
           pendingCountRef.current += 1
         } else {
           pendingHzRef.current = frequency
           pendingCountRef.current = 1
         }
 
-        const needed = frequency < LOW_BAND_HZ ? 3 : 2
+        const needed = frequency < RUMBLE_HZ ? 2 : 1
         if (pendingCountRef.current >= needed) {
           const accepted = pendingHzRef.current ?? frequency
           const previous = smoothHzRef.current
           const next =
             previous &&
-            Math.abs(12 * Math.log2(accepted / previous)) < feel.jumpSemitones
-              ? previous * feel.smoothPrev + accepted * feel.smoothNext
+            Math.abs(12 * Math.log2(accepted / previous)) < TUNER_FEEL.jumpSemitones
+              ? previous * TUNER_FEEL.smoothPrev + accepted * TUNER_FEEL.smoothNext
               : accepted
           smoothHzRef.current = next
           lastHeardRef.current = now
@@ -311,7 +354,7 @@ export function useTuner(sensitivity: Sensitivity, a4Hz = A4_HZ) {
       } else {
         pendingCountRef.current = Math.max(0, pendingCountRef.current - 1)
         if (pendingCountRef.current === 0) pendingHzRef.current = null
-        if (now - lastHeardRef.current > feel.holdMs) {
+        if (now - lastHeardRef.current > TUNER_FEEL.holdMs) {
           smoothHzRef.current = null
           setReading(null)
         }

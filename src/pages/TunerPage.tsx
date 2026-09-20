@@ -1,19 +1,20 @@
 import { Check } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { AppChrome } from '@/components/AppChrome'
 import { ChromaticCalibration } from '@/components/tuner/ChromaticCalibration'
 import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
-import { SensitivityControl } from '@/components/tuner/SensitivityControl'
-import { StringStrip } from '@/components/tuner/StringStrip'
+import { Headstock } from '@/components/tuner/Headstock'
 import { TunerGauge } from '@/components/tuner/TunerGauge'
 import { TuningSheet } from '@/components/tuner/TuningSheet'
 import { Button } from '@/components/ui/button'
 import { useCustomTunings } from '@/hooks/useCustomTunings'
+import { useInTuneHold } from '@/hooks/useInTuneHold'
 import { useTuner, type TunerStatus } from '@/hooks/useTuner'
 import { loadTunerPrefs, saveTunerPrefs } from '@/lib/custom-presets'
+import { IN_TUNE_CENTS } from '@/lib/feel'
 import { playInTuneChime } from '@/lib/in-tune-chime'
-import { matchString } from '@/lib/notes'
+import { centsBetween, matchString, midiToFreq, STRING_LOCK_CENTS } from '@/lib/notes'
 import {
   customToPreset,
   familyHasSubmenu,
@@ -24,7 +25,7 @@ import {
   resolvePreset,
   type InstrumentId,
 } from '@/lib/presets'
-import { SENSITIVITY, type Sensitivity } from '@/lib/sensitivity'
+import { playReferenceTone } from '@/lib/reference-tone'
 import { cn } from '@/lib/utils'
 
 export function TunerPage() {
@@ -32,12 +33,14 @@ export function TunerPage() {
   const { tunings, upsert, remove } = useCustomTunings()
   const [presetId, setPresetId] = useState(prefs.presetId)
   const [instrumentId, setInstrumentId] = useState<InstrumentId>(prefs.instrumentId)
-  const [sensitivity, setSensitivity] = useState<Sensitivity>(prefs.sensitivity)
   const [a4Hz, setA4Hz] = useState(prefs.a4Hz)
+  const [autoString, setAutoString] = useState(prefs.autoString)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [editor, setEditor] = useState<null | { id?: string }>(null)
+  const [focusIndex, setFocusIndex] = useState(0)
+  const [tunedIds, setTunedIds] = useState<Set<string>>(() => new Set())
 
-  const { status, reading, level, start, stop } = useTuner(sensitivity, a4Hz)
+  const { status, reading, level, start, stop } = useTuner(a4Hz)
 
   const customPresets = tunings.map(customToPreset)
   const current = resolvePreset(presetId, customPresets)
@@ -52,10 +55,15 @@ export function TunerPage() {
     saveTunerPrefs({
       presetId: current.id,
       instrumentId: activeInstrument,
-      sensitivity,
       a4Hz,
+      autoString,
     })
-  }, [activeInstrument, a4Hz, current.id, sensitivity])
+  }, [activeInstrument, a4Hz, autoString, current.id])
+
+  useEffect(() => {
+    setFocusIndex(0)
+    setTunedIds(new Set())
+  }, [current.id])
 
   const demoTone = useMemo(() => {
     const hz = Number(new URLSearchParams(window.location.search).get('demo'))
@@ -64,37 +72,85 @@ export function TunerPage() {
 
   const strings = current.strings
   const instrumentMode = strings.length > 0
-  const locked = reading && instrumentMode
-    ? matchString(reading.frequency, strings, a4Hz)
-    : null
-  const activeString = locked?.string ?? null
+  const safeFocus = Math.min(focusIndex, Math.max(0, strings.length - 1))
+  const focusString = instrumentMode ? strings[safeFocus] ?? null : null
+
+  const nearest =
+    reading && instrumentMode && !autoString
+      ? matchString(reading.frequency, strings, a4Hz)
+      : null
+  const focused =
+    reading && instrumentMode && autoString && focusString
+      ? {
+          string: focusString,
+          cents: centsBetween(reading.frequency, focusString.midi, a4Hz),
+        }
+      : null
+  const locked = autoString
+    ? focused && Math.abs(focused.cents) <= STRING_LOCK_CENTS
+      ? focused
+      : null
+    : nearest
+  const activeString = autoString ? focusString : (locked?.string ?? null)
   const displayCents = demoTone
     ? (reading?.cents ?? null)
-    : locked
-      ? locked.cents
-      : (reading?.cents ?? null)
-  const inTuneWindow = SENSITIVITY[sensitivity].inTuneCents
+    : autoString && focused
+      ? focused.cents
+      : locked
+        ? locked.cents
+        : (reading?.cents ?? null)
   const inTune =
     displayCents !== null &&
-    Math.abs(displayCents) <= inTuneWindow &&
+    Math.abs(displayCents) <= IN_TUNE_CENTS &&
     (demoTone || !instrumentMode || locked !== null)
   const live = status === 'listening' && reading !== null
-  const stringInTune = Boolean(
-    locked && Math.abs(locked.cents) <= inTuneWindow,
-  )
+  const holdTarget = instrumentMode
+    ? (activeString?.id ?? null)
+    : live
+      ? 'chromatic'
+      : null
   const unmatchedNote =
-    live && instrumentMode && !locked && !demoTone && reading
+    live && instrumentMode && !locked && !demoTone && reading && !autoString
       ? `${reading.sharpName}${reading.octave}`
       : null
 
-  const wasInTune = useRef(false)
+  const markComplete = useCallback((id: string) => {
+    playInTuneChime()
+    if (id === 'chromatic') return
+    setTunedIds((currentIds) => {
+      const next = new Set(currentIds)
+      next.add(id)
+      return next
+    })
+    if (!autoString) return
+    window.setTimeout(() => {
+      setFocusIndex((index) => {
+        const startAt = strings.findIndex((item) => item.id === id)
+        const from = startAt >= 0 ? startAt : index
+        for (let offset = 1; offset <= strings.length; offset += 1) {
+          const nextIndex = (from + offset) % strings.length
+          if (strings[nextIndex].id !== id) {
+            return nextIndex
+          }
+        }
+        return index
+      })
+    }, 850)
+  }, [autoString, strings])
+
+  const { progress, complete } = useInTuneHold(inTune, live, holdTarget, markComplete)
+
   useEffect(() => {
-    const celebrating = live && inTune
-    if (celebrating && !wasInTune.current) {
-      playInTuneChime()
+    if (!locked || complete) return
+    if (!tunedIds.has(locked.string.id)) return
+    if (Math.abs(locked.cents) > IN_TUNE_CENTS + 10) {
+      setTunedIds((currentIds) => {
+        const next = new Set(currentIds)
+        next.delete(locked.string.id)
+        return next
+      })
     }
-    wasInTune.current = celebrating
-  }, [inTune, live])
+  }, [complete, locked, tunedIds])
 
   const openEdit = (id: string) => {
     setPickerOpen(false)
@@ -117,10 +173,10 @@ export function TunerPage() {
           Tuner
         </h1>
         <p className="mt-1 text-center text-sm text-slate-400">
-          A4 = {a4Hz} Hz · equal temperament
+          A4 = {a4Hz} Hz · ±{IN_TUNE_CENTS} cents
         </p>
 
-        <div className="mt-4 space-y-3">
+        <div className="mt-4">
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
@@ -139,21 +195,20 @@ export function TunerPage() {
             </span>
             <span className="text-xs font-semibold text-slate-400">Change</span>
           </button>
-          <SensitivityControl value={sensitivity} onChange={setSensitivity} />
         </div>
 
         <section
           className={cn(
             'mt-4 flex min-h-0 flex-1 flex-col items-center rounded-3xl border px-4 py-4 sm:px-6 sm:py-5',
-            live && inTune
-              ? 'border-emerald-400/40 bg-emerald-500/8'
+            complete
+              ? 'border-emerald-400/50 bg-emerald-500/10'
               : 'border-white/10 bg-[#141A28]/80',
           )}
           aria-live="polite"
         >
           <NoteDisplay
             live={live}
-            inTune={inTune}
+            complete={complete}
             sharpName={reading?.sharpName}
             flatName={reading?.flatName}
             isNatural={reading?.isNatural}
@@ -167,9 +222,10 @@ export function TunerPage() {
 
           <p
             className={cn(
-              'mt-3 text-lg font-semibold tabular-nums',
+              'mt-2 text-lg font-semibold tabular-nums',
               !live && 'text-slate-500',
-              live && inTune && 'text-emerald-300',
+              live && complete && 'text-emerald-300',
+              live && inTune && !complete && 'text-lime-300',
               live && !inTune && displayCents !== null && displayCents < 0 &&
                 'text-sky-300',
               live && !inTune && displayCents !== null && displayCents > 0 &&
@@ -177,22 +233,39 @@ export function TunerPage() {
             )}
           >
             {live && displayCents !== null
-              ? formatCents(displayCents, inTune)
+              ? formatCents(displayCents, complete)
               : '— cents'}
           </p>
 
-          <div className="mt-3 flex min-h-0 w-full flex-1 flex-col">
-            <TunerGauge cents={displayCents} inTune={inTune} active={live} />
+          <div className="mt-2 flex min-h-0 w-full flex-1 flex-col">
+            <TunerGauge
+              cents={displayCents}
+              inTune={inTune}
+              active={live}
+              holdProgress={progress}
+              holdComplete={complete}
+            />
           </div>
 
           <LevelMeter level={level} on={status === 'listening'} />
 
           {instrumentMode ? (
             <div className="mt-4 w-full">
-              <StringStrip
+              <Headstock
                 strings={strings}
-                activeId={live ? (activeString?.id ?? null) : null}
-                inTune={stringInTune}
+                config={activeInstrument}
+                selectedId={activeString?.id ?? null}
+                tunedIds={tunedIds}
+                autoString={autoString}
+                onAutoChange={(value) => {
+                  setAutoString(value)
+                  setFocusIndex(0)
+                }}
+                onTapPeg={(string) => {
+                  playReferenceTone(midiToFreq(string.midi, a4Hz), family.id)
+                  const index = strings.findIndex((item) => item.id === string.id)
+                  if (index >= 0) setFocusIndex(index)
+                }}
               />
             </div>
           ) : (
@@ -201,8 +274,8 @@ export function TunerPage() {
             </div>
           )}
 
-          <p className="mt-5 min-h-10 text-center text-sm leading-6 text-slate-400">
-            {statusMessage(status, live, instrumentMode, unmatchedNote)}
+          <p className="mt-4 min-h-10 text-center text-sm leading-6 text-slate-400">
+            {statusMessage(status, live, instrumentMode, unmatchedNote, autoString)}
           </p>
         </section>
 
@@ -275,7 +348,7 @@ export function TunerPage() {
 
 function NoteDisplay({
   live,
-  inTune,
+  complete,
   sharpName,
   flatName,
   isNatural,
@@ -283,7 +356,7 @@ function NoteDisplay({
   target,
 }: {
   live: boolean
-  inTune: boolean
+  complete: boolean
   sharpName?: string
   flatName?: string
   isNatural?: boolean
@@ -293,7 +366,7 @@ function NoteDisplay({
   if (!live || !sharpName) {
     return (
       <div className="text-center">
-        <div className="text-6xl font-extrabold tracking-tight text-white/25 sm:text-7xl">
+        <div className="text-5xl font-extrabold tracking-tight text-white/25 sm:text-6xl">
           —
         </div>
         <p className="mt-1 text-sm text-slate-500">Waiting for a note</p>
@@ -305,15 +378,15 @@ function NoteDisplay({
     <div className="text-center">
       <div
         className={cn(
-          'relative inline-flex items-start text-6xl font-extrabold tracking-tight sm:text-7xl',
-          inTune ? 'text-emerald-300' : 'text-white',
+          'relative inline-flex items-start text-5xl font-extrabold tracking-tight sm:text-6xl',
+          complete ? 'text-emerald-300' : 'text-white',
         )}
       >
         {sharpName}
         <span className="ml-1 align-super text-2xl font-semibold text-slate-400 sm:text-3xl">
           {octave}
         </span>
-        {inTune ? (
+        {complete ? (
           <span className="omni-in-tune-pop absolute -right-8 top-1 flex size-7 items-center justify-center rounded-full bg-emerald-400 text-[#06281c] sm:-right-9">
             <Check className="size-4 stroke-[3]" />
           </span>
@@ -321,7 +394,7 @@ function NoteDisplay({
       </div>
       <p className="mt-1 text-sm text-slate-400">
         {isNatural ? 'Natural' : `${sharpName} / ${flatName}`}
-        {target ? ` · toward ${target}` : ''}
+        {target ? ` · ${target}` : ''}
       </p>
     </div>
   )
@@ -329,7 +402,7 @@ function NoteDisplay({
 
 function LevelMeter({ level, on }: { level: number; on: boolean }) {
   return (
-    <div className="mt-1 flex w-full max-w-xs items-center gap-2">
+    <div className="mt-2 flex w-full max-w-xs items-center gap-2">
       <span className="w-10 text-[0.65rem] uppercase tracking-wider text-slate-500">
         Mic
       </span>
@@ -346,10 +419,10 @@ function LevelMeter({ level, on }: { level: number; on: boolean }) {
   )
 }
 
-function formatCents(cents: number, inTune: boolean): string {
+function formatCents(cents: number, complete: boolean): string {
   const rounded = Math.round(cents)
-  if (inTune && Math.abs(rounded) <= 1) return '0 cents · in tune'
-  if (Math.abs(rounded) <= 1) return '0 cents'
+  if (complete && Math.abs(rounded) <= 1) return '0 cents · in tune'
+  if (Math.abs(rounded) <= 1) return '0 cents · hold…'
   if (rounded > 0) return `${rounded} cents sharp`
   return `${Math.abs(rounded)} cents flat`
 }
@@ -359,6 +432,7 @@ function statusMessage(
   live: boolean,
   instrumentMode: boolean,
   unmatchedNote: string | null,
+  autoString: boolean,
 ): string {
   if (status === 'idle') {
     return 'Tap Start Tuning, allow the microphone, then play a note near the phone.'
@@ -375,11 +449,14 @@ function statusMessage(
   }
   if (status === 'listening' && !live) return 'Play a note…'
   if (unmatchedNote) {
-    return `Heard ${unmatchedNote} — not in this tuning. Play a string from the set below.`
+    return `Heard ${unmatchedNote} — not in this tuning. Play a string from the headstock.`
+  }
+  if (instrumentMode && autoString) {
+    return 'Auto strings is on. Hold the red peg in the green for about two seconds to lock it and move on.'
   }
   return instrumentMode
-    ? 'The trail eases toward center. Hold until the checkmark lands.'
-    : 'Hold steady until the trail settles and the checkmark appears.'
+    ? 'Hold the trail in the center until the bar fills and the peg turns green.'
+    : 'Hold steady until the bar fills and the display glows.'
 }
 
 function ordinal(value: number): string {

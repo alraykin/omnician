@@ -35,7 +35,6 @@ export type TuningCategory =
   | 'double-drop'
   | 'open'
   | 'alternate'
-  | 'left-handed'
 
 export type TuningPreset = {
   id: string
@@ -94,7 +93,6 @@ export const CATEGORY_ORDER: TuningCategory[] = [
   'double-drop',
   'open',
   'alternate',
-  'left-handed',
 ]
 
 export const CATEGORY_LABELS: Record<TuningCategory, string> = {
@@ -103,7 +101,6 @@ export const CATEGORY_LABELS: Record<TuningCategory, string> = {
   'double-drop': 'Double Drop',
   open: 'Open',
   alternate: 'Alternate / Other',
-  'left-handed': 'Left-handed',
 }
 
 const LEGACY_CONFIG: Record<string, InstrumentId> = {
@@ -111,6 +108,11 @@ const LEGACY_CONFIG: Record<string, InstrumentId> = {
   'electric-guitar': 'guitar-6',
   'guitar-7': 'guitar-7',
   'guitar-12': 'guitar-12',
+}
+
+const LEGACY_PRESET: Record<string, string> = {
+  'guitar-6-lefty-standard': 'guitar-6-standard',
+  'guitar-6-lefty-drop-d': 'guitar-6-drop-d',
 }
 
 function preset(
@@ -161,8 +163,6 @@ export const BUILTIN_PRESETS: TuningPreset[] = [
   preset('guitar-6-dadgad', 'DADGAD', 'guitar-6', 'alternate', [38, 45, 50, 55, 57, 62]),
   preset('guitar-6-all-fourths', 'All fourths', 'guitar-6', 'alternate', [40, 45, 50, 55, 60, 65]),
   preset('guitar-6-nst', 'New Standard', 'guitar-6', 'alternate', [36, 43, 50, 57, 64, 67]),
-  preset('guitar-6-lefty-standard', 'Standard', 'guitar-6', 'left-handed', [64, 59, 55, 50, 45, 40]),
-  preset('guitar-6-lefty-drop-d', 'Drop D', 'guitar-6', 'left-handed', [64, 59, 55, 50, 45, 38]),
 
   preset('guitar-7', 'Standard', 'guitar-7', 'standard', [35, 40, 45, 50, 55, 59, 64]),
   preset('guitar-7-half-down', 'Half step down', 'guitar-7', 'standard', [34, 39, 44, 49, 54, 58, 63]),
@@ -286,7 +286,8 @@ export function findInstrument(id: InstrumentId): ConfigMeta {
 }
 
 export function findBuiltinPreset(id: string): TuningPreset | undefined {
-  return BUILTIN_PRESETS.find((item) => item.id === id)
+  const mapped = LEGACY_PRESET[id] ?? id
+  return BUILTIN_PRESETS.find((item) => item.id === mapped)
 }
 
 export function customToPreset(custom: {

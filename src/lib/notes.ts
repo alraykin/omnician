@@ -1,5 +1,5 @@
 export const A4_HZ = 440
-export const IN_TUNE_CENTS = 8
+export const IN_TUNE_CENTS = 5
 
 export const SHARP_NAMES = [
   'C',

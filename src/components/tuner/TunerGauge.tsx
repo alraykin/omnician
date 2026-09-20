@@ -7,47 +7,46 @@ type TunerGaugeProps = {
   cents: number | null
   inTune: boolean
   active: boolean
+  holdProgress: number
+  holdComplete: boolean
 }
 
-type Proximity = 'idle' | 'far' | 'closer' | 'near' | 'lock'
+const HISTORY = 80
 
-const HISTORY = 96
-
-function proximityOf(absCents: number, active: boolean, inTune: boolean): Proximity {
-  if (!active) return 'idle'
-  if (inTune) return 'lock'
-  if (absCents > 26) return 'far'
-  if (absCents > 14) return 'closer'
-  return 'near'
+function mixColor(absCents: number, intensity = 1): string {
+  const t = Math.min(1, absCents / 40)
+  if (t < 0.18) return fade('#34d399', intensity)
+  if (t < 0.38) return fade('#a3e635', intensity)
+  if (t < 0.62) return fade('#fbbf24', intensity)
+  return fade('#f87171', intensity)
 }
 
-function colorOf(proximity: Proximity): string {
-  if (proximity === 'lock') return '#34d399'
-  if (proximity === 'near') return '#a3e635'
-  if (proximity === 'closer') return '#fbbf24'
-  if (proximity === 'far') return '#e2e8f0'
-  return 'rgba(255,255,255,0.28)'
+function fade(hex: string, intensity: number): string {
+  const r = Number.parseInt(hex.slice(1, 3), 16)
+  const g = Number.parseInt(hex.slice(3, 5), 16)
+  const b = Number.parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${Math.max(0.25, intensity)})`
 }
 
-function mixColor(absCents: number): string {
-  if (absCents <= 8) return '#34d399'
-  if (absCents <= 16) return '#a3e635'
-  if (absCents <= 28) return '#fbbf24'
-  return '#c4b5fd'
-}
-
-export function TunerGauge({ cents, inTune, active }: TunerGaugeProps) {
+export function TunerGauge({
+  cents,
+  inTune,
+  active,
+  holdProgress,
+  holdComplete,
+}: TunerGaugeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const frameRef = useRef<HTMLDivElement>(null)
   const shownRef = useRef(0)
   const historyRef = useRef<number[]>([])
   const centsRef = useRef(cents)
   const inTuneRef = useRef(inTune)
   const activeRef = useRef(active)
+  const completeRef = useRef(holdComplete)
 
   centsRef.current = cents
   inTuneRef.current = inTune
   activeRef.current = active
+  completeRef.current = holdComplete
 
   useEffect(() => {
     let raf = 0
@@ -59,23 +58,23 @@ export function TunerGauge({ cents, inTune, active }: TunerGaugeProps) {
       const locked = inTuneRef.current && live
       const target =
         !live || targetCents === null
-          ? shownRef.current * 0.9
+          ? shownRef.current * 0.94
           : Math.max(-50, Math.min(50, targetCents))
 
       const delta = target - shownRef.current
-      const catchUp = Math.abs(delta) > 22 ? 0.2 : locked ? 0.08 : 0.12
+      const catchUp = Math.abs(delta) > 28 ? 0.1 : locked ? 0.045 : 0.055
       shownRef.current += delta * catchUp
-      if (locked) shownRef.current += (0 - shownRef.current) * 0.07
-      if (Math.abs(shownRef.current) < 0.08) shownRef.current = 0
+      if (locked) shownRef.current += (0 - shownRef.current) * 0.04
+      if (Math.abs(shownRef.current) < 0.06) shownRef.current = 0
 
-      if (now - lastTrail > 22) {
+      if (now - lastTrail > 58) {
         lastTrail = now
         const history = historyRef.current
         if (live && targetCents !== null) {
           history.push(shownRef.current)
           if (history.length > HISTORY) history.shift()
         } else if (history.length > 0) {
-          history.splice(0, Math.max(1, Math.ceil(history.length / 18)))
+          history.splice(0, Math.max(1, Math.ceil(history.length / 22)))
         }
       }
 
@@ -85,66 +84,75 @@ export function TunerGauge({ cents, inTune, active }: TunerGaugeProps) {
         shownRef.current,
         live && targetCents !== null,
         locked,
+        completeRef.current,
       )
       raf = requestAnimationFrame(tick)
     }
 
-    const onResize = () => {
-      drawTrail(
-        canvasRef.current,
-        historyRef.current,
-        shownRef.current,
-        activeRef.current && centsRef.current !== null,
-        inTuneRef.current && activeRef.current,
-      )
-    }
-
-    window.addEventListener('resize', onResize)
     raf = requestAnimationFrame(tick)
-    return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener('resize', onResize)
-    }
+    return () => cancelAnimationFrame(raf)
   }, [])
 
-  const proximity = proximityOf(
-    Math.abs(cents ?? 0),
-    active && cents !== null,
-    inTune && active,
-  )
+  const abs = Math.abs(cents ?? 0)
+  const far = active && cents !== null && abs > 18
 
   return (
     <div className="flex w-full flex-1 flex-col" aria-hidden>
       <div
-        ref={frameRef}
-        className="relative min-h-[18.5rem] w-full flex-1 overflow-hidden rounded-3xl bg-[#0B1020] ring-1 ring-white/8 sm:min-h-[22rem]"
+        className={cn(
+          'relative min-h-[15.5rem] w-full flex-1 overflow-hidden rounded-3xl bg-[#0B1020] ring-1 sm:min-h-[18rem]',
+          holdComplete ? 'omni-hold-glow ring-emerald-400/70' : 'ring-white/8',
+        )}
       >
         <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-between px-4 text-[0.65rem] font-medium uppercase tracking-wider text-slate-500">
-          <span>Flat</span>
-          <span className={cn(inTune && active && 'text-emerald-300')}>In tune</span>
-          <span>Sharp</span>
+          <span className={cn(far && cents !== null && cents < 0 && 'text-red-300')}>
+            Flat
+          </span>
+          <span className={cn((inTune && active) || holdComplete ? 'text-emerald-300' : '')}>
+            In tune
+          </span>
+          <span className={cn(far && cents !== null && cents > 0 && 'text-red-300')}>
+            Sharp
+          </span>
         </div>
         <canvas ref={canvasRef} className="absolute inset-0 size-full" />
+        {far && cents !== null ? (
+          <p className="pointer-events-none absolute bottom-10 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/45 px-3 py-1 text-xs font-semibold text-red-200">
+            {cents < 0 ? 'Tune up · farther from pitch' : 'Tune down · farther from pitch'}
+          </p>
+        ) : null}
         <div
           className={cn(
             'absolute left-1/2 top-3 z-10 flex size-8 -translate-x-1/2 items-center justify-center rounded-full',
-            inTune && active
+            holdComplete
               ? 'omni-in-tune-pop bg-emerald-400 text-[#06281c] shadow-[0_0_22px_rgba(52,211,153,0.7)]'
               : 'bg-transparent text-transparent',
           )}
         >
           <Check className="size-4 stroke-[3]" />
         </div>
-        <div
-          className="pointer-events-none absolute bottom-3 left-1/2 z-10 h-2.5 w-2.5 -translate-x-1/2 rounded-full"
-          style={{
-            background: colorOf(proximity),
-            boxShadow:
-              proximity === 'lock'
-                ? '0 0 16px rgba(52, 211, 153, 0.9)'
-                : '0 0 10px rgba(168, 85, 247, 0.35)',
-          }}
-        />
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-1 flex items-center justify-between text-[0.65rem] font-semibold uppercase tracking-wider text-slate-500">
+          <span>Hold in tune</span>
+          <span className={holdComplete ? 'text-emerald-300' : ''}>
+            {holdComplete ? 'Locked' : `${Math.round(holdProgress * 100)}%`}
+          </span>
+        </div>
+        <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+          <div
+            className={cn(
+              'h-full rounded-full transition-[width,background-color] duration-100',
+              holdComplete
+                ? 'bg-emerald-400 shadow-[0_0_16px_rgba(52,211,153,0.8)]'
+                : holdProgress > 0
+                  ? 'bg-[#A855F7]'
+                  : 'bg-white/20',
+            )}
+            style={{ width: `${Math.round(Math.max(holdProgress, holdComplete ? 1 : 0) * 100)}%` }}
+          />
+        </div>
       </div>
     </div>
   )
@@ -156,6 +164,7 @@ function drawTrail(
   shown: number,
   live: boolean,
   locked: boolean,
+  complete: boolean,
 ) {
   if (!canvas) return
   const parent = canvas.parentElement
@@ -180,9 +189,10 @@ function drawTrail(
 
   const midX = width / 2
   const top = 36
-  const bottom = height - 18
+  const bottom = height - 22
   const usable = Math.max(40, bottom - top)
-  const xOf = (cents: number) => midX + (cents / 50) * (width * 0.42)
+  const reach = width * 0.44
+  const xOf = (cents: number) => midX + (cents / 50) * reach
 
   ctx.strokeStyle = 'rgba(255,255,255,0.06)'
   ctx.lineWidth = 1
@@ -193,24 +203,31 @@ function drawTrail(
     ctx.stroke()
   })
 
-  ctx.strokeStyle = locked ? 'rgba(52, 211, 153, 0.55)' : 'rgba(168, 85, 247, 0.28)'
+  ctx.fillStyle = 'rgba(148, 163, 184, 0.55)'
+  ctx.font = '10px Outfit, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText('−50¢', xOf(-50), height - 6)
+  ctx.fillText('+50¢', xOf(50), height - 6)
+
+  ctx.strokeStyle = complete || locked ? 'rgba(52, 211, 153, 0.6)' : 'rgba(168, 85, 247, 0.3)'
   ctx.lineWidth = 2
   ctx.beginPath()
   ctx.moveTo(midX, top)
   ctx.lineTo(midX, bottom)
   ctx.stroke()
 
-  const lane = ctx.createLinearGradient(midX - 28, 0, midX + 28, 0)
+  const laneW = complete ? 36 : 26
+  const lane = ctx.createLinearGradient(midX - laneW, 0, midX + laneW, 0)
   lane.addColorStop(0, 'rgba(52, 211, 153, 0)')
-  lane.addColorStop(0.5, locked ? 'rgba(52, 211, 153, 0.16)' : 'rgba(168, 85, 247, 0.08)')
+  lane.addColorStop(0.5, complete ? 'rgba(52, 211, 153, 0.28)' : 'rgba(168, 85, 247, 0.08)')
   lane.addColorStop(1, 'rgba(52, 211, 153, 0)')
   ctx.fillStyle = lane
-  ctx.fillRect(midX - 28, top, 56, usable)
+  ctx.fillRect(midX - laneW, top, laneW * 2, usable)
 
   const points = history.length > 0 ? history : live ? [shown] : []
   if (points.length < 2) {
     if (live && points.length === 1) {
-      paintHead(ctx, xOf(points[0]), bottom, mixColor(Math.abs(points[0])), locked)
+      paintHead(ctx, xOf(points[0]), bottom, mixColor(Math.abs(points[0])), complete)
     }
     return
   }
@@ -226,8 +243,8 @@ function drawTrail(
     if (index === 0) ctx.moveTo(x, py)
     else ctx.lineTo(x, py)
   })
-  ctx.strokeStyle = 'rgba(168, 85, 247, 0.18)'
-  ctx.lineWidth = 14
+  ctx.strokeStyle = 'rgba(168, 85, 247, 0.16)'
+  ctx.lineWidth = 16
   ctx.stroke()
 
   for (let i = 1; i < points.length; i += 1) {
@@ -235,14 +252,20 @@ function drawTrail(
     ctx.beginPath()
     ctx.moveTo(xOf(points[i - 1]), yAt(i - 1))
     ctx.lineTo(xOf(points[i]), yAt(i))
-    ctx.strokeStyle = mixColor(Math.abs(points[i]))
-    ctx.globalAlpha = 0.28 + t * 0.72
-    ctx.lineWidth = 2.4 + t * 3.2
+    ctx.strokeStyle = mixColor(Math.abs(points[i]), 0.35 + t * 0.65)
+    ctx.globalAlpha = 0.35 + t * 0.65
+    ctx.lineWidth = 2.2 + t * 3.6
     ctx.stroke()
   }
   ctx.globalAlpha = 1
 
-  paintHead(ctx, xOf(points[points.length - 1]), bottom, mixColor(Math.abs(shown)), locked)
+  paintHead(
+    ctx,
+    xOf(points[points.length - 1]),
+    bottom,
+    mixColor(Math.abs(shown)),
+    complete,
+  )
 }
 
 function paintHead(
@@ -250,14 +273,14 @@ function paintHead(
   x: number,
   y: number,
   color: string,
-  locked: boolean,
+  complete: boolean,
 ) {
   ctx.beginPath()
-  ctx.fillStyle = locked ? 'rgba(52, 211, 153, 0.28)' : 'rgba(168, 85, 247, 0.2)'
-  ctx.arc(x, y, locked ? 16 : 12, 0, Math.PI * 2)
+  ctx.fillStyle = complete ? 'rgba(52, 211, 153, 0.32)' : 'rgba(168, 85, 247, 0.2)'
+  ctx.arc(x, y, complete ? 18 : 13, 0, Math.PI * 2)
   ctx.fill()
   ctx.beginPath()
   ctx.fillStyle = color
-  ctx.arc(x, y, 5, 0, Math.PI * 2)
+  ctx.arc(x, y, 6, 0, Math.PI * 2)
   ctx.fill()
 }

@@ -3,7 +3,6 @@ import {
   normalizeInstrumentId,
   type InstrumentId,
 } from '@/lib/presets'
-import type { Sensitivity } from '@/lib/sensitivity'
 
 const STORAGE_KEY = 'omnician.custom-presets.v1'
 const PREFS_KEY = 'omnician.tuner-prefs.v1'
@@ -17,8 +16,8 @@ export type CustomTuning = {
 export type TunerPrefs = {
   presetId: string
   instrumentId: InstrumentId
-  sensitivity: Sensitivity
   a4Hz: number
+  autoString: boolean
 }
 
 const MIN_MIDI = 12
@@ -77,8 +76,8 @@ export function loadTunerPrefs(): TunerPrefs {
   const fallback: TunerPrefs = {
     presetId: 'guitar-6-standard',
     instrumentId: 'guitar-6',
-    sensitivity: 'medium',
     a4Hz: A4_HZ,
+    autoString: true,
   }
   if (typeof localStorage === 'undefined') return fallback
   try {
@@ -89,15 +88,9 @@ export function loadTunerPrefs(): TunerPrefs {
     const row = parsed as {
       presetId?: unknown
       instrumentId?: unknown
-      sensitivity?: unknown
       a4Hz?: unknown
+      autoString?: unknown
     }
-    const sensitivity =
-      row.sensitivity === 'low' ||
-      row.sensitivity === 'medium' ||
-      row.sensitivity === 'high'
-        ? row.sensitivity
-        : fallback.sensitivity
     const instrumentId =
       typeof row.instrumentId === 'string'
         ? (normalizeInstrumentId(row.instrumentId) ?? fallback.instrumentId)
@@ -108,8 +101,8 @@ export function loadTunerPrefs(): TunerPrefs {
           ? row.presetId
           : fallback.presetId,
       instrumentId,
-      sensitivity,
       a4Hz: clampA4(row.a4Hz),
+      autoString: typeof row.autoString === 'boolean' ? row.autoString : fallback.autoString,
     }
   } catch {
     return fallback
