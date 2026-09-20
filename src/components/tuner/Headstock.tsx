@@ -92,7 +92,7 @@ function layout(
   const banjo = config === 'banjo'
   const neckH = banjo ? 128 : 82
   const hexR = clover ? (rows <= 2 ? 24 : 21) : rows >= 4 ? 18 : 20
-  const barrel = clover ? 26 : 22
+  const barrel = clover ? 24 : 14
   const rowGap = Math.max(rows <= 2 ? 62 : rows === 3 ? 54 : 46, hexR * 2 + 8)
   const firstY = rows <= 2 ? 56 : 52
   const lastY = firstY + (rows - 1) * rowGap
@@ -116,10 +116,10 @@ function layout(
   const pegs: PegGeom[] = slots.map((slot) => {
     const nutX = nutXs.get(slot.string.id) ?? CX
     if (slot.side === 'fifth') {
-      const buttonY = nutY + 42
+      const buttonY = nutY + 72
       const neckLeft = nutLeft - 4
       const fifthR = 18
-      const fifthBarrel = 28
+      const fifthBarrel = 22
       return {
         ...slot,
         postX: neckLeft + 7,
@@ -524,12 +524,12 @@ function Peg({
       )}
 
       {clover ? (
-        <path
-          d={cloverPath(peg.buttonX, peg.buttonY, dir)}
+        <Clover
+          cx={peg.buttonX}
+          cy={peg.buttonY}
+          dir={dir}
           fill={fill}
           stroke={stroke}
-          strokeWidth="2.15"
-          strokeLinejoin="round"
         />
       ) : (
         <path
@@ -605,16 +605,40 @@ function hexPath(cx: number, cy: number, r: number): string {
   return `M ${pts.join(' L ')} Z`
 }
 
-function cloverPath(cx: number, cy: number, dir: number): string {
-  const s = dir
-  return [
-    `M ${cx + s * 10} ${cy - 3}`,
-    `C ${cx + s * 12} ${cy - 18}, ${cx + s * -4} ${cy - 24}, ${cx + s * -8} ${cy - 12}`,
-    `C ${cx + s * -22} ${cy - 16}, ${cx + s * -26} ${cy + 0}, ${cx + s * -12} ${cy + 2}`,
-    `C ${cx + s * -26} ${cy + 16}, ${cx + s * -8} ${cy + 24}, ${cx + s * -4} ${cy + 12}`,
-    `C ${cx + s * 12} ${cy + 18}, ${cx + s * 12} ${cy + 4}, ${cx + s * 10} ${cy + 3}`,
-    'Z',
-  ].join(' ')
+function Clover({
+  cx,
+  cy,
+  dir,
+  fill,
+  stroke,
+}: {
+  cx: number
+  cy: number
+  dir: number
+  fill: string
+  stroke: string
+}) {
+  const lobes: [number, number, number][] = [
+    [cx - dir * 8, cy, 11.2],
+    [cx + dir * 2.5, cy - 9.6, 10.4],
+    [cx + dir * 2.5, cy + 9.6, 10.4],
+  ]
+  return (
+    <g>
+      {lobes.map(([x, y, r]) => (
+        <circle
+          key={`${x}-${y}`}
+          cx={x}
+          cy={y}
+          r={r}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth="2.15"
+        />
+      ))}
+      <circle cx={cx - dir * 1.5} cy={cy} r="9.5" fill={fill} stroke="none" />
+    </g>
+  )
 }
 
 function AutoSwitch({
