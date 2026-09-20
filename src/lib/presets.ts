@@ -1,4 +1,10 @@
-import { notesLabel, stringsFromMidis, type InstrumentString } from '@/lib/notes'
+import {
+  notesLabel,
+  stringsFromMidis,
+  stringsFromTwelveCourses,
+  twelveCourseNotes,
+  type InstrumentString,
+} from '@/lib/notes'
 
 export type FamilyId =
   | 'chromatic'
@@ -132,6 +138,22 @@ function preset(
   }
 }
 
+function twelvePreset(
+  id: string,
+  name: string,
+  category: TuningCategory,
+  courseMidis: readonly number[],
+): TuningPreset {
+  return {
+    id,
+    name,
+    config: 'guitar-12',
+    category,
+    notes: twelveCourseNotes(courseMidis),
+    strings: stringsFromTwelveCourses(courseMidis),
+  }
+}
+
 export const CHROMATIC_PRESET: TuningPreset = {
   id: 'chromatic',
   name: 'Chromatic',
@@ -185,11 +207,11 @@ export const BUILTIN_PRESETS: TuningPreset[] = [
   preset('guitar-10-half-down', 'Half step down', 'guitar-10', 'standard', [19, 24, 29, 34, 39, 44, 49, 54, 58, 63]),
   preset('guitar-10-drop-f', 'Drop F♯', 'guitar-10', 'drop', [18, 25, 30, 35, 40, 45, 50, 55, 59, 64]),
 
-  preset('guitar-12-standard', 'Standard', 'guitar-12', 'standard', [40, 45, 50, 55, 59, 64]),
-  preset('guitar-12-half-down', 'Half step down', 'guitar-12', 'standard', [39, 44, 49, 54, 58, 63]),
-  preset('guitar-12-whole-down', 'Whole step down', 'guitar-12', 'standard', [38, 43, 48, 53, 57, 62]),
-  preset('guitar-12-drop-d', 'Drop D', 'guitar-12', 'drop', [38, 45, 50, 55, 59, 64]),
-  preset('guitar-12-double-drop-d', 'Double Drop D', 'guitar-12', 'double-drop', [38, 45, 50, 55, 59, 62]),
+  twelvePreset('guitar-12-standard', 'Standard', 'standard', [40, 45, 50, 55, 59, 64]),
+  twelvePreset('guitar-12-half-down', 'Half step down', 'standard', [39, 44, 49, 54, 58, 63]),
+  twelvePreset('guitar-12-whole-down', 'Whole step down', 'standard', [38, 43, 48, 53, 57, 62]),
+  twelvePreset('guitar-12-drop-d', 'Drop D', 'drop', [38, 45, 50, 55, 59, 64]),
+  twelvePreset('guitar-12-double-drop-d', 'Double Drop D', 'double-drop', [38, 45, 50, 55, 59, 62]),
 
   preset('baritone-b', 'B standard', 'guitar-baritone', 'standard', [35, 40, 45, 50, 54, 59]),
   preset('baritone-a', 'A standard', 'guitar-baritone', 'standard', [33, 38, 43, 48, 52, 57]),

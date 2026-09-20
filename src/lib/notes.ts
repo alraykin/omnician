@@ -37,6 +37,7 @@ export type InstrumentString = {
   midi: number
   stringNo: number
   octave: number
+  pegLabel?: string
 }
 
 export function pitchClassName(midi: number): {
@@ -77,6 +78,54 @@ export function stringsFromMidis(midis: readonly number[]): InstrumentString[] {
       octave: pitch.octave,
     }
   })
+}
+
+/** Expand 6 course fundamentals into a real 12-string: octave pairs on E A D G, unisons on B and high e. */
+export function stringsFromTwelveCourses(
+  courseMidis: readonly number[],
+): InstrumentString[] {
+  if (courseMidis.length !== 6) return stringsFromMidis(courseMidis)
+  const nut: Array<{ midi: number; pegLabel: string }> = []
+  for (let i = 0; i < 6; i++) {
+    const fund = courseMidis[i]
+    const letter = pitchClassName(fund).sharpName
+    if (i === 0) {
+      nut.push({ midi: fund + 12, pegLabel: 'E' })
+      nut.push({ midi: fund, pegLabel: 'E' })
+    } else if (i < 4) {
+      nut.push({ midi: fund + 12, pegLabel: letter.toLowerCase() })
+      nut.push({ midi: fund, pegLabel: letter })
+    } else if (i === 4) {
+      nut.push({ midi: fund, pegLabel: 'B' })
+      nut.push({ midi: fund, pegLabel: 'B' })
+    } else {
+      nut.push({ midi: fund, pegLabel: 'e' })
+      nut.push({ midi: fund, pegLabel: 'e' })
+    }
+  }
+  const count = nut.length
+  return nut.map((item, index) => {
+    const pitch = pitchClassName(item.midi)
+    const stringNo = count - index
+    return {
+      id: `${pitch.sharpName}${pitch.octave}-${stringNo}`,
+      label: pitch.sharpName,
+      pegLabel: item.pegLabel,
+      midi: item.midi,
+      stringNo,
+      octave: pitch.octave,
+    }
+  })
+}
+
+export function twelveCourseNotes(courseMidis: readonly number[]): string {
+  const names = courseMidis.map((midi) => pitchClassName(midi).sharpName)
+  names[5] = names[5].toLowerCase()
+  return names
+    .map((name, index) =>
+      index < 4 ? `${name}/${name.toLowerCase()}` : `${name}/${name}`,
+    )
+    .join(' ')
 }
 
 export type DetectedNote = {

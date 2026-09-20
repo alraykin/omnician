@@ -20,11 +20,38 @@ export function usesCloverPegs(config: InstrumentId): boolean {
   return config.startsWith('bass')
 }
 
+export function usesGuitarShape(config: InstrumentId): boolean {
+  return (
+    config === 'guitar-6' ||
+    config === 'guitar-7' ||
+    config === 'guitar-8' ||
+    config === 'guitar-9' ||
+    config === 'guitar-10' ||
+    config === 'guitar-12'
+  )
+}
+
 export function layoutPegs(
   strings: readonly InstrumentString[],
   config: InstrumentId,
 ): PegSlot[] {
   if (strings.length === 0) return []
+
+  if (config === 'guitar-12' && strings.length === 12) {
+    const byNo = new Map(strings.map((item) => [item.stringNo, item]))
+    const leftNos = [8, 7, 10, 9, 12, 11]
+    const rightNos = [6, 5, 4, 3, 2, 1]
+    const slots: PegSlot[] = []
+    leftNos.forEach((stringNo, row) => {
+      const string = byNo.get(stringNo)
+      if (string) slots.push({ string, side: 'left', row })
+    })
+    rightNos.forEach((stringNo, row) => {
+      const string = byNo.get(stringNo)
+      if (string) slots.push({ string, side: 'right', row })
+    })
+    return slots
+  }
 
   const banjoFifth =
     config === 'banjo' && strings.length === 5
@@ -75,6 +102,7 @@ export function pegLetter(
   string: InstrumentString,
   all: readonly InstrumentString[],
 ): string {
+  if (string.pegLabel) return string.pegLabel
   const same = all.filter((item) => item.label === string.label)
   if (same.length < 2) return string.label
   const highest = Math.min(...same.map((item) => item.stringNo))
