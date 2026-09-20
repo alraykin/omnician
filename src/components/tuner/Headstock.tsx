@@ -575,16 +575,18 @@ export function Headstock({
             stroke={WHITE}
             strokeWidth="2.2"
           />
-          <rect
-            x={neckLeft + 4}
-            y={drawn.nutY}
-            width={neckWidth - 8}
-            height={drawn.neckH}
-            fill="none"
-            stroke={WHITE}
-            strokeWidth="1.1"
-            opacity="0.9"
-          />
+          {drawn.guitarShape ? null : (
+            <rect
+              x={neckLeft + 4}
+              y={drawn.nutY}
+              width={neckWidth - 8}
+              height={drawn.neckH}
+              fill="none"
+              stroke={WHITE}
+              strokeWidth="1.1"
+              opacity="0.9"
+            />
+          )}
           {Array.from({ length: fretCount }, (_, index) => {
             const t = (index + 1) / (fretCount + 1)
             return (
@@ -601,34 +603,19 @@ export function Headstock({
           })}
 
           {drawn.guitarShape ? (
-            <>
-              <path
-                d={guitarBatwing(
-                  drawn.cx,
-                  drawn.nutY,
-                  drawn.nutWidth / 2,
-                  drawn.bodyHalf,
-                  0,
-                )}
-                fill={INK}
-                stroke={WHITE}
-                strokeWidth="2.2"
-                strokeLinejoin="round"
-              />
-              <path
-                d={guitarBatwing(
-                  drawn.cx,
-                  drawn.nutY,
-                  drawn.nutWidth / 2,
-                  drawn.bodyHalf,
-                  7,
-                )}
-                fill="none"
-                stroke={WHITE}
-                strokeWidth="1.15"
-                strokeLinejoin="round"
-              />
-            </>
+            <path
+              d={guitarBatwing(
+                drawn.cx,
+                drawn.nutY,
+                drawn.nutWidth / 2,
+                drawn.bodyHalf,
+                0,
+              )}
+              fill={INK}
+              stroke={WHITE}
+              strokeWidth="2.2"
+              strokeLinejoin="round"
+            />
           ) : (
             <>
               <path
