@@ -22,13 +22,13 @@ export function usesCloverPegs(config: InstrumentId): boolean {
 
 export function usesGuitarShape(config: InstrumentId): boolean {
   return (
-    config === 'guitar-6' ||
-    config === 'guitar-7' ||
-    config === 'guitar-8' ||
-    config === 'guitar-9' ||
-    config === 'guitar-10' ||
-    config === 'guitar-12' ||
-    config.startsWith('bass-')
+    config.startsWith('guitar-') ||
+    config.startsWith('bass-') ||
+    config === 'ukulele' ||
+    config === 'banjo' ||
+    config === 'mandolin' ||
+    config === 'violin' ||
+    config === 'bouzouki'
   )
 }
 

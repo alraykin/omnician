@@ -249,16 +249,20 @@ function guitarMetrics(rows: number, pairedNut: boolean, bass = false) {
 }
 
 function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
-  const left = slots.filter((slot) => slot.side === 'left')
-  const right = slots.filter((slot) => slot.side === 'right')
+  const fifth = slots.find((slot) => slot.side === 'fifth') ?? null
+  const bodySlots = slots.filter((slot) => slot.side !== 'fifth')
+  const left = bodySlots.filter((slot) => slot.side === 'left')
+  const right = bodySlots.filter((slot) => slot.side === 'right')
   const rows = Math.max(left.length, right.length, 1)
-  const pairedNut = config === 'guitar-12' && slots.length === 12
+  const pairedNut = config === 'guitar-12' && bodySlots.length === 12
   const bass = usesCloverPegs(config)
+  const banjo = config === 'banjo'
   const m = guitarMetrics(rows, pairedNut, bass)
   const leftCount = left.length
   const rightCount = right.length
   const nutY = m.firstY + (rows - 1) * m.rowGap + m.tail
-  const height = nutY + m.neckH
+  const neckH = banjo ? 184 : m.neckH
+  const height = nutY + neckH
   const pegOut = (bass ? m.hexR * 1.18 : m.hexR) + m.barrel
   const viewW = Math.round(2 * (m.bodyHalf + pegOut + 80))
   const cx = viewW / 2
@@ -266,11 +270,14 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
   const pad = 8
 
   const nutLayout = pairedNut
-    ? pairedNutXs(slots, nutLeft, m.nutWidth, pad)
-    : { nutXs: evenNutXs(slots, nutLeft, m.nutWidth, pad, cx), courses: [] as CourseSlot[] }
+    ? pairedNutXs(bodySlots, nutLeft, m.nutWidth, pad)
+    : {
+        nutXs: evenNutXs(bodySlots, nutLeft, m.nutWidth, pad, cx),
+        courses: [] as CourseSlot[],
+      }
   const nutXs = nutLayout.nutXs
 
-  const pegs: PegGeom[] = slots.map((slot) => {
+  const pegs: PegGeom[] = bodySlots.map((slot) => {
     const nutX = nutXs.get(slot.string.id) ?? cx
     const count = slot.side === 'left' ? leftCount : rightCount
     const other = slot.side === 'left' ? rightCount : leftCount
@@ -294,6 +301,24 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
     }
   })
 
+  if (fifth) {
+    const fifthR = Math.max(16, m.hexR - 3)
+    const fifthY = nutY + neckH * (5 / 7)
+    const pipX = nutLeft + 7
+    pegs.push({
+      ...fifth,
+      postX: pipX,
+      postY: fifthY,
+      buttonX: nutLeft - (fifthR + m.barrel),
+      buttonY: fifthY,
+      nutX: pipX,
+      nutY: fifthY,
+      edgeX: nutLeft,
+      hexR: fifthR,
+      nub: true,
+    })
+  }
+
   return {
     viewW,
     cx,
@@ -301,7 +326,7 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
     nutY,
     nutLeft,
     nutWidth: m.nutWidth,
-    neckH: m.neckH,
+    neckH,
     rows,
     pegs,
     topHalf: guitarHalf(GUITAR_TOP + 8, nutY, m.nutWidth / 2, m.bodyHalf),
@@ -647,6 +672,20 @@ export function Headstock({
             stroke={WHITE}
             strokeWidth="1.6"
           />
+          {drawn.pegs
+            .filter((peg) => peg.side === 'fifth')
+            .map((peg) => (
+              <rect
+                key={`fifth-nut-${peg.string.id}`}
+                x={drawn.nutLeft}
+                y={peg.postY - 2.2}
+                width="12"
+                height="4.4"
+                fill={INK}
+                stroke={WHITE}
+                strokeWidth="1.25"
+              />
+            ))}
           {drawn.courses.map((course, index) => (
             <rect
               key={`course-${index}`}
@@ -697,7 +736,11 @@ export function Headstock({
               key={peg.string.id}
               peg={peg}
               clover={clover}
-              letter={pegLetter(peg.string, strings)}
+              letter={
+                peg.side === 'fifth'
+                  ? peg.string.pegLabel ?? peg.string.label.toLowerCase()
+                  : pegLetter(peg.string, strings)
+              }
               tone={toneFor(peg.string.id, selectedId, tunedIds, inTune, live)}
               onClick={() => onTapPeg(peg.string)}
             />
@@ -729,7 +772,11 @@ export function Headstock({
               <Peg
                 peg={active}
                 clover={clover}
-                letter={pegLetter(active.string, strings)}
+                letter={
+                  active.side === 'fifth'
+                    ? active.string.pegLabel ?? active.string.label.toLowerCase()
+                    : pegLetter(active.string, strings)
+                }
                 tone={toneFor(active.string.id, selectedId, tunedIds, inTune, live)}
                 onClick={() => onTapPeg(active.string)}
               />
@@ -758,10 +805,10 @@ function StringRun({
   wound: boolean
   toNeck: number
 }) {
-  const neckEnd = peg.side === 'fifth' ? peg.buttonY : peg.nutY
+  const neckEnd = peg.side === 'fifth' ? peg.postY : peg.nutY
   const headPath =
     peg.side === 'fifth'
-      ? null
+      ? `M ${peg.postX} ${peg.postY} L ${peg.buttonX} ${peg.buttonY}`
       : peg.nub
         ? `M ${peg.nutX} ${peg.nutY} L ${peg.postX} ${peg.postY}`
         : `M ${peg.nutX} ${peg.nutY} Q ${peg.nutX + (peg.side === 'right' ? -5 : 5)} ${(peg.nutY + peg.postY) / 2} ${peg.postX} ${peg.postY}`
@@ -847,16 +894,14 @@ function Peg({
       className="cursor-pointer"
       filter={glow ? 'url(#omnician-peg-glow)' : undefined}
     >
-      {peg.side !== 'fifth' ? (
-        <Post
-          x={peg.postX}
-          y={peg.postY}
-          stroke={stroke}
-          wound={clover}
-          lit={tone !== 'idle'}
-          compact={peg.nub}
-        />
-      ) : null}
+      <Post
+        x={peg.postX}
+        y={peg.postY}
+        stroke={stroke}
+        wound={clover}
+        lit={tone !== 'idle'}
+        compact={peg.nub || peg.side === 'fifth'}
+      />
 
       {peg.nub ? (
         clover ? (
