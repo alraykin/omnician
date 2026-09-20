@@ -142,6 +142,32 @@ export function nearestString(
   return best
 }
 
+export function trackString(
+  frequency: number,
+  strings: readonly InstrumentString[],
+  currentId: string | null,
+  a4 = A4_HZ,
+  stayCents = 32,
+): { string: InstrumentString; cents: number } {
+  const nearest = nearestString(frequency, strings, a4)
+  const nearestCents = centsBetween(frequency, nearest.midi, a4)
+  if (!currentId) {
+    return { string: nearest, cents: nearestCents }
+  }
+  const current = strings.find((item) => item.id === currentId)
+  if (!current) {
+    return { string: nearest, cents: nearestCents }
+  }
+  const currentCents = centsBetween(frequency, current.midi, a4)
+  if (
+    nearest.id !== current.id &&
+    Math.abs(nearestCents) + stayCents < Math.abs(currentCents)
+  ) {
+    return { string: nearest, cents: nearestCents }
+  }
+  return { string: current, cents: currentCents }
+}
+
 export function matchString(
   frequency: number,
   strings: readonly InstrumentString[],

@@ -8,13 +8,13 @@ import {
   PITCH_BUFFER_SIZE,
 } from '@/lib/pitch-detector'
 
-const MIN_HZ = 28
-const MAX_HZ = 2000
+const MIN_HZ = 30
+const MAX_HZ = 1400
 const LOW_BAND_HZ = 80
-const RUMBLE_HZ = 50
-const AGC_TARGET = 0.07
-const AGC_MIN = 1.2
-const AGC_MAX = 16
+const RUMBLE_HZ = 52
+const AGC_TARGET = 0.06
+const AGC_MIN = 1.1
+const AGC_MAX = 10
 
 export type TunerStatus =
   | 'idle'
@@ -92,31 +92,36 @@ function passesConfidence(
   let rmsFloor = TUNER_FEEL.minRms
 
   if (frequency < RUMBLE_HZ) {
-    clarityFloor = Math.max(clarityFloor, 0.88)
-    rmsFloor = Math.max(rmsFloor, 0.01)
+    clarityFloor = Math.max(clarityFloor, 0.9)
+    rmsFloor = Math.max(rmsFloor, 0.012)
   } else if (frequency < LOW_BAND_HZ) {
-    clarityFloor = Math.max(clarityFloor, 0.82)
-    rmsFloor = Math.max(rmsFloor, 0.005)
+    clarityFloor = Math.max(clarityFloor, 0.84)
+    rmsFloor = Math.max(rmsFloor, 0.006)
   }
 
   return clarity >= clarityFloor && signal >= rmsFloor
 }
 
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b)
+  return sorted[Math.floor(sorted.length / 2)]
+}
+
 function connectInput(audio: AudioContext, source: AudioNode, analyser: AnalyserNode) {
   const highpass = audio.createBiquadFilter()
   highpass.type = 'highpass'
-  highpass.frequency.value = 32
-  highpass.Q.value = 0.7
+  highpass.frequency.value = 40
+  highpass.Q.value = 0.65
 
   const compressor = audio.createDynamicsCompressor()
-  compressor.threshold.value = -38
-  compressor.knee.value = 28
-  compressor.ratio.value = 10
-  compressor.attack.value = 0.004
-  compressor.release.value = 0.16
+  compressor.threshold.value = -36
+  compressor.knee.value = 24
+  compressor.ratio.value = 8
+  compressor.attack.value = 0.005
+  compressor.release.value = 0.2
 
   const makeup = audio.createGain()
-  makeup.gain.value = 3.2
+  makeup.gain.value = 2.6
 
   source.connect(highpass)
   highpass.connect(compressor)
@@ -129,7 +134,6 @@ function connectInput(audio: AudioContext, source: AudioNode, analyser: Analyser
 export function useTuner(a4Hz = A4_HZ) {
   const [status, setStatus] = useState<TunerStatus>('idle')
   const [reading, setReading] = useState<TunerReading | null>(null)
-  const [level, setLevel] = useState(0)
 
   const statusRef = useRef(status)
   const audioRef = useRef<AudioContext | null>(null)
@@ -138,10 +142,12 @@ export function useTuner(a4Hz = A4_HZ) {
   const makeupRef = useRef<GainNode | null>(null)
   const rafRef = useRef(0)
   const lastHeardRef = useRef(0)
+  const lastPublishRef = useRef(0)
   const smoothHzRef = useRef<number | null>(null)
   const pendingHzRef = useRef<number | null>(null)
   const pendingCountRef = useRef(0)
-  const agcRef = useRef(4)
+  const medianRef = useRef<number[]>([])
+  const agcRef = useRef(3)
   const sessionRef = useRef(0)
   const a4Ref = useRef(a4Hz)
 
@@ -153,11 +159,13 @@ export function useTuner(a4Hz = A4_HZ) {
     cancelAnimationFrame(rafRef.current)
     rafRef.current = 0
     lastHeardRef.current = 0
+    lastPublishRef.current = 0
     smoothHzRef.current = null
     pendingHzRef.current = null
     pendingCountRef.current = 0
+    medianRef.current = []
     makeupRef.current = null
-    agcRef.current = 4
+    agcRef.current = 3
 
     const stream = streamRef.current
     streamRef.current = null
@@ -178,7 +186,6 @@ export function useTuner(a4Hz = A4_HZ) {
     }
 
     setReading(null)
-    setLevel(0)
     setStatus('idle')
   }, [])
 
@@ -295,17 +302,17 @@ export function useTuner(a4Hz = A4_HZ) {
       if (sessionRef.current !== session) return
       analyser.getFloatTimeDomainData(buffer)
       const raw = rms(buffer)
-      if (raw > 0.0006) {
+      if (raw > 0.0012) {
         const desired = Math.min(AGC_MAX, Math.max(AGC_MIN, AGC_TARGET / raw))
-        agcRef.current = agcRef.current * 0.9 + desired * 0.1
+        agcRef.current = agcRef.current * 0.94 + desired * 0.06
       } else {
-        agcRef.current = agcRef.current * 0.98 + AGC_MIN * 0.02
+        agcRef.current = agcRef.current * 0.97 + AGC_MIN * 0.03
       }
       const agc = agcRef.current
       const makeup = makeupRef.current
       if (makeup) {
-        const nextGain = Math.min(10, 1.4 + agc * 0.35)
-        makeup.gain.value = makeup.gain.value * 0.85 + nextGain * 0.15
+        const nextGain = Math.min(7, 1.3 + agc * 0.28)
+        makeup.gain.value = makeup.gain.value * 0.9 + nextGain * 0.1
       }
 
       for (let i = 0; i < buffer.length; i += 1) {
@@ -313,7 +320,6 @@ export function useTuner(a4Hz = A4_HZ) {
         boosted[i] = Math.max(-1, Math.min(1, sample))
       }
       const signal = rms(boosted)
-      setLevel(Math.min(1, signal * 8))
 
       const { frequency, clarity } = estimatePitch(
         detector,
@@ -327,33 +333,57 @@ export function useTuner(a4Hz = A4_HZ) {
         const pending = pendingHzRef.current
         const samePitch =
           pending !== null &&
-          Math.abs(12 * Math.log2(frequency / pending)) < 0.38
+          Math.abs(12 * Math.log2(frequency / pending)) < 0.22
 
         if (samePitch && pending !== null) {
-          pendingHzRef.current = pending * 0.5 + frequency * 0.5
+          pendingHzRef.current = pending * 0.65 + frequency * 0.35
           pendingCountRef.current += 1
         } else {
           pendingHzRef.current = frequency
           pendingCountRef.current = 1
         }
 
-        const needed = frequency < RUMBLE_HZ ? 2 : 1
+        const needed =
+          frequency < RUMBLE_HZ ? TUNER_FEEL.lockFrames + 1 : TUNER_FEEL.lockFrames
         if (pendingCountRef.current >= needed) {
           const accepted = pendingHzRef.current ?? frequency
+          const window = medianRef.current
+          window.push(accepted)
+          if (window.length > TUNER_FEEL.medianSize) window.shift()
+          const mid = window.length >= 3 ? median(window) : accepted
           const previous = smoothHzRef.current
-          const next =
-            previous &&
-            Math.abs(12 * Math.log2(accepted / previous)) < TUNER_FEEL.jumpSemitones
-              ? previous * TUNER_FEEL.smoothPrev + accepted * TUNER_FEEL.smoothNext
-              : accepted
+          const jump =
+            previous === null
+              ? 0
+              : Math.abs(12 * Math.log2(mid / previous))
+          let next = mid
+          if (previous && jump < TUNER_FEEL.jumpSemitones) {
+            const centsOff = jump * 100
+            if (centsOff < 8) {
+              next = previous * 0.965 + mid * 0.035
+            } else if (centsOff < 18) {
+              next = previous * 0.9 + mid * 0.1
+            } else {
+              next = previous * TUNER_FEEL.smoothPrev + mid * TUNER_FEEL.smoothNext
+            }
+          } else if (previous && jump >= TUNER_FEEL.jumpSemitones) {
+            next = previous
+            pendingCountRef.current = Math.min(pendingCountRef.current, 1)
+          }
           smoothHzRef.current = next
           lastHeardRef.current = now
-          const note = analyzeFrequency(next, a4Ref.current)
-          setReading({ ...note, clarity })
+          if (now - lastPublishRef.current > 50) {
+            lastPublishRef.current = now
+            const note = analyzeFrequency(next, a4Ref.current)
+            setReading({ ...note, clarity })
+          }
         }
       } else {
         pendingCountRef.current = Math.max(0, pendingCountRef.current - 1)
-        if (pendingCountRef.current === 0) pendingHzRef.current = null
+        if (pendingCountRef.current === 0) {
+          pendingHzRef.current = null
+          medianRef.current = []
+        }
         if (now - lastHeardRef.current > TUNER_FEEL.holdMs) {
           smoothHzRef.current = null
           setReading(null)
@@ -368,5 +398,5 @@ export function useTuner(a4Hz = A4_HZ) {
 
   useEffect(() => () => stop(), [stop])
 
-  return { status, reading, level, start, stop }
+  return { status, reading, start, stop }
 }
