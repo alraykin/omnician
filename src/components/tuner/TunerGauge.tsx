@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 
 type TunerGaugeProps = {
   cents: number | null
+  readout: number | null
   inTune: boolean
   active: boolean
 }
@@ -27,15 +28,17 @@ function fade(hex: string, intensity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${Math.max(0.25, intensity)})`
 }
 
-export function TunerGauge({ cents, inTune, active }: TunerGaugeProps) {
+export function TunerGauge({ cents, readout, inTune, active }: TunerGaugeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const shownRef = useRef(0)
   const historyRef = useRef<number[]>([])
   const centsRef = useRef(cents)
+  const readoutRef = useRef(readout)
   const inTuneRef = useRef(inTune)
   const activeRef = useRef(active)
 
   centsRef.current = cents
+  readoutRef.current = readout
   inTuneRef.current = inTune
   activeRef.current = active
 
@@ -78,6 +81,7 @@ export function TunerGauge({ cents, inTune, active }: TunerGaugeProps) {
         shownRef.current,
         live && targetCents !== null,
         locked,
+        readoutRef.current,
       )
       raf = requestAnimationFrame(tick)
     }
@@ -85,9 +89,6 @@ export function TunerGauge({ cents, inTune, active }: TunerGaugeProps) {
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [])
-
-  const abs = Math.abs(cents ?? 0)
-  const far = active && cents !== null && abs > 18
 
   return (
     <div className="flex w-full flex-1 flex-col" aria-hidden>
@@ -98,22 +99,13 @@ export function TunerGauge({ cents, inTune, active }: TunerGaugeProps) {
         )}
       >
         <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-between px-4 text-[0.65rem] font-medium uppercase tracking-wider text-slate-500">
-          <span className={cn(far && cents !== null && cents < 0 && 'text-red-300')}>
-            Flat
-          </span>
+          <span>Flat</span>
           <span className={cn(inTune && active ? 'text-emerald-300' : '')}>
             In tune
           </span>
-          <span className={cn(far && cents !== null && cents > 0 && 'text-red-300')}>
-            Sharp
-          </span>
+          <span>Sharp</span>
         </div>
         <canvas ref={canvasRef} className="absolute inset-0 size-full" />
-        {far && cents !== null ? (
-          <p className="pointer-events-none absolute bottom-10 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/45 px-3 py-1 text-xs font-semibold text-red-200">
-            {cents < 0 ? 'Tune up · farther from pitch' : 'Tune down · farther from pitch'}
-          </p>
-        ) : null}
         <div
           className={cn(
             'absolute left-1/2 top-3 z-10 flex size-8 -translate-x-1/2 items-center justify-center rounded-full',
@@ -135,6 +127,7 @@ function drawTrail(
   shown: number,
   live: boolean,
   locked: boolean,
+  readout: number | null,
 ) {
   if (!canvas) return
   const parent = canvas.parentElement
@@ -197,7 +190,7 @@ function drawTrail(
   const points = history.length > 0 ? history : live ? [shown] : []
   if (points.length < 2) {
     if (live && points.length === 1) {
-      paintHead(ctx, xOf(points[0]), bottom, mixColor(Math.abs(points[0])), locked)
+      paintBubble(ctx, xOf(points[0]), bottom, mixColor(Math.abs(points[0])), locked, readout)
     }
     return
   }
@@ -229,28 +222,46 @@ function drawTrail(
   }
   ctx.globalAlpha = 1
 
-  paintHead(
+  paintBubble(
     ctx,
     xOf(points[points.length - 1]),
     bottom,
     mixColor(Math.abs(shown)),
     locked,
+    readout,
   )
 }
 
-function paintHead(
+function paintBubble(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   color: string,
   locked: boolean,
+  readout: number | null,
 ) {
+  const label =
+    readout === null
+      ? null
+      : readout === 0
+        ? '0'
+        : readout > 0
+          ? `+${readout}`
+          : `−${Math.abs(readout)}`
+  const radius = locked ? 22 : label && label.length > 3 ? 24 : 20
+
   ctx.beginPath()
-  ctx.fillStyle = locked ? 'rgba(52, 211, 153, 0.32)' : 'rgba(168, 85, 247, 0.2)'
-  ctx.arc(x, y, locked ? 18 : 13, 0, Math.PI * 2)
+  ctx.fillStyle = locked ? 'rgba(52, 211, 153, 0.28)' : 'rgba(12, 16, 28, 0.88)'
+  ctx.arc(x, y, radius, 0, Math.PI * 2)
   ctx.fill()
-  ctx.beginPath()
-  ctx.fillStyle = color
-  ctx.arc(x, y, 6, 0, Math.PI * 2)
-  ctx.fill()
+  ctx.lineWidth = 3
+  ctx.strokeStyle = locked ? '#34d399' : color
+  ctx.stroke()
+
+  if (label === null) return
+  ctx.fillStyle = locked ? '#ecfdf5' : '#fff7ed'
+  ctx.font = `700 ${label.length > 4 ? 13 : 16}px Outfit, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(label, x, y + 0.5)
 }

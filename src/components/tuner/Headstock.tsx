@@ -13,7 +13,8 @@ type HeadstockProps = {
   onTapPeg: (string: InstrumentString) => void
 }
 
-const VIEW_W = 300
+const VIEW_W = 340
+const NECK_H = 58
 
 type PegGeom = PegSlot & {
   postX: number
@@ -22,6 +23,8 @@ type PegGeom = PegSlot & {
   buttonY: number
   nutX: number
   nutY: number
+  chipX: number
+  chipY: number
 }
 
 type Layout = {
@@ -33,21 +36,19 @@ type Layout = {
   pegs: PegGeom[]
   logo: { x: number; y: number; r: number }
   body: string
+  neck: { x: number; y: number; w: number; h: number; boardX: number; boardW: number }
 }
 
-function layout(
-  slots: PegSlot[],
-  kind: HeadKind,
-): Layout {
+function layout(slots: PegSlot[], kind: HeadKind): Layout {
   const left = slots.filter((slot) => slot.side === 'left')
   const right = slots.filter((slot) => slot.side === 'right')
   const inline = slots.filter((slot) => slot.side === 'inline')
   const rows = Math.max(left.length, right.length, inline.length, 1)
-  const rowGap = kind === 'inline' ? 36 : rows <= 2 ? 46 : rows <= 3 ? 42 : 36
-  const crown = kind === 'scroll' ? 70 : kind === 'inline' ? 56 : 72
-  const nutY = crown + Math.max(rows - 1, 0) * rowGap + (kind === 'scroll' ? 36 : 40)
-  const height = nutY + 20
-  const nutWidth = kind === 'inline' ? 64 : kind === 'small' ? 70 : 78
+  const rowGap = kind === 'inline' ? 38 : rows <= 2 ? 50 : rows <= 3 ? 44 : 36
+  const crown = kind === 'scroll' ? 64 : kind === 'inline' ? 52 : kind === 'crown' ? 62 : 70
+  const nutY = crown + Math.max(rows - 1, 0) * rowGap + 38
+  const height = nutY + 10 + NECK_H
+  const nutWidth = kind === 'inline' ? 58 : kind === 'crown' ? 72 : 82
   const nutLeft = (VIEW_W - nutWidth) / 2
   const bodySlots = slots.filter((slot) => slot.side !== 'fifth')
   const maxNo = Math.max(...bodySlots.map((slot) => slot.string.stringNo), 1)
@@ -55,15 +56,17 @@ function layout(
   const span = Math.max(1, maxNo - minNo)
 
   const pegs: PegGeom[] = slots.map((slot) => {
-    const nutX = nutLeft + 9 + ((maxNo - slot.string.stringNo) / span) * (nutWidth - 18)
+    const nutX = nutLeft + 8 + ((maxNo - slot.string.stringNo) / span) * (nutWidth - 16)
     if (slot.side === 'inline') {
       const postY = crown + slot.row * rowGap
       return {
         ...slot,
-        postX: 108,
+        postX: 128,
         postY,
-        buttonX: 46,
+        buttonX: 58,
         buttonY: postY,
+        chipX: 28,
+        chipY: postY,
         nutX,
         nutY,
       }
@@ -71,16 +74,20 @@ function layout(
     if (slot.side === 'fifth') {
       return {
         ...slot,
-        postX: 96,
-        postY: nutY - 16,
-        buttonX: 44,
-        buttonY: nutY - 8,
+        postX: 112,
+        postY: nutY - 14,
+        buttonX: 58,
+        buttonY: nutY - 6,
+        chipX: 28,
+        chipY: nutY - 6,
         nutX: nutLeft + 6,
         nutY,
       }
     }
-    const postX = slot.side === 'left' ? 92 : VIEW_W - 92
-    const buttonX = slot.side === 'left' ? 38 : VIEW_W - 38
+    const leftSide = slot.side === 'left'
+    const postX = leftSide ? 118 : VIEW_W - 118
+    const buttonX = leftSide ? 58 : VIEW_W - 58
+    const chipX = leftSide ? 26 : VIEW_W - 26
     const postY = crown + slot.row * rowGap
     return {
       ...slot,
@@ -88,6 +95,8 @@ function layout(
       postY,
       buttonX,
       buttonY: postY,
+      chipX,
+      chipY: postY,
       nutX,
       nutY,
     }
@@ -95,11 +104,12 @@ function layout(
 
   const logo =
     kind === 'inline'
-      ? { x: 186, y: 46, r: 16 }
+      ? { x: 210, y: 44, r: 11 }
       : kind === 'scroll'
-        ? { x: VIEW_W / 2, y: 36, r: 13 }
-        : { x: VIEW_W / 2, y: 38, r: 17 }
+        ? { x: VIEW_W / 2, y: 28, r: 9 }
+        : { x: VIEW_W / 2, y: kind === 'crown' ? 32 : 34, r: 11 }
 
+  const boardW = nutWidth - 6
   return {
     kind,
     height,
@@ -109,52 +119,73 @@ function layout(
     pegs,
     logo,
     body: bodyPath(kind, nutY),
+    neck: {
+      x: nutLeft - 7,
+      y: nutY + 7,
+      w: nutWidth + 14,
+      h: NECK_H,
+      boardX: (VIEW_W - boardW) / 2,
+      boardW,
+    },
   }
 }
 
 function bodyPath(kind: HeadKind, nutY: number): string {
   const cx = VIEW_W / 2
+  if (kind === 'crown') {
+    return [
+      `M ${cx} 8`,
+      `C ${cx - 14} 10 ${cx - 28} 8 ${cx - 42} 22`,
+      `C ${cx - 62} 38 ${cx - 74} 58 ${cx - 76} 86`,
+      `L ${cx - 74} ${nutY - 6}`,
+      `C ${cx - 72} ${nutY + 4} ${cx - 36} ${nutY + 8} ${cx - 28} ${nutY + 8}`,
+      `L ${cx + 28} ${nutY + 8}`,
+      `C ${cx + 36} ${nutY + 8} ${cx + 72} ${nutY + 4} ${cx + 74} ${nutY - 6}`,
+      `L ${cx + 76} 86`,
+      `C ${cx + 74} 58 ${cx + 62} 38 ${cx + 42} 22`,
+      `C ${cx + 28} 8 ${cx + 14} 10 ${cx} 8`,
+      'Z',
+    ].join(' ')
+  }
   if (kind === 'inline') {
     return [
-      `M 172 10`,
-      `C 148 10 126 24 116 52`,
-      `L 100 ${nutY - 16}`,
-      `C 96 ${nutY + 2} 118 ${nutY + 11} 136 ${nutY + 11}`,
-      `L 198 ${nutY + 11}`,
-      `C 218 ${nutY + 10} 226 ${nutY - 2} 222 ${nutY - 16}`,
-      `L 208 58`,
-      `C 202 26 192 10 172 10`,
+      `M 198 10`,
+      `C 168 8 142 22 130 54`,
+      `L 118 ${nutY - 8}`,
+      `C 116 ${nutY + 4} 136 ${nutY + 8} 152 ${nutY + 8}`,
+      `L 214 ${nutY + 8}`,
+      `C 232 ${nutY + 6} 240 ${nutY - 4} 236 ${nutY - 16}`,
+      `L 228 52`,
+      `C 222 24 216 10 198 10`,
       'Z',
     ].join(' ')
   }
   if (kind === 'scroll') {
     return [
-      `M ${cx + 8} 8`,
-      `C ${cx + 28} 8 ${cx + 38} 22 ${cx + 34} 38`,
-      `C ${cx + 30} 52 ${cx + 18} 58 ${cx + 18} 58`,
-      `L ${cx + 40} ${nutY - 14}`,
-      `C ${cx + 42} ${nutY + 2} ${cx + 22} ${nutY + 11} ${cx} ${nutY + 11}`,
-      `L ${cx} ${nutY + 11}`,
-      `C ${cx - 22} ${nutY + 11} ${cx - 42} ${nutY + 2} ${cx - 40} ${nutY - 14}`,
-      `L ${cx - 18} 58`,
-      `C ${cx - 18} 58 ${cx - 30} 52 ${cx - 34} 38`,
-      `C ${cx - 38} 22 ${cx - 20} 8 ${cx + 8} 8`,
+      `M ${cx + 10} 6`,
+      `C ${cx + 32} 8 ${cx + 40} 26 ${cx + 32} 40`,
+      `C ${cx + 26} 50 ${cx + 16} 54 ${cx + 16} 54`,
+      `L ${cx + 42} ${nutY - 8}`,
+      `C ${cx + 44} ${nutY + 4} ${cx + 20} ${nutY + 8} ${cx} ${nutY + 8}`,
+      `C ${cx - 20} ${nutY + 8} ${cx - 44} ${nutY + 4} ${cx - 42} ${nutY - 8}`,
+      `L ${cx - 16} 54`,
+      `C ${cx - 16} 54 ${cx - 26} 50 ${cx - 32} 40`,
+      `C ${cx - 36} 22 ${cx - 16} 6 ${cx + 10} 6`,
       'Z',
     ].join(' ')
   }
-  const flare = kind === 'small' ? 52 : kind === 'banjo' ? 64 : 60
-  const top = kind === 'small' ? 12 : 10
+  const flare = kind === 'banjo' ? 78 : 72
   return [
-    `M ${cx} ${top}`,
-    `C ${cx - 30} ${top} ${cx - 50} ${top + 10} ${cx - flare} ${top + 32}`,
-    `C ${cx - flare - 10} ${top + 52} ${cx - flare - 12} 96 ${cx - flare - 14} 120`,
-    `L ${cx - flare - 16} ${nutY - 16}`,
-    `C ${cx - flare - 16} ${nutY} ${cx - 36} ${nutY + 11} ${cx - 30} ${nutY + 11}`,
-    `L ${cx + 30} ${nutY + 11}`,
-    `C ${cx + 36} ${nutY + 11} ${cx + flare + 16} ${nutY} ${cx + flare + 16} ${nutY - 16}`,
-    `L ${cx + flare + 14} 120`,
-    `C ${cx + flare + 12} 96 ${cx + flare + 10} ${top + 52} ${cx + flare} ${top + 32}`,
-    `C ${cx + 50} ${top + 10} ${cx + 30} ${top} ${cx} ${top}`,
+    `M ${cx} 10`,
+    `C ${cx - 36} 10 ${cx - 58} 22 ${cx - flare} 48`,
+    `C ${cx - flare - 8} 70 ${cx - flare - 10} 100 ${cx - flare - 8} 128`,
+    `L ${cx - flare - 6} ${nutY - 8}`,
+    `C ${cx - flare - 4} ${nutY + 4} ${cx - 40} ${nutY + 8} ${cx - 32} ${nutY + 8}`,
+    `L ${cx + 32} ${nutY + 8}`,
+    `C ${cx + 40} ${nutY + 8} ${cx + flare + 4} ${nutY + 4} ${cx + flare + 6} ${nutY - 8}`,
+    `L ${cx + flare + 8} 128`,
+    `C ${cx + flare + 10} 100 ${cx + flare + 8} 70 ${cx + flare} 48`,
+    `C ${cx + 58} 22 ${cx + 36} 10 ${cx} 10`,
     'Z',
   ].join(' ')
 }
@@ -174,7 +205,7 @@ export function Headstock({
 
   return (
     <div className="w-full">
-      <div className="mb-2 flex items-center justify-between gap-3">
+      <div className="mb-1 flex items-center justify-between gap-3">
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
           Headstock
         </p>
@@ -187,71 +218,103 @@ export function Headstock({
       <div className="relative mx-auto w-full max-w-sm">
         <svg
           viewBox={`0 0 ${VIEW_W} ${drawn.height}`}
-          className="mx-auto block h-auto w-full"
+          className="mx-auto block h-auto w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.45)]"
           role="img"
           aria-label="Instrument headstock"
         >
-          <defs>
-            <linearGradient id="omni-wood" x1="0.15" y1="0" x2="0.9" y2="1">
-              <stop offset="0%" stopColor="#2A3348" />
-              <stop offset="48%" stopColor="#1A2233" />
-              <stop offset="100%" stopColor="#121826" />
-            </linearGradient>
-            <linearGradient id="omni-brass" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#E6D3A6" />
-              <stop offset="50%" stopColor="#C4A56A" />
-              <stop offset="100%" stopColor="#8A6A3A" />
-            </linearGradient>
-          </defs>
+          <Defs />
+
+          <ellipse
+            cx={VIEW_W / 2}
+            cy={drawn.height - 8}
+            rx={drawn.neck.w * 0.55}
+            ry="10"
+            fill="rgba(0,0,0,0.35)"
+          />
+
+          <rect
+            x={drawn.neck.x}
+            y={drawn.neck.y}
+            width={drawn.neck.w}
+            height={drawn.neck.h}
+            rx="3"
+            fill="url(#omni-maple)"
+            filter="url(#omni-grain)"
+          />
+          <rect
+            x={drawn.neck.boardX}
+            y={drawn.nutY + 8}
+            width={drawn.neck.boardW}
+            height={drawn.neck.h - 2}
+            fill="url(#omni-ebony)"
+          />
+          {[18, 36].map((offset) => (
+            <rect
+              key={offset}
+              x={drawn.neck.boardX}
+              y={drawn.nutY + 8 + offset}
+              width={drawn.neck.boardW}
+              height="1.4"
+              fill="#c9b48a"
+              opacity="0.55"
+            />
+          ))}
 
           <path
             d={drawn.body}
-            fill="url(#omni-wood)"
-            stroke="url(#omni-brass)"
-            strokeWidth="2.4"
-            strokeLinejoin="round"
+            fill="url(#omni-maple)"
+            filter="url(#omni-grain)"
+          />
+          <path
+            d={drawn.body}
+            fill="url(#omni-wood-light)"
+            opacity="0.35"
           />
           <path
             d={drawn.body}
             fill="none"
-            stroke="rgba(168, 85, 247, 0.16)"
-            strokeWidth="1"
+            stroke="#6b4424"
+            strokeWidth="1.2"
+            strokeLinejoin="round"
           />
 
-          <Medallion cx={drawn.logo.x} cy={drawn.logo.y} r={drawn.logo.r} />
+          <WoodMark cx={drawn.logo.x} cy={drawn.logo.y} r={drawn.logo.r} />
 
           <rect
             x={drawn.nutLeft}
-            y={drawn.nutY + 2}
+            y={drawn.nutY + 1}
             width={drawn.nutWidth}
-            height="6"
+            height="8"
             rx="1.2"
-            fill="url(#omni-brass)"
+            fill="url(#omni-bone)"
+            stroke="#c8b48a"
+            strokeWidth="0.6"
           />
-          {drawn.pegs
-            .filter((peg) => peg.side !== 'fifth')
-            .map((peg) => (
-              <line
-                key={`slot-${peg.string.id}`}
-                x1={peg.nutX}
-                y1={drawn.nutY + 2}
-                x2={peg.nutX}
-                y2={drawn.nutY + 8}
-                stroke="#2A1E10"
-                strokeWidth="0.9"
-              />
-            ))}
 
           {drawn.pegs.map((peg) => (
             <path
               key={`string-${peg.string.id}`}
-              d={`M ${peg.nutX} ${drawn.nutY + 2} Q ${(peg.nutX + peg.postX) / 2} ${(drawn.nutY + peg.postY) / 2 + 4} ${peg.postX} ${peg.postY}`}
+              d={`M ${peg.postX} ${peg.postY} C ${peg.postX} ${(peg.postY + peg.nutY) / 2} ${peg.nutX} ${peg.nutY - 8} ${peg.nutX} ${peg.nutY + 5}`}
               fill="none"
-              stroke="rgba(232, 220, 188, 0.38)"
-              strokeWidth={0.9 + (peg.string.stringNo - 1) * 0.1}
+              stroke="url(#omni-string)"
+              strokeWidth={1.05 + (peg.string.stringNo - 1) * 0.18}
               strokeLinecap="round"
             />
           ))}
+          {drawn.pegs
+            .filter((peg) => peg.side !== 'fifth')
+            .map((peg) => (
+              <line
+                key={`board-${peg.string.id}`}
+                x1={peg.nutX}
+                y1={drawn.nutY + 9}
+                x2={peg.nutX}
+                y2={drawn.height - 4}
+                stroke="#d7d2c8"
+                strokeWidth={0.85 + (peg.string.stringNo - 1) * 0.12}
+                opacity="0.85"
+              />
+            ))}
 
           {drawn.pegs.map((peg) => {
             const tone = tunedIds.has(peg.string.id)
@@ -271,27 +334,90 @@ export function Headstock({
         </svg>
       </div>
       <p className="mt-2 text-center text-[0.65rem] leading-4 text-slate-500">
-        Tap a peg to hear its pitch and set the target. Red is the active string;
+        Tap a note to hear its pitch and set the target. Red is the active string;
         green stays until that string is played clearly out of tune.
       </p>
     </div>
   )
 }
 
-/** Official O + pick, geometrically centered in a light medallion. */
-function Medallion({ cx, cy, r }: { cx: number; cy: number; r: number }) {
+function Defs() {
+  return (
+    <defs>
+      <linearGradient id="omni-maple" x1="0.2" y1="0" x2="0.9" y2="1">
+        <stop offset="0%" stopColor="#E8C399" />
+        <stop offset="38%" stopColor="#D2A06A" />
+        <stop offset="72%" stopColor="#C48A52" />
+        <stop offset="100%" stopColor="#A86B3A" />
+      </linearGradient>
+      <linearGradient id="omni-wood-light" x1="0" y1="0" x2="1" y2="0.2">
+        <stop offset="0%" stopColor="#fff6e8" stopOpacity="0.55" />
+        <stop offset="45%" stopColor="#fff6e8" stopOpacity="0" />
+        <stop offset="100%" stopColor="#5a3418" stopOpacity="0.18" />
+      </linearGradient>
+      <linearGradient id="omni-ebony" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#2A2420" />
+        <stop offset="100%" stopColor="#12100E" />
+      </linearGradient>
+      <linearGradient id="omni-bone" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#F7F1E1" />
+        <stop offset="100%" stopColor="#D9CBA8" />
+      </linearGradient>
+      <linearGradient id="omni-string" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#F3F0EA" />
+        <stop offset="100%" stopColor="#9A958C" />
+      </linearGradient>
+      <radialGradient id="omni-chrome" cx="32%" cy="28%" r="75%">
+        <stop offset="0%" stopColor="#FFFFFF" />
+        <stop offset="28%" stopColor="#E2E6EE" />
+        <stop offset="62%" stopColor="#9AA3B0" />
+        <stop offset="100%" stopColor="#4A5160" />
+      </radialGradient>
+      <linearGradient id="omni-chrome-bar" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#F5F7FA" />
+        <stop offset="45%" stopColor="#B8C0CC" />
+        <stop offset="100%" stopColor="#5C6573" />
+      </linearGradient>
+      <filter id="omni-grain" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence
+          type="fractalNoise"
+          baseFrequency="0.035 0.55"
+          numOctaves="4"
+          seed="4"
+          result="noise"
+        />
+        <feColorMatrix
+          in="noise"
+          type="matrix"
+          values="0 0 0 0 0.55  0 0 0 0 0.32  0 0 0 0 0.14  0 0 0 0.42 0"
+          result="grain"
+        />
+        <feBlend in="SourceGraphic" in2="grain" mode="multiply" />
+      </filter>
+      <filter id="omni-soft" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="2" stdDeviation="1.6" floodColor="#000" floodOpacity="0.35" />
+      </filter>
+    </defs>
+  )
+}
+
+function WoodMark({ cx, cy, r }: { cx: number; cy: number; r: number }) {
   const s = r / 12
   return (
-    <g transform={`translate(${cx} ${cy})`}>
-      <circle r={r} fill="#F4F0E6" />
-      <circle r={r - 0.4} fill="none" stroke="#1A1D27" strokeWidth="0.7" />
-      <g transform={`scale(${s})`} fill="none" stroke="#14161F" strokeLinecap="round">
-        <circle r="8.2" strokeWidth="1.85" />
+    <g transform={`translate(${cx} ${cy})`} opacity="0.72">
+      <g
+        transform={`scale(${s})`}
+        fill="none"
+        stroke="#3B2414"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle r="8.15" strokeWidth="1.7" />
         <path
-          d="M 0 -3.1 C 2.55 -3.1 3.55 -0.7 3.05 1.85 C 2.35 4.35 0 5.55 0 5.55 C 0 5.55 -2.35 4.35 -3.05 1.85 C -3.55 -0.7 -2.55 -3.1 0 -3.1 Z"
-          strokeWidth="1.55"
+          d="M 0 -3.05 C 2.5 -3.05 3.45 -0.65 3 1.8 C 2.3 4.25 0 5.4 0 5.4 C 0 5.4 -2.3 4.25 -3 1.8 C -3.45 -0.65 -2.5 -3.05 0 -3.05 Z"
+          strokeWidth="1.45"
         />
-        <path d="M -1.55 -0.15 L 0 -1.7 L 1.55 -0.15" strokeWidth="1.35" />
+        <path d="M -1.5 -0.1 L 0 -1.65 L 1.5 -0.1" strokeWidth="1.25" />
       </g>
     </g>
   )
@@ -306,19 +432,8 @@ function MachineHead({
   tone: 'green' | 'red' | 'idle'
   onClick: () => void
 }) {
-  const side = peg.side === 'right' ? 1 : -1
-  const buttonFill =
-    tone === 'green' ? '#34d399' : tone === 'red' ? '#ef4444' : '#EDE4D0'
-  const ring =
-    tone === 'green' ? '#a7f3d0' : tone === 'red' ? '#fca5a5' : '#C4A56A'
-  const glow =
-    tone === 'green'
-      ? 'rgba(52,211,153,0.45)'
-      : tone === 'red'
-        ? 'rgba(239,68,68,0.4)'
-        : 'transparent'
-  const labelX = peg.buttonX + side * 18
-  const housingX = side < 0 ? peg.postX - 15 : peg.postX + 2
+  const towardPost = peg.side === 'right' ? -1 : 1
+  const shaftX2 = peg.postX - towardPost * 6
 
   return (
     <g
@@ -333,64 +448,104 @@ function MachineHead({
         }
       }}
       className="cursor-pointer"
+      filter="url(#omni-soft)"
     >
       <line
         x1={peg.buttonX}
         y1={peg.buttonY}
-        x2={peg.postX}
+        x2={shaftX2}
         y2={peg.postY}
-        stroke="url(#omni-brass)"
-        strokeWidth="2.6"
+        stroke="url(#omni-chrome-bar)"
+        strokeWidth="4.4"
         strokeLinecap="round"
       />
       <rect
-        x={housingX}
-        y={peg.postY - 4.2}
+        x={peg.side === 'right' ? peg.postX + 1 : peg.postX - 14}
+        y={peg.postY - 5}
         width="13"
-        height="8.4"
-        rx="1.6"
-        fill="url(#omni-brass)"
+        height="10"
+        rx="2"
+        fill="url(#omni-chrome-bar)"
       />
-      <circle cx={peg.postX} cy={peg.postY} r="5.6" fill="url(#omni-brass)" />
-      <circle cx={peg.postX} cy={peg.postY} r="2.4" fill="#14161F" />
-      <circle cx={peg.buttonX} cy={peg.buttonY} r="11" fill={glow} />
+      <circle cx={peg.postX} cy={peg.postY} r="6.4" fill="url(#omni-chrome)" />
+      <circle cx={peg.postX} cy={peg.postY} r="3.4" fill="#1A1C22" />
+      <circle cx={peg.postX - 1.2} cy={peg.postY - 1.4} r="1.1" fill="rgba(255,255,255,0.35)" />
+
+      <ellipse
+        cx={peg.buttonX + 1}
+        cy={peg.buttonY + 3}
+        rx="11"
+        ry="5"
+        fill="rgba(0,0,0,0.28)"
+      />
       <ellipse
         cx={peg.buttonX}
         cy={peg.buttonY}
-        rx="8.2"
-        ry="10.4"
-        fill={buttonFill}
-        stroke={ring}
-        strokeWidth="1.6"
+        rx="12.2"
+        ry="13.6"
+        fill="url(#omni-chrome)"
+        stroke="#6d7380"
+        strokeWidth="0.7"
       />
       <ellipse
-        cx={peg.buttonX - 1.6}
-        cy={peg.buttonY - 2.6}
-        rx="3.1"
-        ry="4.2"
-        fill="rgba(255,255,255,0.28)"
+        cx={peg.buttonX}
+        cy={peg.buttonY}
+        rx="8.4"
+        ry="9.4"
+        fill="none"
+        stroke="rgba(255,255,255,0.28)"
+        strokeWidth="1.1"
+      />
+      <ellipse
+        cx={peg.buttonX - 3.4}
+        cy={peg.buttonY - 4.2}
+        rx="4.6"
+        ry="3.4"
+        fill="rgba(255,255,255,0.55)"
+      />
+      <circle cx={peg.buttonX} cy={peg.buttonY + 0.6} r="2.1" fill="#5a6270" />
+      <circle cx={peg.buttonX - 0.5} cy={peg.buttonY} r="0.8" fill="#d7dce6" />
+
+      <NoteChip x={peg.chipX} y={peg.chipY} label={peg.string.label} tone={tone} />
+    </g>
+  )
+}
+
+function NoteChip({
+  x,
+  y,
+  label,
+  tone,
+}: {
+  x: number
+  y: number
+  label: string
+  tone: 'green' | 'red' | 'idle'
+}) {
+  const fill =
+    tone === 'green' ? '#22c55e' : tone === 'red' ? '#ef4444' : 'transparent'
+  const ring =
+    tone === 'green' ? '#86efac' : tone === 'red' ? '#fca5a5' : 'transparent'
+  return (
+    <g>
+      <circle
+        cx={x}
+        cy={y}
+        r="13"
+        fill={fill}
+        stroke={ring}
+        strokeWidth={tone === 'idle' ? 0 : 1.6}
       />
       <text
-        x={labelX}
-        y={peg.buttonY - 2}
+        x={x}
+        y={y + 4.2}
         textAnchor="middle"
-        fill="#F8FAFC"
-        fontSize="11"
+        fill={tone === 'idle' ? '#F8FAFC' : '#0B1020'}
+        fontSize="13"
         fontWeight="700"
         fontFamily="Outfit, sans-serif"
       >
-        {peg.string.label}
-      </text>
-      <text
-        x={labelX}
-        y={peg.buttonY + 10}
-        textAnchor="middle"
-        fill="#94A3B8"
-        fontSize="8.5"
-        fontWeight="600"
-        fontFamily="Outfit, sans-serif"
-      >
-        {peg.side === 'fifth' ? '5th' : `${peg.string.stringNo}`}
+        {label}
       </text>
     </g>
   )

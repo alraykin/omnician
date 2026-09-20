@@ -265,6 +265,13 @@ export function TunerPage() {
           <div className="mt-2 flex min-h-0 w-full flex-1 flex-col">
             <TunerGauge
               cents={displayCents}
+              readout={
+                live && rawCents !== null
+                  ? inTune
+                    ? 0
+                    : Math.round(rawCents)
+                  : null
+              }
               inTune={inTune}
               active={live}
             />

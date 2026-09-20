@@ -9,7 +9,7 @@ export type PegSlot = {
   row: number
 }
 
-export type HeadKind = 'split' | 'inline' | 'scroll' | 'banjo' | 'small'
+export type HeadKind = 'split' | 'inline' | 'scroll' | 'banjo' | 'crown'
 
 export function familyTone(family: FamilyId): 'guitar' | 'bass' | 'ukulele' | 'folk' {
   if (family === 'bass') return 'bass'
@@ -22,7 +22,7 @@ export function headKindFor(config: InstrumentId): HeadKind {
   if (config === 'violin') return 'scroll'
   if (config === 'banjo') return 'banjo'
   if (config === 'ukulele' || config === 'mandolin' || config === 'bouzouki') {
-    return 'small'
+    return 'crown'
   }
   if (config === 'bass-4' || config === 'bass-5') return 'inline'
   return 'split'
