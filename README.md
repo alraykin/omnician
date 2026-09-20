@@ -81,7 +81,7 @@ Click the terminal window and press **Control + C**.
   - Tunings are grouped under **Standard**, **Drop**, **Double Drop**, **Open**, and **Alternate / Other**, with the note string under each name (for example `E A D G B E`)
   - Chromatic hides the string list and shows an A4 calibration slider
   - A large trail shows how far off you are, with a live cents bubble on the tip (for example −18). When a note sits in tune, the needle holds the center and the display turns green
-  - Instrument presets show neon white line-art headstocks in Alex’s style: guitar and ukulele share hex pegs on a batwing; bass uses smooth 3-lobe clover tuners (4-string 2+2, 5-string 2+3, 6-string 3+3, 7-string 4+3, 8-string 4+4); banjo adds the fifth peg on the neck with a two-ring bushing. String spacing is even. The active peg, post, and string turn red until in tune, then green. Auto nearest-string, sticky locked pegs, a lock chime, a cents bubble on the trail, and tap-to-hear are included
+  - Instrument presets show neon white line-art headstocks. The 6-string guitar matches Alex’s tall, narrow batwing with large short-barrel hex pegs (left D / A / E, right G / B / e). Other instruments still use the earlier neon family until that shape is approved. The string being tuned is red until it locks; in-tune pegs, posts, and strings turn green. Auto nearest-string, sticky locked pegs, a lock chime, a cents bubble on the trail, and tap-to-hear are included
   - Custom 4–10 string tunings save on this device only
 - **Metronome / Drum Machine** — placeholder pages that say **Coming in V1**
 - A quiet note that more can unlock with a subscription later (there are **no payments** yet)
