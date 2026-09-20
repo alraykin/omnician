@@ -271,11 +271,17 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
 
   const nutLayout = pairedNut
     ? pairedNutXs(bodySlots, nutLeft, m.nutWidth, pad)
-    : {
-        nutXs: evenNutXs(bodySlots, nutLeft, m.nutWidth, pad, cx),
-        courses: [] as CourseSlot[],
-      }
+    : banjo && fifth
+      ? {
+          nutXs: banjoLongNutXs(bodySlots, nutLeft, m.nutWidth, pad),
+          courses: [] as CourseSlot[],
+        }
+      : {
+          nutXs: evenNutXs(bodySlots, nutLeft, m.nutWidth, pad, cx),
+          courses: [] as CourseSlot[],
+        }
   const nutXs = nutLayout.nutXs
+  const fifthX = banjo && fifth ? banjoFifthX(nutLeft, pad) : nutLeft + 7
 
   const pegs: PegGeom[] = bodySlots.map((slot) => {
     const nutX = nutXs.get(slot.string.id) ?? cx
@@ -304,7 +310,7 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
   if (fifth) {
     const fifthR = Math.max(16, m.hexR - 3)
     const fifthY = nutY + neckH * (5 / 7)
-    const pipX = nutLeft + 7
+    const pipX = fifthX
     pegs.push({
       ...fifth,
       postX: pipX,
@@ -334,6 +340,27 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
     guitarShape: true,
     courses: nutLayout.courses,
   }
+}
+
+function banjoFifthX(nutLeft: number, pad: number): number {
+  return nutLeft + pad
+}
+
+function banjoLongNutXs(
+  slots: PegSlot[],
+  nutLeft: number,
+  nutWidth: number,
+  pad: number,
+): Map<string, number> {
+  const byNo = [...slots].sort((a, b) => b.string.stringNo - a.string.stringNo)
+  const inner = nutWidth - pad * 2
+  const nutXs = new Map<string, number>()
+  // Five tracks across the nut; the drone uses track 0 only from the 5th fret down.
+  byNo.forEach((slot, index) => {
+    const t = (index + 1) / Math.max(1, byNo.length)
+    nutXs.set(slot.string.id, nutLeft + pad + t * inner)
+  })
+  return nutXs
 }
 
 function evenNutXs(
@@ -677,9 +704,9 @@ export function Headstock({
             .map((peg) => (
               <rect
                 key={`fifth-nut-${peg.string.id}`}
-                x={drawn.nutLeft}
+                x={peg.nutX - 5}
                 y={peg.postY - 2.2}
-                width="12"
+                width="10"
                 height="4.4"
                 fill={INK}
                 stroke={WHITE}
