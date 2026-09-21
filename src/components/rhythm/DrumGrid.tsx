@@ -21,15 +21,15 @@ export function DrumGrid({
   onPreview,
 }: DrumGridProps) {
   const steps = pattern.kick.length
-  const minCell = subdivisionSteps >= 6 ? '1.35rem' : subdivisionSteps >= 4 ? '1.5rem' : '1.7rem'
+  const minCell = subdivisionSteps >= 6 ? '1.25rem' : subdivisionSteps >= 4 ? '1.4rem' : '1.55rem'
 
   return (
-    <div className="overflow-x-auto pb-1">
+    <div className="max-h-[min(58vh,34rem)] overflow-x-auto overflow-y-auto pb-1">
       <div
         className="min-w-full"
-        style={{ minWidth: `calc(4.6rem + ${beats} * ${subdivisionSteps} * ${minCell})` }}
+        style={{ minWidth: `calc(4.9rem + ${beats} * ${subdivisionSteps} * ${minCell})` }}
       >
-        <div className="mb-1.5 flex items-center gap-1 pl-[4.6rem] text-[0.6rem] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="mb-1.5 flex items-center gap-1 pl-[4.9rem] text-[0.6rem] font-semibold uppercase tracking-wider text-slate-500">
           {Array.from({ length: beats }, (_, beat) => (
             <span
               key={`beat-${beat}`}
@@ -41,13 +41,13 @@ export function DrumGrid({
           ))}
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           {VOICES.map((voice) => (
             <div key={voice} className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => onPreview(voice)}
-                className="w-[4.4rem] shrink-0 truncate rounded-lg px-1 py-2 text-left text-[0.7rem] font-semibold text-slate-300 hover:bg-white/6 hover:text-white"
+                className="w-[4.7rem] shrink-0 truncate rounded-lg px-1 py-1.5 text-left text-[0.68rem] font-semibold leading-tight text-slate-300 hover:bg-white/6 hover:text-white"
               >
                 {VOICE_LABELS[voice]}
               </button>
@@ -57,7 +57,7 @@ export function DrumGrid({
                     {Array.from({ length: subdivisionSteps }, (_, offset) => {
                       const step = beat * subdivisionSteps + offset
                       if (step >= steps) return null
-                      const on = pattern[voice][step]
+                      const on = pattern[voice]?.[step]
                       const now = live && currentStep === step
                       return (
                         <button
@@ -67,7 +67,7 @@ export function DrumGrid({
                           aria-label={`${VOICE_LABELS[voice]}, beat ${beat + 1}, slot ${offset + 1}${on ? ', on' : ', off'}`}
                           onClick={() => onToggle(voice, step)}
                           className={cn(
-                            'h-9 min-w-[1.15rem] flex-1 rounded-md border transition sm:h-10',
+                            'h-8 min-w-[1.05rem] flex-1 rounded-md border transition sm:h-9',
                             on
                               ? 'border-[#A855F7] bg-[#A855F7] shadow-[0_0_10px_rgba(168,85,247,0.35)]'
                               : offset === 0

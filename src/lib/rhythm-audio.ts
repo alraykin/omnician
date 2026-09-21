@@ -13,6 +13,10 @@ const SAMPLE_FILES: Record<VoiceId, string> = {
   snare: '/rhythm/drums/snare.wav',
   closedHat: '/rhythm/drums/closed-hat.wav',
   openHat: '/rhythm/drums/open-hat.wav',
+  highTom: '/rhythm/drums/high-tom.wav',
+  midTom: '/rhythm/drums/mid-tom.wav',
+  floorTom: '/rhythm/drums/floor-tom.wav',
+  ride: '/rhythm/drums/ride.wav',
   crash: '/rhythm/drums/crash.wav',
 }
 
@@ -22,6 +26,10 @@ const SAMPLE_GAIN: Record<VoiceId, number> = {
   snare: 0.92,
   closedHat: 0.72,
   openHat: 0.62,
+  highTom: 0.88,
+  midTom: 0.9,
+  floorTom: 0.94,
+  ride: 0.7,
   crash: 0.78,
 }
 
@@ -121,12 +129,48 @@ function bakeCrash(ctx: AudioContext): AudioBuffer {
   })
 }
 
+function bakeTom(ctx: AudioContext, freq: number, seconds: number): AudioBuffer {
+  return renderBuffer(ctx, seconds, (data, sr) => {
+    let phase = 0
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      const f = freq * (1 + 0.18 * Math.exp(-t * 18))
+      phase += (Math.PI * 2 * f) / sr
+      const body = Math.sin(phase) * env(t, 0.003, 0.18)
+      const head = (Math.random() * 2 - 1) * env(t, 0.0004, 0.04) * 0.28
+      data[i] = tanh(body * 1.35 + head) * 0.82
+    }
+  })
+}
+
+function bakeRide(ctx: AudioContext): AudioBuffer {
+  const freqs = [380, 512, 647, 801, 934, 1102, 1288]
+  return renderBuffer(ctx, 1.35, (data, sr) => {
+    const phases = freqs.map(() => Math.random() * Math.PI * 2)
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      let metal = 0
+      for (let f = 0; f < freqs.length; f += 1) {
+        phases[f] += (Math.PI * 2 * freqs[f]) / sr
+        metal += Math.sin(phases[f]) / freqs.length
+      }
+      const ping = metal * env(t, 0.001, 0.55)
+      const wash = (Math.random() * 2 - 1) * env(t, 0.001, 0.42) * 0.28
+      data[i] = tanh(ping * 1.15 + wash) * 0.55
+    }
+  })
+}
+
 function bakeSynthDrums(ctx: AudioContext): Record<VoiceId, AudioBuffer> {
   return {
     kick: bakeKick(ctx),
     snare: bakeSnare(ctx),
     closedHat: bakeHat(ctx, false),
     openHat: bakeHat(ctx, true),
+    highTom: bakeTom(ctx, 196, 0.55),
+    midTom: bakeTom(ctx, 147, 0.62),
+    floorTom: bakeTom(ctx, 98, 0.72),
+    ride: bakeRide(ctx),
     crash: bakeCrash(ctx),
   }
 }

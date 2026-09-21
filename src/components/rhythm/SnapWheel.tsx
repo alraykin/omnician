@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 
 import { cn } from '@/lib/utils'
 
@@ -23,16 +23,27 @@ export function SnapWheel<T extends string | number>({
 }: SnapWheelProps<T>) {
   const scrollerRef = useRef<HTMLDivElement>(null)
   const fromScrollRef = useRef(false)
+  const readyRef = useRef(false)
+  const ignoreUntilRef = useRef(0)
   const index = Math.max(0, values.indexOf(value))
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = scrollerRef.current
     if (!node) return
-    if (fromScrollRef.current) {
-      fromScrollRef.current = false
-      return
-    }
+    fromScrollRef.current = true
+    ignoreUntilRef.current = performance.now() + 180
     node.scrollTop = index * ITEM
+    let inner = 0
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => {
+        fromScrollRef.current = false
+        readyRef.current = true
+      })
+    })
+    return () => {
+      cancelAnimationFrame(outer)
+      cancelAnimationFrame(inner)
+    }
   }, [index, value])
 
   return (
@@ -48,6 +59,8 @@ export function SnapWheel<T extends string | number>({
           ref={scrollerRef}
           className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain py-[40px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           onScroll={(event) => {
+            if (!readyRef.current || fromScrollRef.current) return
+            if (performance.now() < ignoreUntilRef.current) return
             const next = Math.round(event.currentTarget.scrollTop / ITEM)
             const clamped = Math.min(values.length - 1, Math.max(0, next))
             const chosen = values[clamped]

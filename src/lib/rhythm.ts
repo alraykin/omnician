@@ -3,6 +3,10 @@ export const VOICES = [
   'snare',
   'closedHat',
   'openHat',
+  'highTom',
+  'midTom',
+  'floorTom',
+  'ride',
   'crash',
 ] as const
 
@@ -13,6 +17,10 @@ export const VOICE_LABELS: Record<VoiceId, string> = {
   snare: 'Snare',
   closedHat: 'Closed hat',
   openHat: 'Open hat',
+  highTom: 'High tom',
+  midTom: 'Mid tom',
+  floorTom: 'Floor tom',
+  ride: 'Ride',
   crash: 'Crash',
 }
 
@@ -26,7 +34,7 @@ export const MIN_BARS = 1
 export const MAX_BARS = 8
 export const MIN_BPM = 30
 export const MAX_BPM = 300
-export const DEFAULT_BPM = 100
+export const DEFAULT_BPM = 120
 
 export const SUBDIVISIONS = [
   'eighths',
@@ -222,13 +230,11 @@ export function patternFromHits(
 ): Pattern {
   const length = clampBeats(beats) * stepsPerBeat(subdivision)
   const empty = emptyPattern(beats, subdivision)
-  return {
-    kick: hits.kick ? hitsFromSteps(length, hits.kick) : empty.kick,
-    snare: hits.snare ? hitsFromSteps(length, hits.snare) : empty.snare,
-    closedHat: hits.closedHat ? hitsFromSteps(length, hits.closedHat) : empty.closedHat,
-    openHat: hits.openHat ? hitsFromSteps(length, hits.openHat) : empty.openHat,
-    crash: hits.crash ? hitsFromSteps(length, hits.crash) : empty.crash,
+  const next = { ...empty }
+  for (const voice of VOICES) {
+    if (hits[voice]) next[voice] = hitsFromSteps(length, hits[voice] ?? [])
   }
+  return next
 }
 
 export function makeBar(

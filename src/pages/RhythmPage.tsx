@@ -36,7 +36,7 @@ import {
 } from '@/lib/rhythm'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
-import { RHYTHM_PRESETS, applyPreset, matchPreset } from '@/lib/rhythm-presets'
+import { RHYTHM_PRESETS, applyPreset, makeDefaultRockBars, matchPreset } from '@/lib/rhythm-presets'
 import { cn } from '@/lib/utils'
 
 const BEAT_VALUES = Array.from({ length: MAX_BEATS - MIN_BEATS + 1 }, (_, index) => index + MIN_BEATS)
@@ -112,7 +112,16 @@ export function RhythmPage() {
 
   const loadPreset = (id: string) => {
     const preset = RHYTHM_PRESETS.find((item) => item.id === id)
-    if (!preset || !current) return
+    if (!preset) return
+    if (id === 'rock-44') {
+      setBars(makeDefaultRockBars())
+      setBarIndex(0)
+      setBpm(DEFAULT_BPM)
+      setPresetId(preset.id)
+      setPickerOpen(false)
+      return
+    }
+    if (!current) return
     patchBar(barIndex, applyPreset(preset))
     setPresetId(preset.id)
     setPickerOpen(false)
@@ -240,7 +249,7 @@ export function RhythmPage() {
                 onClick={() => setBpm(DEFAULT_BPM)}
                 className="mt-2 text-xs font-semibold text-slate-500 hover:text-slate-300"
               >
-                Reset to 100
+                Reset to {DEFAULT_BPM}
               </button>
             </div>
             <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
@@ -270,8 +279,8 @@ export function RhythmPage() {
                     live && 'omni-beat-pulse',
                   )}
                 >
-                  {index + 1}{' '}
-                  <span className="text-[0.65rem] font-medium opacity-70">
+                  {index + 1}
+                  <span className="ml-1.5 text-[0.65rem] font-medium opacity-70">
                     {meterLabel(bar.beats, bar.beatUnit)}
                   </span>
                 </button>

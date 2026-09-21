@@ -1,4 +1,5 @@
 import {
+  cloneBar,
   makeBar,
   patternFromHits,
   patternsEqual,
@@ -41,13 +42,24 @@ function preset(
   }
 }
 
+const ROCK_GROOVE: Partial<Record<VoiceId, number[]>> = {
+  kick: [0, 4],
+  snare: [2, 6],
+  closedHat: [0, 1, 2, 3, 4, 5, 6, 7],
+  crash: [0],
+}
+
+const ROCK_FILL: Partial<Record<VoiceId, number[]>> = {
+  kick: [0],
+  snare: [2],
+  closedHat: [0, 1],
+  highTom: [3, 4],
+  midTom: [5, 6],
+  floorTom: [7],
+}
+
 export const RHYTHM_PRESETS: RhythmPreset[] = [
-  preset('rock-44', 'Rock', 'Backbeat you can lean on', 4, 4, 'eighths', {
-    kick: [0, 4],
-    snare: [2, 6],
-    closedHat: [0, 1, 2, 3, 4, 5, 6, 7],
-    crash: [0],
-  }),
+  preset('rock-44', 'Rock', 'Backbeat you can lean on', 4, 4, 'eighths', ROCK_GROOVE),
   preset('pop-44', 'Pop', 'Kick on the and of two', 4, 4, 'sixteenths', {
     kick: [0, 6, 8],
     snare: [4, 12],
@@ -89,12 +101,21 @@ export const RHYTHM_PRESETS: RhythmPreset[] = [
     closedHat: [0, 2, 4, 6, 8],
     crash: [0],
   }),
-  preset('eleven-118', 'Eleven', '11/8 — 3+3+3+2', 11, 8, 'eighths', {
-    kick: [0, 6, 12, 16],
-    snare: [4, 10, 18],
-    closedHat: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20],
-    crash: [0],
-  }, [0, 3, 6, 8]),
+  preset(
+    'eleven-118',
+    'Eleven',
+    '11/8 — 3+3+3+2',
+    11,
+    8,
+    'eighths',
+    {
+      kick: [0, 6, 12, 16],
+      snare: [4, 10, 18],
+      closedHat: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20],
+      crash: [0],
+    },
+    [0, 3, 6, 8],
+  ),
   preset('rock-68', 'Six-eight', 'Two big pulses, rocking 6/8', 6, 8, 'eighths', {
     kick: [0, 6],
     snare: [6],
@@ -149,4 +170,11 @@ export function presetToBar(preset: RhythmPreset): RhythmBar {
 
 export function applyPreset(preset: RhythmPreset): RhythmBar {
   return presetToBar(preset)
+}
+
+/** First-open Rock: three groove bars, then a short tom fill into the one. */
+export function makeDefaultRockBars(): RhythmBar[] {
+  const groove = makeBar(4, 4, 'eighths', patternFromHits(4, 'eighths', ROCK_GROOVE))
+  const fill = makeBar(4, 4, 'eighths', patternFromHits(4, 'eighths', ROCK_FILL))
+  return [cloneBar(groove), cloneBar(groove), cloneBar(groove), cloneBar(fill)]
 }
