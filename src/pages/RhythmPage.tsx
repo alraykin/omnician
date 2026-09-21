@@ -280,7 +280,8 @@ export function RhythmPage() {
                   )}
                 >
                   {index + 1}
-                  <span className="ml-1.5 text-[0.65rem] font-medium opacity-70">
+                  <span className="mx-1 text-[0.65rem] font-medium opacity-40">·</span>
+                  <span className="text-[0.65rem] font-medium opacity-70">
                     {meterLabel(bar.beats, bar.beatUnit)}
                   </span>
                 </button>
