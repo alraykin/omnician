@@ -1,4 +1,4 @@
-import type { VoiceId } from '@/lib/rhythm'
+import type { ClickSoundId, VoiceId } from '@/lib/rhythm'
 
 type AudioContextCtor = typeof AudioContext
 
@@ -8,184 +8,260 @@ export function getAudioCtor(): AudioContextCtor | undefined {
   return window.AudioContext ?? view.webkitAudioContext
 }
 
-function makeNoise(ctx: AudioContext, seconds: number): AudioBuffer {
+function renderBuffer(
+  ctx: AudioContext,
+  seconds: number,
+  fill: (data: Float32Array, sampleRate: number) => void,
+): AudioBuffer {
   const length = Math.max(1, Math.floor(ctx.sampleRate * seconds))
   const buffer = ctx.createBuffer(1, length, ctx.sampleRate)
-  const data = buffer.getChannelData(0)
-  for (let i = 0; i < length; i += 1) {
-    data[i] = Math.random() * 2 - 1
-  }
+  fill(buffer.getChannelData(0), ctx.sampleRate)
   return buffer
+}
+
+function env(t: number, attack: number, decay: number): number {
+  if (t < 0) return 0
+  if (t < attack) return t / Math.max(0.0001, attack)
+  return Math.exp(-(t - attack) / Math.max(0.0001, decay))
+}
+
+function tanh(x: number): number {
+  const e = Math.exp(2 * x)
+  return (e - 1) / (e + 1)
+}
+
+function bakeKick(ctx: AudioContext): AudioBuffer {
+  return renderBuffer(ctx, 0.55, (data, sr) => {
+    let phase = 0
+    let clickPhase = 0
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      const freq = 52 + 138 * Math.exp(-t * 28)
+      phase += (Math.PI * 2 * freq) / sr
+      const body = Math.sin(phase) * env(t, 0.004, 0.22)
+      const sub = Math.sin(phase * 0.5) * env(t, 0.008, 0.32) * 0.55
+      clickPhase += (Math.PI * 2 * (1800 - t * 9000)) / sr
+      const click = Math.sin(clickPhase) * env(t, 0.0004, 0.012) * 0.22
+      const noise = (Math.random() * 2 - 1) * env(t, 0.0002, 0.018) * 0.12
+      data[i] = tanh((body + sub) * 1.55 + click + noise) * 0.95
+    }
+  })
+}
+
+function bakeSnare(ctx: AudioContext): AudioBuffer {
+  return renderBuffer(ctx, 0.42, (data, sr) => {
+    let p1 = 0
+    let p2 = 0
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      p1 += (Math.PI * 2 * (196 - t * 80)) / sr
+      p2 += (Math.PI * 2 * (333 - t * 40)) / sr
+      const body =
+        (Math.sin(p1) * 0.55 + Math.sin(p2) * 0.35) * env(t, 0.0015, 0.09)
+      const noise = (Math.random() * 2 - 1) * env(t, 0.0008, 0.16)
+      const snap = (Math.random() * 2 - 1) * env(t, 0.0002, 0.018) * 0.7
+      const air = (Math.random() * 2 - 1) * env(t, 0.001, 0.07) * 0.25
+      data[i] = tanh(body * 1.2 + noise * 0.62 + snap + air) * 0.9
+    }
+  })
+}
+
+function bakeHat(ctx: AudioContext, open: boolean): AudioBuffer {
+  const seconds = open ? 0.55 : 0.09
+  const freqs = [318, 347, 412, 449, 483, 523, 612, 687]
+  return renderBuffer(ctx, seconds, (data, sr) => {
+    const phases = freqs.map(() => 0)
+    const decay = open ? 0.18 : 0.028
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      let metal = 0
+      for (let f = 0; f < freqs.length; f += 1) {
+        phases[f] += (Math.PI * 2 * freqs[f] * (open ? 1 : 1.04)) / sr
+        const square = Math.sin(phases[f]) > 0 ? 1 : -1
+        metal += square / freqs.length
+      }
+      const hiss = (Math.random() * 2 - 1) * 0.35
+      const tone = (metal * 0.75 + hiss) * env(t, 0.0004, decay)
+      data[i] = tanh(tone * 1.8) * (open ? 0.55 : 0.48)
+    }
+  })
+}
+
+function bakeCrash(ctx: AudioContext): AudioBuffer {
+  const freqs = [420, 487, 533, 611, 673, 754, 812, 901, 1040, 1188]
+  return renderBuffer(ctx, 1.6, (data, sr) => {
+    const phases = freqs.map(() => Math.random() * Math.PI * 2)
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      let metal = 0
+      for (let f = 0; f < freqs.length; f += 1) {
+        phases[f] += (Math.PI * 2 * freqs[f] * (1 + t * 0.015)) / sr
+        metal += Math.sin(phases[f]) / freqs.length
+      }
+      const wash = (Math.random() * 2 - 1) * env(t, 0.002, 0.55)
+      data[i] = tanh(metal * env(t, 0.003, 0.62) * 1.3 + wash * 0.45) * 0.7
+    }
+  })
+}
+
+type ClickPair = { normal: AudioBuffer; accent: AudioBuffer }
+
+function bakeClick(
+  ctx: AudioContext,
+  fill: (data: Float32Array, sr: number, accent: boolean) => void,
+): ClickPair {
+  const seconds = 0.22
+  return {
+    normal: renderBuffer(ctx, seconds, (data, sr) => fill(data, sr, false)),
+    accent: renderBuffer(ctx, seconds, (data, sr) => fill(data, sr, true)),
+  }
+}
+
+function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
+  return {
+    woodblock: bakeClick(ctx, (data, sr, accent) => {
+      const f0 = accent ? 980 : 740
+      let p = 0
+      let p2 = 0
+      for (let i = 0; i < data.length; i += 1) {
+        const t = i / sr
+        p += (Math.PI * 2 * f0) / sr
+        p2 += (Math.PI * 2 * f0 * 2.15) / sr
+        const tone =
+          (Math.sin(p) + Math.sin(p2) * 0.28) * env(t, 0.0006, accent ? 0.055 : 0.038)
+        const knock = (Math.random() * 2 - 1) * env(t, 0.0002, 0.012) * 0.2
+        data[i] = tanh(tone * 1.4 + knock) * (accent ? 0.85 : 0.55)
+      }
+    }),
+    clave: bakeClick(ctx, (data, sr, accent) => {
+      const f0 = accent ? 2450 : 2050
+      let p = 0
+      for (let i = 0; i < data.length; i += 1) {
+        const t = i / sr
+        p += (Math.PI * 2 * (f0 - t * 900)) / sr
+        data[i] =
+          Math.sin(p) * env(t, 0.0003, accent ? 0.028 : 0.018) * (accent ? 0.8 : 0.5)
+      }
+    }),
+    digital: bakeClick(ctx, (data, sr, accent) => {
+      const f0 = accent ? 1560 : 1040
+      let p = 0
+      for (let i = 0; i < data.length; i += 1) {
+        const t = i / sr
+        p += (Math.PI * 2 * f0) / sr
+        const square = Math.sin(p) > 0 ? 1 : -1
+        data[i] = square * env(t, 0.0004, accent ? 0.04 : 0.025) * (accent ? 0.42 : 0.28)
+      }
+    }),
+    rim: bakeClick(ctx, (data, sr, accent) => {
+      let p = 0
+      for (let i = 0; i < data.length; i += 1) {
+        const t = i / sr
+        p += (Math.PI * 2 * (accent ? 420 : 340)) / sr
+        const stick = Math.sin(p) * env(t, 0.0004, 0.03)
+        const crack = (Math.random() * 2 - 1) * env(t, 0.0002, 0.016)
+        data[i] = tanh(stick * 0.7 + crack * 0.85) * (accent ? 0.8 : 0.52)
+      }
+    }),
+    cowbell: bakeClick(ctx, (data, sr, accent) => {
+      let p1 = 0
+      let p2 = 0
+      const a = accent ? 1.08 : 1
+      for (let i = 0; i < data.length; i += 1) {
+        const t = i / sr
+        p1 += (Math.PI * 2 * 587 * a) / sr
+        p2 += (Math.PI * 2 * 845 * a) / sr
+        const square =
+          (Math.sin(p1) > 0 ? 1 : -1) * 0.55 + (Math.sin(p2) > 0 ? 1 : -1) * 0.45
+        data[i] = tanh(square * env(t, 0.0008, accent ? 0.12 : 0.08) * 1.2) * 0.5
+      }
+    }),
+    tick: bakeClick(ctx, (data, sr, accent) => {
+      let p = 0
+      for (let i = 0; i < data.length; i += 1) {
+        const t = i / sr
+        p += (Math.PI * 2 * (accent ? 2100 : 1650)) / sr
+        const tone = Math.sin(p) * env(t, 0.0004, 0.014)
+        const air = (Math.random() * 2 - 1) * env(t, 0.0002, 0.01) * 0.35
+        data[i] = (tone * 0.55 + air) * (accent ? 0.55 : 0.32)
+      }
+    }),
+  }
 }
 
 export class RhythmKit {
   readonly ctx: AudioContext
   private readonly master: GainNode
-  private readonly noise: AudioBuffer
+  private readonly drums: Record<VoiceId, AudioBuffer>
+  private readonly clicks: Record<ClickSoundId, ClickPair>
   private openHat: GainNode | null = null
 
   constructor(ctx: AudioContext) {
     this.ctx = ctx
     this.master = ctx.createGain()
-    this.master.gain.value = 0.82
-    this.master.connect(ctx.destination)
-    this.noise = makeNoise(ctx, 2)
+    this.master.gain.value = 0.9
+    const comp = ctx.createDynamicsCompressor()
+    comp.threshold.value = -16
+    comp.knee.value = 10
+    comp.ratio.value = 3.2
+    comp.attack.value = 0.003
+    comp.release.value = 0.14
+    this.master.connect(comp)
+    comp.connect(ctx.destination)
+    this.drums = {
+      kick: bakeKick(ctx),
+      snare: bakeSnare(ctx),
+      closedHat: bakeHat(ctx, false),
+      openHat: bakeHat(ctx, true),
+      crash: bakeCrash(ctx),
+    }
+    this.clicks = bakeClicks(ctx)
   }
 
   async unlock(): Promise<void> {
     if (this.ctx.state === 'suspended') await this.ctx.resume()
   }
 
-  click(time: number, accent: boolean): void {
-    const freq = accent ? 1480 : 880
-    const osc = this.ctx.createOscillator()
-    osc.type = 'square'
-    osc.frequency.setValueAtTime(freq, time)
-    const filter = this.ctx.createBiquadFilter()
-    filter.type = 'bandpass'
-    filter.frequency.setValueAtTime(freq, time)
-    filter.Q.value = accent ? 1.1 : 1.6
-    const gain = this.ctx.createGain()
-    const peak = accent ? 0.22 : 0.12
-    gain.gain.setValueAtTime(0.0001, time)
-    gain.gain.exponentialRampToValueAtTime(peak, time + 0.004)
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + (accent ? 0.07 : 0.045))
-    osc.connect(filter)
-    filter.connect(gain)
-    gain.connect(this.master)
-    osc.start(time)
-    osc.stop(time + 0.09)
-
-    const tick = this.ctx.createOscillator()
-    tick.type = 'sine'
-    tick.frequency.setValueAtTime(accent ? 2200 : 1600, time)
-    const tickGain = this.ctx.createGain()
-    tickGain.gain.setValueAtTime(accent ? 0.08 : 0.04, time)
-    tickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.018)
-    tick.connect(tickGain)
-    tickGain.connect(this.master)
-    tick.start(time)
-    tick.stop(time + 0.03)
+  click(
+    time: number,
+    accent: boolean,
+    sound: ClickSoundId = 'woodblock',
+    gain = 1,
+  ): void {
+    const pair = this.clicks[sound] ?? this.clicks.woodblock
+    this.fire(accent ? pair.accent : pair.normal, time, gain)
   }
 
   hit(voice: VoiceId, time: number, accent: boolean): void {
-    const lift = accent ? 1.12 : 1
-    if (voice === 'kick') this.kick(time, lift)
-    else if (voice === 'snare') this.snare(time, lift)
-    else if (voice === 'closedHat') this.hat(time, false, lift)
-    else if (voice === 'openHat') this.hat(time, true, lift)
-    else this.crash(time, lift)
+    if (voice === 'closedHat' || voice === 'openHat' || voice === 'crash') {
+      this.chokeHats(time)
+    }
+    const source = this.fire(this.drums[voice], time, accent ? 1.12 : 1)
+    if (voice === 'openHat' && source) this.openHat = source
   }
 
-  private kick(time: number, lift: number): void {
-    const osc = this.ctx.createOscillator()
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(148, time)
-    osc.frequency.exponentialRampToValueAtTime(46, time + 0.09)
-    const gain = this.ctx.createGain()
-    gain.gain.setValueAtTime(0.0001, time)
-    gain.gain.exponentialRampToValueAtTime(0.9 * lift, time + 0.006)
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.28)
-    osc.connect(gain)
-    gain.connect(this.master)
-    osc.start(time)
-    osc.stop(time + 0.3)
-
-    const click = this.ctx.createOscillator()
-    click.type = 'square'
-    click.frequency.setValueAtTime(980, time)
-    const clickGain = this.ctx.createGain()
-    clickGain.gain.setValueAtTime(0.16 * lift, time)
-    clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.02)
-    const clickFilter = this.ctx.createBiquadFilter()
-    clickFilter.type = 'highpass'
-    clickFilter.frequency.value = 700
-    click.connect(clickFilter)
-    clickFilter.connect(clickGain)
-    clickGain.connect(this.master)
-    click.start(time)
-    click.stop(time + 0.03)
+  previewClick(sound: ClickSoundId, accent = true): void {
+    this.click(this.ctx.currentTime + 0.01, accent, sound, 1)
   }
 
-  private snare(time: number, lift: number): void {
-    const body = this.ctx.createOscillator()
-    body.type = 'triangle'
-    body.frequency.setValueAtTime(188, time)
-    body.frequency.exponentialRampToValueAtTime(140, time + 0.08)
-    const bodyGain = this.ctx.createGain()
-    bodyGain.gain.setValueAtTime(0.28 * lift, time)
-    bodyGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.14)
-    body.connect(bodyGain)
-    bodyGain.connect(this.master)
-    body.start(time)
-    body.stop(time + 0.16)
-
-    const noise = this.ctx.createBufferSource()
-    noise.buffer = this.noise
-    const filter = this.ctx.createBiquadFilter()
-    filter.type = 'bandpass'
-    filter.frequency.setValueAtTime(2100, time)
-    filter.Q.value = 1.1
-    const noiseGain = this.ctx.createGain()
-    noiseGain.gain.setValueAtTime(0.42 * lift, time)
-    noiseGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.18)
-    noise.connect(filter)
-    filter.connect(noiseGain)
-    noiseGain.connect(this.master)
-    noise.start(time)
-    noise.stop(time + 0.2)
+  private fire(buffer: AudioBuffer, time: number, gain: number): GainNode {
+    const source = this.ctx.createBufferSource()
+    source.buffer = buffer
+    const amp = this.ctx.createGain()
+    amp.gain.setValueAtTime(Math.max(0.0001, gain), time)
+    source.connect(amp)
+    amp.connect(this.master)
+    source.start(time)
+    return amp
   }
 
-  private hat(time: number, open: boolean, lift: number): void {
-    if (open) this.chokeOpen(time)
-    else this.chokeOpen(time)
-
-    const noise = this.ctx.createBufferSource()
-    noise.buffer = this.noise
-    const filter = this.ctx.createBiquadFilter()
-    filter.type = 'highpass'
-    filter.frequency.value = open ? 6200 : 7800
-    filter.Q.value = 0.7
-    const gain = this.ctx.createGain()
-    const peak = (open ? 0.22 : 0.16) * lift
-    const decay = open ? 0.38 : 0.048
-    gain.gain.setValueAtTime(peak, time)
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + decay)
-    noise.connect(filter)
-    filter.connect(gain)
-    gain.connect(this.master)
-    noise.start(time)
-    noise.stop(time + decay + 0.02)
-    if (open) this.openHat = gain
-    else this.openHat = null
-  }
-
-  private crash(time: number, lift: number): void {
-    this.chokeOpen(time)
-    const noise = this.ctx.createBufferSource()
-    noise.buffer = this.noise
-    const filter = this.ctx.createBiquadFilter()
-    filter.type = 'bandpass'
-    filter.frequency.setValueAtTime(4200, time)
-    filter.frequency.exponentialRampToValueAtTime(1800, time + 0.55)
-    filter.Q.value = 0.55
-    const gain = this.ctx.createGain()
-    gain.gain.setValueAtTime(0.28 * lift, time)
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.85)
-    noise.connect(filter)
-    filter.connect(gain)
-    gain.connect(this.master)
-    noise.start(time)
-    noise.stop(time + 0.9)
-  }
-
-  private chokeOpen(time: number): void {
+  private chokeHats(time: number): void {
     if (!this.openHat) return
     const gain = this.openHat
     try {
       gain.gain.cancelScheduledValues(time)
       gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), time)
-      gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.03)
     } catch {
       gain.gain.setValueAtTime(0.0001, time)
     }

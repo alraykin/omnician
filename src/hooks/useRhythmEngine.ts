@@ -6,17 +6,19 @@ import {
   beatIndexForStep,
   isBeatStep,
   stepDurationSec,
-  stepsPerBar,
-  type Meter,
-  type Pattern,
+  stepsInBar,
+  type ClickSoundId,
+  type RhythmBar,
   type RhythmMode,
   type VoiceId,
 } from '@/lib/rhythm'
 
 export type Playhead = {
+  bar: number
   step: number
   beat: number
   accent: boolean
+  subdivision: boolean
 }
 
 const LOOKAHEAD_MS = 25
@@ -25,22 +27,22 @@ const SCHEDULE_AHEAD = 0.12
 export function useRhythmEngine({
   playing,
   bpm,
-  meter,
   mode,
-  accents,
-  pattern,
+  bars,
+  clickSound,
 }: {
   playing: boolean
   bpm: number
-  meter: Meter
   mode: RhythmMode
-  accents: readonly number[]
-  pattern: Pattern
+  bars: readonly RhythmBar[]
+  clickSound: ClickSoundId
 }) {
   const [playhead, setPlayhead] = useState<Playhead>({
+    bar: 0,
     step: -1,
     beat: -1,
     accent: false,
+    subdivision: false,
   })
 
   const kitRef = useRef<RhythmKit | null>(null)
@@ -48,19 +50,18 @@ export function useRhythmEngine({
   const visualRef = useRef<number[]>([])
   const nextTimeRef = useRef(0)
   const stepRef = useRef(0)
+  const barRef = useRef(0)
   const playingRef = useRef(playing)
   const bpmRef = useRef(bpm)
-  const meterRef = useRef(meter)
   const modeRef = useRef(mode)
-  const accentsRef = useRef(accents)
-  const patternRef = useRef(pattern)
+  const barsRef = useRef(bars)
+  const clickRef = useRef(clickSound)
 
   playingRef.current = playing
   bpmRef.current = bpm
-  meterRef.current = meter
   modeRef.current = mode
-  accentsRef.current = accents
-  patternRef.current = pattern
+  barsRef.current = bars
+  clickRef.current = clickSound
 
   const clearVisuals = useCallback(() => {
     for (const id of visualRef.current) window.clearTimeout(id)
@@ -89,15 +90,27 @@ export function useRhythmEngine({
     [ensureKit],
   )
 
+  const previewClick = useCallback(
+    async (sound: ClickSoundId) => {
+      const kit = await ensureKit()
+      if (!kit) return
+      kit.previewClick(sound, true)
+    },
+    [ensureKit],
+  )
+
   const stopScheduler = useCallback(() => {
     if (timerRef.current !== null) {
       window.clearInterval(timerRef.current)
       timerRef.current = null
     }
     clearVisuals()
-    setPlayhead({ step: -1, beat: -1, accent: false })
+    setPlayhead({ bar: 0, step: -1, beat: -1, accent: false, subdivision: false })
     stepRef.current = 0
+    barRef.current = 0
   }, [clearVisuals])
+
+  const structureKey = bars.map((bar) => `${bar.beats}/${bar.beatUnit}/${bar.subdivision}`).join('|')
 
   useEffect(() => {
     if (!playing) {
@@ -112,40 +125,60 @@ export function useRhythmEngine({
       if (!kit || cancelled || !playingRef.current) return
 
       stepRef.current = 0
+      barRef.current = 0
       nextTimeRef.current = kit.ctx.currentTime + 0.05
 
-      const scheduleStep = (step: number, time: number) => {
-        const currentMeter = meterRef.current
-        const beat = beatIndexForStep(step, currentMeter)
-        const accent = accentsRef.current.includes(beat)
+      const scheduleStep = (barIndex: number, step: number, time: number) => {
+        const sequence = barsRef.current
+        const bar = sequence[barIndex] ?? sequence[0]
+        if (!bar) return
+        const beat = beatIndexForStep(step, bar.beats, bar.subdivision)
+        const onBeat = isBeatStep(step, bar.subdivision)
+        const accent = onBeat && bar.accents.includes(beat)
         if (modeRef.current === 'click') {
-          if (isBeatStep(step, currentMeter)) kit.click(time, accent)
+          if (onBeat) kit.click(time, accent, clickRef.current, 1)
+          else kit.click(time, false, clickRef.current, 0.32)
         } else {
-          const grid = patternRef.current
+          const grid = bar.pattern
           const open = grid.openHat[step]
           for (const voice of VOICES) {
             if (voice === 'closedHat' && open) continue
-            if (grid[voice][step]) kit.hit(voice, time, accent)
+            if (grid[voice]?.[step]) kit.hit(voice, time, accent)
           }
         }
 
         const delay = Math.max(0, (time - kit.ctx.currentTime) * 1000)
         const id = window.setTimeout(() => {
           if (!playingRef.current) return
-          setPlayhead({ step, beat, accent })
+          setPlayhead({
+            bar: barIndex,
+            step,
+            beat,
+            accent,
+            subdivision: !onBeat,
+          })
         }, delay)
         visualRef.current.push(id)
       }
 
       const tick = () => {
         if (!playingRef.current) return
-        const currentMeter = meterRef.current
-        const bar = Math.max(1, stepsPerBar(currentMeter))
+        const sequence = barsRef.current
+        if (sequence.length === 0) return
         while (nextTimeRef.current < kit.ctx.currentTime + SCHEDULE_AHEAD) {
+          const barIndex = ((barRef.current % sequence.length) + sequence.length) % sequence.length
+          const bar = sequence[barIndex]
+          const length = Math.max(1, stepsInBar(bar))
           const step = stepRef.current
-          scheduleStep(step, nextTimeRef.current)
-          nextTimeRef.current += stepDurationSec(bpmRef.current, currentMeter)
-          stepRef.current = (step + 1) % bar
+          scheduleStep(barIndex, step, nextTimeRef.current)
+          nextTimeRef.current += stepDurationSec(bpmRef.current, bar.subdivision)
+          const nextStep = step + 1
+          if (nextStep >= length) {
+            stepRef.current = 0
+            barRef.current = (barIndex + 1) % sequence.length
+          } else {
+            stepRef.current = nextStep
+          }
         }
       }
 
@@ -163,7 +196,7 @@ export function useRhythmEngine({
       }
       clearVisuals()
     }
-  }, [ensureKit, playing, stopScheduler, clearVisuals, meter.id])
+  }, [ensureKit, playing, stopScheduler, clearVisuals, structureKey])
 
   useEffect(() => {
     return () => {
@@ -178,5 +211,5 @@ export function useRhythmEngine({
     }
   }, [stopScheduler])
 
-  return { playhead, preview, ensureKit }
+  return { playhead, preview, previewClick, ensureKit }
 }

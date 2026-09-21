@@ -1,111 +1,133 @@
-import { Minus, Plus } from 'lucide-react'
+import { Lock, Minus, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
+import { BpmWheel } from '@/components/rhythm/BpmWheel'
 import { DrumGrid } from '@/components/rhythm/DrumGrid'
+import { SnapWheel } from '@/components/rhythm/SnapWheel'
 import { Button } from '@/components/ui/button'
 import { useRhythmEngine } from '@/hooks/useRhythmEngine'
 import {
+  BEAT_UNITS,
+  CLICK_SOUND_LABELS,
+  CLICK_SOUNDS,
   DEFAULT_BPM,
-  METER_IDS,
-  METERS,
+  MAX_BARS,
+  MIN_BEATS,
+  MAX_BEATS,
+  SUBDIVISION_META,
+  SUBDIVISIONS,
+  UNIT_LABELS,
   clampBpm,
-  clonePattern,
-  defaultAccents,
+  cloneBar,
+  meterLabel,
+  pulseLabel,
+  stepsPerBeat,
   toggleAccent,
   toggleHit,
-  type MeterId,
+  updateBarMeter,
+  type BeatUnit,
+  type ClickSoundId,
+  type RhythmBar,
   type RhythmMode,
+  type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
-import {
-  RHYTHM_PRESETS,
-  defaultPreset,
-  findPreset,
-  matchPreset,
-  presetsForMeter,
-} from '@/lib/rhythm-presets'
+import { RHYTHM_PRESETS, applyPreset, matchPreset } from '@/lib/rhythm-presets'
 import { cn } from '@/lib/utils'
+
+const BEAT_VALUES = Array.from({ length: MAX_BEATS - MIN_BEATS + 1 }, (_, index) => index + MIN_BEATS)
 
 export function RhythmPage() {
   const [searchParams] = useSearchParams()
   const prefs = useMemo(() => loadRhythmPrefs(), [])
   const urlMode = searchParams.get('mode')
   const [bpm, setBpm] = useState(prefs.bpm)
-  const [meterId, setMeterId] = useState<MeterId>(prefs.meterId)
   const [mode, setMode] = useState<RhythmMode>(
     urlMode === 'drums' || urlMode === 'click' ? urlMode : prefs.mode,
   )
-  const [accents, setAccents] = useState(prefs.accents)
-  const [pattern, setPattern] = useState(prefs.pattern)
+  const [clickSound, setClickSound] = useState<ClickSoundId>(prefs.clickSound)
+  const [bars, setBars] = useState<RhythmBar[]>(prefs.bars)
+  const [barIndex, setBarIndex] = useState(prefs.barIndex)
   const [presetId, setPresetId] = useState<string | null>(prefs.presetId)
   const [playing, setPlaying] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const tapTimes = useRef<number[]>([])
 
-  const meter = METERS[meterId]
-  const { playhead, preview, ensureKit } = useRhythmEngine({
+  const current = bars[Math.min(barIndex, bars.length - 1)] ?? bars[0]
+  const { playhead, preview, previewClick, ensureKit } = useRhythmEngine({
     playing,
     bpm,
-    meter,
     mode,
-    accents,
-    pattern,
+    bars,
+    clickSound,
   })
 
-  const matched = matchPreset(meterId, pattern)
-  const preset = (presetId ? findPreset(presetId) : null) ?? matched
-  const edited = Boolean(preset && !matched)
-  const beatName = preset
-    ? edited
-      ? `${preset.name} · edited`
-      : preset.name
-    : 'Custom beat'
+  useEffect(() => {
+    if (playing) setBarIndex(playhead.bar)
+  }, [playhead.bar, playing])
+
+  const matched = current ? matchPreset(current) : null
+  const edited = Boolean(matched === null && presetId)
+  const beatName = matched
+    ? matched.name
+    : presetId
+      ? `${RHYTHM_PRESETS.find((item) => item.id === presetId)?.name ?? 'Custom'} · edited`
+      : 'Custom beat'
 
   useEffect(() => {
     saveRhythmPrefs({
       bpm,
-      meterId,
       mode,
-      accents,
-      pattern,
+      clickSound,
+      bars,
+      barIndex,
       presetId: matched?.id ?? presetId,
     })
-  }, [accents, bpm, meterId, mode, matched?.id, pattern, presetId])
+  }, [barIndex, bars, bpm, clickSound, matched?.id, mode, presetId])
 
-  const applyMeter = (
-    nextId: MeterId,
-    nextPattern?: ReturnType<typeof clonePattern>,
-    nextPreset?: string | null,
-  ) => {
-    if (nextId === meterId && !nextPattern) return
-    setMeterId(nextId)
-    setAccents(defaultAccents(nextId))
-    if (nextPattern) {
-      setPattern(clonePattern(nextPattern))
-      setPresetId(nextPreset ?? null)
-      return
+  const patchBar = (index: number, next: RhythmBar) => {
+    setBars((currentBars) => currentBars.map((bar, item) => (item === index ? next : bar)))
+  }
+
+  const setMeter = (beats: number, beatUnit: BeatUnit) => {
+    if (!current) return
+    patchBar(barIndex, updateBarMeter(current, beats, beatUnit, current.subdivision))
+    setPresetId(null)
+  }
+
+  const setSubdivision = (subdivision: SubdivisionId, all = false) => {
+    if (all) {
+      setBars((currentBars) =>
+        currentBars.map((bar) => updateBarMeter(bar, bar.beats, bar.beatUnit, subdivision)),
+      )
+    } else if (current) {
+      patchBar(barIndex, updateBarMeter(current, current.beats, current.beatUnit, subdivision))
     }
-    const fallback = defaultPreset(nextId)
-    setPattern(clonePattern(fallback.pattern))
-    setPresetId(fallback.id)
+    setPresetId(null)
   }
 
   const loadPreset = (id: string) => {
-    const next = findPreset(id)
-    if (!next) return
-    applyMeter(next.meterId, next.pattern, next.id)
+    const preset = RHYTHM_PRESETS.find((item) => item.id === id)
+    if (!preset || !current) return
+    patchBar(barIndex, applyPreset(preset))
+    setPresetId(preset.id)
     setPickerOpen(false)
   }
 
-  const changeMode = (next: RhythmMode) => {
-    setMode(next)
+  const addBar = () => {
+    if (bars.length >= MAX_BARS || !current) return
+    setBars((currentBars) => [...currentBars, cloneBar(current)])
+    setBarIndex(bars.length)
   }
 
-  const nudgeBpm = (delta: number) => {
-    setBpm((current) => clampBpm(current + delta))
+  const removeBar = (index: number) => {
+    if (bars.length <= 1) return
+    const next = bars.filter((_, item) => item !== index)
+    setBars(next)
+    setBarIndex(Math.min(index, next.length - 1))
   }
 
   const tapTempo = () => {
@@ -123,9 +145,11 @@ export function RhythmPage() {
   }
 
   const onToggleCell = (voice: VoiceId, step: number) => {
-    const next = toggleHit(pattern, voice, step)
-    setPattern(next)
-    if (!pattern[voice][step] && next[voice][step]) {
+    if (!current) return
+    const nextPattern = toggleHit(current.pattern, voice, step)
+    patchBar(barIndex, { ...current, pattern: nextPattern })
+    setPresetId(matched?.id ?? presetId)
+    if (!current.pattern[voice][step] && nextPattern[voice][step]) {
       void preview(voice)
     }
   }
@@ -139,6 +163,8 @@ export function RhythmPage() {
     setPlaying(true)
   }
 
+  if (!current) return null
+
   return (
     <AppChrome align="fill" wide>
       <div className="flex min-h-0 flex-1 flex-col">
@@ -146,7 +172,7 @@ export function RhythmPage() {
           Rhythm
         </h1>
         <p className="mt-1 text-center text-sm text-slate-400">
-          Click or drums — same tempo, same meter.
+          Click or drums — same tempo, any meter.
         </p>
 
         <div className="mx-auto mt-4 grid w-full max-w-sm grid-cols-2 rounded-2xl border border-white/10 bg-[#141A28] p-1">
@@ -155,12 +181,10 @@ export function RhythmPage() {
               key={item}
               type="button"
               aria-pressed={mode === item}
-              onClick={() => changeMode(item)}
+              onClick={() => setMode(item)}
               className={cn(
                 'h-11 rounded-xl text-sm font-semibold capitalize transition',
-                mode === item
-                  ? 'bg-[#A855F7] text-white'
-                  : 'text-slate-300 hover:text-white',
+                mode === item ? 'bg-[#A855F7] text-white' : 'text-slate-300 hover:text-white',
               )}
             >
               {item}
@@ -168,92 +192,168 @@ export function RhythmPage() {
           ))}
         </div>
 
-        <section className="mt-4 rounded-3xl border border-white/10 bg-[#141A28]/80 px-4 py-4 sm:px-5">
-          <div className="flex items-center justify-between gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Slower by 5"
-              onClick={() => nudgeBpm(-5)}
-            >
-              <Minus className="size-4" />
-            </Button>
-            <div className="text-center">
+        <section className="mt-4 rounded-3xl border border-white/10 bg-[#141A28]/80 px-3 py-4 sm:px-5">
+          <div className="flex items-stretch gap-3">
+            <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
               <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 BPM
               </p>
               <p className="text-5xl font-bold tabular-nums tracking-tight text-white sm:text-6xl">
                 {bpm}
               </p>
-              <p className="text-xs text-slate-500">{meter.pulseLabel}</p>
+              <p className="text-xs text-slate-500">{pulseLabel(current.beatUnit)}</p>
+              <div className="mt-3 flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Slower by 5"
+                  onClick={() => setBpm((value) => clampBpm(value - 5))}
+                >
+                  <Minus className="size-3.5" />
+                  5
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={tapTempo}>
+                  Tap tempo
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Faster by 5"
+                  onClick={() => setBpm((value) => clampBpm(value + 5))}
+                >
+                  <Plus className="size-3.5" />
+                  5
+                </Button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBpm(DEFAULT_BPM)}
+                className="mt-2 text-xs font-semibold text-slate-500 hover:text-slate-300"
+              >
+                Reset to 100
+              </button>
             </div>
+            <BpmWheel value={bpm} onChange={setBpm} />
+          </div>
+        </section>
+
+        <section className="mt-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Bars
+            </p>
+            <p className="text-xs text-slate-500">Up to 8 · each can have its own meter</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {bars.map((bar, index) => {
+              const live = playing && playhead.bar === index
+              return (
+                <button
+                  key={`bar-${index}`}
+                  type="button"
+                  onClick={() => setBarIndex(index)}
+                  className={cn(
+                    'h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold',
+                    index === barIndex
+                      ? 'bg-[#A855F7] text-white'
+                      : 'border border-white/10 bg-white/4 text-slate-200',
+                    live && 'omni-beat-pulse',
+                  )}
+                >
+                  {index + 1}
+                  <span className="ml-1 text-[0.65rem] font-medium opacity-70">
+                    {meterLabel(bar.beats, bar.beatUnit)}
+                  </span>
+                </button>
+              )
+            })}
             <Button
               type="button"
               variant="outline"
-              size="icon"
-              aria-label="Faster by 5"
-              onClick={() => nudgeBpm(5)}
+              size="sm"
+              onClick={addBar}
+              disabled={bars.length >= MAX_BARS}
             >
-              <Plus className="size-4" />
+              <Plus className="size-3.5" />
+              Bar
             </Button>
+            {bars.length > 1 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => removeBar(barIndex)}
+                aria-label="Remove this bar"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            ) : null}
           </div>
+        </section>
 
-          <input
-            type="range"
-            min={30}
-            max={300}
-            value={bpm}
-            onChange={(event) => setBpm(clampBpm(Number(event.target.value)))}
-            className="omni-slider mt-4 w-full"
-            aria-label="Tempo"
-          />
-
-          <div className="mt-3 flex items-center justify-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => nudgeBpm(-1)}>
-              −1
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={tapTempo}>
-              Tap tempo
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => nudgeBpm(1)}>
-              +1
-            </Button>
+        <section className="mt-4 rounded-3xl border border-white/10 bg-[#141A28]/80 px-3 py-4 sm:px-5">
+          <p className="mb-3 text-center text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Meter · bar {barIndex + 1}
+          </p>
+          <div className="flex items-center justify-center gap-3 sm:gap-5">
+            <SnapWheel
+              label="Beats"
+              values={BEAT_VALUES}
+              value={current.beats}
+              onChange={(beats) => setMeter(beats, current.beatUnit)}
+            />
+            <p className="pt-5 text-3xl font-bold text-slate-500">/</p>
+            <SnapWheel
+              label="Beat unit"
+              wide
+              values={BEAT_UNITS}
+              value={current.beatUnit}
+              format={(unit) => `${unit} · ${UNIT_LABELS[unit]}`}
+              onChange={(unit) => setMeter(current.beats, unit)}
+            />
           </div>
-          <button
-            type="button"
-            onClick={() => setBpm(DEFAULT_BPM)}
-            className="mx-auto mt-2 block text-xs font-semibold text-slate-500 hover:text-slate-300"
-          >
-            Reset to 100
-          </button>
+          <p className="mt-3 text-center text-lg font-bold tabular-nums text-white">
+            {meterLabel(current.beats, current.beatUnit)}
+          </p>
         </section>
 
         <section className="mt-4">
           <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-            Time signature
+            Subdivision
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {METER_IDS.map((id) => (
+            {SUBDIVISIONS.map((id) => (
               <button
                 key={id}
                 type="button"
-                aria-pressed={meterId === id}
-                onClick={() => applyMeter(id)}
+                aria-pressed={current.subdivision === id}
+                onClick={() => setSubdivision(id)}
                 className={cn(
-                  'h-9 min-w-12 rounded-xl px-2.5 text-sm font-semibold',
-                  meterId === id
+                  'h-9 rounded-xl px-2.5 text-sm font-semibold',
+                  current.subdivision === id
                     ? 'bg-[#A855F7] text-white'
                     : 'border border-white/10 bg-white/4 text-slate-200 hover:border-[#A855F7]/50',
                 )}
               >
-                {id}
+                {SUBDIVISION_META[id].short}
               </button>
             ))}
           </div>
-          <p className="mt-2 text-xs leading-5 text-slate-500">
-            More meters coming — odd counts and mixed bars later.
-          </p>
+          {bars.length > 1 ? (
+            <button
+              type="button"
+              onClick={() => setSubdivision(current.subdivision, true)}
+              className="mt-2 text-xs font-semibold text-[#C084FC] hover:text-white"
+            >
+              Use {SUBDIVISION_META[current.subdivision].label.toLowerCase()} on every bar
+            </button>
+          ) : (
+            <p className="mt-2 text-xs text-slate-500">
+              Splits each beat for the grid and for extra click ticks.
+            </p>
+          )}
         </section>
 
         <section className="mt-4">
@@ -261,17 +361,22 @@ export function RhythmPage() {
             Accents · tap a beat
           </p>
           <div className="flex flex-wrap justify-center gap-2">
-            {Array.from({ length: meter.beats }, (_, beat) => {
-              const on = accents.includes(beat)
-              const live = playhead.beat === beat
+            {Array.from({ length: current.beats }, (_, beat) => {
+              const on = current.accents.includes(beat)
+              const live = playing && playhead.bar === barIndex && playhead.beat === beat
               return (
                 <button
                   key={beat}
                   type="button"
                   aria-pressed={on}
-                  onClick={() => setAccents(toggleAccent(accents, beat, meter.beats))}
+                  onClick={() =>
+                    patchBar(barIndex, {
+                      ...current,
+                      accents: toggleAccent(current.accents, beat, current.beats),
+                    })
+                  }
                   className={cn(
-                    'relative flex size-11 items-center justify-center rounded-full border text-sm font-bold transition sm:size-12',
+                    'relative flex size-10 items-center justify-center rounded-full border text-sm font-bold sm:size-11',
                     on
                       ? 'border-[#A855F7] bg-[#A855F7] text-white'
                       : 'border-white/15 bg-[#141A28] text-slate-300',
@@ -286,26 +391,53 @@ export function RhythmPage() {
         </section>
 
         {mode === 'click' ? (
-          <section className="mt-5 flex flex-1 flex-col items-center justify-center py-4">
+          <section className="mt-5 flex flex-1 flex-col items-center py-3">
             <div
               className={cn(
-                'flex size-40 items-center justify-center rounded-full border-4 sm:size-48',
+                'flex size-36 items-center justify-center rounded-full border-4 sm:size-44',
                 playhead.beat >= 0
                   ? playhead.accent
                     ? 'omni-beat-pulse border-[#A855F7] bg-[#A855F7]/25'
-                    : 'border-[#C084FC]/70 bg-[#A855F7]/10'
+                    : playhead.subdivision
+                      ? 'border-white/20 bg-white/5'
+                      : 'border-[#C084FC]/70 bg-[#A855F7]/10'
                   : 'border-white/12 bg-[#141A28]',
               )}
               aria-live="polite"
             >
-              <span className="text-5xl font-bold tabular-nums text-white sm:text-6xl">
+              <span className="text-5xl font-bold tabular-nums text-white">
                 {playhead.beat >= 0 ? playhead.beat + 1 : '—'}
               </span>
             </div>
-            <p className="mt-4 max-w-sm text-center text-sm leading-6 text-slate-400">
-              Beat 1 is accented unless you tap a different beat. High click on
-              accents, low click on the rest.
+            <p className="mt-3 text-center text-xs text-slate-500">
+              {bars.length > 1 ? `Bar ${playhead.bar + 1} of ${bars.length} · ` : null}
+              {CLICK_SOUND_LABELS[clickSound]}
+              {playing && playhead.subdivision ? ' · subdivision' : ''}
             </p>
+            <p className="mt-3 w-full text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Click sound
+            </p>
+            <div className="mt-1.5 flex w-full flex-wrap justify-center gap-1.5">
+              {CLICK_SOUNDS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={clickSound === id}
+                  onClick={() => {
+                    setClickSound(id)
+                    void previewClick(id)
+                  }}
+                  className={cn(
+                    'h-9 rounded-xl px-2.5 text-sm font-semibold',
+                    clickSound === id
+                      ? 'bg-[#A855F7] text-white'
+                      : 'border border-white/10 bg-white/4 text-slate-200',
+                  )}
+                >
+                  {CLICK_SOUND_LABELS[id]}
+                </button>
+              ))}
+            </div>
           </section>
         ) : (
           <section className="mt-4 flex-1">
@@ -319,18 +451,20 @@ export function RhythmPage() {
                   Beat library
                 </span>
                 <span className="mt-0.5 block text-sm font-semibold text-white">
-                  {beatName}
+                  {edited && matched === null ? beatName : matched?.name ?? beatName}
                 </span>
                 <span className="block text-xs text-slate-500">
-                  {preset?.blurb ?? 'Your own hits on this meter'}
+                  {matched?.blurb ?? 'Your own hits on this bar'}
                 </span>
               </span>
               <span className="text-xs font-semibold text-slate-400">Change</span>
             </button>
             <DrumGrid
-              meter={meter}
-              pattern={pattern}
+              beats={current.beats}
+              subdivisionSteps={stepsPerBeat(current.subdivision)}
+              pattern={current.pattern}
               currentStep={playhead.step}
+              live={playing && playhead.bar === barIndex}
               onToggle={onToggleCell}
               onPreview={(voice) => void preview(voice)}
             />
@@ -340,7 +474,21 @@ export function RhythmPage() {
           </section>
         )}
 
-        <div className="mt-5">
+        <div className="mt-4">
+          <button
+            type="button"
+            disabled
+            className="flex h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-white/8 bg-white/4 text-sm font-semibold text-slate-500"
+          >
+            <Lock className="size-3.5" />
+            Speed Builder
+            <span className="rounded-full bg-white/8 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
+              Premium only
+            </span>
+          </button>
+        </div>
+
+        <div className="mt-3">
           <Button
             type="button"
             size="lg"
@@ -355,7 +503,7 @@ export function RhythmPage() {
 
       {pickerOpen ? (
         <PresetSheet
-          meterId={meterId}
+          current={current}
           selectedId={matched?.id ?? presetId}
           onClose={() => setPickerOpen(false)}
           onSelect={loadPreset}
@@ -366,18 +514,22 @@ export function RhythmPage() {
 }
 
 function PresetSheet({
-  meterId,
+  current,
   selectedId,
   onClose,
   onSelect,
 }: {
-  meterId: MeterId
+  current: RhythmBar
   selectedId: string | null
   onClose: () => void
   onSelect: (id: string) => void
 }) {
-  const local = presetsForMeter(meterId)
-  const others = RHYTHM_PRESETS.filter((item) => item.meterId !== meterId)
+  const local = RHYTHM_PRESETS.filter(
+    (item) => item.beats === current.beats && item.beatUnit === current.beatUnit,
+  )
+  const others = RHYTHM_PRESETS.filter(
+    (item) => item.beats !== current.beats || item.beatUnit !== current.beatUnit,
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
@@ -386,18 +538,19 @@ function PresetSheet({
         aria-labelledby="rhythm-presets-title"
         className="max-h-[90svh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5"
       >
-        <h2
-          id="rhythm-presets-title"
-          className="text-xl font-bold tracking-tight text-white"
-        >
+        <h2 id="rhythm-presets-title" className="text-xl font-bold tracking-tight text-white">
           Beat library
         </h2>
         <p className="mt-1 text-sm text-slate-400">
-          Picking a beat sets the meter if it uses a different one. You can edit
-          the grid after.
+          Picking a beat sets this bar’s meter and subdivision. You can edit the
+          grid after.
         </p>
-
-        <PresetGroup title={`For ${meterId}`} items={local} selectedId={selectedId} onSelect={onSelect} />
+        <PresetGroup
+          title={`For ${meterLabel(current.beats, current.beatUnit)}`}
+          items={local}
+          selectedId={selectedId}
+          onSelect={onSelect}
+        />
         {others.length > 0 ? (
           <PresetGroup
             title="Other meters"
@@ -406,7 +559,6 @@ function PresetSheet({
             onSelect={onSelect}
           />
         ) : null}
-
         <Button type="button" variant="outline" className="mt-4 w-full" onClick={onClose}>
           Close
         </Button>
@@ -422,7 +574,7 @@ function PresetGroup({
   onSelect,
 }: {
   title: string
-  items: { id: string; name: string; blurb: string; meterId: MeterId }[]
+  items: { id: string; name: string; blurb: string; beats: number; beatUnit: BeatUnit }[]
   selectedId: string | null
   onSelect: (id: string) => void
 }) {
@@ -449,7 +601,9 @@ function PresetGroup({
               <span className="block text-sm font-semibold text-white">{item.name}</span>
               <span className="block text-xs text-slate-400">{item.blurb}</span>
             </span>
-            <span className="text-xs font-semibold text-slate-500">{item.meterId}</span>
+            <span className="text-xs font-semibold text-slate-500">
+              {meterLabel(item.beats, item.beatUnit)}
+            </span>
           </button>
         ))}
       </div>

@@ -16,7 +16,12 @@ export function AppChrome({ children, align = 'center', wide = false }: AppChrom
   return (
     <div className="relative flex min-h-svh flex-col overflow-x-hidden px-5 py-6 sm:px-8 sm:py-8">
       <div className="stage-glow" aria-hidden />
-      <header className="relative z-10 mx-auto flex w-full max-w-lg items-center justify-between">
+      <header
+        className={cn(
+          'relative z-10 mx-auto flex w-full items-center justify-between',
+          wide ? 'max-w-3xl' : 'max-w-lg',
+        )}
+      >
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link to="/">
             <ArrowLeft className="size-4" />
@@ -30,7 +35,7 @@ export function AppChrome({ children, align = 'center', wide = false }: AppChrom
         className={cn(
           'relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col pb-8',
           align === 'center' && 'items-center justify-center px-2 text-center',
-          align === 'fill' && (wide ? 'pt-4 sm:max-w-2xl' : 'pt-4 sm:max-w-xl'),
+          align === 'fill' && (wide ? 'pt-4 sm:max-w-3xl' : 'pt-4 sm:max-w-xl'),
         )}
       >
         {children}
