@@ -46,6 +46,7 @@ export function useRhythmEngine({
   })
 
   const kitRef = useRef<RhythmKit | null>(null)
+  const kitPromiseRef = useRef<Promise<RhythmKit | null> | null>(null)
   const timerRef = useRef<number | null>(null)
   const visualRef = useRef<number[]>([])
   const nextTimeRef = useRef(0)
@@ -73,11 +74,22 @@ export function useRhythmEngine({
       await kitRef.current.unlock()
       return kitRef.current
     }
-    const Ctor = getAudioCtor()
-    if (!Ctor) return null
-    const kit = new RhythmKit(new Ctor())
-    kitRef.current = kit
-    await kit.unlock()
+    if (!kitPromiseRef.current) {
+      const Ctor = getAudioCtor()
+      if (!Ctor) return null
+      kitPromiseRef.current = (async () => {
+        try {
+          const kit = await RhythmKit.create(new Ctor())
+          kitRef.current = kit
+          return kit
+        } catch {
+          kitPromiseRef.current = null
+          return null
+        }
+      })()
+    }
+    const kit = await kitPromiseRef.current
+    if (kit) await kit.unlock()
     return kit
   }, [])
 
@@ -109,6 +121,10 @@ export function useRhythmEngine({
     stepRef.current = 0
     barRef.current = 0
   }, [clearVisuals])
+
+  useEffect(() => {
+    if (mode === 'drums') void ensureKit()
+  }, [mode, ensureKit])
 
   const structureKey = bars.map((bar) => `${bar.beats}/${bar.beatUnit}/${bar.subdivision}`).join('|')
 
@@ -203,6 +219,7 @@ export function useRhythmEngine({
       stopScheduler()
       const kit = kitRef.current
       kitRef.current = null
+      kitPromiseRef.current = null
       if (kit) {
         window.setTimeout(() => {
           void kit.ctx.close()

@@ -471,6 +471,9 @@ export function RhythmPage() {
             <p className="mt-3 text-center text-xs leading-5 text-slate-500">
               Tap a cell to add or remove a hit. Lane names preview the sound.
             </p>
+            <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-600">
+              Acoustic samples: Pearl Master Studio by enoe (CC BY 3.0)
+            </p>
           </section>
         )}
 

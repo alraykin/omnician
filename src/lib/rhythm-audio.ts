@@ -8,6 +8,23 @@ export function getAudioCtor(): AudioContextCtor | undefined {
   return window.AudioContext ?? view.webkitAudioContext
 }
 
+const SAMPLE_FILES: Record<VoiceId, string> = {
+  kick: '/rhythm/drums/kick.wav',
+  snare: '/rhythm/drums/snare.wav',
+  closedHat: '/rhythm/drums/closed-hat.wav',
+  openHat: '/rhythm/drums/open-hat.wav',
+  crash: '/rhythm/drums/crash.wav',
+}
+
+/** Per-voice mix so hats sit under kick/snare and the crash is splashy, not huge. */
+const SAMPLE_GAIN: Record<VoiceId, number> = {
+  kick: 1,
+  snare: 0.92,
+  closedHat: 0.72,
+  openHat: 0.62,
+  crash: 0.78,
+}
+
 function renderBuffer(
   ctx: AudioContext,
   seconds: number,
@@ -104,6 +121,62 @@ function bakeCrash(ctx: AudioContext): AudioBuffer {
   })
 }
 
+function bakeSynthDrums(ctx: AudioContext): Record<VoiceId, AudioBuffer> {
+  return {
+    kick: bakeKick(ctx),
+    snare: bakeSnare(ctx),
+    closedHat: bakeHat(ctx, false),
+    openHat: bakeHat(ctx, true),
+    crash: bakeCrash(ctx),
+  }
+}
+
+function decodeAudio(ctx: AudioContext, data: ArrayBuffer): Promise<AudioBuffer> {
+  const copy = data.slice(0)
+  return new Promise((resolve, reject) => {
+    let settled = false
+    const ok = (buffer: AudioBuffer) => {
+      if (settled) return
+      settled = true
+      resolve(buffer)
+    }
+    const fail = (error?: DOMException | string) => {
+      if (settled) return
+      settled = true
+      reject(error ?? new Error('decodeAudioData failed'))
+    }
+    try {
+      const result = ctx.decodeAudioData(copy, ok, fail)
+      if (result && typeof result.then === 'function') {
+        result.then(ok).catch(() => fail())
+      }
+    } catch {
+      fail()
+    }
+  })
+}
+
+async function loadSample(ctx: AudioContext, url: string): Promise<AudioBuffer> {
+  const response = await fetch(url, { cache: 'force-cache' })
+  if (!response.ok) throw new Error(`Failed to load ${url} (${response.status})`)
+  const data = await response.arrayBuffer()
+  return decodeAudio(ctx, data)
+}
+
+async function loadDrums(ctx: AudioContext): Promise<Record<VoiceId, AudioBuffer>> {
+  const drums = bakeSynthDrums(ctx)
+  await Promise.all(
+    (Object.keys(SAMPLE_FILES) as VoiceId[]).map(async (voice) => {
+      try {
+        drums[voice] = await loadSample(ctx, SAMPLE_FILES[voice])
+      } catch {
+        // Keep the synthesized one-shot for this lane.
+      }
+    }),
+  )
+  return drums
+}
+
 type ClickPair = { normal: AudioBuffer; accent: AudioBuffer }
 
 function bakeClick(
@@ -192,9 +265,10 @@ function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
 export class RhythmKit {
   readonly ctx: AudioContext
   private readonly master: GainNode
-  private readonly drums: Record<VoiceId, AudioBuffer>
+  private drums: Record<VoiceId, AudioBuffer>
   private readonly clicks: Record<ClickSoundId, ClickPair>
   private openHat: GainNode | null = null
+  private readonly ready: Promise<void>
 
   constructor(ctx: AudioContext) {
     this.ctx = ctx
@@ -208,18 +282,26 @@ export class RhythmKit {
     comp.release.value = 0.14
     this.master.connect(comp)
     comp.connect(ctx.destination)
-    this.drums = {
-      kick: bakeKick(ctx),
-      snare: bakeSnare(ctx),
-      closedHat: bakeHat(ctx, false),
-      openHat: bakeHat(ctx, true),
-      crash: bakeCrash(ctx),
-    }
+    this.drums = bakeSynthDrums(ctx)
     this.clicks = bakeClicks(ctx)
+    this.ready = loadDrums(ctx)
+      .then((drums) => {
+        this.drums = drums
+      })
+      .catch(() => {
+        // Keep synthesized one-shots if WAV fetch/decode fails.
+      })
+  }
+
+  static async create(ctx: AudioContext): Promise<RhythmKit> {
+    const kit = new RhythmKit(ctx)
+    await kit.ready
+    return kit
   }
 
   async unlock(): Promise<void> {
     if (this.ctx.state === 'suspended') await this.ctx.resume()
+    await this.ready
   }
 
   click(
@@ -236,7 +318,8 @@ export class RhythmKit {
     if (voice === 'closedHat' || voice === 'openHat' || voice === 'crash') {
       this.chokeHats(time)
     }
-    const source = this.fire(this.drums[voice], time, accent ? 1.12 : 1)
+    const mix = SAMPLE_GAIN[voice] ?? 1
+    const source = this.fire(this.drums[voice], time, (accent ? 1.12 : 1) * mix)
     if (voice === 'openHat' && source) this.openHat = source
   }
 

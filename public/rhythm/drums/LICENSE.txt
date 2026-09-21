@@ -1,0 +1,15 @@
+Pearl Master Studio Pack 1 (acoustic drum one-shots)
+Author: enoe
+Source: https://oramics.github.io/sampled/DRUMS/pearl-master-studio/
+License: Creative Commons Attribution 3.0 Unported (CC BY 3.0)
+https://creativecommons.org/licenses/by/3.0/
+
+Files used (trimmed/normalized for the Omnician practice kit):
+- kick.wav      from kick-01.wav
+- snare.wav     from snare-02.wav
+- closed-hat.wav from hihat-closed.wav
+- open-hat.wav  from hihat-open.wav
+- crash.wav     from crash-01.wav
+
+You may copy, redistribute, and use these samples commercially if you
+keep this attribution with the project.
