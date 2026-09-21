@@ -36,16 +36,18 @@ export type RhythmPrefs = {
   presetId: string | null
 }
 
+const DEFAULT_BAR_COUNT = 4
+
 function fallback(): RhythmPrefs {
   const rock = findPreset('rock-44')
-  const bar = rock ? presetToBar(rock) : makeBar()
+  const bar = rock ? presetToBar(rock) : makeBar(4, 4, 'eighths')
   return {
     bpm: DEFAULT_BPM,
-    mode: 'click',
+    mode: 'drums',
     clickSound: 'woodblock',
-    bars: [bar],
+    bars: Array.from({ length: DEFAULT_BAR_COUNT }, () => cloneBar(bar)),
     barIndex: 0,
-    presetId: rock?.id ?? null,
+    presetId: rock?.id ?? 'rock-44',
   }
 }
 

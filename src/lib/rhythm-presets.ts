@@ -42,10 +42,10 @@ function preset(
 }
 
 export const RHYTHM_PRESETS: RhythmPreset[] = [
-  preset('rock-44', 'Rock', 'Backbeat you can lean on', 4, 4, 'sixteenths', {
-    kick: [0, 8],
-    snare: [4, 12],
-    closedHat: [0, 2, 4, 6, 8, 10, 12, 14],
+  preset('rock-44', 'Rock', 'Backbeat you can lean on', 4, 4, 'eighths', {
+    kick: [0, 4],
+    snare: [2, 6],
+    closedHat: [0, 1, 2, 3, 4, 5, 6, 7],
     crash: [0],
   }),
   preset('pop-44', 'Pop', 'Kick on the and of two', 4, 4, 'sixteenths', {

@@ -262,6 +262,51 @@ function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
   }
 }
 
+function bakeWheelTick(ctx: AudioContext): AudioBuffer {
+  return renderBuffer(ctx, 0.028, (data, sr) => {
+    let ping = 0
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      ping += (Math.PI * 2 * (2650 - t * 22000)) / sr
+      const body = Math.sin(ping) * env(t, 0.00018, 0.011)
+      const detent = (Math.random() * 2 - 1) * env(t, 0.00012, 0.0065)
+      data[i] = tanh(body * 0.85 + detent * 0.55) * 0.38
+    }
+  })
+}
+
+let wheelTickCtx: AudioContext | null = null
+let wheelTickBuffer: AudioBuffer | null = null
+let lastWheelTickAt = 0
+
+/** Short mechanical detent for the BPM wheel. Rate-limited so fast scrubs don't explode. */
+export function playWheelTick(): void {
+  const Ctor = getAudioCtor()
+  if (!Ctor) return
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+  if (now - lastWheelTickAt < 38) return
+  lastWheelTickAt = now
+  try {
+    if (!wheelTickCtx || wheelTickCtx.state === 'closed') {
+      wheelTickCtx = new Ctor()
+      wheelTickBuffer = bakeWheelTick(wheelTickCtx)
+    }
+    const ctx = wheelTickCtx
+    const buffer = wheelTickBuffer
+    if (!buffer) return
+    if (ctx.state === 'suspended') void ctx.resume()
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    const amp = ctx.createGain()
+    amp.gain.value = 0.72
+    source.connect(amp)
+    amp.connect(ctx.destination)
+    source.start()
+  } catch {
+    // Audio can fail before a user gesture; ignore.
+  }
+}
+
 export class RhythmKit {
   readonly ctx: AudioContext
   private readonly master: GainNode

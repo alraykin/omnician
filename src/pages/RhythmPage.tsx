@@ -34,6 +34,7 @@ import {
   type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
+import { playWheelTick } from '@/lib/rhythm-audio'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
 import { RHYTHM_PRESETS, applyPreset, matchPreset } from '@/lib/rhythm-presets'
 import { cn } from '@/lib/utils'
@@ -130,6 +131,13 @@ export function RhythmPage() {
     setBarIndex(Math.min(index, next.length - 1))
   }
 
+  const changeBpm = (next: number, tick = false) => {
+    const clamped = clampBpm(next)
+    if (clamped === bpm) return
+    if (tick) playWheelTick()
+    setBpm(clamped)
+  }
+
   const tapTempo = () => {
     const now = performance.now()
     const recent = tapTimes.current.filter((time) => now - time < 2000)
@@ -208,7 +216,7 @@ export function RhythmPage() {
                   variant="outline"
                   size="sm"
                   aria-label="Slower by 5"
-                  onClick={() => setBpm((value) => clampBpm(value - 5))}
+                  onClick={() => changeBpm(bpm - 5, true)}
                 >
                   <Minus className="size-3.5" />
                   5
@@ -221,7 +229,7 @@ export function RhythmPage() {
                   variant="outline"
                   size="sm"
                   aria-label="Faster by 5"
-                  onClick={() => setBpm((value) => clampBpm(value + 5))}
+                  onClick={() => changeBpm(bpm + 5, true)}
                 >
                   <Plus className="size-3.5" />
                   5
@@ -235,7 +243,7 @@ export function RhythmPage() {
                 Reset to 100
               </button>
             </div>
-            <BpmWheel value={bpm} onChange={setBpm} />
+            <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
           </div>
         </section>
 
