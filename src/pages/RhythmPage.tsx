@@ -187,7 +187,7 @@ export function RhythmPage() {
                 mode === item ? 'bg-[#A855F7] text-white' : 'text-slate-300 hover:text-white',
               )}
             >
-              {item}
+              {item === 'click' ? 'Click' : 'Drums'}
             </button>
           ))}
         </div>
@@ -262,8 +262,8 @@ export function RhythmPage() {
                     live && 'omni-beat-pulse',
                   )}
                 >
-                  {index + 1}
-                  <span className="ml-1 text-[0.65rem] font-medium opacity-70">
+                  {index + 1}{' '}
+                  <span className="text-[0.65rem] font-medium opacity-70">
                     {meterLabel(bar.beats, bar.beatUnit)}
                   </span>
                 </button>
