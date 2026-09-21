@@ -9,9 +9,10 @@ import { cn } from '@/lib/utils'
 type AppChromeProps = {
   children: ReactNode
   align?: 'center' | 'fill'
+  wide?: boolean
 }
 
-export function AppChrome({ children, align = 'center' }: AppChromeProps) {
+export function AppChrome({ children, align = 'center', wide = false }: AppChromeProps) {
   return (
     <div className="relative flex min-h-svh flex-col overflow-x-hidden px-5 py-6 sm:px-8 sm:py-8">
       <div className="stage-glow" aria-hidden />
@@ -29,7 +30,7 @@ export function AppChrome({ children, align = 'center' }: AppChromeProps) {
         className={cn(
           'relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col pb-8',
           align === 'center' && 'items-center justify-center px-2 text-center',
-          align === 'fill' && 'pt-4 sm:max-w-xl',
+          align === 'fill' && (wide ? 'pt-4 sm:max-w-2xl' : 'pt-4 sm:max-w-xl'),
         )}
       >
         {children}

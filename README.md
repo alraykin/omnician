@@ -2,7 +2,7 @@
 
 **You're becoming an Omnician.**
 
-Omnician is **the ultimate practice companion** — a simple home base for the tools you reach for before you play. This version includes a live **Tuner** (uses your microphone) plus upcoming rooms for **Metronome** and **Drum Machine**.
+Omnician is **the ultimate practice companion** — a simple home base for the tools you reach for before you play. This version includes a live **Tuner** (uses your microphone) and **Rhythm** (click + drums in one room).
 
 You do **not** need to know how to program. Follow the steps below on your computer, then open the app in a web browser.
 
@@ -64,7 +64,7 @@ http://localhost:43121
 
 Click that address if the terminal makes it a link, or type **http://localhost:43121** into your browser.
 
-You should see the Omnician home screen: a greeting, then three big buttons.
+You should see the Omnician home screen: a greeting, then two big buttons — Tuner and Rhythm.
 
 ### 6. Stop the app when you are done
 
@@ -74,7 +74,7 @@ Click the terminal window and press **Control + C**.
 
 ## What you will see
 
-- **Home** — branding, the greeting *Hello — are you ready to rock?*, and three tools
+- **Home** — branding, the greeting *Hello — are you ready to rock?*, and two tools: Tuner and Rhythm
 - **Tuner**
   - Tap **Change** for top-level chips: Chromatic, Guitar, Bass, Ukulele, Folk, My customs
   - Guitar opens a submenu by setup (6 / 7 / 8 / 9 / 10 / 12-string and Baritone). Bass opens 4–8 string. Folk holds Banjo, Mandolin, Violin / Fiddle, and Bouzouki
@@ -83,7 +83,7 @@ Click the terminal window and press **Control + C**.
   - A large trail shows how far off you are, with a live cents bubble on the tip (for example −18). When a note sits in tune, the needle holds the center and the display turns green
   - Instrument presets show neon white line-art headstocks. Guitar, baritone, bass, ukulele, folk, and custom tunings share the approved batwing: nearly parallel through the pegs, then a short flare into the nut. Guitar-family, folk, and custom use hex pegs; bass uses clover tuners and thicker strings. The 12-string uses six paired courses (octave pairs on E A D G, unisons on B and high e). Banjo keeps four strings on the peghead; the fifth-string tuner sits on the bass side of the neck at the fifth fret, like a real 5-string. The string being tuned is red until it locks; in-tune pegs, posts, and strings turn green. Auto nearest-string, sticky locked pegs, a lock chime, a cents bubble on the trail, and tap-to-hear are included
   - Custom 4–10 string tunings save on this device only and use the same batwing as a guitar of that string count
-- **Metronome / Drum Machine** — placeholder pages that say **Coming in V1**
+- **Rhythm** — combined metronome and drum machine. **Click** is a hi/lo accent click; **Drums** is a five-lane grid (kick, snare, closed hat, open hat, crash). Both share BPM (30–300), Play/Stop, tap tempo, and the same meter. Meters in this version: 2/4, 3/4, 4/4, 5/4, 6/8, 7/8, 9/8, 12/8. Tap beat numbers to change accents (beat 1 is accented by default; 6/8, 9/8, 12/8, 5/4, and 7/8 start with grouped accents). The beat library loads rock, pop, funk, waltz, and other starters for those meters — you can edit the grid after. Last tempo, meter, mode, and grid stay on this device. Old `/metronome` and `/drum-machine` links open Rhythm.
 - A quiet note that more can unlock with a subscription later (there are **no payments** yet)
 
 There is no account sign-in and nothing to pay. The tuner needs microphone permission. If the browser blocks the mic, allow it for this site and tap Start Tuning again.

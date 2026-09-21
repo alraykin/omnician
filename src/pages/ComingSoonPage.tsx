@@ -15,7 +15,7 @@ export function ComingSoonPage() {
           That page isn&apos;t here
         </h1>
         <p className="mt-3 max-w-md text-base leading-7 text-slate-400">
-          Head back home and choose Tuner, Metronome, or Drum Machine.
+          Head back home and choose Tuner or Rhythm.
         </p>
       </AppChrome>
     )

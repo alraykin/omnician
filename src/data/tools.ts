@@ -1,4 +1,4 @@
-export type ToolSlug = 'tuner' | 'metronome' | 'drum-machine'
+export type ToolSlug = 'tuner' | 'rhythm'
 
 export type PracticeTool = {
   slug: ToolSlug
@@ -12,22 +12,13 @@ export const practiceTools: PracticeTool[] = [
     slug: 'tuner',
     name: 'Tuner',
     blurb: 'Match your pitch before you play.',
-    coming:
-      'A live tuner is ready now — tap Tuner on the home screen.',
+    coming: 'A live tuner is ready now — tap Tuner on the home screen.',
   },
   {
-    slug: 'metronome',
-    name: 'Metronome',
-    blurb: 'Keep a steady beat you can trust.',
-    coming:
-      'Set a tempo, lock in the click, and practice with a pulse that stays with you. The metronome is coming in V1.',
-  },
-  {
-    slug: 'drum-machine',
-    name: 'Drum Machine',
-    blurb: 'Lay down a groove and play over it.',
-    coming:
-      'Build simple beats and practice against a pocket you can feel. The drum machine is coming in V1.',
+    slug: 'rhythm',
+    name: 'Rhythm',
+    blurb: 'A click or a groove — same tempo, your pocket.',
+    coming: 'Rhythm is ready now — tap Rhythm on the home screen.',
   },
 ]
 

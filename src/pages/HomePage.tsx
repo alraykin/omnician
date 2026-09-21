@@ -23,12 +23,12 @@ export function HomePage() {
           Hello — are you ready to rock?
         </h1>
         <p className="mx-auto mt-3 max-w-lg text-center text-sm leading-6 text-slate-400 sm:text-base">
-          Pick a tool and step into the practice room. These three are first.
+          Pick a tool and step into the practice room. Tuner and Rhythm are ready.
         </p>
 
         <nav
           aria-label="Practice tools"
-          className="mt-8 grid gap-3 sm:mt-10 sm:grid-cols-3 sm:gap-4"
+          className="mt-8 grid gap-3 sm:mt-10 sm:grid-cols-2 sm:gap-4"
         >
           {practiceTools.map((tool) => (
             <ToolButton key={tool.slug} tool={tool} />
