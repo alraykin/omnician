@@ -28,7 +28,7 @@ export function HomePage() {
 
         <nav
           aria-label="Practice tools"
-          className="mt-8 grid gap-3 sm:mt-10 sm:grid-cols-2 sm:gap-4"
+          className="mx-auto mt-8 grid w-full max-w-3xl gap-3 sm:mt-10 sm:grid-cols-2 sm:gap-4"
         >
           {practiceTools.map((tool) => (
             <ToolButton key={tool.slug} tool={tool} />
