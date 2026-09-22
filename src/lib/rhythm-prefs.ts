@@ -23,10 +23,12 @@ import {
   type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
+import { DEFAULT_KIT_MIX, parseKitMix, type KitMix } from '@/lib/kit-mix'
 import { makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 
-const STORAGE_KEY = 'omnician.rhythm.v10'
+const STORAGE_KEY = 'omnician.rhythm.v11'
 const PREVIOUS_KEYS = [
+  'omnician.rhythm.v10',
   'omnician.rhythm.v9',
   'omnician.rhythm.v8',
   'omnician.rhythm.v7',
@@ -45,6 +47,7 @@ export type RhythmPrefs = {
   clickBarIndex: number
   drumBarIndex: number
   presetId: string | null
+  kitMix: KitMix
 }
 
 function fallback(): RhythmPrefs {
@@ -57,6 +60,7 @@ function fallback(): RhythmPrefs {
     clickBarIndex: 0,
     drumBarIndex: 0,
     presetId: 'rock-44',
+    kitMix: { ...DEFAULT_KIT_MIX },
   }
 }
 
@@ -173,6 +177,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
       clickBarIndex?: unknown
       drumBarIndex?: unknown
       presetId?: unknown
+      kitMix?: unknown
     }
 
     const split = Array.isArray(row.clickBars) || Array.isArray(row.drumBars)
@@ -197,6 +202,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
       clickBarIndex,
       drumBarIndex,
       presetId: typeof row.presetId === 'string' ? row.presetId : null,
+      kitMix: parseKitMix(row.kitMix),
     }
   } catch {
     return base
@@ -215,6 +221,7 @@ export function saveRhythmPrefs(prefs: RhythmPrefs): void {
       clickBarIndex: prefs.clickBarIndex,
       drumBarIndex: prefs.drumBarIndex,
       presetId: prefs.presetId,
+      kitMix: parseKitMix(prefs.kitMix),
     }),
   )
 }

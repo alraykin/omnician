@@ -1,3 +1,4 @@
+import { DEFAULT_KIT_MIX, KIT_VOICE_GROUP, dbToGain, type KitMix } from '@/lib/kit-mix'
 import { CLICK_SOUNDS, type ClickSoundId, type VoiceId } from '@/lib/rhythm'
 
 type AudioContextCtor = typeof AudioContext
@@ -460,6 +461,7 @@ export class RhythmKit {
   private readonly master: GainNode
   private drums: Record<VoiceId, AudioBuffer>
   private clicks: Record<ClickSoundId, ClickPair>
+  private mix: KitMix = { ...DEFAULT_KIT_MIX }
   private openHat: GainNode | null = null
   private readonly ready: Promise<void>
 
@@ -515,11 +517,17 @@ export class RhythmKit {
     this.fire(buffer, time, gain, rate)
   }
 
+  setMix(mix: KitMix): void {
+    this.mix = { ...mix }
+  }
+
   hit(voice: VoiceId, time: number, accent: boolean): void {
     if (voice === 'closedHat' || voice === 'openHat' || voice === 'crash') {
       this.chokeHats(time)
     }
-    const mix = SAMPLE_GAIN[voice] ?? 1
+    const group = KIT_VOICE_GROUP[voice]
+    const groupGain = dbToGain(this.mix[group] ?? 0)
+    const mix = (SAMPLE_GAIN[voice] ?? 1) * groupGain
     const source = this.fire(this.drums[voice], time, (accent ? 1.12 : 1) * mix)
     if (voice === 'openHat' && source) this.openHat = source
   }

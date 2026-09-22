@@ -1,4 +1,4 @@
-import { Lock, Minus, Play, Plus, Square, Trash2 } from 'lucide-react'
+import { ChevronDown, Lock, Minus, Play, Plus, Square, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
@@ -6,10 +6,12 @@ import { AppChrome } from '@/components/AppChrome'
 import { BpmWheel } from '@/components/rhythm/BpmWheel'
 import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
 import { DrumGrid } from '@/components/rhythm/DrumGrid'
+import { KitFaders } from '@/components/rhythm/KitFaders'
 import { SnapWheel } from '@/components/rhythm/SnapWheel'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { useRhythmEngine } from '@/hooks/useRhythmEngine'
+import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
 import {
   BEAT_UNITS,
   CLICK_SOUND_LABELS,
@@ -44,7 +46,14 @@ import {
 } from '@/lib/rhythm'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
-import { RHYTHM_PRESETS, barsForPreset, matchPreset } from '@/lib/rhythm-presets'
+import {
+  RHYTHM_STYLES,
+  barsForPreset,
+  findPreset,
+  matchPreset,
+  type RhythmPreset,
+  type RhythmStyle,
+} from '@/lib/rhythm-presets'
 import { cn } from '@/lib/utils'
 
 const BEAT_VALUES = Array.from({ length: MAX_BEATS - MIN_BEATS + 1 }, (_, index) => index + MIN_BEATS)
@@ -63,6 +72,7 @@ export function RhythmPage() {
   const [clickBarIndex, setClickBarIndex] = useState(prefs.clickBarIndex)
   const [drumBarIndex, setDrumBarIndex] = useState(prefs.drumBarIndex)
   const [presetId, setPresetId] = useState<string | null>(prefs.presetId)
+  const [kitMix, setKitMix] = useState<KitMix>(prefs.kitMix)
   const [playing, setPlaying] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const tapTimes = useRef<number[]>([])
@@ -79,6 +89,7 @@ export function RhythmPage() {
     mode,
     bars,
     clickSound,
+    kitMix,
   })
 
   useEffect(() => {
@@ -87,10 +98,11 @@ export function RhythmPage() {
 
   const matched = current ? matchPreset(current) : null
   const edited = Boolean(matched === null && presetId)
+  const savedPreset = presetId ? findPreset(presetId) : undefined
   const beatName = matched
     ? matched.name
-    : presetId
-      ? `${RHYTHM_PRESETS.find((item) => item.id === presetId)?.name ?? 'Custom'} · edited`
+    : savedPreset
+      ? `${savedPreset.name} · edited`
       : 'Custom beat'
 
   useEffect(() => {
@@ -103,6 +115,7 @@ export function RhythmPage() {
       clickBarIndex,
       drumBarIndex,
       presetId: matched?.id ?? presetId,
+      kitMix,
     })
   }, [
     clickBarIndex,
@@ -111,10 +124,15 @@ export function RhythmPage() {
     drumBarIndex,
     drumBars,
     bpm,
+    kitMix,
     matched?.id,
     mode,
     presetId,
   ])
+
+  const setGroupMix = (group: KitGroupId, db: number) => {
+    setKitMix((currentMix) => ({ ...currentMix, [group]: db }))
+  }
 
   const patchBar = (index: number, next: RhythmBar) => {
     setBars((currentBars) => currentBars.map((bar, item) => (item === index ? next : bar)))
@@ -132,7 +150,7 @@ export function RhythmPage() {
   }
 
   const loadPreset = (id: string) => {
-    const preset = RHYTHM_PRESETS.find((item) => item.id === id)
+    const preset = findPreset(id)
     if (!preset) return
     setDrumBars(barsForPreset(preset).map(cloneBar))
     setDrumBarIndex(0)
@@ -214,7 +232,7 @@ export function RhythmPage() {
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">Rhythm</h1>
             <div
-              className="grid w-[11.5rem] shrink-0 grid-cols-2 rounded-xl border border-white/10 bg-[#141A28] p-0.5"
+              className="flex w-[11.5rem] shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#141A28] p-0.5"
               data-section="mode"
             >
               {(['click', 'drums'] as const).map((item) => (
@@ -225,7 +243,7 @@ export function RhythmPage() {
                   data-mode={item}
                   onClick={() => setMode(item)}
                   className={cn(
-                    'h-9 rounded-lg text-sm font-semibold capitalize transition',
+                    'h-9 flex-1 rounded-full text-sm font-semibold capitalize transition',
                     mode === item ? 'bg-[#A855F7] text-white' : 'text-slate-300 hover:text-white',
                   )}
                 >
@@ -492,6 +510,7 @@ export function RhythmPage() {
                 onToggle={onToggleCell}
                 onPreview={(voice) => void preview(voice)}
               />
+              <KitFaders mix={kitMix} onChange={setGroupMix} />
               <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-600">
                 Pearl Master Studio by enoe (CC BY 3.0)
               </p>
@@ -555,11 +574,12 @@ function PresetSheet({
   onClose: () => void
   onSelect: (id: string) => void
 }) {
-  const local = RHYTHM_PRESETS.filter(
-    (item) => item.beats === current.beats && item.beatUnit === current.beatUnit,
+  const selected = selectedId ? findPreset(selectedId) : undefined
+  const local = RHYTHM_STYLES.filter((style) =>
+    style.grooves.some((item) => item.beats === current.beats && item.beatUnit === current.beatUnit),
   )
-  const others = RHYTHM_PRESETS.filter(
-    (item) => item.beats !== current.beats || item.beatUnit !== current.beatUnit,
+  const others = RHYTHM_STYLES.filter(
+    (style) => !style.grooves.some((item) => item.beats === current.beats && item.beatUnit === current.beatUnit),
   )
 
   return (
@@ -574,17 +594,12 @@ function PresetSheet({
         </h2>
         <PresetGroup
           title={`For ${meterLabel(current.beats, current.beatUnit)}`}
-          items={local}
-          selectedId={selectedId}
+          styles={local}
+          selected={selected}
           onSelect={onSelect}
         />
         {others.length > 0 ? (
-          <PresetGroup
-            title="Other meters"
-            items={others}
-            selectedId={selectedId}
-            onSelect={onSelect}
-          />
+          <PresetGroup title="Other meters" styles={others} selected={selected} onSelect={onSelect} />
         ) : null}
         <Button type="button" variant="outline" className="mt-4 w-full" onClick={onClose}>
           Close
@@ -596,45 +611,104 @@ function PresetSheet({
 
 function PresetGroup({
   title,
-  items,
-  selectedId,
+  styles,
+  selected,
   onSelect,
 }: {
   title: string
-  items: { id: string; name: string; blurb: string; beats: number; beatUnit: BeatUnit }[]
-  selectedId: string | null
+  styles: RhythmStyle[]
+  selected: RhythmPreset | undefined
   onSelect: (id: string) => void
 }) {
-  if (items.length === 0) return null
+  if (styles.length === 0) return null
   return (
     <section className="mt-4">
       <h3 className="px-1 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {title}
       </h3>
-      <div className="space-y-1">
-        {items.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onSelect(item.id)}
-            data-preset={item.id}
-            className={cn(
-              'flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-left',
-              item.id === selectedId
-                ? 'bg-[#A855F7]/18 ring-1 ring-[#A855F7]/50'
-                : 'hover:bg-white/5',
-            )}
-          >
-            <span>
-              <span className="block text-sm font-semibold text-white">{item.name}</span>
-              <span className="block text-xs text-slate-400">{item.blurb}</span>
-            </span>
-            <span className="text-xs font-semibold text-slate-500">
-              {meterLabel(item.beats, item.beatUnit)}
-            </span>
-          </button>
+      <div className="space-y-2">
+        {styles.map((style) => (
+          <StyleMenu
+            key={style.id}
+            style={style}
+            selected={selected}
+            defaultOpen={selected?.styleId === style.id}
+            onSelect={onSelect}
+          />
         ))}
       </div>
     </section>
+  )
+}
+
+function StyleMenu({
+  style,
+  selected,
+  defaultOpen,
+  onSelect,
+}: {
+  style: RhythmStyle
+  selected: RhythmPreset | undefined
+  defaultOpen: boolean
+  onSelect: (id: string) => void
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  const active = selected?.styleId === style.id
+  const activeGroove = active ? selected : undefined
+
+  return (
+    <div
+      data-style-menu={style.id}
+      data-open={open ? 'true' : 'false'}
+      className={cn(
+        'overflow-hidden rounded-2xl border',
+        active ? 'border-[#A855F7]/50 bg-[#A855F7]/10' : 'border-white/10 bg-white/3',
+      )}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        data-style-toggle={style.id}
+        onClick={() => setOpen((currentOpen) => !currentOpen)}
+        className="flex w-full items-center justify-between px-3 py-2.5 text-left"
+      >
+        <span>
+          <span className="block text-sm font-semibold text-white">{style.name}</span>
+          <span className="block text-xs text-slate-400">
+            {activeGroove ? `${activeGroove.name} · ${activeGroove.blurb}` : `${style.grooves.length} grooves`}
+          </span>
+        </span>
+        <ChevronDown
+          className={cn('size-4 text-slate-400 transition', open && 'rotate-180 text-white')}
+        />
+      </button>
+      {open ? (
+        <div className="space-y-1 border-t border-white/8 px-2 pb-2 pt-1.5">
+          {style.grooves.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item.id)}
+              data-preset={item.id}
+              className={cn(
+                'flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left',
+                item.id === selected?.id
+                  ? 'bg-[#A855F7] text-white'
+                  : 'bg-white/4 text-slate-200 hover:bg-white/8',
+              )}
+            >
+              <span>
+                <span className="block text-sm font-semibold">
+                  {item.groove} · {item.blurb}
+                </span>
+              </span>
+              <span className={cn('text-xs font-semibold', item.id === selected?.id ? 'text-white/80' : 'text-slate-500')}>
+                {meterLabel(item.beats, item.beatUnit)}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   )
 }

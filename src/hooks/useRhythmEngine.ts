@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { DEFAULT_KIT_MIX, type KitMix } from '@/lib/kit-mix'
 import { getAudioCtor, RhythmKit } from '@/lib/rhythm-audio'
 import {
   VOICES,
@@ -47,12 +48,14 @@ export function useRhythmEngine({
   mode,
   bars,
   clickSound,
+  kitMix = DEFAULT_KIT_MIX,
 }: {
   playing: boolean
   bpm: number
   mode: RhythmMode
   bars: readonly RhythmBar[]
   clickSound: ClickSoundId
+  kitMix?: KitMix
 }) {
   const [playhead, setPlayhead] = useState<Playhead>({
     bar: 0,
@@ -78,12 +81,14 @@ export function useRhythmEngine({
   const pendingBarsRef = useRef(bars)
   const liveModeRef = useRef(mode)
   const liveBarsRef = useRef(bars)
+  const kitMixRef = useRef(kitMix)
 
   playingRef.current = playing
   bpmRef.current = bpm
   clickRef.current = clickSound
   pendingModeRef.current = mode
   pendingBarsRef.current = bars
+  kitMixRef.current = kitMix
 
   if (!playing) {
     liveModeRef.current = mode
@@ -97,6 +102,7 @@ export function useRhythmEngine({
 
   const ensureKit = useCallback(async () => {
     if (kitRef.current) {
+      kitRef.current.setMix(kitMixRef.current)
       await kitRef.current.unlock()
       return kitRef.current
     }
@@ -106,6 +112,7 @@ export function useRhythmEngine({
       kitPromiseRef.current = (async () => {
         try {
           const kit = await RhythmKit.create(new Ctor())
+          kit.setMix(kitMixRef.current)
           kitRef.current = kit
           return kit
         } catch {
@@ -153,6 +160,10 @@ export function useRhythmEngine({
   useEffect(() => {
     if (mode === 'drums' || pendingModeRef.current === 'drums') void ensureKit()
   }, [mode, ensureKit])
+
+  useEffect(() => {
+    kitRef.current?.setMix(kitMix)
+  }, [kitMix])
 
   useEffect(() => {
     if (!playing) {
