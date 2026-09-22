@@ -30,6 +30,17 @@ export type Playhead = {
 const LOOKAHEAD_MS = 25
 const SCHEDULE_AHEAD = 0.12
 
+function cycleSignature(mode: RhythmMode, bars: readonly RhythmBar[]): string {
+  return [
+    mode,
+    String(bars.length),
+    ...bars.map(
+      (bar) =>
+        `${bar.beats}/${bar.beatUnit}/${bar.subdivision}:${JSON.stringify(bar.beatAccents)}:${JSON.stringify(bar.subdivAccents)}`,
+    ),
+  ].join('|')
+}
+
 export function useRhythmEngine({
   playing,
   bpm,
@@ -50,6 +61,7 @@ export function useRhythmEngine({
     accent: 0,
     subdivision: false,
   })
+  const [holdUntilCycle, setHoldUntilCycle] = useState(false)
 
   const kitRef = useRef<RhythmKit | null>(null)
   const kitPromiseRef = useRef<Promise<RhythmKit | null> | null>(null)
@@ -60,16 +72,23 @@ export function useRhythmEngine({
   const barRef = useRef(0)
   const playingRef = useRef(playing)
   const bpmRef = useRef(bpm)
-  const modeRef = useRef(mode)
-  const barsRef = useRef(bars)
   const clickRef = useRef(clickSound)
   const armedBarRef = useRef<number | null>(null)
+  const pendingModeRef = useRef(mode)
+  const pendingBarsRef = useRef(bars)
+  const liveModeRef = useRef(mode)
+  const liveBarsRef = useRef(bars)
 
   playingRef.current = playing
   bpmRef.current = bpm
-  modeRef.current = mode
-  barsRef.current = bars
   clickRef.current = clickSound
+  pendingModeRef.current = mode
+  pendingBarsRef.current = bars
+
+  if (!playing) {
+    liveModeRef.current = mode
+    liveBarsRef.current = bars
+  }
 
   const clearVisuals = useCallback(() => {
     for (const id of visualRef.current) window.clearTimeout(id)
@@ -125,16 +144,26 @@ export function useRhythmEngine({
     }
     clearVisuals()
     setPlayhead({ bar: 0, step: -1, beat: -1, accent: 0, subdivision: false })
+    setHoldUntilCycle(false)
     stepRef.current = 0
     barRef.current = 0
     armedBarRef.current = null
   }, [clearVisuals])
 
   useEffect(() => {
-    if (mode === 'drums') void ensureKit()
+    if (mode === 'drums' || pendingModeRef.current === 'drums') void ensureKit()
   }, [mode, ensureKit])
 
-  const structureKey = bars.map((bar) => `${bar.beats}/${bar.beatUnit}/${bar.subdivision}`).join('|')
+  useEffect(() => {
+    if (!playing) {
+      setHoldUntilCycle(false)
+      return
+    }
+    const queued =
+      cycleSignature(liveModeRef.current, liveBarsRef.current) !==
+      cycleSignature(pendingModeRef.current, pendingBarsRef.current)
+    setHoldUntilCycle(queued)
+  }, [bars, mode, playing])
 
   useEffect(() => {
     if (!playing) {
@@ -148,16 +177,42 @@ export function useRhythmEngine({
       const kit = await ensureKit()
       if (!kit || cancelled || !playingRef.current) return
 
+      liveModeRef.current = pendingModeRef.current
+      liveBarsRef.current = pendingBarsRef.current
+      setHoldUntilCycle(false)
       stepRef.current = 0
       barRef.current = 0
       armedBarRef.current = null
       nextTimeRef.current = kit.ctx.currentTime + 0.05
 
+      const commitPendingCycle = () => {
+        liveModeRef.current = pendingModeRef.current
+        liveBarsRef.current = pendingBarsRef.current
+        armedBarRef.current = null
+        setHoldUntilCycle(false)
+      }
+
+      const playbackBar = (index: number): RhythmBar | undefined => {
+        const liveSeq = liveBarsRef.current
+        const live = liveSeq[index] ?? liveSeq[0]
+        if (!live) return pendingBarsRef.current[index]
+        const pending = pendingBarsRef.current[index]
+        if (
+          pending &&
+          pending.beats === live.beats &&
+          pending.beatUnit === live.beatUnit &&
+          pending.subdivision === live.subdivision
+        ) {
+          return { ...live, pattern: pending.pattern }
+        }
+        return live
+      }
+
       const armDrumBar = (barIndex: number, barStart: number) => {
-        if (modeRef.current !== 'drums') return
+        if (liveModeRef.current !== 'drums') return
         if (armedBarRef.current === barIndex && stepRef.current !== 0) return
         armedBarRef.current = barIndex
-        const bar = barsRef.current[barIndex]
+        const bar = playbackBar(barIndex)
         if (!bar) return
         for (const voice of VOICES) {
           for (const hit of bar.pattern[voice] ?? []) {
@@ -168,8 +223,7 @@ export function useRhythmEngine({
       }
 
       const scheduleStep = (barIndex: number, step: number, time: number) => {
-        const sequence = barsRef.current
-        const bar = sequence[barIndex] ?? sequence[0]
+        const bar = playbackBar(barIndex)
         if (!bar) return
         const beat = beatIndexForStep(step, bar.beats, bar.subdivision)
         const onBeat = isBeatStep(step, bar.subdivision)
@@ -180,7 +234,7 @@ export function useRhythmEngine({
           subdivAccentAt(bar.subdivAccents, slot, steps),
         )
         if (step === 0) armDrumBar(barIndex, time)
-        if (modeRef.current === 'click') {
+        if (liveModeRef.current === 'click') {
           kit.click(time, accent, clickRef.current)
         }
 
@@ -200,19 +254,26 @@ export function useRhythmEngine({
 
       const tick = () => {
         if (!playingRef.current) return
-        const sequence = barsRef.current
-        if (sequence.length === 0) return
         while (nextTimeRef.current < kit.ctx.currentTime + SCHEDULE_AHEAD) {
+          const sequence = liveBarsRef.current
+          if (sequence.length === 0) return
           const barIndex = ((barRef.current % sequence.length) + sequence.length) % sequence.length
-          const bar = sequence[barIndex]
+          const bar = playbackBar(barIndex)
+          if (!bar) return
           const length = Math.max(1, stepsInBar(bar))
           const step = stepRef.current
           scheduleStep(barIndex, step, nextTimeRef.current)
           nextTimeRef.current += stepDurationSec(bpmRef.current, bar.subdivision)
           const nextStep = step + 1
           if (nextStep >= length) {
+            const wrapped = (barIndex + 1) % sequence.length
             stepRef.current = 0
-            barRef.current = (barIndex + 1) % sequence.length
+            if (wrapped === 0) {
+              commitPendingCycle()
+              barRef.current = 0
+            } else {
+              barRef.current = wrapped
+            }
           } else {
             stepRef.current = nextStep
           }
@@ -233,7 +294,7 @@ export function useRhythmEngine({
       }
       clearVisuals()
     }
-  }, [ensureKit, playing, stopScheduler, clearVisuals, structureKey])
+  }, [ensureKit, playing, stopScheduler, clearVisuals])
 
   useEffect(() => {
     return () => {
@@ -249,5 +310,5 @@ export function useRhythmEngine({
     }
   }, [stopScheduler])
 
-  return { playhead, preview, previewClick, ensureKit }
+  return { playhead, preview, previewClick, ensureKit, holdUntilCycle }
 }

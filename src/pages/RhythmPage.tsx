@@ -73,7 +73,7 @@ export function RhythmPage() {
   const setBarIndex = mode === 'click' ? setClickBarIndex : setDrumBarIndex
 
   const current = bars[Math.min(barIndex, bars.length - 1)] ?? bars[0]
-  const { playhead, preview, previewClick, ensureKit } = useRhythmEngine({
+  const { playhead, preview, previewClick, ensureKit, holdUntilCycle } = useRhythmEngine({
     playing,
     bpm,
     mode,
@@ -518,6 +518,9 @@ export function RhythmPage() {
 
         <div
           data-section="transport"
+          data-playhead-bar={playhead.bar}
+          data-playhead-step={playhead.step}
+          data-hold-until-cycle={holdUntilCycle ? 'true' : 'false'}
           className="relative z-40 shrink-0 border-t border-white/10 bg-[#0B0F1A]/95 pt-2 pb-[max(0.55rem,env(safe-area-inset-bottom))]"
         >
           <div className="mb-1.5 flex items-center justify-between gap-2 text-[0.7rem] text-slate-400">
@@ -525,6 +528,7 @@ export function RhythmPage() {
               {bpm} BPM · {liveMeter}
               {mode === 'click' ? ` · ${CLICK_SOUND_LABELS[clickSound]}` : ''}
               {playing && bars.length > 1 ? ` · bar ${playhead.bar + 1}` : ''}
+              {holdUntilCycle ? ' · next cycle' : ''}
             </p>
             <span className="inline-flex shrink-0 items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-wider text-slate-500">
               <Lock className="size-3" />
