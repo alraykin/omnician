@@ -3,13 +3,15 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getAudioCtor, RhythmKit } from '@/lib/rhythm-audio'
 import {
   VOICES,
-  accentLevelAt,
+  beatAccentAt,
   beatIndexForStep,
   hitTimeInBar,
   isBeatStep,
+  nestAccent,
   stepDurationSec,
   stepsInBar,
   stepsPerBeat,
+  subdivAccentAt,
   type AccentLevel,
   type ClickSoundId,
   type RhythmBar,
@@ -173,7 +175,10 @@ export function useRhythmEngine({
         const onBeat = isBeatStep(step, bar.subdivision)
         const steps = stepsPerBeat(bar.subdivision)
         const slot = step % Math.max(1, steps)
-        const accent = accentLevelAt(bar.accents, beat, slot, steps)
+        const accent = nestAccent(
+          beatAccentAt(bar.beatAccents, beat),
+          subdivAccentAt(bar.subdivAccents, slot, steps),
+        )
         if (step === 0) armDrumBar(barIndex, time)
         if (modeRef.current === 'click') {
           kit.click(time, accent, clickRef.current)

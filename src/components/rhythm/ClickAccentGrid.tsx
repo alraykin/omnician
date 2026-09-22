@@ -1,24 +1,30 @@
-import { accentLevelAt, stepsPerBeat, type AccentLevel, type AccentPos, type SubdivisionId } from '@/lib/rhythm'
+import {
+  beatAccentAt,
+  stepsPerBeat,
+  subdivAccentAt,
+  type AccentLevel,
+  type BeatAccent,
+  type SubdivAccent,
+  type SubdivisionId,
+} from '@/lib/rhythm'
 import { cn } from '@/lib/utils'
 
 type ClickAccentGridProps = {
   beats: number
   subdivision: SubdivisionId
-  accents: readonly AccentPos[]
+  beatAccents: readonly BeatAccent[]
+  subdivAccents: readonly SubdivAccent[]
   liveBeat: number
   liveStep: number
   live: boolean
-  onCycle: (beat: number, slot: number) => void
+  onCycleBeat: (beat: number) => void
+  onCycleSubdiv: (slot: number) => void
 }
 
-function accentTone(level: AccentLevel, downbeat: boolean) {
-  if (level === 2) {
-    return 'border-[#A855F7] bg-[#A855F7] text-white'
-  }
-  if (level === 1) {
-    return 'border-[#C4B5FD] bg-[#C4B5FD] text-[#2E1064]'
-  }
-  return downbeat
+function accentTone(level: AccentLevel, outer: boolean) {
+  if (level === 2) return 'border-[#A855F7] bg-[#A855F7] text-white'
+  if (level === 1) return 'border-[#C4B5FD] bg-[#C4B5FD] text-[#2E1064]'
+  return outer
     ? 'border-white/18 bg-white/8 text-slate-100'
     : 'border-white/10 bg-[#0B0F1A] text-slate-400'
 }
@@ -28,18 +34,20 @@ const LEVEL_NAME = ['unaccented', 'soft accent', 'strong accent'] as const
 export function ClickAccentGrid({
   beats,
   subdivision,
-  accents,
+  beatAccents,
+  subdivAccents,
   liveBeat,
   liveStep,
   live,
-  onCycle,
+  onCycleBeat,
+  onCycleSubdiv,
 }: ClickAccentGridProps) {
   const steps = stepsPerBeat(subdivision)
   const liveSlot = live && liveStep >= 0 ? liveStep % Math.max(1, steps) : -1
 
   return (
-    <div data-section="accents">
-      <div className="mb-1.5 flex items-center justify-between gap-2">
+    <div data-section="accents" className="space-y-2.5">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
           Accents · tap to cycle
         </p>
@@ -54,43 +62,68 @@ export function ClickAccentGrid({
           </span>
         </p>
       </div>
-      <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-        <div className="flex w-full min-w-0 gap-1.5 px-1 sm:gap-2">
-          {Array.from({ length: beats }, (_, beat) => (
-            <div
-              key={`beat-${beat}`}
-              className="flex min-w-0 flex-1 flex-col items-center gap-1"
-              data-accent-beat={beat}
-            >
-              <p className="text-[0.7rem] font-bold tabular-nums text-slate-400">{beat + 1}</p>
-              <div className="flex flex-wrap items-end justify-center gap-0.5">
-                {Array.from({ length: steps }, (_, slot) => {
-                  const level = accentLevelAt(accents, beat, slot, steps)
-                  const now = live && liveBeat === beat && liveSlot === slot
-                  const downbeat = slot === 0
-                  return (
-                    <button
-                      key={`${beat}-${slot}`}
-                      type="button"
-                      data-beat={beat}
-                      data-slot={slot}
-                      data-level={level}
-                      aria-label={`Beat ${beat + 1}, inner ${slot + 1}, ${LEVEL_NAME[level]}`}
-                      onClick={() => onCycle(beat, slot)}
-                      className={cn(
-                        'flex size-8 shrink-0 items-center justify-center rounded-lg border text-xs font-bold tabular-nums transition sm:size-9',
-                        downbeat && 'text-sm',
-                        accentTone(level, downbeat),
-                        now && 'omni-beat-pulse',
-                      )}
-                    >
-                      {slot + 1}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
+
+      <div>
+        <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Beats
+        </p>
+        <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+          <div className="flex w-max min-w-full justify-center gap-1.5 px-1">
+            {Array.from({ length: beats }, (_, beat) => {
+              const level = beatAccentAt(beatAccents, beat)
+              const now = live && liveBeat === beat
+              return (
+                <button
+                  key={`beat-${beat}`}
+                  type="button"
+                  data-accent-row="beat"
+                  data-beat={beat}
+                  data-level={level}
+                  aria-label={`Beat ${beat + 1}, ${LEVEL_NAME[level]}`}
+                  onClick={() => onCycleBeat(beat)}
+                  className={cn(
+                    'flex size-10 shrink-0 items-center justify-center rounded-full border text-sm font-bold tabular-nums sm:size-11',
+                    accentTone(level, true),
+                    now && 'omni-beat-pulse',
+                  )}
+                >
+                  {beat + 1}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Within beat
+        </p>
+        <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+          <div className="flex w-max min-w-full justify-center gap-1.5 px-1">
+            {Array.from({ length: steps }, (_, slot) => {
+              const inner = subdivAccentAt(subdivAccents, slot, steps)
+              const now = live && liveSlot === slot
+              return (
+                <button
+                  key={`sub-${slot}`}
+                  type="button"
+                  data-accent-row="subdiv"
+                  data-slot={slot}
+                  data-level={inner}
+                  aria-label={`Within beat, step ${slot + 1}, ${LEVEL_NAME[inner]}`}
+                  onClick={() => onCycleSubdiv(slot)}
+                  className={cn(
+                    'flex size-8 shrink-0 items-center justify-center rounded-lg border text-xs font-bold tabular-nums sm:size-9',
+                    accentTone(inner, false),
+                    now && 'omni-beat-pulse',
+                  )}
+                >
+                  {slot + 1}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>

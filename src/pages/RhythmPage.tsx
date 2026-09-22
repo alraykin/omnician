@@ -23,8 +23,11 @@ import {
   UNIT_LABELS,
   clampBpm,
   cloneBar,
-  cycleAccent,
-  accentLevelAt,
+  cycleBeatAccent,
+  cycleSubdivAccent,
+  beatAccentAt,
+  nestAccent,
+  subdivAccentAt,
   meterLabel,
   patternToGrid,
   pulseLabel,
@@ -424,22 +427,31 @@ export function RhythmPage() {
                   </span>
                 </div>
                 <p className="min-w-0 text-[0.7rem] leading-4 text-slate-500">
-                  Strong is the one. Soft is a quieter later accent. Inner numbers are the
-                  subdivision — tap any of them.
+                  Outer row is the beats. Inner row is one nested pattern that
+                  repeats inside every beat.
                 </p>
               </div>
               <ClickAccentGrid
                 beats={current.beats}
                 subdivision={current.subdivision}
-                accents={current.accents}
+                beatAccents={current.beatAccents}
+                subdivAccents={current.subdivAccents}
                 liveBeat={playhead.beat}
                 liveStep={playhead.step}
                 live={playing && playhead.bar === barIndex}
-                onCycle={(beat, slot) => {
+                onCycleBeat={(beat) => {
+                  const next = cycleBeatAccent(current.beatAccents, beat, current.beats)
+                  patchBar(barIndex, { ...current, beatAccents: next })
+                  void previewClick(
+                    clickSound,
+                    nestAccent(beatAccentAt(next, beat), 0),
+                  )
+                }}
+                onCycleSubdiv={(slot) => {
                   const steps = stepsPerBeat(current.subdivision)
-                  const next = cycleAccent(current.accents, beat, slot, steps)
-                  patchBar(barIndex, { ...current, accents: next })
-                  void previewClick(clickSound, accentLevelAt(next, beat, slot, steps))
+                  const next = cycleSubdivAccent(current.subdivAccents, slot, steps)
+                  patchBar(barIndex, { ...current, subdivAccents: next })
+                  void previewClick(clickSound, nestAccent(0, subdivAccentAt(next, slot, steps)))
                 }}
               />
               <p className="mt-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">

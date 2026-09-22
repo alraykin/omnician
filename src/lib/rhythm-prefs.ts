@@ -11,7 +11,8 @@ import {
   isClickSound,
   makeBar,
   normalizeSubdivision,
-  parseAccents,
+  parseBeatAccents,
+  parseSubdivAccents,
   reduceHit,
   stepsPerBeat,
   type BeatUnit,
@@ -24,8 +25,14 @@ import {
 } from '@/lib/rhythm'
 import { makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 
-const STORAGE_KEY = 'omnician.rhythm.v7'
-const PREVIOUS_KEYS = ['omnician.rhythm.v6', 'omnician.rhythm.v5', 'omnician.rhythm.v4', 'omnician.rhythm.v3']
+const STORAGE_KEY = 'omnician.rhythm.v8'
+const PREVIOUS_KEYS = [
+  'omnician.rhythm.v7',
+  'omnician.rhythm.v6',
+  'omnician.rhythm.v5',
+  'omnician.rhythm.v4',
+  'omnician.rhythm.v3',
+]
 
 export type RhythmPrefs = {
   bpm: number
@@ -103,14 +110,24 @@ function parseBar(raw: unknown, fallbackSub: SubdivisionId): RhythmBar | null {
     beats?: unknown
     beatUnit?: unknown
     subdivision?: unknown
+    beatAccents?: unknown
+    subdivAccents?: unknown
     accents?: unknown
     pattern?: unknown
   }
   const beats = clampBeats(typeof row.beats === 'number' ? row.beats : 4)
   const beatUnit: BeatUnit = isBeatUnit(row.beatUnit) ? row.beatUnit : 4
   const subdivision = normalizeSubdivision(row.subdivision ?? fallbackSub)
-  const accents = parseAccents(row.accents, beats, beatUnit)
-  return makeBar(beats, beatUnit, subdivision, parsePattern(row.pattern, beats, subdivision), accents)
+  const beatAccents = parseBeatAccents(row.beatAccents ?? row.accents, beats, beatUnit)
+  const subdivAccents = parseSubdivAccents(row.subdivAccents)
+  return makeBar(
+    beats,
+    beatUnit,
+    subdivision,
+    parsePattern(row.pattern, beats, subdivision),
+    beatAccents,
+    subdivAccents,
+  )
 }
 
 function syncSubdivision(bars: RhythmBar[]): RhythmBar[] {
