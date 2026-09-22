@@ -1,4 +1,4 @@
-import { Lock, Minus, Plus, Trash2 } from 'lucide-react'
+import { Lock, Minus, Play, Plus, Square, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
@@ -53,12 +53,19 @@ export function RhythmPage() {
     urlMode === 'drums' || urlMode === 'click' ? urlMode : prefs.mode,
   )
   const [clickSound, setClickSound] = useState<ClickSoundId>(prefs.clickSound)
-  const [bars, setBars] = useState<RhythmBar[]>(prefs.bars)
-  const [barIndex, setBarIndex] = useState(prefs.barIndex)
+  const [clickBars, setClickBars] = useState<RhythmBar[]>(prefs.clickBars)
+  const [drumBars, setDrumBars] = useState<RhythmBar[]>(prefs.drumBars)
+  const [clickBarIndex, setClickBarIndex] = useState(prefs.clickBarIndex)
+  const [drumBarIndex, setDrumBarIndex] = useState(prefs.drumBarIndex)
   const [presetId, setPresetId] = useState<string | null>(prefs.presetId)
   const [playing, setPlaying] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const tapTimes = useRef<number[]>([])
+
+  const bars = mode === 'click' ? clickBars : drumBars
+  const setBars = mode === 'click' ? setClickBars : setDrumBars
+  const barIndex = mode === 'click' ? clickBarIndex : drumBarIndex
+  const setBarIndex = mode === 'click' ? setClickBarIndex : setDrumBarIndex
 
   const current = bars[Math.min(barIndex, bars.length - 1)] ?? bars[0]
   const { playhead, preview, previewClick, ensureKit } = useRhythmEngine({
@@ -71,7 +78,7 @@ export function RhythmPage() {
 
   useEffect(() => {
     if (playing) setBarIndex(playhead.bar)
-  }, [playhead.bar, playing])
+  }, [playhead.bar, playing, setBarIndex])
 
   const matched = current ? matchPreset(current) : null
   const edited = Boolean(matched === null && presetId)
@@ -86,11 +93,23 @@ export function RhythmPage() {
       bpm,
       mode,
       clickSound,
-      bars,
-      barIndex,
+      clickBars,
+      drumBars,
+      clickBarIndex,
+      drumBarIndex,
       presetId: matched?.id ?? presetId,
     })
-  }, [barIndex, bars, bpm, clickSound, matched?.id, mode, presetId])
+  }, [
+    clickBarIndex,
+    clickBars,
+    clickSound,
+    drumBarIndex,
+    drumBars,
+    bpm,
+    matched?.id,
+    mode,
+    presetId,
+  ])
 
   const patchBar = (index: number, next: RhythmBar) => {
     setBars((currentBars) => currentBars.map((bar, item) => (item === index ? next : bar)))
@@ -111,8 +130,8 @@ export function RhythmPage() {
     const preset = RHYTHM_PRESETS.find((item) => item.id === id)
     if (!preset) return
     if (id === 'rock-44') {
-      setBars(makeDefaultRockBars())
-      setBarIndex(0)
+      setDrumBars(makeDefaultRockBars())
+      setDrumBarIndex(0)
       setBpm(DEFAULT_BPM)
       setPresetId(preset.id)
       setPickerOpen(false)
@@ -120,8 +139,8 @@ export function RhythmPage() {
     }
     if (!current) return
     const next = applyPreset(preset)
-    setBars((currentBars) =>
-      currentBars.map((bar, index) => (index === barIndex ? next : setBarSubdivision(bar, next.subdivision))),
+    setDrumBars((currentBars) =>
+      currentBars.map((bar, index) => (index === drumBarIndex ? next : setBarSubdivision(bar, next.subdivision))),
     )
     setPresetId(preset.id)
     setPickerOpen(false)
@@ -188,332 +207,330 @@ export function RhythmPage() {
 
   if (!current) return null
 
+  const liveMeter = meterLabel(current.beats, current.beatUnit)
+
   return (
-    <AppChrome align="fill" wide>
+    <AppChrome align="fill" wide compact>
       <div className="flex min-h-0 flex-1 flex-col">
-        <h1 className="text-center text-xl font-bold tracking-tight text-white sm:text-2xl">
-          Rhythm
-        </h1>
-        <p className="mt-1 text-center text-sm text-slate-400">
-          Click or drums — same tempo, any meter.
-        </p>
-
-        <div className="mx-auto mt-4 grid w-full max-w-sm grid-cols-2 rounded-2xl border border-white/10 bg-[#141A28] p-1">
-          {(['click', 'drums'] as const).map((item) => (
-            <button
-              key={item}
-              type="button"
-              aria-pressed={mode === item}
-              onClick={() => setMode(item)}
-              className={cn(
-                'h-11 rounded-xl text-sm font-semibold capitalize transition',
-                mode === item ? 'bg-[#A855F7] text-white' : 'text-slate-300 hover:text-white',
-              )}
-            >
-              {item === 'click' ? 'Click' : 'Drums'}
-            </button>
-          ))}
-        </div>
-
-        <section className="mt-4 rounded-3xl border border-white/10 bg-[#141A28]/80 px-3 py-5 sm:px-5">
-          <div className="flex flex-col items-center">
-            <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
-            <p className="relative z-20 mt-2 text-xs text-slate-500">{pulseLabel(current.beatUnit)}</p>
-            <div className="mt-3 relative z-20 flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-label="Slower by 5"
-                onClick={() => changeBpm(bpm - 5, true)}
-              >
-                <Minus className="size-3.5" />
-                5
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={tapTempo}>
-                Tap
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-label="Faster by 5"
-                onClick={() => changeBpm(bpm + 5, true)}
-              >
-                <Plus className="size-3.5" />
-                5
-              </Button>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:thin]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">Rhythm</h1>
+              <p className="hidden text-xs text-slate-400 sm:block">Click or drums — same tempo, any meter.</p>
             </div>
-          </div>
-        </section>
-
-        <section className="mt-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Bars
-            </p>
-            <p className="text-xs text-slate-500">Up to 8 · each can have its own meter</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {bars.map((bar, index) => {
-              const live = playing && playhead.bar === index
-              return (
-                <button
-                  key={`bar-${index}`}
-                  type="button"
-                  onClick={() => setBarIndex(index)}
-                  className={cn(
-                    'h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold',
-                    index === barIndex
-                      ? 'bg-[#A855F7] text-white'
-                      : 'border border-white/10 bg-white/4 text-slate-200',
-                    live && 'omni-beat-pulse',
-                  )}
-                >
-                  {index + 1}
-                  <span className="mx-1 text-[0.65rem] font-medium opacity-40">·</span>
-                  <span className="text-[0.65rem] font-medium opacity-70">
-                    {meterLabel(bar.beats, bar.beatUnit)}
-                  </span>
-                </button>
-              )
-            })}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addBar}
-              disabled={bars.length >= MAX_BARS}
-            >
-              <Plus className="size-3.5" />
-              Bar
-            </Button>
-            {bars.length > 1 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => removeBar(barIndex)}
-                aria-label="Remove this bar"
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            ) : null}
-          </div>
-        </section>
-
-        <section className="mt-4 rounded-3xl border border-white/10 bg-[#141A28]/80 px-3 py-4 sm:px-5">
-          <p className="mb-3 text-center text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-            Meter · bar {barIndex + 1}
-          </p>
-          <div className="flex items-center justify-center gap-3 sm:gap-5">
-            <SnapWheel
-              label="Beats"
-              values={BEAT_VALUES}
-              value={current.beats}
-              onChange={(beats) => setMeter(beats, current.beatUnit)}
-            />
-            <p className="pt-5 text-3xl font-bold text-slate-500">/</p>
-            <SnapWheel
-              label="Beat unit"
-              wide
-              values={BEAT_UNITS}
-              value={current.beatUnit}
-              format={(unit) => `${unit} · ${UNIT_LABELS[unit]}`}
-              onChange={(unit) => setMeter(current.beats, unit)}
-            />
-          </div>
-          <p className="mt-3 text-center text-lg font-bold tabular-nums text-white">
-            {meterLabel(current.beats, current.beatUnit)}
-          </p>
-        </section>
-
-        <section className="mt-4">
-          <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-            Subdivision
-          </p>
-          <div className="-mx-1 overflow-x-auto pb-1 [scrollbar-width:thin]">
             <div
-              role="group"
-              aria-label="Subdivision"
-              data-section="subdivision"
-              className="flex w-max min-w-full justify-between gap-1 px-1 sm:gap-1.5"
+              className="grid w-[11.5rem] shrink-0 grid-cols-2 rounded-xl border border-white/10 bg-[#141A28] p-0.5"
+              data-section="mode"
             >
-              {SUBDIVISIONS.map((steps) => (
+              {(['click', 'drums'] as const).map((item) => (
                 <button
-                  key={steps}
+                  key={item}
                   type="button"
-                  aria-label={SUBDIVISION_LABELS[steps]}
-                  title={SUBDIVISION_LABELS[steps]}
-                  aria-pressed={current.subdivision === steps}
-                  onClick={() => setSubdivision(steps)}
+                  aria-pressed={mode === item}
+                  data-mode={item}
+                  onClick={() => setMode(item)}
                   className={cn(
-                    'flex h-16 w-[3.15rem] shrink-0 items-center justify-center rounded-xl sm:h-[4.15rem] sm:w-[3.55rem]',
-                    current.subdivision === steps
-                      ? 'bg-[#A855F7] text-white'
-                      : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
+                    'h-9 rounded-lg text-sm font-semibold capitalize transition',
+                    mode === item ? 'bg-[#A855F7] text-white' : 'text-slate-300 hover:text-white',
                   )}
                 >
-                  <SubdivIcon steps={steps} />
+                  {item === 'click' ? 'Click' : 'Drums'}
                 </button>
               ))}
             </div>
           </div>
-          <p className="mt-2 text-xs text-slate-500">
-            {SUBDIVISION_LABELS[current.subdivision]} — same on every bar. Existing
-            hits stay put.
-          </p>
-        </section>
 
-        {mode === 'click' ? (
-          <section className="mt-4">
-            <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Accents · tap a beat
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {Array.from({ length: current.beats }, (_, beat) => {
-                const on = current.accents.includes(beat)
-                const live = playing && playhead.bar === barIndex && playhead.beat === beat
+          <section className="mt-2.5 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2.5 sm:px-4">
+            <div className="flex flex-col items-center">
+              <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
+              <p className="relative z-20 mt-1 text-[0.65rem] text-slate-500">{pulseLabel(current.beatUnit)}</p>
+              <div className="relative z-20 mt-1.5 flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Slower by 5"
+                  onClick={() => changeBpm(bpm - 5, true)}
+                >
+                  <Minus className="size-3.5" />
+                  5
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={tapTempo}>
+                  Tap
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Faster by 5"
+                  onClick={() => changeBpm(bpm + 5, true)}
+                >
+                  <Plus className="size-3.5" />
+                  5
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          <section
+            className="mt-2.5 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4"
+            data-bar-count={bars.length}
+            data-rhythm-mode={mode}
+          >
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Bars · meter
+              </p>
+              <p className="text-xs tabular-nums text-slate-400">
+                Bar {barIndex + 1}/{bars.length} · {liveMeter}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {bars.map((bar, index) => {
+                const live = playing && playhead.bar === index
                 return (
                   <button
-                    key={beat}
+                    key={`bar-${index}`}
                     type="button"
-                    aria-pressed={on}
-                    onClick={() =>
-                      patchBar(barIndex, {
-                        ...current,
-                        accents: toggleAccent(current.accents, beat, current.beats),
-                      })
-                    }
+                    data-bar-pill={index}
+                    onClick={() => setBarIndex(index)}
                     className={cn(
-                      'relative flex size-10 items-center justify-center rounded-full border text-sm font-bold sm:size-11',
-                      on
-                        ? 'border-[#A855F7] bg-[#A855F7] text-white'
-                        : 'border-white/15 bg-[#141A28] text-slate-300',
+                      'h-8 min-w-8 rounded-lg px-2 text-sm font-semibold',
+                      index === barIndex
+                        ? 'bg-[#A855F7] text-white'
+                        : 'border border-white/10 bg-white/4 text-slate-200',
                       live && 'omni-beat-pulse',
                     )}
                   >
-                    {beat + 1}
+                    {index + 1}
+                    <span className="mx-1 text-[0.65rem] font-medium opacity-40">·</span>
+                    <span className="text-[0.65rem] font-medium opacity-70">
+                      {meterLabel(bar.beats, bar.beatUnit)}
+                    </span>
                   </button>
                 )
               })}
-            </div>
-          </section>
-        ) : null}
-
-        {mode === 'click' ? (
-          <section className="mt-5 flex flex-1 flex-col items-center py-3">
-            <div
-              className={cn(
-                'flex size-36 items-center justify-center rounded-full border-4 sm:size-44',
-                playhead.beat >= 0
-                  ? playhead.accent
-                    ? 'omni-beat-pulse border-[#A855F7] bg-[#A855F7]/25'
-                    : playhead.subdivision
-                      ? 'border-white/20 bg-white/5'
-                      : 'border-[#C084FC]/70 bg-[#A855F7]/10'
-                  : 'border-white/12 bg-[#141A28]',
-              )}
-              aria-live="polite"
-            >
-              <span className="text-5xl font-bold tabular-nums text-white">
-                {playhead.beat >= 0 ? playhead.beat + 1 : '—'}
-              </span>
-            </div>
-            <p className="mt-3 text-center text-xs text-slate-500">
-              {bars.length > 1 ? `Bar ${playhead.bar + 1} of ${bars.length} · ` : null}
-              {CLICK_SOUND_LABELS[clickSound]}
-              {playing && playhead.subdivision ? ' · subdivision' : ''}
-            </p>
-            <p className="mt-3 w-full text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Click sound
-            </p>
-            <div
-              data-section="click-sound"
-              className="mt-1.5 flex w-full flex-wrap justify-center gap-1.5"
-            >
-              {CLICK_SOUNDS.map((id) => (
-                <button
-                  key={id}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={addBar}
+                disabled={bars.length >= MAX_BARS}
+              >
+                <Plus className="size-3.5" />
+                Bar
+              </Button>
+              {bars.length > 1 ? (
+                <Button
                   type="button"
-                  data-click-sound={id}
-                  aria-pressed={clickSound === id}
-                  onClick={() => {
-                    setClickSound(id)
-                    void previewClick(id)
-                  }}
-                  className={cn(
-                    'h-9 rounded-xl px-2.5 text-sm font-semibold',
-                    clickSound === id
-                      ? 'bg-[#A855F7] text-white'
-                      : 'border border-white/10 bg-white/4 text-slate-200',
-                  )}
+                  variant="ghost"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => removeBar(barIndex)}
+                  aria-label="Remove this bar"
                 >
-                  {CLICK_SOUND_LABELS[id]}
-                </button>
-              ))}
+                  <Trash2 className="size-3.5" />
+                </Button>
+              ) : null}
+            </div>
+            <div className="mt-2 flex items-center justify-center gap-2 sm:gap-4">
+              <SnapWheel
+                compact
+                label="Beats"
+                values={BEAT_VALUES}
+                value={current.beats}
+                onChange={(beats) => setMeter(beats, current.beatUnit)}
+              />
+              <p className="pt-4 text-2xl font-bold text-slate-500">/</p>
+              <SnapWheel
+                compact
+                label="Beat unit"
+                wide
+                values={BEAT_UNITS}
+                value={current.beatUnit}
+                format={(unit) => `${unit} · ${UNIT_LABELS[unit]}`}
+                onChange={(unit) => setMeter(current.beats, unit)}
+              />
             </div>
           </section>
-        ) : (
-          <section className="mt-4 flex-1">
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              className="mb-3 flex w-full items-center justify-between rounded-2xl border border-white/10 bg-[#141A28] px-4 py-3 text-left"
-            >
-              <span>
-                <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
-                  Beat library
-                </span>
-                <span className="mt-0.5 block text-sm font-semibold text-white">
-                  {edited && matched === null ? beatName : matched?.name ?? beatName}
-                </span>
-                <span className="block text-xs text-slate-500">
-                  {matched?.blurb ?? 'Your own hits on this bar'}
-                </span>
-              </span>
-              <span className="text-xs font-semibold text-slate-400">Change</span>
-            </button>
-            <DrumGrid
-              beats={current.beats}
-              subdivisionSteps={stepsPerBeat(current.subdivision)}
-              pattern={patternToGrid(current.pattern, current.beats, current.subdivision)}
-              currentStep={playhead.step}
-              live={playing && playhead.bar === barIndex}
-              onToggle={onToggleCell}
-              onPreview={(voice) => void preview(voice)}
-            />
-            <p className="mt-3 text-center text-xs leading-5 text-slate-500">
-              Tap a cell to add or remove a hit. Lane names preview the sound.
+
+          <section className="mt-2.5">
+            <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Subdivision
             </p>
-            <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-600">
-              Acoustic samples: Pearl Master Studio by enoe (CC BY 3.0)
+            <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+              <div
+                role="group"
+                aria-label="Subdivision"
+                data-section="subdivision"
+                className="flex w-max min-w-full justify-between gap-1 px-1"
+              >
+                {SUBDIVISIONS.map((steps) => (
+                  <button
+                    key={steps}
+                    type="button"
+                    aria-label={SUBDIVISION_LABELS[steps]}
+                    title={SUBDIVISION_LABELS[steps]}
+                    aria-pressed={current.subdivision === steps}
+                    onClick={() => setSubdivision(steps)}
+                    className={cn(
+                      'flex h-12 w-[2.85rem] shrink-0 items-center justify-center rounded-lg sm:h-14 sm:w-[3.2rem]',
+                      current.subdivision === steps
+                        ? 'bg-[#A855F7] text-white'
+                        : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
+                    )}
+                  >
+                    <SubdivIcon steps={steps} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="mt-1 text-[0.7rem] text-slate-500">
+              {SUBDIVISION_LABELS[current.subdivision]} · same on every bar
             </p>
           </section>
-        )}
 
-        <div className="mt-4">
-          <button
-            type="button"
-            disabled
-            className="flex h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-white/8 bg-white/4 text-sm font-semibold text-slate-500"
-          >
-            <Lock className="size-3.5" />
-            Speed Builder
-            <span className="rounded-full bg-white/8 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
-              Premium only
-            </span>
-          </button>
+          {mode === 'click' ? (
+            <section className="mt-2.5 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className={cn(
+                    'flex size-[4.5rem] shrink-0 items-center justify-center rounded-full border-[3px] sm:size-20',
+                    playhead.beat >= 0
+                      ? playhead.accent
+                        ? 'omni-beat-pulse border-[#A855F7] bg-[#A855F7]/25'
+                        : playhead.subdivision
+                          ? 'border-white/20 bg-white/5'
+                          : 'border-[#C084FC]/70 bg-[#A855F7]/10'
+                      : 'border-white/12 bg-[#0B0F1A]',
+                  )}
+                  aria-live="polite"
+                >
+                  <span className="text-3xl font-bold tabular-nums text-white">
+                    {playhead.beat >= 0 ? playhead.beat + 1 : '—'}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Accents · tap a beat
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.from({ length: current.beats }, (_, beat) => {
+                      const on = current.accents.includes(beat)
+                      const live = playing && playhead.bar === barIndex && playhead.beat === beat
+                      return (
+                        <button
+                          key={beat}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() =>
+                            patchBar(barIndex, {
+                              ...current,
+                              accents: toggleAccent(current.accents, beat, current.beats),
+                            })
+                          }
+                          className={cn(
+                            'relative flex size-9 items-center justify-center rounded-full border text-sm font-bold',
+                            on
+                              ? 'border-[#A855F7] bg-[#A855F7] text-white'
+                              : 'border-white/15 bg-[#141A28] text-slate-300',
+                            live && 'omni-beat-pulse',
+                          )}
+                        >
+                          {beat + 1}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+              <p className="mt-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Click sound
+              </p>
+              <div
+                data-section="click-sound"
+                className="mt-1 flex w-full flex-wrap gap-1.5"
+              >
+                {CLICK_SOUNDS.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    data-click-sound={id}
+                    aria-pressed={clickSound === id}
+                    onClick={() => {
+                      setClickSound(id)
+                      void previewClick(id)
+                    }}
+                    className={cn(
+                      'h-8 rounded-lg px-2.5 text-sm font-semibold',
+                      clickSound === id
+                        ? 'bg-[#A855F7] text-white'
+                        : 'border border-white/10 bg-white/4 text-slate-200',
+                    )}
+                  >
+                    {CLICK_SOUND_LABELS[id]}
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <section className="mt-2.5">
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="mb-2 flex w-full items-center justify-between rounded-xl border border-white/10 bg-[#141A28] px-3 py-2 text-left"
+              >
+                <span>
+                  <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
+                    Beat library
+                  </span>
+                  <span className="mt-0.5 block text-sm font-semibold text-white">
+                    {edited && matched === null ? beatName : matched?.name ?? beatName}
+                  </span>
+                </span>
+                <span className="text-xs font-semibold text-slate-400">Change</span>
+              </button>
+              <DrumGrid
+                beats={current.beats}
+                subdivisionSteps={stepsPerBeat(current.subdivision)}
+                pattern={patternToGrid(current.pattern, current.beats, current.subdivision)}
+                currentStep={playhead.step}
+                live={playing && playhead.bar === barIndex}
+                onToggle={onToggleCell}
+                onPreview={(voice) => void preview(voice)}
+              />
+              <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-600">
+                Pearl Master Studio by enoe (CC BY 3.0)
+              </p>
+            </section>
+          )}
         </div>
 
-        <div className="mt-3">
+        <div
+          data-section="transport"
+          className="relative z-30 shrink-0 border-t border-white/10 bg-[#0B0F1A]/95 pt-2 pb-[max(0.55rem,env(safe-area-inset-bottom))] backdrop-blur-md"
+        >
+          <div className="mb-1.5 flex items-center justify-between gap-2 text-[0.7rem] text-slate-400">
+            <p className="min-w-0 truncate tabular-nums">
+              {bpm} BPM · {liveMeter}
+              {mode === 'click' ? ` · ${CLICK_SOUND_LABELS[clickSound]}` : ''}
+              {playing && bars.length > 1 ? ` · bar ${playhead.bar + 1}` : ''}
+            </p>
+            <span className="inline-flex shrink-0 items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-wider text-slate-500">
+              <Lock className="size-3" />
+              Speed Builder
+            </span>
+          </div>
           <Button
             type="button"
             size="lg"
             variant={playing ? 'outline' : 'default'}
             className="h-14 w-full text-base"
+            data-transport="play"
             onClick={() => void startStop()}
           >
+            {playing ? <Square className="size-4 fill-current" /> : <Play className="size-4 fill-current" />}
             {playing ? 'Stop' : 'Play'}
           </Button>
         </div>

@@ -10,11 +10,22 @@ type AppChromeProps = {
   children: ReactNode
   align?: 'center' | 'fill'
   wide?: boolean
+  compact?: boolean
 }
 
-export function AppChrome({ children, align = 'center', wide = false }: AppChromeProps) {
+export function AppChrome({
+  children,
+  align = 'center',
+  wide = false,
+  compact = false,
+}: AppChromeProps) {
   return (
-    <div className="relative flex min-h-svh flex-col overflow-x-hidden px-5 py-6 sm:px-8 sm:py-8">
+    <div
+      className={cn(
+        'relative flex min-h-svh flex-col overflow-x-hidden',
+        compact ? 'px-4 py-3 sm:px-8 sm:py-5' : 'px-5 py-6 sm:px-8 sm:py-8',
+      )}
+    >
       <div className="stage-glow" aria-hidden />
       <header
         className={cn(
@@ -28,14 +39,16 @@ export function AppChrome({ children, align = 'center', wide = false }: AppChrom
             Home
           </Link>
         </Button>
-        <OmnicianWordmark className="h-7 w-auto sm:h-8" />
+        <OmnicianWordmark className={cn('w-auto', compact ? 'h-6 sm:h-8' : 'h-7 sm:h-8')} />
         <span className="w-[4.5rem]" aria-hidden />
       </header>
       <main
         className={cn(
-          'relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col pb-8',
+          'relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col',
+          compact ? 'pb-0' : 'pb-8',
           align === 'center' && 'items-center justify-center px-2 text-center',
-          align === 'fill' && (wide ? 'pt-4 sm:max-w-3xl' : 'pt-4 sm:max-w-xl'),
+          align === 'fill' && (wide ? 'sm:max-w-3xl' : 'sm:max-w-xl'),
+          align === 'fill' && (compact ? 'min-h-0 overflow-hidden pt-2' : 'pt-4'),
         )}
       >
         {children}

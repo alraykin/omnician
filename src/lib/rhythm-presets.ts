@@ -1,5 +1,6 @@
 import {
   cloneBar,
+  DEFAULT_SUBDIVISION,
   makeBar,
   patternFromHits,
   patternsEqual,
@@ -177,4 +178,9 @@ export function makeDefaultRockBars(): RhythmBar[] {
   const groove = makeBar(4, 4, 2, patternFromHits(4, 2, ROCK_GROOVE))
   const fill = makeBar(4, 4, 2, patternFromHits(4, 2, ROCK_FILL))
   return [cloneBar(groove), cloneBar(groove), cloneBar(groove), cloneBar(fill)]
+}
+
+/** First-open Click: a single empty 4/4 bar (eighths), not the 4-bar Rock loop. */
+export function makeDefaultClickBars(): RhythmBar[] {
+  return [makeBar(4, 4, DEFAULT_SUBDIVISION)]
 }

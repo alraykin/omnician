@@ -22,17 +22,19 @@ import {
   type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
-import { makeDefaultRockBars } from '@/lib/rhythm-presets'
+import { makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 
-const STORAGE_KEY = 'omnician.rhythm.v5'
-const PREVIOUS_KEYS = ['omnician.rhythm.v4', 'omnician.rhythm.v3']
+const STORAGE_KEY = 'omnician.rhythm.v6'
+const PREVIOUS_KEYS = ['omnician.rhythm.v5', 'omnician.rhythm.v4', 'omnician.rhythm.v3']
 
 export type RhythmPrefs = {
   bpm: number
   mode: RhythmMode
   clickSound: ClickSoundId
-  bars: RhythmBar[]
-  barIndex: number
+  clickBars: RhythmBar[]
+  drumBars: RhythmBar[]
+  clickBarIndex: number
+  drumBarIndex: number
   presetId: string | null
 }
 
@@ -41,8 +43,10 @@ function fallback(): RhythmPrefs {
     bpm: DEFAULT_BPM,
     mode: 'drums',
     clickSound: DEFAULT_CLICK_SOUND,
-    bars: makeDefaultRockBars(),
-    barIndex: 0,
+    clickBars: makeDefaultClickBars(),
+    drumBars: makeDefaultRockBars(),
+    clickBarIndex: 0,
+    drumBarIndex: 0,
     presetId: 'rock-44',
   }
 }
@@ -119,6 +123,21 @@ function syncSubdivision(bars: RhythmBar[]): RhythmBar[] {
   return bars.map((bar) => ({ ...bar, subdivision: sub }))
 }
 
+function parseBars(raw: unknown, fallbackBars: RhythmBar[]): RhythmBar[] {
+  const firstSub = Array.isArray(raw)
+    ? normalizeSubdivision((raw[0] as { subdivision?: unknown } | undefined)?.subdivision)
+    : 2
+  const bars = Array.isArray(raw)
+    ? raw.map((item) => parseBar(item, firstSub)).filter((item): item is RhythmBar => item !== null)
+    : []
+  return syncSubdivision((bars.length > 0 ? bars : fallbackBars).slice(0, MAX_BARS).map(cloneBar))
+}
+
+function clampIndex(index: unknown, length: number): number {
+  if (!Number.isInteger(index)) return 0
+  return Math.min(length - 1, Math.max(0, Number(index)))
+}
+
 export function loadRhythmPrefs(): RhythmPrefs {
   const base = fallback()
   if (typeof localStorage === 'undefined') return base
@@ -134,25 +153,35 @@ export function loadRhythmPrefs(): RhythmPrefs {
       mode?: unknown
       clickSound?: unknown
       bars?: unknown
+      clickBars?: unknown
+      drumBars?: unknown
       barIndex?: unknown
+      clickBarIndex?: unknown
+      drumBarIndex?: unknown
       presetId?: unknown
     }
-    const firstSub = Array.isArray(row.bars)
-      ? normalizeSubdivision((row.bars[0] as { subdivision?: unknown } | undefined)?.subdivision)
-      : 2
-    const bars = Array.isArray(row.bars)
-      ? row.bars.map((item) => parseBar(item, firstSub)).filter((item): item is RhythmBar => item !== null)
-      : []
-    const safeBars = syncSubdivision((bars.length > 0 ? bars : base.bars).slice(0, MAX_BARS).map(cloneBar))
-    const barIndex = Number.isInteger(row.barIndex)
-      ? Math.min(safeBars.length - 1, Math.max(0, Number(row.barIndex)))
+
+    const split = Array.isArray(row.clickBars) || Array.isArray(row.drumBars)
+    const clickBars = split ? parseBars(row.clickBars, base.clickBars) : makeDefaultClickBars()
+    const drumBars = split
+      ? parseBars(row.drumBars, base.drumBars)
+      : parseBars(row.bars, base.drumBars)
+
+    const clickBarIndex = split
+      ? clampIndex(row.clickBarIndex, clickBars.length)
       : 0
+    const drumBarIndex = split
+      ? clampIndex(row.drumBarIndex, drumBars.length)
+      : clampIndex(row.barIndex, drumBars.length)
+
     return {
       bpm: clampBpm(typeof row.bpm === 'number' ? row.bpm : base.bpm),
       mode: row.mode === 'drums' ? 'drums' : row.mode === 'click' ? 'click' : base.mode,
       clickSound: isClickSound(row.clickSound) ? row.clickSound : DEFAULT_CLICK_SOUND,
-      bars: safeBars,
-      barIndex,
+      clickBars,
+      drumBars,
+      clickBarIndex,
+      drumBarIndex,
       presetId: typeof row.presetId === 'string' ? row.presetId : null,
     }
   } catch {
@@ -167,8 +196,10 @@ export function saveRhythmPrefs(prefs: RhythmPrefs): void {
       bpm: clampBpm(prefs.bpm),
       mode: prefs.mode,
       clickSound: prefs.clickSound,
-      bars: prefs.bars.map(cloneBar),
-      barIndex: prefs.barIndex,
+      clickBars: prefs.clickBars.map(cloneBar),
+      drumBars: prefs.drumBars.map(cloneBar),
+      clickBarIndex: prefs.clickBarIndex,
+      drumBarIndex: prefs.drumBarIndex,
       presetId: prefs.presetId,
     }),
   )

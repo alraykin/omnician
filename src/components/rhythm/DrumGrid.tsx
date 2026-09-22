@@ -26,7 +26,7 @@ export function DrumGrid({
   const minCell = subdivisionSteps >= 6 ? '1.25rem' : subdivisionSteps >= 4 ? '1.4rem' : '1.55rem'
 
   return (
-    <div className="max-h-[min(58vh,34rem)] overflow-x-auto overflow-y-auto pb-1">
+    <div className="max-h-[min(42vh,22rem)] overflow-x-auto overflow-y-auto pb-1">
       <div
         className="min-w-full"
         style={{ minWidth: `calc(4.9rem + ${beats} * ${subdivisionSteps} * ${minCell})` }}
@@ -49,7 +49,7 @@ export function DrumGrid({
               <button
                 type="button"
                 onClick={() => onPreview(voice)}
-                className="w-[4.7rem] shrink-0 truncate rounded-lg px-1 py-1.5 text-left text-[0.68rem] font-semibold leading-tight text-slate-300 hover:bg-white/6 hover:text-white"
+                className="w-[4.7rem] shrink-0 truncate rounded-lg px-1 py-1 text-left text-[0.65rem] font-semibold leading-tight text-slate-300 hover:bg-white/6 hover:text-white"
               >
                 {VOICE_LABELS[voice]}
               </button>
@@ -69,7 +69,7 @@ export function DrumGrid({
                           aria-label={`${VOICE_LABELS[voice]}, beat ${beat + 1}, slot ${offset + 1}${on ? ', on' : ', off'}`}
                           onClick={() => onToggle(voice, step)}
                           className={cn(
-                            'h-8 min-w-[1.05rem] flex-1 rounded-md border transition sm:h-9',
+                            'h-7 min-w-[1.05rem] flex-1 rounded-md border transition sm:h-8',
                             on
                               ? 'border-[#A855F7] bg-[#A855F7] shadow-[0_0_10px_rgba(168,85,247,0.35)]'
                               : offset === 0
