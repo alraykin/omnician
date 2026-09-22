@@ -218,8 +218,8 @@ export function RhythmPage() {
         <section className="mt-4 rounded-3xl border border-white/10 bg-[#141A28]/80 px-3 py-5 sm:px-5">
           <div className="flex flex-col items-center">
             <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
-            <p className="mt-2 text-xs text-slate-500">{pulseLabel(current.beatUnit)}</p>
-            <div className="mt-3 flex items-center gap-2">
+            <p className="relative z-20 mt-2 text-xs text-slate-500">{pulseLabel(current.beatUnit)}</p>
+            <div className="mt-3 relative z-20 flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"

@@ -238,7 +238,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative">
+      <div className="relative size-[176px] sm:size-[188px]">
         <div
           aria-hidden
           className="pointer-events-none absolute -bottom-1 left-1/2 h-4 w-28 -translate-x-1/2 rounded-full bg-black/50 blur-md"
@@ -255,7 +255,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
           data-visual-bpm={visual.toFixed(2)}
           data-coasting={coasting ? 'true' : 'false'}
           data-tempo-hit="true"
-          className="bpm-dial-hit relative flex items-center justify-center rounded-full outline-none focus-visible:[&_.bpm-dial]:ring-2 focus-visible:[&_.bpm-dial]:ring-[#A855F7]/70"
+          className="bpm-dial-hit absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none focus-visible:[&_.bpm-dial]:ring-2 focus-visible:[&_.bpm-dial]:ring-[#A855F7]/70"
           onPointerDown={(event) => {
             movedRef.current = false
             stopCoast()

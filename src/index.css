@@ -160,8 +160,8 @@ body {
 }
 
 .bpm-dial-hit {
-  width: 264px;
-  height: 264px;
+  width: 280px;
+  height: 280px;
   touch-action: none;
   overscroll-behavior: none;
   cursor: grab;
@@ -173,8 +173,8 @@ body {
 
 @media (min-width: 640px) {
   .bpm-dial-hit {
-    width: 276px;
-    height: 276px;
+    width: 292px;
+    height: 292px;
   }
 }
 
