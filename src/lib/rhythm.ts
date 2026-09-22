@@ -36,12 +36,25 @@ export const MIN_BPM = 30
 export const MAX_BPM = 300
 export const DEFAULT_BPM = 120
 
-/** Steps per beat — Cubase-style density. */
-export const SUBDIVISIONS = [2, 3, 4, 5, 6, 7, 8] as const
+/** Steps per beat — Cubase-style density. Quarter = 1 through 32nds = 8. */
+export const SUBDIVISIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const
 export type SubdivisionId = (typeof SUBDIVISIONS)[number]
 export const DEFAULT_SUBDIVISION: SubdivisionId = 2
 
+export const SUBDIVISION_LABELS: Record<SubdivisionId, string> = {
+  1: 'Quarter note',
+  2: 'Eighth notes',
+  3: 'Triplets',
+  4: 'Sixteenth notes',
+  5: 'Quintuplets',
+  6: 'Sextuplets',
+  7: 'Septuplets',
+  8: 'Thirty-second notes',
+}
+
 const LEGACY_SUBDIVISION: Record<string, SubdivisionId> = {
+  quarters: 1,
+  quarter: 1,
   eighths: 2,
   triplets: 3,
   sixteenths: 4,

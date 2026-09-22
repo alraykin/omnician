@@ -221,6 +221,36 @@ async function loadDrums(ctx: AudioContext): Promise<Record<VoiceId, AudioBuffer
   return drums
 }
 
+const CLICK_SAMPLE_FILES: Partial<Record<ClickSoundId, { normal: string; accent: string }>> = {
+  cowbell: {
+    normal: '/rhythm/clicks/cowbell.wav',
+    accent: '/rhythm/clicks/cowbell-accent.wav',
+  },
+}
+
+async function loadClickSamples(
+  ctx: AudioContext,
+  baked: Record<ClickSoundId, ClickPair>,
+): Promise<Record<ClickSoundId, ClickPair>> {
+  const clicks = { ...baked }
+  await Promise.all(
+    (Object.keys(CLICK_SAMPLE_FILES) as ClickSoundId[]).map(async (id) => {
+      const files = CLICK_SAMPLE_FILES[id]
+      if (!files) return
+      try {
+        const [normal, accent] = await Promise.all([
+          loadSample(ctx, files.normal),
+          loadSample(ctx, files.accent),
+        ])
+        clicks[id] = { normal, accent }
+      } catch {
+        // Keep the synthesized click if the WAV is missing.
+      }
+    }),
+  )
+  return clicks
+}
+
 type ClickPair = { normal: AudioBuffer; accent: AudioBuffer }
 
 function bakeClick(
@@ -281,16 +311,29 @@ function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
       }
     }),
     cowbell: bakeClick(ctx, (data, sr, accent) => {
+      // Fallback if the CC0 sample is missing: C#5 / G#5 sines, not square+clip.
+      const a = accent ? 1.05 : 1
       let p1 = 0
       let p2 = 0
-      const a = accent ? 1.08 : 1
+      let p3 = 0
+      let p4 = 0
+      let p5 = 0
       for (let i = 0; i < data.length; i += 1) {
         const t = i / sr
-        p1 += (Math.PI * 2 * 587 * a) / sr
-        p2 += (Math.PI * 2 * 845 * a) / sr
-        const square =
-          (Math.sin(p1) > 0 ? 1 : -1) * 0.55 + (Math.sin(p2) > 0 ? 1 : -1) * 0.45
-        data[i] = tanh(square * env(t, 0.0008, accent ? 0.12 : 0.08) * 1.2) * 0.5
+        p1 += (Math.PI * 2 * 554 * a) / sr
+        p2 += (Math.PI * 2 * 830 * a) / sr
+        p3 += (Math.PI * 2 * 1108 * a) / sr
+        p4 += (Math.PI * 2 * 1661 * a) / sr
+        p5 += (Math.PI * 2 * 2217 * a) / sr
+        const body =
+          Math.sin(p1) * 0.4 +
+          Math.sin(p2) * 0.36 +
+          Math.sin(p3) * 0.16 +
+          Math.sin(p4) * 0.1 +
+          Math.sin(p5) * 0.06
+        const knock = (Math.random() * 2 - 1) * env(t, 0.00015, 0.007) * 0.16
+        data[i] =
+          (body * env(t, 0.0005, accent ? 0.13 : 0.1) + knock) * (accent ? 0.7 : 0.56)
       }
     }),
     tick: bakeClick(ctx, (data, sr, accent) => {
@@ -307,14 +350,14 @@ function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
 }
 
 function bakeWheelTick(ctx: AudioContext): AudioBuffer {
-  return renderBuffer(ctx, 0.028, (data, sr) => {
+  return renderBuffer(ctx, 0.024, (data, sr) => {
     let ping = 0
     for (let i = 0; i < data.length; i += 1) {
       const t = i / sr
-      ping += (Math.PI * 2 * (2650 - t * 22000)) / sr
-      const body = Math.sin(ping) * env(t, 0.00018, 0.011)
-      const detent = (Math.random() * 2 - 1) * env(t, 0.00012, 0.0065)
-      data[i] = tanh(body * 0.85 + detent * 0.55) * 0.38
+      ping += (Math.PI * 2 * (2100 - t * 16000)) / sr
+      const body = Math.sin(ping) * env(t, 0.00014, 0.009)
+      const detent = (Math.random() * 2 - 1) * env(t, 0.0001, 0.0055)
+      data[i] = (body * 0.9 + detent * 0.42) * 0.4
     }
   })
 }
@@ -328,7 +371,7 @@ export function playWheelTick(): void {
   const Ctor = getAudioCtor()
   if (!Ctor) return
   const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
-  if (now - lastWheelTickAt < 38) return
+  if (now - lastWheelTickAt < 42) return
   lastWheelTickAt = now
   try {
     if (!wheelTickCtx || wheelTickCtx.state === 'closed') {
@@ -355,7 +398,7 @@ export class RhythmKit {
   readonly ctx: AudioContext
   private readonly master: GainNode
   private drums: Record<VoiceId, AudioBuffer>
-  private readonly clicks: Record<ClickSoundId, ClickPair>
+  private clicks: Record<ClickSoundId, ClickPair>
   private openHat: GainNode | null = null
   private readonly ready: Promise<void>
 
@@ -373,10 +416,15 @@ export class RhythmKit {
     comp.connect(ctx.destination)
     this.drums = bakeSynthDrums(ctx)
     this.clicks = bakeClicks(ctx)
-    this.ready = loadDrums(ctx)
-      .then((drums) => {
+    this.ready = Promise.all([
+      loadDrums(ctx).then((drums) => {
         this.drums = drums
-      })
+      }),
+      loadClickSamples(ctx, this.clicks).then((clicks) => {
+        this.clicks = clicks
+      }),
+    ])
+      .then(() => undefined)
       .catch(() => {
         // Keep synthesized one-shots if WAV fetch/decode fails.
       })

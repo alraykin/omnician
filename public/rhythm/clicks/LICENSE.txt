@@ -1,0 +1,10 @@
+Cowbell click (trimmed and normalized for the Omnician metronome)
+
+Source: COW.wav by menegass
+https://freesound.org/people/menegass/sounds/99766/
+License: CC0 1.0 Universal (public domain)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The original recording is a short cowbell hit. This copy is converted
+to 44.1 kHz mono WAV, lightly filtered, and peak-normalized for Click mode.
+cowbell-accent.wav is the same hit with a slightly hotter mix for downbeats.

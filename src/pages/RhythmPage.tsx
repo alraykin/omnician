@@ -6,6 +6,7 @@ import { AppChrome } from '@/components/AppChrome'
 import { BpmWheel } from '@/components/rhythm/BpmWheel'
 import { DrumGrid } from '@/components/rhythm/DrumGrid'
 import { SnapWheel } from '@/components/rhythm/SnapWheel'
+import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { useRhythmEngine } from '@/hooks/useRhythmEngine'
 import {
@@ -16,6 +17,7 @@ import {
   MAX_BARS,
   MIN_BEATS,
   MAX_BEATS,
+  SUBDIVISION_LABELS,
   SUBDIVISIONS,
   UNIT_LABELS,
   clampBpm,
@@ -330,26 +332,35 @@ export function RhythmPage() {
           <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
             Subdivision
           </p>
-          <div className="flex flex-wrap gap-1.5">
-            {SUBDIVISIONS.map((steps) => (
-              <button
-                key={steps}
-                type="button"
-                aria-pressed={current.subdivision === steps}
-                onClick={() => setSubdivision(steps)}
-                className={cn(
-                  'h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold',
-                  current.subdivision === steps
-                    ? 'bg-[#A855F7] text-white'
-                    : 'border border-white/10 bg-white/4 text-slate-200 hover:border-[#A855F7]/50',
-                )}
-              >
-                {steps}
-              </button>
-            ))}
+          <div className="-mx-1 overflow-x-auto pb-1 [scrollbar-width:thin]">
+            <div
+              role="group"
+              aria-label="Subdivision"
+              className="flex w-max min-w-full justify-between gap-1 px-1 sm:gap-1.5"
+            >
+              {SUBDIVISIONS.map((steps) => (
+                <button
+                  key={steps}
+                  type="button"
+                  aria-label={SUBDIVISION_LABELS[steps]}
+                  title={SUBDIVISION_LABELS[steps]}
+                  aria-pressed={current.subdivision === steps}
+                  onClick={() => setSubdivision(steps)}
+                  className={cn(
+                    'flex h-14 w-12 shrink-0 items-center justify-center rounded-xl sm:h-[3.75rem] sm:w-[3.4rem]',
+                    current.subdivision === steps
+                      ? 'bg-[#A855F7] text-white'
+                      : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
+                  )}
+                >
+                  <SubdivIcon steps={steps} />
+                </button>
+              ))}
+            </div>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            Steps per beat — same on every bar. Existing hits stay put.
+            {SUBDIVISION_LABELS[current.subdivision]} — same on every bar. Existing
+            hits stay put.
           </p>
         </section>
 
@@ -421,6 +432,7 @@ export function RhythmPage() {
                 <button
                   key={id}
                   type="button"
+                  data-click-sound={id}
                   aria-pressed={clickSound === id}
                   onClick={() => {
                     setClickSound(id)

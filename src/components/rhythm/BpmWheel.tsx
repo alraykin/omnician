@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { clampBpm, MAX_BPM, MIN_BPM } from '@/lib/rhythm'
+import { cn } from '@/lib/utils'
 
 type BpmWheelProps = {
   value: number
   onChange: (bpm: number) => void
 }
 
-const TICKS = 36
+const TICKS = 48
+const DEG_PER_BPM = 10
 
 export function BpmWheel({ value, onChange }: BpmWheelProps) {
   const dragRef = useRef<{ y: number; bpm: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [draft, setDraft] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
   const editing = draft !== null
+  const ringAngle = (value - MIN_BPM) * DEG_PER_BPM
 
   useEffect(() => {
     if (editing) inputRef.current?.select()
@@ -38,6 +42,11 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
     if (clamped !== value) onChange(clamped)
   }
 
+  const endDrag = () => {
+    dragRef.current = null
+    setDragging(false)
+  }
+
   return (
     <div className="flex flex-col items-center">
       <div className="relative">
@@ -53,12 +62,13 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
           aria-valuenow={value}
           aria-disabled={editing}
           tabIndex={editing ? -1 : 0}
-          className="bpm-dial relative size-[176px] touch-none select-none rounded-full p-[9px] outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]/70 sm:size-[188px]"
+          className="bpm-dial relative size-[176px] touch-none select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]/70 sm:size-[188px]"
           onPointerDown={(event) => {
             if (editing) return
             if ((event.target as HTMLElement).closest('button, input')) return
             event.currentTarget.setPointerCapture(event.pointerId)
             dragRef.current = { y: event.clientY, bpm: value }
+            setDragging(true)
           }}
           onPointerMove={(event) => {
             const drag = dragRef.current
@@ -70,12 +80,8 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
             drag.bpm = clampBpm(drag.bpm + steps)
             bump(drag.bpm)
           }}
-          onPointerUp={() => {
-            dragRef.current = null
-          }}
-          onPointerCancel={() => {
-            dragRef.current = null
-          }}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
           onWheel={(event) => {
             if (editing) return
             bump(
@@ -100,20 +106,32 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
             }
           }}
         >
-          <div className="bpm-dial-face relative h-full w-full overflow-hidden rounded-full">
+          <span aria-hidden className="bpm-dial-pip" />
+          <div
+            aria-hidden
+            data-ring-angle={ringAngle}
+            className={cn(
+              'bpm-dial-ring',
+              dragging ? 'bpm-dial-ring-live' : 'bpm-dial-ring-smooth',
+            )}
+            style={{ transform: `rotate(${ringAngle}deg)` }}
+          >
             {Array.from({ length: TICKS }, (_, index) => {
-              const major = index % 3 === 0
+              const major = index % 4 === 0
+              const deg = (index / TICKS) * 360
               return (
                 <span
                   key={index}
-                  aria-hidden
                   className={major ? 'bpm-dial-tick bpm-dial-tick-major' : 'bpm-dial-tick'}
-                  style={{ transform: `rotate(${(index / TICKS) * 360}deg)` }}
+                  style={{
+                    transform: `rotate(${deg}deg) translateY(calc(-1 * var(--ring-radius)))`,
+                  }}
                 />
               )
             })}
-            <div className="pointer-events-none absolute inset-[22px] rounded-full bg-[#0B0F1A] shadow-[inset_0_8px_16px_rgba(0,0,0,0.55)]" />
-            <div className="pointer-events-none absolute inset-x-10 top-[18px] z-20 h-6 rounded-full bg-white/16 blur-[3px]" />
+          </div>
+          <div className="bpm-dial-face">
+            <div className="pointer-events-none absolute inset-x-8 top-[14px] z-20 h-5 rounded-full bg-white/16 blur-[3px]" />
             <div className="absolute inset-0 z-30 flex flex-col items-center justify-center">
               <span className="text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
                 BPM
