@@ -175,12 +175,13 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
     const latest = samples[samples.length - 1]
     const cutoff = latest.t - FLICK_WINDOW_MS
     const windowed = samples.filter((sample) => sample.t >= cutoff)
-    if (windowed.length < 2) return 0
-    const first = windowed[0]
-    const last = windowed[windowed.length - 1]
-    const dt = (last.t - first.t) / 1000
-    if (dt < 0.012) return 0
-    return (first.y - last.y) / dt / PX_PER_BPM
+    const used = windowed.length >= 2 ? windowed : samples
+    const first = used[0]
+    const last = used[used.length - 1]
+    const dt = Math.max((last.t - first.t) / 1000, 0.008)
+    const px = first.y - last.y
+    if (Math.abs(px) < 6) return 0
+    return px / dt / PX_PER_BPM
   }
 
   const commitDraft = () => {
@@ -192,7 +193,8 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
     if (clamped !== emittedRef.current) onChange(clamped)
   }
 
-  const endDrag = (flick: boolean) => {
+  const endDrag = (flick: boolean, event?: { timeStamp: number; clientY: number }) => {
+    if (event) samplesRef.current.push({ t: event.timeStamp, y: event.clientY })
     dragRef.current = null
     draggingRef.current = false
     setDragging(false)
@@ -221,6 +223,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
           data-coasting={coasting ? 'true' : 'false'}
           className="bpm-dial relative size-[176px] touch-none select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]/70 sm:size-[188px]"
           onPointerDown={(event) => {
+            movedRef.current = false
             stopCoast()
             snapToEmitted()
             if (editing) return
@@ -229,7 +232,6 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
             event.currentTarget.setPointerCapture(event.pointerId)
             dragRef.current = { y: event.clientY }
             samplesRef.current = [{ t: event.timeStamp, y: event.clientY }]
-            movedRef.current = false
             draggingRef.current = true
             setDragging(true)
           }}
@@ -243,7 +245,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
             if (Math.abs(dy) > 1.5) movedRef.current = true
             emitIfNeeded(visualRef.current + dy / PX_PER_BPM)
           }}
-          onPointerUp={() => endDrag(true)}
+          onPointerUp={(event) => endDrag(true, event)}
           onPointerCancel={() => endDrag(false)}
           onKeyDown={(event) => {
             if (editing) return
