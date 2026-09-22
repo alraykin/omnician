@@ -1,5 +1,6 @@
 import {
   DEFAULT_BPM,
+  DEFAULT_CLICK_SOUND,
   MAX_BARS,
   VOICES,
   clampAccents,
@@ -23,8 +24,8 @@ import {
 } from '@/lib/rhythm'
 import { makeDefaultRockBars } from '@/lib/rhythm-presets'
 
-const STORAGE_KEY = 'omnician.rhythm.v4'
-const PREVIOUS_KEY = 'omnician.rhythm.v3'
+const STORAGE_KEY = 'omnician.rhythm.v5'
+const PREVIOUS_KEYS = ['omnician.rhythm.v4', 'omnician.rhythm.v3']
 
 export type RhythmPrefs = {
   bpm: number
@@ -39,7 +40,7 @@ function fallback(): RhythmPrefs {
   return {
     bpm: DEFAULT_BPM,
     mode: 'drums',
-    clickSound: 'woodblock',
+    clickSound: DEFAULT_CLICK_SOUND,
     bars: makeDefaultRockBars(),
     barIndex: 0,
     presetId: 'rock-44',
@@ -122,7 +123,9 @@ export function loadRhythmPrefs(): RhythmPrefs {
   const base = fallback()
   if (typeof localStorage === 'undefined') return base
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(PREVIOUS_KEY)
+    const raw =
+      localStorage.getItem(STORAGE_KEY) ??
+      PREVIOUS_KEYS.map((key) => localStorage.getItem(key)).find((item) => item != null)
     if (!raw) return base
     const parsed: unknown = JSON.parse(raw)
     if (!parsed || typeof parsed !== 'object') return base
@@ -147,7 +150,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
     return {
       bpm: clampBpm(typeof row.bpm === 'number' ? row.bpm : base.bpm),
       mode: row.mode === 'drums' ? 'drums' : row.mode === 'click' ? 'click' : base.mode,
-      clickSound: isClickSound(row.clickSound) ? row.clickSound : 'woodblock',
+      clickSound: isClickSound(row.clickSound) ? row.clickSound : DEFAULT_CLICK_SOUND,
       bars: safeBars,
       barIndex,
       presetId: typeof row.presetId === 'string' ? row.presetId : null,

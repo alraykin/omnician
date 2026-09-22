@@ -1,20 +1,25 @@
 import type { SubdivisionId } from '@/lib/rhythm'
 
-type IconSpec = {
+type NoteSpec = {
+  kind: 'notes'
   count: number
-  beams: 0 | 1 | 2 | 3
-  tuplet?: 3 | 5 | 6 | 7
+  beams: 0 | 1 | 2
+  tuplet?: 3
 }
 
-const ICONS: Record<SubdivisionId, IconSpec> = {
-  1: { count: 1, beams: 0 },
-  2: { count: 2, beams: 1 },
-  3: { count: 3, beams: 1, tuplet: 3 },
-  4: { count: 4, beams: 2 },
-  5: { count: 4, beams: 2, tuplet: 5 },
-  6: { count: 4, beams: 2, tuplet: 6 },
-  7: { count: 4, beams: 2, tuplet: 7 },
-  8: { count: 4, beams: 3 },
+type BracketSpec = {
+  kind: 'bracket'
+  tuplet: 5 | 6 | 7
+}
+
+const ICONS: Record<SubdivisionId, NoteSpec | BracketSpec> = {
+  1: { kind: 'notes', count: 1, beams: 0 },
+  2: { kind: 'notes', count: 2, beams: 1 },
+  3: { kind: 'notes', count: 3, beams: 1, tuplet: 3 },
+  4: { kind: 'notes', count: 4, beams: 2 },
+  5: { kind: 'bracket', tuplet: 5 },
+  6: { kind: 'bracket', tuplet: 6 },
+  7: { kind: 'bracket', tuplet: 7 },
 }
 
 function noteXs(count: number): number[] {
@@ -24,14 +29,28 @@ function noteXs(count: number): number[] {
   return [8.5, 21.5, 34.5, 47.5]
 }
 
-export function SubdivIcon({
-  steps,
-  className,
-}: {
-  steps: SubdivisionId
-  className?: string
-}) {
-  const spec = ICONS[steps]
+function BracketOnly({ n }: { n: 5 | 6 | 7 }) {
+  return (
+    <g fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M 7 28 V 13 H 18.5" />
+      <path d="M 49 28 V 13 H 37.5" />
+      <text
+        x="28"
+        y="21.5"
+        textAnchor="middle"
+        fill="currentColor"
+        stroke="none"
+        fontSize="16"
+        fontWeight="700"
+        fontFamily="Outfit, ui-sans-serif, system-ui, sans-serif"
+      >
+        {n}
+      </text>
+    </g>
+  )
+}
+
+function NoteGroup({ spec }: { spec: NoteSpec }) {
   const xs = noteXs(spec.count)
   const headY = spec.tuplet ? 30 : 28
   const stemTop = spec.tuplet ? 11.5 : 9.2
@@ -40,13 +59,7 @@ export function SubdivIcon({
   const last = stemX(xs[xs.length - 1])
 
   return (
-    <svg
-      viewBox="0 0 56 40"
-      className={className}
-      width="48"
-      height="34"
-      aria-hidden
-    >
+    <>
       {spec.tuplet ? (
         <g fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
           <path d={`M ${first - 1} 7.6 V 4.6 H ${first + (last - first) / 2 - 5.4}`} />
@@ -92,16 +105,27 @@ export function SubdivIcon({
           fill="currentColor"
         />
       ) : null}
-      {spec.beams >= 3 ? (
-        <rect
-          x={first - 0.4}
-          y={stemTop + 7.15}
-          width={last - first + 0.8}
-          height="1.9"
-          rx="0.55"
-          fill="currentColor"
-        />
-      ) : null}
+    </>
+  )
+}
+
+export function SubdivIcon({
+  steps,
+  className,
+}: {
+  steps: SubdivisionId
+  className?: string
+}) {
+  const spec = ICONS[steps]
+  return (
+    <svg
+      viewBox="0 0 56 40"
+      className={className}
+      width="48"
+      height="34"
+      aria-hidden
+    >
+      {spec.kind === 'bracket' ? <BracketOnly n={spec.tuplet} /> : <NoteGroup spec={spec} />}
     </svg>
   )
 }

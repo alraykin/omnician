@@ -36,8 +36,8 @@ export const MIN_BPM = 30
 export const MAX_BPM = 300
 export const DEFAULT_BPM = 120
 
-/** Steps per beat — Cubase-style density. Quarter = 1 through 32nds = 8. */
-export const SUBDIVISIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const
+/** Steps per beat — Cubase-style density. Quarter = 1 through septuplets = 7. */
+export const SUBDIVISIONS = [1, 2, 3, 4, 5, 6, 7] as const
 export type SubdivisionId = (typeof SUBDIVISIONS)[number]
 export const DEFAULT_SUBDIVISION: SubdivisionId = 2
 
@@ -49,7 +49,6 @@ export const SUBDIVISION_LABELS: Record<SubdivisionId, string> = {
   5: 'Quintuplets',
   6: 'Sextuplets',
   7: 'Septuplets',
-  8: 'Thirty-second notes',
 }
 
 const LEGACY_SUBDIVISION: Record<string, SubdivisionId> = {
@@ -61,26 +60,18 @@ const LEGACY_SUBDIVISION: Record<string, SubdivisionId> = {
   quintuplets: 5,
   sextuplets: 6,
   septuplets: 7,
-  thirtyseconds: 8,
 }
 
-export const CLICK_SOUNDS = [
-  'woodblock',
-  'clave',
-  'digital',
-  'rim',
-  'cowbell',
-  'tick',
-] as const
+export const CLICK_SOUNDS = ['woodblock', 'clave', 'digital', 'rim', 'tick'] as const
 
 export type ClickSoundId = (typeof CLICK_SOUNDS)[number]
+export const DEFAULT_CLICK_SOUND: ClickSoundId = 'woodblock'
 
 export const CLICK_SOUND_LABELS: Record<ClickSoundId, string> = {
   woodblock: 'Woodblock',
   clave: 'Clave',
   digital: 'Digital',
   rim: 'Rim',
-  cowbell: 'Cowbell',
   tick: 'Soft tick',
 }
 
@@ -124,6 +115,9 @@ export function isBeatUnit(value: unknown): value is BeatUnit {
 }
 
 export function normalizeSubdivision(value: unknown): SubdivisionId {
+  if (value === 8 || value === 'thirtyseconds' || value === 'thirty-seconds') {
+    return 4
+  }
   if (typeof value === 'number' && (SUBDIVISIONS as readonly number[]).includes(value)) {
     return value as SubdivisionId
   }

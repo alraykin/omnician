@@ -221,36 +221,6 @@ async function loadDrums(ctx: AudioContext): Promise<Record<VoiceId, AudioBuffer
   return drums
 }
 
-const CLICK_SAMPLE_FILES: Partial<Record<ClickSoundId, { normal: string; accent: string }>> = {
-  cowbell: {
-    normal: '/rhythm/clicks/cowbell.wav',
-    accent: '/rhythm/clicks/cowbell-accent.wav',
-  },
-}
-
-async function loadClickSamples(
-  ctx: AudioContext,
-  baked: Record<ClickSoundId, ClickPair>,
-): Promise<Record<ClickSoundId, ClickPair>> {
-  const clicks = { ...baked }
-  await Promise.all(
-    (Object.keys(CLICK_SAMPLE_FILES) as ClickSoundId[]).map(async (id) => {
-      const files = CLICK_SAMPLE_FILES[id]
-      if (!files) return
-      try {
-        const [normal, accent] = await Promise.all([
-          loadSample(ctx, files.normal),
-          loadSample(ctx, files.accent),
-        ])
-        clicks[id] = { normal, accent }
-      } catch {
-        // Keep the synthesized click if the WAV is missing.
-      }
-    }),
-  )
-  return clicks
-}
-
 type ClickPair = { normal: AudioBuffer; accent: AudioBuffer }
 
 function bakeClick(
@@ -265,19 +235,20 @@ function bakeClick(
 }
 
 function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
-  return {
+  const clicks: Record<ClickSoundId, ClickPair> = {
     woodblock: bakeClick(ctx, (data, sr, accent) => {
-      const f0 = accent ? 980 : 740
+      // Lower, woodier block — more body, less metallic ping.
+      const f0 = accent ? 545 : 430
       let p = 0
       let p2 = 0
       for (let i = 0; i < data.length; i += 1) {
         const t = i / sr
         p += (Math.PI * 2 * f0) / sr
-        p2 += (Math.PI * 2 * f0 * 2.15) / sr
+        p2 += (Math.PI * 2 * f0 * 1.72) / sr
         const tone =
-          (Math.sin(p) + Math.sin(p2) * 0.28) * env(t, 0.0006, accent ? 0.055 : 0.038)
-        const knock = (Math.random() * 2 - 1) * env(t, 0.0002, 0.012) * 0.2
-        data[i] = tanh(tone * 1.4 + knock) * (accent ? 0.85 : 0.55)
+          (Math.sin(p) + Math.sin(p2) * 0.14) * env(t, 0.0007, accent ? 0.062 : 0.046)
+        const knock = (Math.random() * 2 - 1) * env(t, 0.00025, 0.014) * 0.28
+        data[i] = tanh(tone * 1.15 + knock) * (accent ? 0.78 : 0.62)
       }
     }),
     clave: bakeClick(ctx, (data, sr, accent) => {
@@ -310,32 +281,6 @@ function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
         data[i] = tanh(stick * 0.7 + crack * 0.85) * (accent ? 0.8 : 0.52)
       }
     }),
-    cowbell: bakeClick(ctx, (data, sr, accent) => {
-      // Fallback if the CC0 sample is missing: C#5 / G#5 sines, not square+clip.
-      const a = accent ? 1.05 : 1
-      let p1 = 0
-      let p2 = 0
-      let p3 = 0
-      let p4 = 0
-      let p5 = 0
-      for (let i = 0; i < data.length; i += 1) {
-        const t = i / sr
-        p1 += (Math.PI * 2 * 554 * a) / sr
-        p2 += (Math.PI * 2 * 830 * a) / sr
-        p3 += (Math.PI * 2 * 1108 * a) / sr
-        p4 += (Math.PI * 2 * 1661 * a) / sr
-        p5 += (Math.PI * 2 * 2217 * a) / sr
-        const body =
-          Math.sin(p1) * 0.4 +
-          Math.sin(p2) * 0.36 +
-          Math.sin(p3) * 0.16 +
-          Math.sin(p4) * 0.1 +
-          Math.sin(p5) * 0.06
-        const knock = (Math.random() * 2 - 1) * env(t, 0.00015, 0.007) * 0.16
-        data[i] =
-          (body * env(t, 0.0005, accent ? 0.13 : 0.1) + knock) * (accent ? 0.7 : 0.56)
-      }
-    }),
     tick: bakeClick(ctx, (data, sr, accent) => {
       let p = 0
       for (let i = 0; i < data.length; i += 1) {
@@ -347,6 +292,50 @@ function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
       }
     }),
   }
+  return matchClickLoudness(clicks)
+}
+
+function attackLoudness(buffer: AudioBuffer): number {
+  const data = buffer.getChannelData(0)
+  const n = Math.min(data.length, Math.floor(buffer.sampleRate * 0.055))
+  let sum = 0
+  let peak = 0
+  for (let i = 0; i < n; i += 1) {
+    const sample = data[i]
+    const abs = Math.abs(sample)
+    if (abs > peak) peak = abs
+    sum += sample * sample
+  }
+  const rms = Math.sqrt(sum / Math.max(1, n))
+  return Math.pow(Math.max(1e-6, rms), 0.72) * Math.pow(Math.max(1e-6, peak), 0.28)
+}
+
+function scaleBuffer(buffer: AudioBuffer, gain: number, ceiling: number): void {
+  const data = buffer.getChannelData(0)
+  let peak = 0
+  for (let i = 0; i < data.length; i += 1) {
+    data[i] *= gain
+    const abs = Math.abs(data[i])
+    if (abs > peak) peak = abs
+  }
+  if (peak > ceiling) {
+    const trim = ceiling / peak
+    for (let i = 0; i < data.length; i += 1) data[i] *= trim
+  }
+}
+
+/** Match unaccented clicks to one loudness; accents stay a bit hotter than their own base. */
+function matchClickLoudness(clicks: Record<ClickSoundId, ClickPair>): Record<ClickSoundId, ClickPair> {
+  const target = attackLoudness(clicks.woodblock.normal)
+  const accentBoost = Math.pow(10, 2.4 / 20)
+  for (const id of Object.keys(clicks) as ClickSoundId[]) {
+    const pair = clicks[id]
+    const normal = attackLoudness(pair.normal)
+    scaleBuffer(pair.normal, target / normal, 0.86)
+    const accent = attackLoudness(pair.accent)
+    scaleBuffer(pair.accent, (target * accentBoost) / accent, 0.94)
+  }
+  return clicks
 }
 
 function bakeWheelTick(ctx: AudioContext): AudioBuffer {
@@ -416,15 +405,10 @@ export class RhythmKit {
     comp.connect(ctx.destination)
     this.drums = bakeSynthDrums(ctx)
     this.clicks = bakeClicks(ctx)
-    this.ready = Promise.all([
-      loadDrums(ctx).then((drums) => {
+    this.ready = loadDrums(ctx)
+      .then((drums) => {
         this.drums = drums
-      }),
-      loadClickSamples(ctx, this.clicks).then((clicks) => {
-        this.clicks = clicks
-      }),
-    ])
-      .then(() => undefined)
+      })
       .catch(() => {
         // Keep synthesized one-shots if WAV fetch/decode fails.
       })
