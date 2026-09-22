@@ -336,6 +336,7 @@ export function RhythmPage() {
             <div
               role="group"
               aria-label="Subdivision"
+              data-section="subdivision"
               className="flex w-max min-w-full justify-between gap-1 px-1 sm:gap-1.5"
             >
               {SUBDIVISIONS.map((steps) => (
@@ -347,7 +348,7 @@ export function RhythmPage() {
                   aria-pressed={current.subdivision === steps}
                   onClick={() => setSubdivision(steps)}
                   className={cn(
-                    'flex h-14 w-12 shrink-0 items-center justify-center rounded-xl sm:h-[3.75rem] sm:w-[3.4rem]',
+                    'flex h-16 w-[3.15rem] shrink-0 items-center justify-center rounded-xl sm:h-[4.15rem] sm:w-[3.55rem]',
                     current.subdivision === steps
                       ? 'bg-[#A855F7] text-white'
                       : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
@@ -427,7 +428,10 @@ export function RhythmPage() {
             <p className="mt-3 w-full text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
               Click sound
             </p>
-            <div className="mt-1.5 flex w-full flex-wrap justify-center gap-1.5">
+            <div
+              data-section="click-sound"
+              className="mt-1.5 flex w-full flex-wrap justify-center gap-1.5"
+            >
               {CLICK_SOUNDS.map((id) => (
                 <button
                   key={id}

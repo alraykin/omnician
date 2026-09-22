@@ -43,8 +43,8 @@ export function SubdivIcon({
     <svg
       viewBox="0 0 56 40"
       className={className}
-      width="44"
-      height="32"
+      width="48"
+      height="34"
       aria-hidden
     >
       {spec.tuplet ? (

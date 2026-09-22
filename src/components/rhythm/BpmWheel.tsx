@@ -8,7 +8,7 @@ type BpmWheelProps = {
   onChange: (bpm: number) => void
 }
 
-const TICKS = 48
+const TICKS = 36
 const DEG_PER_BPM = 10
 
 export function BpmWheel({ value, onChange }: BpmWheelProps) {
@@ -116,8 +116,14 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
             )}
             style={{ transform: `rotate(${ringAngle}deg)` }}
           >
+            <span
+              className="bpm-dial-index"
+              style={{
+                transform: `rotate(0deg) translateY(calc(-1 * var(--ring-radius)))`,
+              }}
+            />
             {Array.from({ length: TICKS }, (_, index) => {
-              const major = index % 4 === 0
+              const major = index % 3 === 0
               const deg = (index / TICKS) * 360
               return (
                 <span
