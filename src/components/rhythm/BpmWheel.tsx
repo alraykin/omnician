@@ -10,27 +10,177 @@ type BpmWheelProps = {
 
 const TICKS = 36
 const DEG_PER_BPM = 10
+/** Slow drag: more pixels per BPM so a careful turn doesn't jump. */
+const PX_PER_BPM = 16
+const FLICK_WINDOW_MS = 70
+const FLICK_MIN_BPM_S = 16
+const FLICK_MAX_BPM_S = 92
+const FRICTION = 2.85
+const COAST_STOP_BPM_S = 2.4
+
+type Sample = { t: number; y: number }
 
 export function BpmWheel({ value, onChange }: BpmWheelProps) {
-  const dragRef = useRef<{ y: number; bpm: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const dialRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [coasting, setCoasting] = useState(false)
+  const [visual, setVisual] = useState(value)
+  const [shown, setShown] = useState(value)
   const editing = draft !== null
-  const ringAngle = (value - MIN_BPM) * DEG_PER_BPM
+  const live = dragging || coasting
+  const ringAngle = (visual - MIN_BPM) * DEG_PER_BPM
+
+  const visualRef = useRef(value)
+  const emittedRef = useRef(value)
+  const onChangeRef = useRef(onChange)
+  const dragRef = useRef<{ y: number } | null>(null)
+  const samplesRef = useRef<Sample[]>([])
+  const movedRef = useRef(false)
+  const velRef = useRef(0)
+  const rafRef = useRef(0)
+  const coastingRef = useRef(false)
+  const draggingRef = useRef(false)
+  const lastTsRef = useRef(0)
+  const reducedRef = useRef(false)
+  const editingRef = useRef(false)
+
+  onChangeRef.current = onChange
+  editingRef.current = editing
 
   useEffect(() => {
     if (editing) inputRef.current?.select()
   }, [editing])
 
-  const bump = (next: number) => {
-    if (editing) return
-    const clamped = clampBpm(next)
-    if (clamped === value) return
-    onChange(clamped)
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      navigator.vibrate(8)
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const sync = () => {
+      reducedRef.current = mq.matches
     }
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+
+  const snapToEmitted = () => {
+    visualRef.current = emittedRef.current
+    setVisual(emittedRef.current)
+  }
+
+  const stopCoast = () => {
+    coastingRef.current = false
+    setCoasting(false)
+    velRef.current = 0
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = 0
+  }
+
+  const emitIfNeeded = (nextFloat: number) => {
+    const clampedFloat = Math.min(MAX_BPM, Math.max(MIN_BPM, nextFloat))
+    visualRef.current = clampedFloat
+    setVisual(clampedFloat)
+    const prev = emittedRef.current
+    let dest = prev
+    if (clampedFloat >= prev + 1 - 1e-9) {
+      dest = Math.min(MAX_BPM, Math.floor(clampedFloat + 1e-9))
+    } else if (clampedFloat <= prev - 1 + 1e-9) {
+      dest = Math.max(MIN_BPM, Math.ceil(clampedFloat - 1e-9))
+    }
+    if (dest !== prev) {
+      const dir = dest > prev ? 1 : -1
+      for (let bpm = prev + dir; dir > 0 ? bpm <= dest : bpm >= dest; bpm += dir) {
+        emittedRef.current = bpm
+        onChangeRef.current(bpm)
+        if (draggingRef.current && typeof navigator.vibrate === 'function') {
+          navigator.vibrate(8)
+        }
+      }
+      setShown(dest)
+    }
+    return clampedFloat
+  }
+
+  const coastFrame = (now: number) => {
+    if (!coastingRef.current) return
+    const dt = Math.min(0.032, Math.max(0.001, (now - lastTsRef.current) / 1000))
+    lastTsRef.current = now
+    let next = visualRef.current + velRef.current * dt
+    if (next <= MIN_BPM) {
+      emitIfNeeded(MIN_BPM)
+      stopCoast()
+      return
+    }
+    if (next >= MAX_BPM) {
+      emitIfNeeded(MAX_BPM)
+      stopCoast()
+      return
+    }
+    velRef.current *= Math.exp(-FRICTION * dt)
+    emitIfNeeded(next)
+    if (Math.abs(velRef.current) < COAST_STOP_BPM_S) {
+      snapToEmitted()
+      stopCoast()
+      return
+    }
+    rafRef.current = requestAnimationFrame(coastFrame)
+  }
+
+  const startCoast = (bpmPerSec: number) => {
+    if (reducedRef.current) {
+      snapToEmitted()
+      return
+    }
+    const velocity = Math.max(-FLICK_MAX_BPM_S, Math.min(FLICK_MAX_BPM_S, bpmPerSec))
+    if (Math.abs(velocity) < FLICK_MIN_BPM_S) {
+      snapToEmitted()
+      return
+    }
+    velRef.current = velocity
+    coastingRef.current = true
+    setCoasting(true)
+    lastTsRef.current = performance.now()
+    rafRef.current = requestAnimationFrame(coastFrame)
+  }
+
+  useEffect(() => {
+    if (value === emittedRef.current) return
+    stopCoast()
+    emittedRef.current = value
+    visualRef.current = value
+    setVisual(value)
+    setShown(value)
+  }, [value])
+
+  useEffect(() => () => stopCoast(), [])
+
+  useEffect(() => {
+    const node = dialRef.current
+    if (!node) return
+    const onWheel = (event: WheelEvent) => {
+      if (editingRef.current) return
+      event.preventDefault()
+      stopCoast()
+      const dir = event.deltaY > 0 ? -1 : 1
+      const steps = Math.max(1, Math.round(Math.abs(event.deltaY) / 48))
+      emitIfNeeded(emittedRef.current + dir * steps)
+    }
+    node.addEventListener('wheel', onWheel, { passive: false })
+    return () => node.removeEventListener('wheel', onWheel)
+  }, [])
+
+  const flickVelocity = (): number => {
+    const samples = samplesRef.current
+    if (samples.length < 2) return 0
+    const latest = samples[samples.length - 1]
+    const cutoff = latest.t - FLICK_WINDOW_MS
+    const windowed = samples.filter((sample) => sample.t >= cutoff)
+    if (windowed.length < 2) return 0
+    const first = windowed[0]
+    const last = windowed[windowed.length - 1]
+    const dt = (last.t - first.t) / 1000
+    if (dt < 0.012) return 0
+    return (first.y - last.y) / dt / PX_PER_BPM
   }
 
   const commitDraft = () => {
@@ -39,12 +189,16 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
     setDraft(null)
     if (!Number.isFinite(parsed)) return
     const clamped = clampBpm(parsed)
-    if (clamped !== value) onChange(clamped)
+    if (clamped !== emittedRef.current) onChange(clamped)
   }
 
-  const endDrag = () => {
+  const endDrag = (flick: boolean) => {
     dragRef.current = null
+    draggingRef.current = false
     setDragging(false)
+    if (flick) startCoast(flickVelocity())
+    else snapToEmitted()
+    samplesRef.current = []
   }
 
   return (
@@ -55,54 +209,58 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
           className="pointer-events-none absolute -bottom-1 left-1/2 h-4 w-28 -translate-x-1/2 rounded-full bg-black/50 blur-md"
         />
         <div
+          ref={dialRef}
           role="slider"
           aria-label="Tempo"
           aria-valuemin={MIN_BPM}
           aria-valuemax={MAX_BPM}
-          aria-valuenow={value}
+          aria-valuenow={shown}
           aria-disabled={editing}
           tabIndex={editing ? -1 : 0}
+          data-visual-bpm={visual.toFixed(2)}
+          data-coasting={coasting ? 'true' : 'false'}
           className="bpm-dial relative size-[176px] touch-none select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]/70 sm:size-[188px]"
           onPointerDown={(event) => {
+            stopCoast()
+            snapToEmitted()
             if (editing) return
             if ((event.target as HTMLElement).closest('button, input')) return
+            event.preventDefault()
             event.currentTarget.setPointerCapture(event.pointerId)
-            dragRef.current = { y: event.clientY, bpm: value }
+            dragRef.current = { y: event.clientY }
+            samplesRef.current = [{ t: event.timeStamp, y: event.clientY }]
+            movedRef.current = false
+            draggingRef.current = true
             setDragging(true)
           }}
           onPointerMove={(event) => {
             const drag = dragRef.current
             if (!drag || editing) return
-            const delta = drag.y - event.clientY
-            const steps = Math.round(delta / 7)
-            if (steps === 0) return
+            const dy = drag.y - event.clientY
             drag.y = event.clientY
-            drag.bpm = clampBpm(drag.bpm + steps)
-            bump(drag.bpm)
+            samplesRef.current.push({ t: event.timeStamp, y: event.clientY })
+            if (samplesRef.current.length > 16) samplesRef.current.shift()
+            if (Math.abs(dy) > 1.5) movedRef.current = true
+            emitIfNeeded(visualRef.current + dy / PX_PER_BPM)
           }}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          onWheel={(event) => {
-            if (editing) return
-            bump(
-              value +
-                (event.deltaY > 0 ? -1 : 1) *
-                  Math.max(1, Math.round(Math.abs(event.deltaY) / 40)),
-            )
-          }}
+          onPointerUp={() => endDrag(true)}
+          onPointerCancel={() => endDrag(false)}
           onKeyDown={(event) => {
             if (editing) return
             if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
               event.preventDefault()
-              bump(value + 1)
+              stopCoast()
+              emitIfNeeded(emittedRef.current + 1)
             }
             if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
               event.preventDefault()
-              bump(value - 1)
+              stopCoast()
+              emitIfNeeded(emittedRef.current - 1)
             }
             if (event.key === 'Enter') {
               event.preventDefault()
-              setDraft(String(value))
+              stopCoast()
+              setDraft(String(shown))
             }
           }}
         >
@@ -110,10 +268,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
           <div
             aria-hidden
             data-ring-angle={ringAngle}
-            className={cn(
-              'bpm-dial-ring',
-              dragging ? 'bpm-dial-ring-live' : 'bpm-dial-ring-smooth',
-            )}
+            className={cn('bpm-dial-ring', live ? 'bpm-dial-ring-live' : 'bpm-dial-ring-smooth')}
             style={{ transform: `rotate(${ringAngle}deg)` }}
           >
             <span
@@ -167,10 +322,13 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
               ) : (
                 <button
                   type="button"
-                  onClick={() => setDraft(String(value))}
+                  onClick={() => {
+                    if (movedRef.current) return
+                    setDraft(String(shown))
+                  }}
                   className="mt-0.5 rounded-xl px-2 text-5xl font-bold tabular-nums tracking-tight text-white"
                 >
-                  {value}
+                  {shown}
                 </button>
               )}
             </div>

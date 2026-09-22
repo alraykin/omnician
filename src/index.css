@@ -161,6 +161,8 @@ body {
 
 .bpm-dial {
   --ring-radius: 73px;
+  touch-action: none;
+  overscroll-behavior: none;
   background:
     radial-gradient(circle at 50% 18%, #9aa3b8 0%, #3e475c 22%, #161c2b 58%, #0b0f1a 100%);
   box-shadow:

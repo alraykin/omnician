@@ -339,14 +339,17 @@ function matchClickLoudness(clicks: Record<ClickSoundId, ClickPair>): Record<Cli
 }
 
 function bakeWheelTick(ctx: AudioContext): AudioBuffer {
-  return renderBuffer(ctx, 0.024, (data, sr) => {
+  return renderBuffer(ctx, 0.034, (data, sr) => {
     let ping = 0
+    let thud = 0
     for (let i = 0; i < data.length; i += 1) {
       const t = i / sr
-      ping += (Math.PI * 2 * (2100 - t * 16000)) / sr
-      const body = Math.sin(ping) * env(t, 0.00014, 0.009)
-      const detent = (Math.random() * 2 - 1) * env(t, 0.0001, 0.0055)
-      data[i] = (body * 0.9 + detent * 0.42) * 0.4
+      ping += (Math.PI * 2 * (1120 - t * 6200)) / sr
+      thud += (Math.PI * 2 * (185 - t * 420)) / sr
+      const body = Math.sin(ping) * env(t, 0.00022, 0.013)
+      const low = Math.sin(thud) * env(t, 0.00035, 0.016) * 0.55
+      const detent = (Math.random() * 2 - 1) * env(t, 0.00014, 0.0042) * 0.16
+      data[i] = (body * 0.62 + low + detent) * 0.4
     }
   })
 }
@@ -360,7 +363,7 @@ export function playWheelTick(): void {
   const Ctor = getAudioCtor()
   if (!Ctor) return
   const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
-  if (now - lastWheelTickAt < 42) return
+  if (now - lastWheelTickAt < 48) return
   lastWheelTickAt = now
   try {
     if (!wheelTickCtx || wheelTickCtx.state === 'closed') {
@@ -374,7 +377,7 @@ export function playWheelTick(): void {
     const source = ctx.createBufferSource()
     source.buffer = buffer
     const amp = ctx.createGain()
-    amp.gain.value = 0.72
+    amp.gain.value = 0.64
     source.connect(amp)
     amp.connect(ctx.destination)
     source.start()
