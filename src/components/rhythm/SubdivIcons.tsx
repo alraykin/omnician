@@ -31,22 +31,29 @@ function noteXs(count: number): number[] {
 
 function BracketOnly({ n }: { n: 5 | 6 | 7 }) {
   return (
-    <g fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M 7 28 V 13 H 18.5" />
-      <path d="M 49 28 V 13 H 37.5" />
+    <>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.85"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M 10 29 V 11 H 19" />
+        <path d="M 46 29 V 11 H 37" />
+      </g>
       <text
         x="28"
-        y="21.5"
+        y="22.5"
         textAnchor="middle"
         fill="currentColor"
-        stroke="none"
-        fontSize="16"
+        fontSize="15.5"
         fontWeight="700"
         fontFamily="Outfit, ui-sans-serif, system-ui, sans-serif"
       >
         {n}
       </text>
-    </g>
+    </>
   )
 }
 
