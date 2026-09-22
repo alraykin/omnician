@@ -212,9 +212,7 @@ export function RhythmPage() {
     )
     patchBar(barIndex, { ...current, pattern: nextPattern })
     setPresetId(matched?.id ?? presetId)
-    if (!current.pattern[voice][step] && nextPattern[voice][step]) {
-      void preview(voice)
-    }
+    void preview(voice)
   }
 
   const startStop = async () => {

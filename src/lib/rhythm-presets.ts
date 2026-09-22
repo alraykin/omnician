@@ -94,10 +94,12 @@ function hatsExcept(openSlots: number[]): number[] {
   return hatsCover(16, openSlots)
 }
 
+const ROCK_EIGHTH_HATS = HATS_8_16.filter((step) => step !== 14)
+
 const ROCK_GROOVE: HitMap = {
   kick: [0, 7, 8, 10],
   snare: [4, 12],
-  closedHat: hatsExcept([14]),
+  closedHat: ROCK_EIGHTH_HATS,
   openHat: [14],
   crash: [0],
 }
@@ -120,7 +122,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
       preset('rock-44', 'rock', 'Rock', 1, 'Backbeat + tom fill', 4, 4, 4, ROCK_GROOVE, ROCK_FILL, {
         kick: [0, 7, 8, 10],
         snare: [4, 12, 15],
-        closedHat: hatsExcept([14]),
+        closedHat: ROCK_EIGHTH_HATS,
         openHat: [14],
       }),
       preset(

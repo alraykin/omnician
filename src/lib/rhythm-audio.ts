@@ -49,7 +49,7 @@ const SAMPLE_GAIN: Record<VoiceId, number> = {
   rim: 0.78,
   clap: 0.82,
   closedHat: 0.72,
-  openHat: 0.62,
+  openHat: 1.05,
   highTom: 0.88,
   midTom: 0.9,
   floorTom: 0.94,
@@ -133,7 +133,7 @@ function bakeHat(ctx: AudioContext, open: boolean): AudioBuffer {
       }
       const hiss = (Math.random() * 2 - 1) * 0.4
       const tone = (metal * 0.7 + hiss) * env(t, 0.00035, decay)
-      data[i] = tanh(tone * 1.7) * (open ? 0.5 : 0.44)
+      data[i] = tanh(tone * 1.7) * (open ? 0.72 : 0.44)
     }
   })
 }
@@ -462,7 +462,8 @@ export class RhythmKit {
   private drums: Record<VoiceId, AudioBuffer>
   private clicks: Record<ClickSoundId, ClickPair>
   private mix: KitMix = { ...DEFAULT_KIT_MIX }
-  private openHat: GainNode | null = null
+  private openHat: { gain: GainNode; start: number } | null = null
+  private closedHat: { gain: GainNode; start: number } | null = null
   private readonly ready: Promise<void>
 
   constructor(ctx: AudioContext) {
@@ -525,11 +526,13 @@ export class RhythmKit {
     if (voice === 'closedHat' || voice === 'openHat' || voice === 'crash') {
       this.chokeHats(time)
     }
+    if (voice === 'openHat') this.chokeClosed(time)
     const group = KIT_VOICE_GROUP[voice]
     const groupGain = mixFaderToGain(group, this.mix[group] ?? 0)
     const mix = (SAMPLE_GAIN[voice] ?? 1) * groupGain
     const source = this.fire(this.drums[voice], time, (accent ? 1.12 : 1) * mix)
-    if (voice === 'openHat' && source) this.openHat = source
+    if (voice === 'openHat' && source) this.openHat = { gain: source, start: time }
+    if (voice === 'closedHat' && source) this.closedHat = { gain: source, start: time }
   }
 
   previewClick(sound: ClickSoundId, level: 0 | 1 | 2 = 2, onBeat = true): void {
@@ -548,16 +551,31 @@ export class RhythmKit {
     return amp
   }
 
-  private chokeHats(time: number): void {
-    if (!this.openHat) return
-    const gain = this.openHat
+  private fadeVoice(
+    voice: { gain: GainNode; start: number } | null,
+    time: number,
+    seconds: number,
+  ): void {
+    if (!voice || time < voice.start - 0.0001) return
+    const { gain } = voice
     try {
       gain.gain.cancelScheduledValues(time)
       gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), time)
-      gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.03)
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + seconds)
     } catch {
       gain.gain.setValueAtTime(0.0001, time)
     }
+  }
+
+  private chokeHats(time: number): void {
+    if (!this.openHat || time < this.openHat.start - 0.0001) return
+    this.fadeVoice(this.openHat, time, 0.055)
     this.openHat = null
+  }
+
+  private chokeClosed(time: number): void {
+    if (!this.closedHat || time < this.closedHat.start - 0.0001) return
+    this.fadeVoice(this.closedHat, time, 0.018)
+    this.closedHat = null
   }
 }
