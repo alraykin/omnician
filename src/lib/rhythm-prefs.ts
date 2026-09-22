@@ -26,8 +26,9 @@ import {
 import { DEFAULT_KIT_MIX, parseKitMix, type KitMix } from '@/lib/kit-mix'
 import { makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 
-const STORAGE_KEY = 'omnician.rhythm.v11'
+const STORAGE_KEY = 'omnician.rhythm.v12'
 const PREVIOUS_KEYS = [
+  'omnician.rhythm.v11',
   'omnician.rhythm.v10',
   'omnician.rhythm.v9',
   'omnician.rhythm.v8',
@@ -37,6 +38,7 @@ const PREVIOUS_KEYS = [
   'omnician.rhythm.v4',
   'omnician.rhythm.v3',
 ]
+const CYMBAL_FADE_MIGRATE_KEY = 'omnician.rhythm.v11'
 
 export type RhythmPrefs = {
   bpm: number
@@ -160,10 +162,11 @@ export function loadRhythmPrefs(): RhythmPrefs {
   const base = fallback()
   if (typeof localStorage === 'undefined') return base
   try {
+    const currentRaw = localStorage.getItem(STORAGE_KEY)
     const raw =
-      localStorage.getItem(STORAGE_KEY) ??
-      PREVIOUS_KEYS.map((key) => localStorage.getItem(key)).find((item) => item != null)
+      currentRaw ?? PREVIOUS_KEYS.map((key) => localStorage.getItem(key)).find((item) => item != null)
     if (!raw) return base
+    const migrateCymbals = !currentRaw && Boolean(localStorage.getItem(CYMBAL_FADE_MIGRATE_KEY))
     const parsed: unknown = JSON.parse(raw)
     if (!parsed || typeof parsed !== 'object') return base
     const row = parsed as {
@@ -202,7 +205,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
       clickBarIndex,
       drumBarIndex,
       presetId: typeof row.presetId === 'string' ? row.presetId : null,
-      kitMix: parseKitMix(row.kitMix),
+      kitMix: parseKitMix(row.kitMix, migrateCymbals),
     }
   } catch {
     return base

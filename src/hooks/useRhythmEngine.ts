@@ -90,7 +90,7 @@ export function useRhythmEngine({
   pendingBarsRef.current = bars
   kitMixRef.current = kitMix
 
-  if (!playing) {
+  if (!playing || liveModeRef.current !== mode) {
     liveModeRef.current = mode
     liveBarsRef.current = bars
   }

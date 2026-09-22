@@ -140,36 +140,131 @@ body {
   border: 2px solid #f8fafc;
 }
 
-.kit-fader {
-  appearance: none;
+.kit-fader-bank {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.kit-fader-channel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 6.9rem;
+  padding: 0.4rem 0.15rem 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.9rem;
+  background: rgba(20, 26, 40, 0.88);
+  touch-action: none;
+  user-select: none;
+  cursor: ns-resize;
+}
+
+.kit-fader-channel:focus-visible {
+  outline: 2px solid #a855f7;
+  outline-offset: 2px;
+}
+
+.kit-fader-name {
+  font-size: 0.58rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.kit-fader-well {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   width: 100%;
-  height: 0.32rem;
+}
+
+.kit-fader-tick {
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #64748b;
+}
+
+.kit-fader-tick-top {
+  margin-bottom: 0.12rem;
+}
+
+.kit-fader-track {
+  position: relative;
+  width: 0.38rem;
+  height: 4.55rem;
+  overflow: visible;
   border-radius: 999px;
   background:
-    linear-gradient(
-      90deg,
-      rgba(148, 163, 184, 0.22) 0%,
-      rgba(168, 85, 247, 0.45) 50%,
-      rgba(168, 85, 247, 0.95) 100%
-    );
+    linear-gradient(to top, #070a12 0%, #161c2b 55%, #1f2740 100%);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-.kit-fader::-webkit-slider-thumb {
-  appearance: none;
-  width: 0.92rem;
-  height: 0.92rem;
+.kit-fader-fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
   border-radius: 999px;
-  background: #a855f7;
-  border: 2px solid #f8fafc;
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.18);
+  background: linear-gradient(to top, rgba(168, 85, 247, 0.28), #a855f7);
 }
 
-.kit-fader::-moz-range-thumb {
-  width: 0.92rem;
-  height: 0.92rem;
-  border-radius: 999px;
-  background: #a855f7;
-  border: 2px solid #f8fafc;
+.kit-fader-zero {
+  position: absolute;
+  top: 50%;
+  left: -0.42rem;
+  right: -0.42rem;
+  height: 1px;
+  background: rgba(248, 250, 252, 0.42);
+}
+
+.kit-fader-cap {
+  position: absolute;
+  left: 50%;
+  z-index: 2;
+  width: 1.38rem;
+  height: 0.72rem;
+  margin-left: -0.69rem;
+  border-radius: 0.28rem;
+  background:
+    linear-gradient(to bottom, #efe4ff 0%, #c084fc 28%, #a855f7 52%, #6d28d9 100%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.kit-fader-cap::before,
+.kit-fader-cap::after {
+  position: absolute;
+  left: 0.18rem;
+  right: 0.18rem;
+  height: 1px;
+  background: rgba(15, 20, 34, 0.35);
+  content: '';
+}
+
+.kit-fader-cap::before {
+  top: 0.2rem;
+}
+
+.kit-fader-cap::after {
+  bottom: 0.2rem;
+}
+
+.kit-fader-inf {
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1;
+  color: #94a3b8;
 }
 
 @keyframes omni-beat-pulse {

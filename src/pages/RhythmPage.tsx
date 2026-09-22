@@ -59,7 +59,7 @@ import { cn } from '@/lib/utils'
 const BEAT_VALUES = Array.from({ length: MAX_BEATS - MIN_BEATS + 1 }, (_, index) => index + MIN_BEATS)
 
 export function RhythmPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const prefs = useMemo(() => loadRhythmPrefs(), [])
   const urlMode = searchParams.get('mode')
   const [bpm, setBpm] = useState(prefs.bpm)
@@ -129,6 +129,14 @@ export function RhythmPage() {
     mode,
     presetId,
   ])
+
+  const chooseMode = (next: RhythmMode) => {
+    if (next === mode) return
+    setMode(next)
+    const params = new URLSearchParams(searchParams)
+    params.set('mode', next)
+    setSearchParams(params, { replace: true })
+  }
 
   const setGroupMix = (group: KitGroupId, db: number) => {
     setKitMix((currentMix) => ({ ...currentMix, [group]: db }))
@@ -229,21 +237,32 @@ export function RhythmPage() {
           data-rhythm-scroll
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:thin]"
         >
-          <div className="flex items-center justify-between gap-3">
+          <div className="sticky top-0 z-30 flex items-center justify-between gap-3 bg-[#0B0F1A]/95 py-1 backdrop-blur-sm">
             <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">Rhythm</h1>
             <div
-              className="flex w-[11.5rem] shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#141A28] p-0.5"
+              role="radiogroup"
+              aria-label="Rhythm mode"
+              className="relative z-30 flex w-[12.25rem] shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#141A28] p-0.5"
               data-section="mode"
             >
               {(['click', 'drums'] as const).map((item) => (
                 <button
                   key={item}
                   type="button"
+                  role="radio"
+                  aria-checked={mode === item}
                   aria-pressed={mode === item}
                   data-mode={item}
-                  onClick={() => setMode(item)}
+                  onPointerDown={(event) => {
+                    event.stopPropagation()
+                    chooseMode(item)
+                  }}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    chooseMode(item)
+                  }}
                   className={cn(
-                    'h-9 flex-1 rounded-full text-sm font-semibold capitalize transition',
+                    'relative z-30 h-11 min-h-11 flex-1 rounded-full text-sm font-semibold capitalize transition',
                     mode === item ? 'bg-[#A855F7] text-white' : 'text-slate-300 hover:text-white',
                   )}
                 >
@@ -253,7 +272,7 @@ export function RhythmPage() {
             </div>
           </div>
 
-          <section className="mt-2 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4">
+          <section className="relative isolate z-0 mt-2 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4">
             <div className="flex flex-col items-center">
               <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
               <p className="relative z-20 mt-1 text-[0.65rem] text-slate-500">{pulseLabel(current.beatUnit)}</p>
