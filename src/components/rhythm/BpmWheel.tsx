@@ -12,14 +12,50 @@ const TICKS = 36
 const DEG_PER_BPM = 10
 const RAD_PER_BPM = (DEG_PER_BPM * Math.PI) / 180
 const MIN_RADIUS = 28
-const FLICK_WINDOW_MS = 70
-const FLICK_MIN_BPM_S = 16
-const FLICK_MAX_BPM_S = 92
-const FRICTION = 2.85
-const COAST_STOP_BPM_S = 2.4
+const FLICK_WINDOW_MS = 90
+const FLICK_PEAK_MS = 45
+const FLICK_MIN_BPM_S = 18
+const FLICK_MAX_BPM_S = 380
+const FRICTION_FAST = 1.15
+const FRICTION_SLOW = 3.55
+const COAST_STOP_BPM_S = 2.6
 
 type Sample = { t: number; x: number; y: number }
 
+function coastFriction(bpmPerSec: number): number {
+  const speed = Math.abs(bpmPerSec)
+  const t = Math.min(1, speed / 140)
+  return FRICTION_SLOW + (FRICTION_FAST - FRICTION_SLOW) * t * t
+}
+
+/** Light throws stay near measured speed; hard throws get extra reach. */
+function boostFlick(rawBpmPerSec: number): number {
+  const sign = rawBpmPerSec < 0 ? -1 : 1
+  const speed = Math.abs(rawBpmPerSec)
+  if (speed < FLICK_MIN_BPM_S) return 0
+  const span = Math.max(1, FLICK_MAX_BPM_S - FLICK_MIN_BPM_S)
+  const t = Math.min(1, (speed - FLICK_MIN_BPM_S) / span)
+  const gain = 1.12 + 1.55 * t * t
+  return sign * Math.min(FLICK_MAX_BPM_S, speed * gain)
+}
+
+function angularSpeed(samples: Sample[], cx: number, cy: number): number {
+  if (samples.length < 2) return 0
+  let total = 0
+  let prev = pointAngle(samples[0].x, samples[0].y, cx, cy)
+  for (let i = 1; i < samples.length; i += 1) {
+    const next = pointAngle(samples[i].x, samples[i].y, cx, cy)
+    if (prev == null || next == null) {
+      prev = next
+      continue
+    }
+    total += unwrapDelta(prev, next)
+    prev = next
+  }
+  const dt = Math.max((samples[samples.length - 1].t - samples[0].t) / 1000, 0.008)
+  if (Math.abs(total) < 0.04) return 0
+  return total / dt / RAD_PER_BPM
+}
 function unwrapDelta(from: number, to: number): number {
   let delta = to - from
   while (delta > Math.PI) delta -= Math.PI * 2
@@ -130,7 +166,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
       stopCoast()
       return
     }
-    velRef.current *= Math.exp(-FRICTION * dt)
+    velRef.current *= Math.exp(-coastFriction(velRef.current) * dt)
     emitIfNeeded(next)
     if (Math.abs(velRef.current) < COAST_STOP_BPM_S) {
       snapToEmitted()
@@ -145,7 +181,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
       snapToEmitted()
       return
     }
-    const velocity = Math.max(-FLICK_MAX_BPM_S, Math.min(FLICK_MAX_BPM_S, bpmPerSec))
+    const velocity = boostFlick(bpmPerSec)
     if (Math.abs(velocity) < FLICK_MIN_BPM_S) {
       snapToEmitted()
       return
@@ -197,24 +233,13 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
     const samples = samplesRef.current
     if (samples.length < 2) return 0
     const latest = samples[samples.length - 1]
-    const cutoff = latest.t - FLICK_WINDOW_MS
-    const windowed = samples.filter((sample) => sample.t >= cutoff)
+    const windowed = samples.filter((sample) => sample.t >= latest.t - FLICK_WINDOW_MS)
     const used = windowed.length >= 2 ? windowed : samples
+    const peak = used.filter((sample) => sample.t >= latest.t - FLICK_PEAK_MS)
     const { x: cx, y: cy } = hitCenter()
-    let total = 0
-    let prev = pointAngle(used[0].x, used[0].y, cx, cy)
-    for (let i = 1; i < used.length; i += 1) {
-      const next = pointAngle(used[i].x, used[i].y, cx, cy)
-      if (prev == null || next == null) {
-        prev = next
-        continue
-      }
-      total += unwrapDelta(prev, next)
-      prev = next
-    }
-    const dt = Math.max((used[used.length - 1].t - used[0].t) / 1000, 0.008)
-    if (Math.abs(total) < 0.04) return 0
-    return total / dt / RAD_PER_BPM
+    const sustained = angularSpeed(used, cx, cy)
+    const burst = peak.length >= 2 ? angularSpeed(peak, cx, cy) : sustained
+    return Math.abs(burst) > Math.abs(sustained) ? burst : sustained
   }
 
   const commitDraft = () => {
@@ -281,7 +306,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
             const { x: cx, y: cy } = hitCenter()
             const nextAngle = pointAngle(event.clientX, event.clientY, cx, cy)
             samplesRef.current.push({ t: event.timeStamp, x: event.clientX, y: event.clientY })
-            if (samplesRef.current.length > 16) samplesRef.current.shift()
+            if (samplesRef.current.length > 24) samplesRef.current.shift()
             const dist = Math.hypot(event.clientX - drag.x, event.clientY - drag.y)
             if (dist > 2) movedRef.current = true
             drag.x = event.clientX
