@@ -3,11 +3,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getAudioCtor, RhythmKit } from '@/lib/rhythm-audio'
 import {
   VOICES,
+  accentLevelAt,
   beatIndexForStep,
   hitTimeInBar,
   isBeatStep,
   stepDurationSec,
   stepsInBar,
+  stepsPerBeat,
+  type AccentLevel,
   type ClickSoundId,
   type RhythmBar,
   type RhythmMode,
@@ -18,7 +21,7 @@ export type Playhead = {
   bar: number
   step: number
   beat: number
-  accent: boolean
+  accent: AccentLevel
   subdivision: boolean
 }
 
@@ -42,7 +45,7 @@ export function useRhythmEngine({
     bar: 0,
     step: -1,
     beat: -1,
-    accent: false,
+    accent: 0,
     subdivision: false,
   })
 
@@ -105,10 +108,10 @@ export function useRhythmEngine({
   )
 
   const previewClick = useCallback(
-    async (sound: ClickSoundId) => {
+    async (sound: ClickSoundId, level: AccentLevel = 2) => {
       const kit = await ensureKit()
       if (!kit) return
-      kit.previewClick(sound, true)
+      kit.previewClick(sound, level)
     },
     [ensureKit],
   )
@@ -119,7 +122,7 @@ export function useRhythmEngine({
       timerRef.current = null
     }
     clearVisuals()
-    setPlayhead({ bar: 0, step: -1, beat: -1, accent: false, subdivision: false })
+    setPlayhead({ bar: 0, step: -1, beat: -1, accent: 0, subdivision: false })
     stepRef.current = 0
     barRef.current = 0
     armedBarRef.current = null
@@ -168,11 +171,12 @@ export function useRhythmEngine({
         if (!bar) return
         const beat = beatIndexForStep(step, bar.beats, bar.subdivision)
         const onBeat = isBeatStep(step, bar.subdivision)
-        const accent = onBeat && bar.accents.includes(beat)
+        const steps = stepsPerBeat(bar.subdivision)
+        const slot = step % Math.max(1, steps)
+        const accent = accentLevelAt(bar.accents, beat, slot, steps)
         if (step === 0) armDrumBar(barIndex, time)
         if (modeRef.current === 'click') {
-          if (onBeat) kit.click(time, accent, clickRef.current, 1)
-          else kit.click(time, false, clickRef.current, 0.32)
+          kit.click(time, accent, clickRef.current)
         }
 
         const delay = Math.max(0, (time - kit.ctx.currentTime) * 1000)

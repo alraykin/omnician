@@ -430,12 +430,14 @@ export class RhythmKit {
 
   click(
     time: number,
-    accent: boolean,
+    level: 0 | 1 | 2,
     sound: ClickSoundId = 'woodblock',
-    gain = 1,
   ): void {
     const pair = this.clicks[sound] ?? this.clicks.woodblock
-    this.fire(accent ? pair.accent : pair.normal, time, gain)
+    const strong = level >= 1
+    const gain = level === 2 ? 1 : level === 1 ? 0.58 : 0.3
+    const rate = level === 1 ? 0.985 : 1
+    this.fire(strong ? pair.accent : pair.normal, time, gain, rate)
   }
 
   hit(voice: VoiceId, time: number, accent: boolean): void {
@@ -447,13 +449,14 @@ export class RhythmKit {
     if (voice === 'openHat' && source) this.openHat = source
   }
 
-  previewClick(sound: ClickSoundId, accent = true): void {
-    this.click(this.ctx.currentTime + 0.01, accent, sound, 1)
+  previewClick(sound: ClickSoundId, level: 0 | 1 | 2 = 2): void {
+    this.click(this.ctx.currentTime + 0.01, level, sound)
   }
 
-  private fire(buffer: AudioBuffer, time: number, gain: number): GainNode {
+  private fire(buffer: AudioBuffer, time: number, gain: number, rate = 1): GainNode {
     const source = this.ctx.createBufferSource()
     source.buffer = buffer
+    source.playbackRate.setValueAtTime(rate, time)
     const amp = this.ctx.createGain()
     amp.gain.setValueAtTime(Math.max(0.0001, gain), time)
     source.connect(amp)

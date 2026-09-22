@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
 import { BpmWheel } from '@/components/rhythm/BpmWheel'
+import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
 import { DrumGrid } from '@/components/rhythm/DrumGrid'
 import { SnapWheel } from '@/components/rhythm/SnapWheel'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
@@ -22,12 +23,13 @@ import {
   UNIT_LABELS,
   clampBpm,
   cloneBar,
+  cycleAccent,
+  accentLevelAt,
   meterLabel,
   patternToGrid,
   pulseLabel,
   setBarSubdivision,
   stepsPerBeat,
-  toggleAccent,
   toggleHit,
   updateBarMeter,
   type BeatUnit,
@@ -396,58 +398,50 @@ export function RhythmPage() {
 
           {mode === 'click' ? (
             <section className="mt-2.5 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4">
-              <div className="flex items-center gap-3">
+              <div className="mb-2.5 flex items-center gap-3">
                 <div
                   className={cn(
                     'flex size-14 shrink-0 items-center justify-center rounded-full border-[3px] sm:size-20',
                     playhead.beat >= 0
-                      ? playhead.accent
+                      ? playhead.accent === 2
                         ? 'omni-beat-pulse border-[#A855F7] bg-[#A855F7]/25'
-                        : playhead.subdivision
-                          ? 'border-white/20 bg-white/5'
-                          : 'border-[#C084FC]/70 bg-[#A855F7]/10'
+                        : playhead.accent === 1
+                          ? 'omni-beat-pulse border-[#C4B5FD] bg-[#C4B5FD]/20'
+                          : playhead.subdivision
+                            ? 'border-white/20 bg-white/5'
+                            : 'border-[#C084FC]/70 bg-[#A855F7]/10'
                       : 'border-white/12 bg-[#0B0F1A]',
                   )}
                   aria-live="polite"
+                  data-pulse-level={playhead.accent}
                 >
                   <span className="text-2xl font-bold tabular-nums text-white sm:text-3xl">
-                    {playhead.beat >= 0 ? playhead.beat + 1 : '—'}
+                    {playhead.beat < 0
+                      ? '—'
+                      : playhead.subdivision
+                        ? `${playhead.beat + 1}·${(playhead.step % Math.max(1, stepsPerBeat(current.subdivision))) + 1}`
+                        : playhead.beat + 1}
                   </span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    Accents · tap a beat
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {Array.from({ length: current.beats }, (_, beat) => {
-                      const on = current.accents.includes(beat)
-                      const live = playing && playhead.bar === barIndex && playhead.beat === beat
-                      return (
-                        <button
-                          key={beat}
-                          type="button"
-                          aria-pressed={on}
-                          onClick={() =>
-                            patchBar(barIndex, {
-                              ...current,
-                              accents: toggleAccent(current.accents, beat, current.beats),
-                            })
-                          }
-                          className={cn(
-                            'relative flex size-9 items-center justify-center rounded-full border text-sm font-bold',
-                            on
-                              ? 'border-[#A855F7] bg-[#A855F7] text-white'
-                              : 'border-white/15 bg-[#141A28] text-slate-300',
-                            live && 'omni-beat-pulse',
-                          )}
-                        >
-                          {beat + 1}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
+                <p className="min-w-0 text-[0.7rem] leading-4 text-slate-500">
+                  Strong is the one. Soft is a quieter later accent. Inner numbers are the
+                  subdivision — tap any of them.
+                </p>
               </div>
+              <ClickAccentGrid
+                beats={current.beats}
+                subdivision={current.subdivision}
+                accents={current.accents}
+                liveBeat={playhead.beat}
+                liveStep={playhead.step}
+                live={playing && playhead.bar === barIndex}
+                onCycle={(beat, slot) => {
+                  const steps = stepsPerBeat(current.subdivision)
+                  const next = cycleAccent(current.accents, beat, slot, steps)
+                  patchBar(barIndex, { ...current, accents: next })
+                  void previewClick(clickSound, accentLevelAt(next, beat, slot, steps))
+                }}
+              />
               <p className="mt-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Click sound
               </p>

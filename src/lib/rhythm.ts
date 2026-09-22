@@ -84,11 +84,23 @@ export type HitPos = {
 
 export type Pattern = Record<VoiceId, HitPos[]>
 
+/** Click velocity: 0 unaccented, 1 soft, 2 strong. Drums ignore this. */
+export type AccentLevel = 0 | 1 | 2
+
+export const ACCENT_LEVEL_LABELS: Record<AccentLevel, string> = {
+  0: 'Off',
+  1: 'Soft',
+  2: 'Strong',
+}
+
+/** An accent locked to an exact place in the bar, Cubase-style like drum hits. */
+export type AccentPos = HitPos & { level: 1 | 2 }
+
 export type RhythmBar = {
   beats: number
   beatUnit: BeatUnit
   subdivision: SubdivisionId
-  accents: number[]
+  accents: AccentPos[]
   pattern: Pattern
 }
 
@@ -245,30 +257,115 @@ function compareHits(a: HitPos, b: HitPos): number {
   return a.num / a.den - b.num / b.den
 }
 
-export function defaultAccents(beats: number, beatUnit: BeatUnit): number[] {
+export function isAccentLevel(value: unknown): value is AccentLevel {
+  return value === 0 || value === 1 || value === 2
+}
+
+export function cloneAccent(accent: AccentPos): AccentPos {
+  return { beat: accent.beat, num: accent.num, den: accent.den, level: accent.level }
+}
+
+function downbeat(beat: number, level: 1 | 2): AccentPos {
+  return { ...reduceHit(beat, 0, 1), level }
+}
+
+/** Meter-aware Click defaults: strong on 1, softer secondary later — never every beat. */
+export function defaultAccentLevels(beats: number, beatUnit: BeatUnit): AccentPos[] {
   const count = clampBeats(beats)
+  const next: AccentPos[] = [downbeat(0, 2)]
+  const soft: number[] = []
+
   if (beatUnit === 8 && count % 3 === 0) {
-    return Array.from({ length: count / 3 }, (_, index) => index * 3)
+    const pulses = count / 3
+    if (pulses === 2) soft.push(3)
+    else if (pulses === 3) soft.push(3, 6)
+    else if (pulses === 4) soft.push(6)
+    else {
+      for (let beat = 3; beat < count; beat += 3) soft.push(beat)
+    }
+  } else if (count === 4) soft.push(2)
+  else if (count === 5) soft.push(3)
+  else if (count === 7) soft.push(3)
+  else if (count === 11) soft.push(3, 6)
+  else if (count === 13) soft.push(3, 8)
+  else if (count >= 6 && count % 2 === 0) soft.push(count / 2)
+
+  for (const beat of soft) {
+    if (beat > 0 && beat < count) next.push(downbeat(beat, 1))
   }
-  if (count === 5) return [0, 3]
-  if (count === 7) return [0, 2, 4]
-  if (count === 11) return [0, 3, 6, 8]
-  if (count === 13) return [0, 3, 6, 8, 11]
-  return [0]
+  return next
 }
 
-export function clampAccents(accents: number[], beats: number): number[] {
-  const next = accents
-    .filter((beat) => Number.isInteger(beat) && beat >= 0 && beat < beats)
-    .sort((a, b) => a - b)
-  return next.length > 0 ? [...new Set(next)] : [0]
+export function accentsFromBeatIndices(beats: number, indices: number[]): AccentPos[] {
+  const count = clampBeats(beats)
+  const unique = [...new Set(indices.filter((beat) => Number.isInteger(beat) && beat >= 0 && beat < count))]
+  if (unique.length === 0) return defaultAccentLevels(count, 4)
+  return unique.map((beat) => downbeat(beat, beat === 0 ? 2 : 1))
 }
 
-export function toggleAccent(accents: number[], beat: number, beats: number): number[] {
-  if (beat < 0 || beat >= beats) return accents
-  const has = accents.includes(beat)
-  const next = has ? accents.filter((item) => item !== beat) : [...accents, beat]
-  return clampAccents(next, beats)
+export function isAccentPos(value: unknown): value is AccentPos {
+  if (!value || typeof value !== 'object') return false
+  const row = value as { beat?: unknown; num?: unknown; den?: unknown; level?: unknown }
+  return (
+    Number.isInteger(row.beat) &&
+    Number.isInteger(row.num) &&
+    Number.isInteger(row.den) &&
+    (row.level === 1 || row.level === 2)
+  )
+}
+
+export function clampAccentPos(accents: readonly AccentPos[], beats: number): AccentPos[] {
+  const count = clampBeats(beats)
+  const next: AccentPos[] = []
+  for (const accent of accents) {
+    if (accent.beat < 0 || accent.beat >= count || accent.den <= 0) continue
+    if (accent.level !== 1 && accent.level !== 2) continue
+    const hit = reduceHit(accent.beat, accent.num, accent.den)
+    const index = next.findIndex((item) => sameHit(item, hit))
+    const row: AccentPos = { ...hit, level: accent.level }
+    if (index >= 0) next[index] = row
+    else next.push(row)
+  }
+  return next
+}
+
+export function parseAccents(raw: unknown, beats: number, beatUnit: BeatUnit): AccentPos[] {
+  if (!Array.isArray(raw)) return defaultAccentLevels(beats, beatUnit)
+  if (raw.length === 0) return []
+  if (raw.every(isAccentPos)) return clampAccentPos(raw, beats)
+  if (raw.every((item) => Number.isInteger(item))) {
+    return defaultAccentLevels(beats, beatUnit)
+  }
+  return defaultAccentLevels(beats, beatUnit)
+}
+
+export function accentLevelAt(
+  accents: readonly AccentPos[],
+  beat: number,
+  slot: number,
+  steps: number,
+): AccentLevel {
+  for (const accent of accents) {
+    if (accent.beat !== beat) continue
+    const index = hitSlot(accent, steps)
+    if (index === slot) return accent.level
+  }
+  return 0
+}
+
+export function cycleAccent(
+  accents: readonly AccentPos[],
+  beat: number,
+  slot: number,
+  steps: number,
+): AccentPos[] {
+  if (beat < 0 || slot < 0 || slot >= steps) return accents.map(cloneAccent)
+  const current = accentLevelAt(accents, beat, slot, steps)
+  const nextLevel: AccentLevel = current === 0 ? 1 : current === 1 ? 2 : 0
+  const target = reduceHit(beat, slot, steps)
+  const without = accents.filter((item) => !sameHit(item, target)).map(cloneAccent)
+  if (nextLevel === 0) return without
+  return [...without, { ...target, level: nextLevel }]
 }
 
 export function patternFromHits(
@@ -296,15 +393,20 @@ export function makeBar(
   beatUnit: BeatUnit = 4,
   subdivision: SubdivisionId = DEFAULT_SUBDIVISION,
   pattern?: Pattern,
-  accents?: number[],
+  accents?: AccentPos[] | number[],
 ): RhythmBar {
   const safeBeats = clampBeats(beats)
   const sub = normalizeSubdivision(subdivision)
+  const resolved = Array.isArray(accents) && accents.length > 0 && accents.every(isAccentPos)
+    ? clampAccentPos(accents, safeBeats)
+    : Array.isArray(accents) && accents.length > 0 && accents.every((item) => Number.isInteger(item))
+      ? accentsFromBeatIndices(safeBeats, accents as number[])
+      : defaultAccentLevels(safeBeats, beatUnit)
   return {
     beats: safeBeats,
     beatUnit,
     subdivision: sub,
-    accents: clampAccents(accents ?? defaultAccents(safeBeats, beatUnit), safeBeats),
+    accents: resolved,
     pattern: filterPatternBeats(pattern ?? emptyPattern(), safeBeats),
   }
 }
@@ -314,7 +416,7 @@ export function cloneBar(bar: RhythmBar): RhythmBar {
     beats: bar.beats,
     beatUnit: bar.beatUnit,
     subdivision: bar.subdivision,
-    accents: [...bar.accents],
+    accents: bar.accents.map(cloneAccent),
     pattern: clonePattern(bar.pattern),
   }
 }
@@ -332,8 +434,8 @@ export function updateBarMeter(
     beatUnit,
     subdivision: normalizeSubdivision(subdivision),
     accents: meterChanged
-      ? defaultAccents(safeBeats, beatUnit)
-      : clampAccents(bar.accents, safeBeats),
+      ? defaultAccentLevels(safeBeats, beatUnit)
+      : clampAccentPos(bar.accents, safeBeats),
     pattern: filterPatternBeats(bar.pattern, safeBeats),
   }
 }
