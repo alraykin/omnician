@@ -55,15 +55,15 @@ export function ClickAccentGrid({
         </p>
       </div>
       <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-        <div className="flex w-max min-w-full justify-between gap-2 px-1 sm:gap-3">
+        <div className="flex w-full min-w-0 gap-1.5 px-1 sm:gap-2">
           {Array.from({ length: beats }, (_, beat) => (
             <div
               key={`beat-${beat}`}
-              className="flex min-w-[3.25rem] flex-1 flex-col items-center gap-1"
+              className="flex min-w-0 flex-1 flex-col items-center gap-1"
               data-accent-beat={beat}
             >
               <p className="text-[0.7rem] font-bold tabular-nums text-slate-400">{beat + 1}</p>
-              <div className="flex items-end justify-center gap-0.5">
+              <div className="flex flex-wrap items-end justify-center gap-0.5">
                 {Array.from({ length: steps }, (_, slot) => {
                   const level = accentLevelAt(accents, beat, slot, steps)
                   const now = live && liveBeat === beat && liveSlot === slot
@@ -78,8 +78,8 @@ export function ClickAccentGrid({
                       aria-label={`Beat ${beat + 1}, inner ${slot + 1}, ${LEVEL_NAME[level]}`}
                       onClick={() => onCycle(beat, slot)}
                       className={cn(
-                        'flex items-center justify-center rounded-lg border text-xs font-bold tabular-nums transition',
-                        downbeat ? 'size-9 text-sm sm:size-10' : 'size-8 sm:size-9',
+                        'flex size-8 shrink-0 items-center justify-center rounded-lg border text-xs font-bold tabular-nums transition sm:size-9',
+                        downbeat && 'text-sm',
                         accentTone(level, downbeat),
                         now && 'omni-beat-pulse',
                       )}
