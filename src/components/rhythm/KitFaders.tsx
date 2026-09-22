@@ -154,9 +154,6 @@ function KitFader({
         <span className="kit-fader-readout" data-kit-readout={group}>
           {formatKitDb(db)}
         </span>
-        <span className="kit-fader-inf" aria-hidden>
-          ∞
-        </span>
       </span>
     </div>
   )

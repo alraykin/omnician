@@ -143,7 +143,7 @@ body {
 .kit-fader-bank {
   --kit-fader-name-h: 0.9rem;
   --kit-fader-track-h: 4.7rem;
-  --kit-fader-foot-h: 1.55rem;
+  --kit-fader-foot-h: 1.05rem;
   --kit-fader-cap-half: 0.42rem;
   margin-top: 0.5rem;
   padding: 0.4rem 0.35rem 0.35rem;
@@ -297,7 +297,6 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.05rem;
 }
 
 .kit-fader-readout {
@@ -307,13 +306,6 @@ body {
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   color: #e9d5ff;
-}
-
-.kit-fader-inf {
-  font-size: 0.62rem;
-  font-weight: 650;
-  line-height: 1;
-  color: #64748b;
 }
 
 .kit-fader-zoom {

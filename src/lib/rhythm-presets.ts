@@ -84,17 +84,20 @@ function preset(
   }
 }
 
-const HATS_16 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 const HATS_8_16 = [0, 2, 4, 6, 8, 10, 12, 14]
 
+function hatsCover(stepCount: number, openSlots: number[]): number[] {
+  return Array.from({ length: stepCount }, (_, step) => step).filter((step) => !openSlots.includes(step))
+}
+
 function hatsExcept(openSlots: number[]): number[] {
-  return HATS_16.filter((step) => !openSlots.includes(step))
+  return hatsCover(16, openSlots)
 }
 
 const ROCK_GROOVE: HitMap = {
   kick: [0, 7, 8, 10],
   snare: [4, 12],
-  closedHat: [0, 2, 4, 6, 8, 10, 12],
+  closedHat: hatsExcept([14]),
   openHat: [14],
   crash: [0],
 }
@@ -117,7 +120,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
       preset('rock-44', 'rock', 'Rock', 1, 'Backbeat + tom fill', 4, 4, 4, ROCK_GROOVE, ROCK_FILL, {
         kick: [0, 7, 8, 10],
         snare: [4, 12, 15],
-        closedHat: [0, 2, 4, 6, 8, 10, 12],
+        closedHat: hatsExcept([14]),
         openHat: [14],
       }),
       preset(
@@ -132,7 +135,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
         {
           kick: HATS_8_16,
           snare: [4, 12],
-          closedHat: [0, 2, 4, 8, 10, 12],
+          closedHat: hatsExcept([6, 14]),
           openHat: [6, 14],
           crash: [0],
         },
@@ -158,7 +161,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
         {
           kick: [0, 6, 10, 14],
           snare: [8],
-          closedHat: [0, 2, 4, 6, 8, 10, 12],
+          closedHat: hatsExcept([14]),
           openHat: [14],
           floorTom: [4, 12],
           crash: [0],
@@ -471,7 +474,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
           kick: [0, 3, 8, 11, 14],
           snare: [8],
           clap: [8],
-          closedHat: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15],
+          closedHat: hatsExcept([12]),
           openHat: [12],
         },
         {
@@ -638,7 +641,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
           kick: [8],
           snare: [8],
           rim: [4, 12],
-          closedHat: [0, 2, 4, 6, 8, 10, 12],
+          closedHat: hatsExcept([14]),
           openHat: [14],
         },
         {
@@ -664,7 +667,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
         {
           kick: [0, 7, 8, 15],
           rim: [2, 6, 10, 14],
-          closedHat: [0, 2, 4, 6, 8, 10, 12],
+          closedHat: hatsExcept([14]),
           floorTom: [0, 8],
           ride: [0, 2, 3, 4, 6, 8, 10, 11, 12, 14],
           openHat: [14],
@@ -745,7 +748,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
         {
           kick: [0, 8, 12, 20],
           snare: [6, 18],
-          closedHat: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20],
+          closedHat: hatsCover(24, [22]),
           openHat: [22],
           crash: [0],
         },
@@ -805,7 +808,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
           kick: [0],
           snare: [4],
           closedHat: [2],
-          ride: [0, 1, 3, 4],
+          ride: [0, 1, 3, 4, 5],
           rim: [2],
         },
         {
@@ -888,7 +891,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
         {
           kick: [0, 3, 6],
           snare: [6],
-          closedHat: [0, 2, 4, 6, 8],
+          closedHat: hatsCover(12, [10]),
           openHat: [10],
           floorTom: [3],
           crash: [0],
@@ -915,7 +918,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
         {
           kick: [0, 4, 8],
           snare: [4, 12],
-          closedHat: [0, 2, 4, 6, 8, 10],
+          closedHat: hatsCover(14, [12]),
           openHat: [12],
           crash: [0],
         },

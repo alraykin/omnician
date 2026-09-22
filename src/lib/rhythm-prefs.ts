@@ -24,10 +24,11 @@ import {
   type VoiceId,
 } from '@/lib/rhythm'
 import { DEFAULT_KIT_MIX, parseKitMix, type KitMix } from '@/lib/kit-mix'
-import { makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
+import { barsForPreset, findPreset, makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 
-const STORAGE_KEY = 'omnician.rhythm.v13'
+const STORAGE_KEY = 'omnician.rhythm.v14'
 const PREVIOUS_KEYS = [
+  'omnician.rhythm.v13',
   'omnician.rhythm.v12',
   'omnician.rhythm.v11',
   'omnician.rhythm.v10',
@@ -186,9 +187,13 @@ export function loadRhythmPrefs(): RhythmPrefs {
 
     const split = Array.isArray(row.clickBars) || Array.isArray(row.drumBars)
     const clickBars = split ? parseBars(row.clickBars, base.clickBars) : makeDefaultClickBars()
-    const drumBars = split
-      ? parseBars(row.drumBars, base.drumBars)
-      : parseBars(row.bars, base.drumBars)
+    const presetId = typeof row.presetId === 'string' ? row.presetId : null
+    const libraryPreset = !currentRaw && presetId ? findPreset(presetId) : undefined
+    const drumBars = libraryPreset
+      ? barsForPreset(libraryPreset).map(cloneBar)
+      : split
+        ? parseBars(row.drumBars, base.drumBars)
+        : parseBars(row.bars, base.drumBars)
 
     const clickBarIndex = split
       ? clampIndex(row.clickBarIndex, clickBars.length)
@@ -205,7 +210,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
       drumBars,
       clickBarIndex,
       drumBarIndex,
-      presetId: typeof row.presetId === 'string' ? row.presetId : null,
+      presetId,
       kitMix: parseKitMix(row.kitMix, migrateCymbals),
     }
   } catch {
