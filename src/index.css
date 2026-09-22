@@ -159,6 +159,25 @@ body {
   animation: omni-beat-pulse 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.bpm-dial-hit {
+  width: 264px;
+  height: 264px;
+  touch-action: none;
+  overscroll-behavior: none;
+  cursor: grab;
+}
+
+.bpm-dial-hit:active {
+  cursor: grabbing;
+}
+
+@media (min-width: 640px) {
+  .bpm-dial-hit {
+    width: 276px;
+    height: 276px;
+  }
+}
+
 .bpm-dial {
   --ring-radius: 73px;
   touch-action: none;
