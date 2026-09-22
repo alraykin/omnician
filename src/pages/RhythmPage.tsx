@@ -16,13 +16,14 @@ import {
   MAX_BARS,
   MIN_BEATS,
   MAX_BEATS,
-  SUBDIVISION_META,
   SUBDIVISIONS,
   UNIT_LABELS,
   clampBpm,
   cloneBar,
   meterLabel,
+  patternToGrid,
   pulseLabel,
+  setBarSubdivision,
   stepsPerBeat,
   toggleAccent,
   toggleHit,
@@ -99,14 +100,8 @@ export function RhythmPage() {
     setPresetId(null)
   }
 
-  const setSubdivision = (subdivision: SubdivisionId, all = false) => {
-    if (all) {
-      setBars((currentBars) =>
-        currentBars.map((bar) => updateBarMeter(bar, bar.beats, bar.beatUnit, subdivision)),
-      )
-    } else if (current) {
-      patchBar(barIndex, updateBarMeter(current, current.beats, current.beatUnit, subdivision))
-    }
+  const setSubdivision = (subdivision: SubdivisionId) => {
+    setBars((currentBars) => currentBars.map((bar) => setBarSubdivision(bar, subdivision)))
     setPresetId(null)
   }
 
@@ -122,7 +117,10 @@ export function RhythmPage() {
       return
     }
     if (!current) return
-    patchBar(barIndex, applyPreset(preset))
+    const next = applyPreset(preset)
+    setBars((currentBars) =>
+      currentBars.map((bar, index) => (index === barIndex ? next : setBarSubdivision(bar, next.subdivision))),
+    )
     setPresetId(preset.id)
     setPickerOpen(false)
   }
@@ -163,7 +161,13 @@ export function RhythmPage() {
 
   const onToggleCell = (voice: VoiceId, step: number) => {
     if (!current) return
-    const nextPattern = toggleHit(current.pattern, voice, step)
+    const nextPattern = toggleHit(
+      current.pattern,
+      voice,
+      step,
+      current.beats,
+      current.subdivision,
+    )
     patchBar(barIndex, { ...current, pattern: nextPattern })
     setPresetId(matched?.id ?? presetId)
     if (!current.pattern[voice][step] && nextPattern[voice][step]) {
@@ -209,50 +213,35 @@ export function RhythmPage() {
           ))}
         </div>
 
-        <section className="mt-4 rounded-3xl border border-white/10 bg-[#141A28]/80 px-3 py-4 sm:px-5">
-          <div className="flex items-stretch gap-3">
-            <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                BPM
-              </p>
-              <p className="text-5xl font-bold tabular-nums tracking-tight text-white sm:text-6xl">
-                {bpm}
-              </p>
-              <p className="text-xs text-slate-500">{pulseLabel(current.beatUnit)}</p>
-              <div className="mt-3 flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  aria-label="Slower by 5"
-                  onClick={() => changeBpm(bpm - 5, true)}
-                >
-                  <Minus className="size-3.5" />
-                  5
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={tapTempo}>
-                  Tap tempo
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  aria-label="Faster by 5"
-                  onClick={() => changeBpm(bpm + 5, true)}
-                >
-                  <Plus className="size-3.5" />
-                  5
-                </Button>
-              </div>
-              <button
-                type="button"
-                onClick={() => setBpm(DEFAULT_BPM)}
-                className="mt-2 text-xs font-semibold text-slate-500 hover:text-slate-300"
-              >
-                Reset to {DEFAULT_BPM}
-              </button>
-            </div>
+        <section className="mt-4 rounded-3xl border border-white/10 bg-[#141A28]/80 px-3 py-5 sm:px-5">
+          <div className="flex flex-col items-center">
             <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
+            <p className="mt-2 text-xs text-slate-500">{pulseLabel(current.beatUnit)}</p>
+            <div className="mt-3 flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label="Slower by 5"
+                onClick={() => changeBpm(bpm - 5, true)}
+              >
+                <Minus className="size-3.5" />
+                5
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={tapTempo}>
+                Tap
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label="Faster by 5"
+                onClick={() => changeBpm(bpm + 5, true)}
+              >
+                <Plus className="size-3.5" />
+                5
+              </Button>
+            </div>
           </div>
         </section>
 
@@ -342,71 +331,63 @@ export function RhythmPage() {
             Subdivision
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {SUBDIVISIONS.map((id) => (
+            {SUBDIVISIONS.map((steps) => (
               <button
-                key={id}
+                key={steps}
                 type="button"
-                aria-pressed={current.subdivision === id}
-                onClick={() => setSubdivision(id)}
+                aria-pressed={current.subdivision === steps}
+                onClick={() => setSubdivision(steps)}
                 className={cn(
-                  'h-9 rounded-xl px-2.5 text-sm font-semibold',
-                  current.subdivision === id
+                  'h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold',
+                  current.subdivision === steps
                     ? 'bg-[#A855F7] text-white'
                     : 'border border-white/10 bg-white/4 text-slate-200 hover:border-[#A855F7]/50',
                 )}
               >
-                {SUBDIVISION_META[id].short}
+                {steps}
               </button>
             ))}
           </div>
-          {bars.length > 1 ? (
-            <button
-              type="button"
-              onClick={() => setSubdivision(current.subdivision, true)}
-              className="mt-2 text-xs font-semibold text-[#C084FC] hover:text-white"
-            >
-              Use {SUBDIVISION_META[current.subdivision].label.toLowerCase()} on every bar
-            </button>
-          ) : (
-            <p className="mt-2 text-xs text-slate-500">
-              Splits each beat for the grid and for extra click ticks.
-            </p>
-          )}
+          <p className="mt-2 text-xs text-slate-500">
+            Steps per beat — same on every bar. Existing hits stay put.
+          </p>
         </section>
 
-        <section className="mt-4">
-          <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-            Accents · tap a beat
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {Array.from({ length: current.beats }, (_, beat) => {
-              const on = current.accents.includes(beat)
-              const live = playing && playhead.bar === barIndex && playhead.beat === beat
-              return (
-                <button
-                  key={beat}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() =>
-                    patchBar(barIndex, {
-                      ...current,
-                      accents: toggleAccent(current.accents, beat, current.beats),
-                    })
-                  }
-                  className={cn(
-                    'relative flex size-10 items-center justify-center rounded-full border text-sm font-bold sm:size-11',
-                    on
-                      ? 'border-[#A855F7] bg-[#A855F7] text-white'
-                      : 'border-white/15 bg-[#141A28] text-slate-300',
-                    live && 'omni-beat-pulse',
-                  )}
-                >
-                  {beat + 1}
-                </button>
-              )
-            })}
-          </div>
-        </section>
+        {mode === 'click' ? (
+          <section className="mt-4">
+            <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Accents · tap a beat
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {Array.from({ length: current.beats }, (_, beat) => {
+                const on = current.accents.includes(beat)
+                const live = playing && playhead.bar === barIndex && playhead.beat === beat
+                return (
+                  <button
+                    key={beat}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() =>
+                      patchBar(barIndex, {
+                        ...current,
+                        accents: toggleAccent(current.accents, beat, current.beats),
+                      })
+                    }
+                    className={cn(
+                      'relative flex size-10 items-center justify-center rounded-full border text-sm font-bold sm:size-11',
+                      on
+                        ? 'border-[#A855F7] bg-[#A855F7] text-white'
+                        : 'border-white/15 bg-[#141A28] text-slate-300',
+                      live && 'omni-beat-pulse',
+                    )}
+                  >
+                    {beat + 1}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        ) : null}
 
         {mode === 'click' ? (
           <section className="mt-5 flex flex-1 flex-col items-center py-3">
@@ -480,7 +461,7 @@ export function RhythmPage() {
             <DrumGrid
               beats={current.beats}
               subdivisionSteps={stepsPerBeat(current.subdivision)}
-              pattern={current.pattern}
+              pattern={patternToGrid(current.pattern, current.beats, current.subdivision)}
               currentStep={playhead.step}
               live={playing && playhead.bar === barIndex}
               onToggle={onToggleCell}
@@ -563,8 +544,8 @@ function PresetSheet({
           Beat library
         </h2>
         <p className="mt-1 text-sm text-slate-400">
-          Picking a beat sets this bar’s meter and subdivision. You can edit the
-          grid after.
+          Picking a beat sets this bar’s meter. Subdivision is shared across all
+          bars and does not move existing hits.
         </p>
         <PresetGroup
           title={`For ${meterLabel(current.beats, current.beatUnit)}`}

@@ -4,6 +4,7 @@ import { getAudioCtor, RhythmKit } from '@/lib/rhythm-audio'
 import {
   VOICES,
   beatIndexForStep,
+  hitTimeInBar,
   isBeatStep,
   stepDurationSec,
   stepsInBar,
@@ -57,6 +58,7 @@ export function useRhythmEngine({
   const modeRef = useRef(mode)
   const barsRef = useRef(bars)
   const clickRef = useRef(clickSound)
+  const armedBarRef = useRef<number | null>(null)
 
   playingRef.current = playing
   bpmRef.current = bpm
@@ -120,6 +122,7 @@ export function useRhythmEngine({
     setPlayhead({ bar: 0, step: -1, beat: -1, accent: false, subdivision: false })
     stepRef.current = 0
     barRef.current = 0
+    armedBarRef.current = null
   }, [clearVisuals])
 
   useEffect(() => {
@@ -142,7 +145,22 @@ export function useRhythmEngine({
 
       stepRef.current = 0
       barRef.current = 0
+      armedBarRef.current = null
       nextTimeRef.current = kit.ctx.currentTime + 0.05
+
+      const armDrumBar = (barIndex: number, barStart: number) => {
+        if (modeRef.current !== 'drums') return
+        if (armedBarRef.current === barIndex && stepRef.current !== 0) return
+        armedBarRef.current = barIndex
+        const bar = barsRef.current[barIndex]
+        if (!bar) return
+        for (const voice of VOICES) {
+          for (const hit of bar.pattern[voice] ?? []) {
+            if (hit.beat < 0 || hit.beat >= bar.beats) continue
+            kit.hit(voice, barStart + hitTimeInBar(hit, bpmRef.current), false)
+          }
+        }
+      }
 
       const scheduleStep = (barIndex: number, step: number, time: number) => {
         const sequence = barsRef.current
@@ -151,16 +169,10 @@ export function useRhythmEngine({
         const beat = beatIndexForStep(step, bar.beats, bar.subdivision)
         const onBeat = isBeatStep(step, bar.subdivision)
         const accent = onBeat && bar.accents.includes(beat)
+        if (step === 0) armDrumBar(barIndex, time)
         if (modeRef.current === 'click') {
           if (onBeat) kit.click(time, accent, clickRef.current, 1)
           else kit.click(time, false, clickRef.current, 0.32)
-        } else {
-          const grid = bar.pattern
-          const open = grid.openHat[step]
-          for (const voice of VOICES) {
-            if (voice === 'closedHat' && open) continue
-            if (grid[voice]?.[step]) kit.hit(voice, time, accent)
-          }
         }
 
         const delay = Math.max(0, (time - kit.ctx.currentTime) * 1000)

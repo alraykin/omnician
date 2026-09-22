@@ -36,29 +36,19 @@ export const MIN_BPM = 30
 export const MAX_BPM = 300
 export const DEFAULT_BPM = 120
 
-export const SUBDIVISIONS = [
-  'eighths',
-  'triplets',
-  'sixteenths',
-  'quintuplets',
-  'sextuplets',
-  'septuplets',
-  'thirtyseconds',
-] as const
-
+/** Steps per beat — Cubase-style density. */
+export const SUBDIVISIONS = [2, 3, 4, 5, 6, 7, 8] as const
 export type SubdivisionId = (typeof SUBDIVISIONS)[number]
+export const DEFAULT_SUBDIVISION: SubdivisionId = 2
 
-export const SUBDIVISION_META: Record<
-  SubdivisionId,
-  { steps: number; label: string; short: string }
-> = {
-  eighths: { steps: 2, label: 'Eighths', short: '8ths' },
-  triplets: { steps: 3, label: 'Triplets', short: 'Trips' },
-  sixteenths: { steps: 4, label: '16ths', short: '16ths' },
-  quintuplets: { steps: 5, label: 'Quintuplets', short: '5' },
-  sextuplets: { steps: 6, label: 'Sextuplets', short: '6' },
-  septuplets: { steps: 7, label: 'Septuplets', short: '7' },
-  thirtyseconds: { steps: 8, label: '32nds', short: '32nds' },
+const LEGACY_SUBDIVISION: Record<string, SubdivisionId> = {
+  eighths: 2,
+  triplets: 3,
+  sixteenths: 4,
+  quintuplets: 5,
+  sextuplets: 6,
+  septuplets: 7,
+  thirtyseconds: 8,
 }
 
 export const CLICK_SOUNDS = [
@@ -81,7 +71,14 @@ export const CLICK_SOUND_LABELS: Record<ClickSoundId, string> = {
   tick: 'Soft tick',
 }
 
-export type Pattern = Record<VoiceId, boolean[]>
+/** A hit locked to an exact place in the bar: beat + num/den of that beat. */
+export type HitPos = {
+  beat: number
+  num: number
+  den: number
+}
+
+export type Pattern = Record<VoiceId, HitPos[]>
 
 export type RhythmBar = {
   beats: number
@@ -113,8 +110,18 @@ export function isBeatUnit(value: unknown): value is BeatUnit {
   return value === 2 || value === 4 || value === 8 || value === 16 || value === 32
 }
 
+export function normalizeSubdivision(value: unknown): SubdivisionId {
+  if (typeof value === 'number' && (SUBDIVISIONS as readonly number[]).includes(value)) {
+    return value as SubdivisionId
+  }
+  if (typeof value === 'string' && value in LEGACY_SUBDIVISION) {
+    return LEGACY_SUBDIVISION[value]
+  }
+  return DEFAULT_SUBDIVISION
+}
+
 export function isSubdivision(value: unknown): value is SubdivisionId {
-  return typeof value === 'string' && (SUBDIVISIONS as readonly string[]).includes(value)
+  return typeof value === 'number' && (SUBDIVISIONS as readonly number[]).includes(value)
 }
 
 export function isClickSound(value: unknown): value is ClickSoundId {
@@ -122,71 +129,113 @@ export function isClickSound(value: unknown): value is ClickSoundId {
 }
 
 export function stepsPerBeat(subdivision: SubdivisionId): number {
-  return SUBDIVISION_META[subdivision].steps
+  return subdivision
 }
 
 export function stepsInBar(bar: Pick<RhythmBar, 'beats' | 'subdivision'>): number {
   return bar.beats * stepsPerBeat(bar.subdivision)
 }
 
-export function emptyPattern(beats: number, subdivision: SubdivisionId): Pattern {
-  const length = clampBeats(beats) * stepsPerBeat(subdivision)
-  return Object.fromEntries(
-    VOICES.map((voice) => [voice, Array.from({ length }, () => false)]),
-  ) as Pattern
+function gcd(a: number, b: number): number {
+  let x = Math.abs(a)
+  let y = Math.abs(b)
+  while (y !== 0) {
+    const next = x % y
+    x = y
+    y = next
+  }
+  return x || 1
+}
+
+export function reduceHit(beat: number, num: number, den: number): HitPos {
+  const safeDen = den === 0 ? 1 : den
+  const g = gcd(num, safeDen)
+  return { beat, num: num / g, den: safeDen / g }
+}
+
+export function sameHit(a: HitPos, b: HitPos): boolean {
+  return a.beat === b.beat && a.num * b.den === b.num * a.den
+}
+
+export function hitSlot(hit: HitPos, steps: number): number | null {
+  if (hit.den === 0) return null
+  const num = hit.num * steps
+  if (num % hit.den !== 0) return null
+  const slot = num / hit.den
+  if (slot < 0 || slot >= steps) return null
+  return slot
+}
+
+export function emptyPattern(): Pattern {
+  return Object.fromEntries(VOICES.map((voice) => [voice, []])) as unknown as Pattern
 }
 
 export function clonePattern(pattern: Pattern): Pattern {
   return Object.fromEntries(
-    VOICES.map((voice) => [voice, [...(pattern[voice] ?? [])]]),
+    VOICES.map((voice) => [voice, (pattern[voice] ?? []).map((hit) => ({ ...hit }))]),
   ) as Pattern
 }
 
-export function resizeHits(hits: boolean[], length: number): boolean[] {
-  if (hits.length === length) return [...hits]
-  if (hits.length > length) return hits.slice(0, length)
-  return [...hits, ...Array.from({ length: length - hits.length }, () => false)]
-}
-
-export function reshapePattern(
-  pattern: Pattern,
-  fromBeats: number,
-  fromSub: SubdivisionId,
-  toBeats: number,
-  toSub: SubdivisionId,
-): Pattern {
-  const fromSteps = stepsPerBeat(fromSub)
-  const toSteps = stepsPerBeat(toSub)
-  const sourceBeats = Math.max(1, fromBeats)
-  const next = emptyPattern(toBeats, toSub)
+export function filterPatternBeats(pattern: Pattern, beats: number): Pattern {
+  const next = emptyPattern()
   for (const voice of VOICES) {
-    const row = pattern[voice] ?? []
-    row.forEach((on, step) => {
-      if (!on) return
-      const beat = Math.floor(step / fromSteps)
-      if (beat >= toBeats || beat >= sourceBeats) return
-      const frac = fromSteps <= 1 ? 0 : (step % fromSteps) / fromSteps
-      const sub = Math.min(toSteps - 1, Math.round(frac * toSteps))
-      next[voice][beat * toSteps + sub] = true
-    })
+    next[voice] = (pattern[voice] ?? []).filter((hit) => hit.beat >= 0 && hit.beat < beats)
   }
   return next
 }
 
-export function toggleHit(pattern: Pattern, voice: VoiceId, step: number): Pattern {
+export function patternToGrid(
+  pattern: Pattern,
+  beats: number,
+  subdivision: SubdivisionId,
+): Record<VoiceId, boolean[]> {
+  const steps = stepsPerBeat(subdivision)
+  const length = clampBeats(beats) * steps
+  const grid = Object.fromEntries(
+    VOICES.map((voice) => [voice, Array.from({ length }, () => false)]),
+  ) as Record<VoiceId, boolean[]>
+  for (const voice of VOICES) {
+    for (const hit of pattern[voice] ?? []) {
+      if (hit.beat < 0 || hit.beat >= beats) continue
+      const slot = hitSlot(hit, steps)
+      if (slot === null) continue
+      grid[voice][hit.beat * steps + slot] = true
+    }
+  }
+  return grid
+}
+
+export function toggleHit(
+  pattern: Pattern,
+  voice: VoiceId,
+  step: number,
+  beats: number,
+  subdivision: SubdivisionId,
+): Pattern {
+  const steps = stepsPerBeat(subdivision)
+  const beat = Math.floor(step / steps)
+  const slot = step % steps
+  if (beat < 0 || beat >= beats || slot < 0 || slot >= steps) return clonePattern(pattern)
+  const target = reduceHit(beat, slot, steps)
   const next = clonePattern(pattern)
   const row = next[voice]
-  if (step < 0 || step >= row.length) return next
-  next[voice] = row.map((on, index) => (index === step ? !on : on))
+  const index = row.findIndex((hit) => sameHit(hit, target))
+  if (index >= 0) row.splice(index, 1)
+  else row.push(target)
   return next
 }
 
 export function patternsEqual(a: Pattern, b: Pattern): boolean {
-  return VOICES.every(
-    (voice) =>
-      a[voice]?.length === b[voice]?.length &&
-      a[voice].every((on, index) => on === b[voice][index]),
-  )
+  return VOICES.every((voice) => {
+    const left = [...(a[voice] ?? [])].sort(compareHits)
+    const right = [...(b[voice] ?? [])].sort(compareHits)
+    return left.length === right.length && left.every((hit, index) => sameHit(hit, right[index]))
+  })
+}
+
+function compareHits(a: HitPos, b: HitPos): number {
+  if (a.beat !== b.beat) return a.beat - b.beat
+  return a.num / a.den - b.num / b.den
 }
 
 export function defaultAccents(beats: number, beatUnit: BeatUnit): number[] {
@@ -215,24 +264,22 @@ export function toggleAccent(accents: number[], beat: number, beats: number): nu
   return clampAccents(next, beats)
 }
 
-export function hitsFromSteps(length: number, steps: number[]): boolean[] {
-  const row = Array.from({ length }, () => false)
-  for (const step of steps) {
-    if (step >= 0 && step < length) row[step] = true
-  }
-  return row
-}
-
 export function patternFromHits(
   beats: number,
   subdivision: SubdivisionId,
   hits: Partial<Record<VoiceId, number[]>>,
 ): Pattern {
-  const length = clampBeats(beats) * stepsPerBeat(subdivision)
-  const empty = emptyPattern(beats, subdivision)
-  const next = { ...empty }
+  const steps = stepsPerBeat(subdivision)
+  const next = emptyPattern()
+  const safeBeats = clampBeats(beats)
   for (const voice of VOICES) {
-    if (hits[voice]) next[voice] = hitsFromSteps(length, hits[voice] ?? [])
+    for (const step of hits[voice] ?? []) {
+      const beat = Math.floor(step / steps)
+      const slot = step % steps
+      if (beat >= 0 && beat < safeBeats && slot >= 0 && slot < steps) {
+        next[voice].push(reduceHit(beat, slot, steps))
+      }
+    }
   }
   return next
 }
@@ -240,19 +287,18 @@ export function patternFromHits(
 export function makeBar(
   beats = 4,
   beatUnit: BeatUnit = 4,
-  subdivision: SubdivisionId = 'sixteenths',
+  subdivision: SubdivisionId = DEFAULT_SUBDIVISION,
   pattern?: Pattern,
   accents?: number[],
 ): RhythmBar {
   const safeBeats = clampBeats(beats)
+  const sub = normalizeSubdivision(subdivision)
   return {
     beats: safeBeats,
     beatUnit,
-    subdivision,
+    subdivision: sub,
     accents: clampAccents(accents ?? defaultAccents(safeBeats, beatUnit), safeBeats),
-    pattern: pattern
-      ? reshapePattern(pattern, safeBeats, subdivision, safeBeats, subdivision)
-      : emptyPattern(safeBeats, subdivision),
+    pattern: filterPatternBeats(pattern ?? emptyPattern(), safeBeats),
   }
 }
 
@@ -277,11 +323,18 @@ export function updateBarMeter(
   return {
     beats: safeBeats,
     beatUnit,
-    subdivision,
+    subdivision: normalizeSubdivision(subdivision),
     accents: meterChanged
       ? defaultAccents(safeBeats, beatUnit)
       : clampAccents(bar.accents, safeBeats),
-    pattern: reshapePattern(bar.pattern, bar.beats, bar.subdivision, safeBeats, subdivision),
+    pattern: filterPatternBeats(bar.pattern, safeBeats),
+  }
+}
+
+export function setBarSubdivision(bar: RhythmBar, subdivision: SubdivisionId): RhythmBar {
+  return {
+    ...cloneBar(bar),
+    subdivision: normalizeSubdivision(subdivision),
   }
 }
 
@@ -296,6 +349,14 @@ export function pulseLabel(beatUnit: BeatUnit): string {
 export function stepDurationSec(bpm: number, subdivision: SubdivisionId): number {
   const tempo = Math.max(MIN_BPM, bpm)
   return 60 / tempo / stepsPerBeat(subdivision)
+}
+
+export function beatDurationSec(bpm: number): number {
+  return 60 / Math.max(MIN_BPM, bpm)
+}
+
+export function hitTimeInBar(hit: HitPos, bpm: number): number {
+  return (hit.beat + hit.num / hit.den) * beatDurationSec(bpm)
 }
 
 export function beatIndexForStep(step: number, beats: number, subdivision: SubdivisionId): number {

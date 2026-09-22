@@ -1,10 +1,12 @@
-import { VOICE_LABELS, VOICES, type Pattern, type VoiceId } from '@/lib/rhythm'
+import { VOICE_LABELS, VOICES, type VoiceId } from '@/lib/rhythm'
 import { cn } from '@/lib/utils'
+
+type DrumGridPattern = Record<VoiceId, boolean[]>
 
 type DrumGridProps = {
   beats: number
   subdivisionSteps: number
-  pattern: Pattern
+  pattern: DrumGridPattern
   currentStep: number
   live: boolean
   onToggle: (voice: VoiceId, step: number) => void
@@ -20,7 +22,7 @@ export function DrumGrid({
   onToggle,
   onPreview,
 }: DrumGridProps) {
-  const steps = pattern.kick.length
+  const steps = beats * subdivisionSteps
   const minCell = subdivisionSteps >= 6 ? '1.25rem' : subdivisionSteps >= 4 ? '1.4rem' : '1.55rem'
 
   return (
@@ -57,7 +59,7 @@ export function DrumGrid({
                     {Array.from({ length: subdivisionSteps }, (_, offset) => {
                       const step = beat * subdivisionSteps + offset
                       if (step >= steps) return null
-                      const on = pattern[voice]?.[step]
+                      const on = Boolean(pattern[voice]?.[step])
                       const now = live && currentStep === step
                       return (
                         <button

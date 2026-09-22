@@ -59,43 +59,43 @@ const ROCK_FILL: Partial<Record<VoiceId, number[]>> = {
 }
 
 export const RHYTHM_PRESETS: RhythmPreset[] = [
-  preset('rock-44', 'Rock', 'Backbeat you can lean on', 4, 4, 'eighths', ROCK_GROOVE),
-  preset('pop-44', 'Pop', 'Kick on the and of two', 4, 4, 'sixteenths', {
+  preset('rock-44', 'Rock', 'Backbeat you can lean on', 4, 4, 2, ROCK_GROOVE),
+  preset('pop-44', 'Pop', 'Kick on the and of two', 4, 4, 4, {
     kick: [0, 6, 8],
     snare: [4, 12],
     closedHat: [0, 2, 4, 6, 8, 10, 12, 14],
     crash: [0],
   }),
-  preset('funk-44', 'Funk', 'Syncopated kick, tight hats', 4, 4, 'sixteenths', {
+  preset('funk-44', 'Funk', 'Syncopated kick, tight hats', 4, 4, 4, {
     kick: [0, 3, 8, 10],
     snare: [4, 12],
     closedHat: [0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15],
     openHat: [14],
   }),
-  preset('ballad-44', 'Ballad', 'Quarter-note hats, room to sing', 4, 4, 'sixteenths', {
+  preset('ballad-44', 'Ballad', 'Quarter-note hats, room to sing', 4, 4, 4, {
     kick: [0, 8],
     snare: [4, 12],
     closedHat: [0, 4, 8, 12],
   }),
-  preset('triplet-44', 'Shuffle', 'Swing triplets in 4', 4, 4, 'triplets', {
+  preset('triplet-44', 'Shuffle', 'Swing triplets in 4', 4, 4, 3, {
     kick: [0, 6],
     snare: [3, 9],
     closedHat: [0, 2, 3, 5, 6, 8, 9, 11],
     crash: [0],
   }),
-  preset('march-24', 'March', 'Left, right — 2/4 stomp', 2, 4, 'sixteenths', {
+  preset('march-24', 'March', 'Left, right — 2/4 stomp', 2, 4, 4, {
     kick: [0],
     snare: [4],
     closedHat: [0, 2, 4, 6],
     crash: [0],
   }),
-  preset('waltz-34', 'Waltz', 'Oom-pah-pah in 3', 3, 4, 'sixteenths', {
+  preset('waltz-34', 'Waltz', 'Oom-pah-pah in 3', 3, 4, 4, {
     kick: [0],
     snare: [4, 8],
     closedHat: [0, 2, 4, 6, 8, 10],
     crash: [0],
   }),
-  preset('five-54', 'Five', '3 + 2 pulse, Take Five pocket', 5, 4, 'eighths', {
+  preset('five-54', 'Five', '3 + 2 pulse, Take Five pocket', 5, 4, 2, {
     kick: [0, 6],
     snare: [2, 8],
     closedHat: [0, 2, 4, 6, 8],
@@ -107,7 +107,7 @@ export const RHYTHM_PRESETS: RhythmPreset[] = [
     '11/8 — 3+3+3+2',
     11,
     8,
-    'eighths',
+    2,
     {
       kick: [0, 6, 12, 16],
       snare: [4, 10, 18],
@@ -116,25 +116,25 @@ export const RHYTHM_PRESETS: RhythmPreset[] = [
     },
     [0, 3, 6, 8],
   ),
-  preset('rock-68', 'Six-eight', 'Two big pulses, rocking 6/8', 6, 8, 'eighths', {
+  preset('rock-68', 'Six-eight', 'Two big pulses, rocking 6/8', 6, 8, 2, {
     kick: [0, 6],
     snare: [6],
     closedHat: [0, 2, 4, 6, 8, 10],
     crash: [0],
   }),
-  preset('odd-78', 'Seven', '2 + 2 + 3 — odd-meter rock', 7, 8, 'eighths', {
+  preset('odd-78', 'Seven', '2 + 2 + 3 — odd-meter rock', 7, 8, 2, {
     kick: [0, 8],
     snare: [4, 12],
     closedHat: [0, 2, 4, 6, 8, 10, 12],
     crash: [0],
   }),
-  preset('slip-98', 'Slip jig', 'Three threes in 9/8', 9, 8, 'eighths', {
+  preset('slip-98', 'Slip jig', 'Three threes in 9/8', 9, 8, 2, {
     kick: [0, 6, 12],
     snare: [6, 12],
     closedHat: [0, 2, 4, 6, 8, 10, 12, 14, 16],
     crash: [0],
   }),
-  preset('blues-128', 'Shuffle blues', '12/8 slow-burn groove', 12, 8, 'eighths', {
+  preset('blues-128', 'Shuffle blues', '12/8 slow-burn groove', 12, 8, 2, {
     kick: [0, 12],
     snare: [6, 18],
     closedHat: [0, 4, 6, 10, 12, 16, 18, 22],
@@ -174,7 +174,7 @@ export function applyPreset(preset: RhythmPreset): RhythmBar {
 
 /** First-open Rock: three groove bars, then a short tom fill into the one. */
 export function makeDefaultRockBars(): RhythmBar[] {
-  const groove = makeBar(4, 4, 'eighths', patternFromHits(4, 'eighths', ROCK_GROOVE))
-  const fill = makeBar(4, 4, 'eighths', patternFromHits(4, 'eighths', ROCK_FILL))
+  const groove = makeBar(4, 4, 2, patternFromHits(4, 2, ROCK_GROOVE))
+  const fill = makeBar(4, 4, 2, patternFromHits(4, 2, ROCK_FILL))
   return [cloneBar(groove), cloneBar(groove), cloneBar(groove), cloneBar(fill)]
 }

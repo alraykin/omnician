@@ -1,18 +1,26 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { clampBpm, MAX_BPM, MIN_BPM } from '@/lib/rhythm'
-import { cn } from '@/lib/utils'
 
 type BpmWheelProps = {
   value: number
   onChange: (bpm: number) => void
 }
 
+const TICKS = 36
+
 export function BpmWheel({ value, onChange }: BpmWheelProps) {
   const dragRef = useRef<{ y: number; bpm: number } | null>(null)
-  const neighbors = [-3, -2, -1, 0, 1, 2, 3]
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [draft, setDraft] = useState<string | null>(null)
+  const editing = draft !== null
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select()
+  }, [editing])
 
   const bump = (next: number) => {
+    if (editing) return
     const clamped = clampBpm(next)
     if (clamped === value) return
     onChange(clamped)
@@ -21,31 +29,40 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
     }
   }
 
+  const commitDraft = () => {
+    if (draft === null) return
+    const parsed = Number.parseInt(draft.replace(/[^\d]/g, ''), 10)
+    setDraft(null)
+    if (!Number.isFinite(parsed)) return
+    const clamped = clampBpm(parsed)
+    if (clamped !== value) onChange(clamped)
+  }
+
   return (
     <div className="flex flex-col items-center">
-      <p className="mb-1.5 text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-        Wheel
-      </p>
       <div className="relative">
         <div
           aria-hidden
-          className="pointer-events-none absolute -bottom-1.5 inset-x-1.5 h-3 rounded-full bg-black/55 blur-[5px]"
+          className="pointer-events-none absolute -bottom-1 left-1/2 h-4 w-28 -translate-x-1/2 rounded-full bg-black/50 blur-md"
         />
         <div
           role="slider"
-          aria-label="Tempo wheel"
+          aria-label="Tempo"
           aria-valuemin={MIN_BPM}
           aria-valuemax={MAX_BPM}
           aria-valuenow={value}
-          tabIndex={0}
-          className="bpm-wheel relative h-[164px] w-[72px] touch-none select-none rounded-[26px] p-[5px] outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]/70"
+          aria-disabled={editing}
+          tabIndex={editing ? -1 : 0}
+          className="bpm-dial relative size-[176px] touch-none select-none rounded-full p-[9px] outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]/70 sm:size-[188px]"
           onPointerDown={(event) => {
+            if (editing) return
+            if ((event.target as HTMLElement).closest('button, input')) return
             event.currentTarget.setPointerCapture(event.pointerId)
             dragRef.current = { y: event.clientY, bpm: value }
           }}
           onPointerMove={(event) => {
             const drag = dragRef.current
-            if (!drag) return
+            if (!drag || editing) return
             const delta = drag.y - event.clientY
             const steps = Math.round(delta / 7)
             if (steps === 0) return
@@ -60,6 +77,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
             dragRef.current = null
           }}
           onWheel={(event) => {
+            if (editing) return
             bump(
               value +
                 (event.deltaY > 0 ? -1 : 1) *
@@ -67,6 +85,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
             )
           }}
           onKeyDown={(event) => {
+            if (editing) return
             if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
               event.preventDefault()
               bump(value + 1)
@@ -75,48 +94,62 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
               event.preventDefault()
               bump(value - 1)
             }
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              setDraft(String(value))
+            }
           }}
         >
-          <div className="bpm-wheel-drum relative h-full overflow-hidden rounded-[21px]">
-            <div className="bpm-wheel-knurl pointer-events-none absolute inset-y-0 left-0 w-2.5" />
-            <div className="bpm-wheel-knurl pointer-events-none absolute inset-y-0 right-0 w-2.5" />
-            <div className="bpm-wheel-shade pointer-events-none absolute inset-y-0 left-0 w-5" />
-            <div className="bpm-wheel-shade-right pointer-events-none absolute inset-y-0 right-0 w-5" />
-            <div
-              className="flex h-full flex-col items-center justify-center"
-              style={{ perspective: '420px' }}
-            >
-              {neighbors.map((offset) => {
-                const bpm = value + offset
-                const hidden = bpm < MIN_BPM || bpm > MAX_BPM
-                return (
-                  <span
-                    key={offset}
-                    className={cn(
-                      'flex h-[22px] items-center font-semibold tabular-nums tracking-tight',
-                      offset === 0 ? 'text-[1.05rem] text-white' : 'text-[0.7rem] text-slate-500',
-                      Math.abs(offset) === 1 && 'text-slate-300',
-                      hidden && 'opacity-0',
-                    )}
-                    style={
-                      hidden
-                        ? undefined
-                        : {
-                            transform: `rotateX(${offset * -16}deg) scale(${1 - Math.abs(offset) * 0.07})`,
-                            opacity: 1 - Math.abs(offset) * 0.18,
-                          }
+          <div className="bpm-dial-face relative h-full w-full overflow-hidden rounded-full">
+            {Array.from({ length: TICKS }, (_, index) => {
+              const major = index % 3 === 0
+              return (
+                <span
+                  key={index}
+                  aria-hidden
+                  className={major ? 'bpm-dial-tick bpm-dial-tick-major' : 'bpm-dial-tick'}
+                  style={{ transform: `rotate(${(index / TICKS) * 360}deg)` }}
+                />
+              )
+            })}
+            <div className="pointer-events-none absolute inset-[22px] rounded-full bg-[#0B0F1A] shadow-[inset_0_8px_16px_rgba(0,0,0,0.55)]" />
+            <div className="pointer-events-none absolute inset-x-10 top-[18px] z-20 h-6 rounded-full bg-white/16 blur-[3px]" />
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center">
+              <span className="text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                BPM
+              </span>
+              {editing ? (
+                <input
+                  ref={inputRef}
+                  aria-label="Custom tempo"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, '').slice(0, 3))}
+                  onBlur={commitDraft}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      commitDraft()
                     }
-                  >
-                    {hidden ? '—' : bpm}
-                  </span>
-                )
-              })}
+                    if (event.key === 'Escape') {
+                      event.preventDefault()
+                      setDraft(null)
+                    }
+                    event.stopPropagation()
+                  }}
+                  className="mt-0.5 w-[5.2rem] bg-transparent text-center text-5xl font-bold tabular-nums tracking-tight text-white outline-none caret-[#C084FC]"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setDraft(String(value))}
+                  className="mt-0.5 rounded-xl px-2 text-5xl font-bold tabular-nums tracking-tight text-white"
+                >
+                  {value}
+                </button>
+              )}
             </div>
-            <div className="pointer-events-none absolute inset-x-[11px] top-[58px] z-10 h-[42px] rounded-[12px] bg-[#A855F7]/18 ring-1 ring-[#C084FC]/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_0_14px_rgba(168,85,247,0.28)]" />
-            <div className="pointer-events-none absolute inset-x-3 top-[58px] z-20 h-px bg-white/35" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-10 bg-gradient-to-b from-[#070a12] via-[#070a12]/55 to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-10 bg-gradient-to-t from-[#070a12] via-[#070a12]/55 to-transparent" />
-            <div className="pointer-events-none absolute inset-x-3 top-[7px] z-30 h-3 rounded-full bg-white/18 blur-[2px]" />
           </div>
         </div>
       </div>
