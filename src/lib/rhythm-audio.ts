@@ -1,4 +1,4 @@
-import type { ClickSoundId, VoiceId } from '@/lib/rhythm'
+import { CLICK_SOUNDS, type ClickSoundId, type VoiceId } from '@/lib/rhythm'
 
 type AudioContextCtor = typeof AudioContext
 
@@ -18,6 +18,25 @@ const SAMPLE_FILES: Record<VoiceId, string> = {
   floorTom: '/rhythm/drums/floor-tom.wav',
   ride: '/rhythm/drums/ride.wav',
   crash: '/rhythm/drums/crash.wav',
+}
+
+const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
+  woodSoft: {
+    normal: '/rhythm/clicks/wood-soft-tick.wav',
+    accent: '/rhythm/clicks/wood-soft-accent.wav',
+  },
+  clave: {
+    normal: '/rhythm/clicks/clave-tick.wav',
+    accent: '/rhythm/clicks/clave-accent.wav',
+  },
+  digitalSoft: {
+    normal: '/rhythm/clicks/digital-soft-tick.wav',
+    accent: '/rhythm/clicks/digital-soft-accent.wav',
+  },
+  mechanicalSoft: {
+    normal: '/rhythm/clicks/mechanical-soft-tick.wav',
+    accent: '/rhythm/clicks/mechanical-soft-accent.wav',
+  },
 }
 
 /** Per-voice mix so hats sit under kick/snare and the crash is splashy, not huge. */
@@ -236,9 +255,8 @@ function bakeClick(
 
 function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
   const clicks: Record<ClickSoundId, ClickPair> = {
-    woodblock: bakeClick(ctx, (data, sr, accent) => {
-      // Lower, woodier block — more body, less metallic ping.
-      const f0 = accent ? 545 : 430
+    woodSoft: bakeClick(ctx, (data, sr, accent) => {
+      const f0 = accent ? 560 : 430
       let p = 0
       let p2 = 0
       for (let i = 0; i < data.length; i += 1) {
@@ -246,52 +264,63 @@ function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
         p += (Math.PI * 2 * f0) / sr
         p2 += (Math.PI * 2 * f0 * 1.72) / sr
         const tone =
-          (Math.sin(p) + Math.sin(p2) * 0.14) * env(t, 0.0007, accent ? 0.062 : 0.046)
-        const knock = (Math.random() * 2 - 1) * env(t, 0.00025, 0.014) * 0.28
-        data[i] = tanh(tone * 1.15 + knock) * (accent ? 0.78 : 0.62)
+          (Math.sin(p) + Math.sin(p2) * 0.14) * env(t, 0.0007, accent ? 0.05 : 0.036)
+        const knock = (Math.random() * 2 - 1) * env(t, 0.00025, 0.012) * 0.24
+        data[i] = tanh(tone * 1.1 + knock) * (accent ? 0.72 : 0.55)
       }
     }),
     clave: bakeClick(ctx, (data, sr, accent) => {
-      const f0 = accent ? 2450 : 2050
+      const f0 = accent ? 2280 : 1980
       let p = 0
       for (let i = 0; i < data.length; i += 1) {
         const t = i / sr
-        p += (Math.PI * 2 * (f0 - t * 900)) / sr
+        p += (Math.PI * 2 * (f0 - t * 720)) / sr
         data[i] =
-          Math.sin(p) * env(t, 0.0003, accent ? 0.028 : 0.018) * (accent ? 0.8 : 0.5)
+          Math.sin(p) * env(t, 0.0003, accent ? 0.024 : 0.016) * (accent ? 0.7 : 0.46)
       }
     }),
-    digital: bakeClick(ctx, (data, sr, accent) => {
-      const f0 = accent ? 1560 : 1040
+    digitalSoft: bakeClick(ctx, (data, sr, accent) => {
+      const f0 = accent ? 1320 : 980
       let p = 0
       for (let i = 0; i < data.length; i += 1) {
         const t = i / sr
         p += (Math.PI * 2 * f0) / sr
         const square = Math.sin(p) > 0 ? 1 : -1
-        data[i] = square * env(t, 0.0004, accent ? 0.04 : 0.025) * (accent ? 0.42 : 0.28)
+        data[i] = square * env(t, 0.0004, accent ? 0.028 : 0.018) * (accent ? 0.34 : 0.22)
       }
     }),
-    rim: bakeClick(ctx, (data, sr, accent) => {
+    mechanicalSoft: bakeClick(ctx, (data, sr, accent) => {
       let p = 0
       for (let i = 0; i < data.length; i += 1) {
         const t = i / sr
-        p += (Math.PI * 2 * (accent ? 420 : 340)) / sr
-        const stick = Math.sin(p) * env(t, 0.0004, 0.03)
-        const crack = (Math.random() * 2 - 1) * env(t, 0.0002, 0.016)
-        data[i] = tanh(stick * 0.7 + crack * 0.85) * (accent ? 0.8 : 0.52)
-      }
-    }),
-    tick: bakeClick(ctx, (data, sr, accent) => {
-      let p = 0
-      for (let i = 0; i < data.length; i += 1) {
-        const t = i / sr
-        p += (Math.PI * 2 * (accent ? 2100 : 1650)) / sr
-        const tone = Math.sin(p) * env(t, 0.0004, 0.014)
-        const air = (Math.random() * 2 - 1) * env(t, 0.0002, 0.01) * 0.35
-        data[i] = (tone * 0.55 + air) * (accent ? 0.55 : 0.32)
+        p += (Math.PI * 2 * (accent ? 980 : 780)) / sr
+        const tone = Math.sin(p) * env(t, 0.0004, 0.018)
+        const air = (Math.random() * 2 - 1) * env(t, 0.0002, 0.01) * 0.28
+        data[i] = (tone * 0.58 + air) * (accent ? 0.5 : 0.32)
       }
     }),
   }
+  return matchClickLoudness(clicks)
+}
+
+async function loadClicks(
+  ctx: AudioContext,
+  fallback: Record<ClickSoundId, ClickPair>,
+): Promise<Record<ClickSoundId, ClickPair>> {
+  const clicks = { ...fallback }
+  await Promise.all(
+    CLICK_SOUNDS.map(async (id) => {
+      try {
+        const [normal, accent] = await Promise.all([
+          loadSample(ctx, CLICK_FILES[id].normal),
+          loadSample(ctx, CLICK_FILES[id].accent),
+        ])
+        clicks[id] = { normal, accent }
+      } catch {
+        // Keep the synthesized tick/accent pair for this voice.
+      }
+    }),
+  )
   return matchClickLoudness(clicks)
 }
 
@@ -326,7 +355,7 @@ function scaleBuffer(buffer: AudioBuffer, gain: number, ceiling: number): void {
 
 /** Match unaccented clicks to one loudness; accents stay a bit hotter than their own base. */
 function matchClickLoudness(clicks: Record<ClickSoundId, ClickPair>): Record<ClickSoundId, ClickPair> {
-  const target = attackLoudness(clicks.woodblock.normal)
+  const target = attackLoudness(clicks.woodSoft.normal)
   const accentBoost = Math.pow(10, 2.4 / 20)
   for (const id of Object.keys(clicks) as ClickSoundId[]) {
     const pair = clicks[id]
@@ -408,9 +437,10 @@ export class RhythmKit {
     comp.connect(ctx.destination)
     this.drums = bakeSynthDrums(ctx)
     this.clicks = bakeClicks(ctx)
-    this.ready = loadDrums(ctx)
-      .then((drums) => {
+    this.ready = Promise.all([loadDrums(ctx), loadClicks(ctx, this.clicks)])
+      .then(([drums, clicks]) => {
         this.drums = drums
+        this.clicks = clicks
       })
       .catch(() => {
         // Keep synthesized one-shots if WAV fetch/decode fails.
@@ -431,13 +461,14 @@ export class RhythmKit {
   click(
     time: number,
     level: 0 | 1 | 2,
-    sound: ClickSoundId = 'woodblock',
+    sound: ClickSoundId = 'woodSoft',
   ): void {
-    const pair = this.clicks[sound] ?? this.clicks.woodblock
-    const strong = level >= 1
-    const gain = level === 2 ? 1 : level === 1 ? 0.58 : 0.3
-    const rate = level === 1 ? 0.985 : 1
-    this.fire(strong ? pair.accent : pair.normal, time, gain, rate)
+    const pair = this.clicks[sound] ?? this.clicks.woodSoft
+    // Off/soft share the tick; strong uses the accent one-shot (timbre, not just louder).
+    const buffer = level === 2 ? pair.accent : pair.normal
+    const gain = level === 2 ? 0.92 : level === 1 ? 0.7 : 0.4
+    const rate = level === 1 ? 1.03 : 1
+    this.fire(buffer, time, gain, rate)
   }
 
   hit(voice: VoiceId, time: number, accent: boolean): void {

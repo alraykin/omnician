@@ -472,7 +472,7 @@ export function RhythmPage() {
                       void previewClick(id)
                     }}
                     className={cn(
-                      'h-8 rounded-lg px-2.5 text-sm font-semibold',
+                      'h-8 whitespace-nowrap rounded-lg px-2.5 text-sm font-semibold',
                       clickSound === id
                         ? 'bg-[#A855F7] text-white'
                         : 'border border-white/10 bg-white/4 text-slate-200',

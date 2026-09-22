@@ -1,0 +1,43 @@
+Click one-shots used in Omnician Rhythm (Click mode)
+
+All sources are CC0 / public domain. Files here are trimmed, faded to a
+short decay (~20–40 ms audible), low-passed (~3–5 kHz) for warmth, and
+peak-normalized without clipping. Each voice has a tick (unaccented / soft)
+and a brighter or harder accent (strong).
+
+Wood Soft (default)
+- Tick: “Metronome” by Druminfected
+  https://freesound.org/people/Druminfected/sounds/250552/
+  Pack: https://freesound.org/people/Druminfected/packs/15379/
+  License: CC0
+- Accent: Versilian Community Sample Library woodblock
+  Idiophones/Struck Idiophones/Woodblock/wood_click_f_rr1.wav
+  https://github.com/sgossner/VCSL
+  https://versilian-studios.com/vcsl/
+  License: CC0
+  Druminfected “MetronomeUp”
+  (https://freesound.org/people/Druminfected/sounds/250551/) is clipped,
+  so this quieter woodblock is used as the strong accent.
+
+Clave
+- Versilian Community Sample Library / sgossner
+  https://freesound.org/people/sgossner/sounds/375641/
+  https://github.com/sgossner/VCSL
+  https://versilian-studios.com/vcsl/
+  License: CC0 (no attribution required)
+- Tick: Claves1_Hit_v2_rr1_Mid.wav
+- Accent: Claves1_Hit_v3_rr1_Mid.wav (harder / slightly higher)
+
+Digital Soft
+- “Menu Selection Click” by NenadSimic
+  https://freesound.org/people/NenadSimic/sounds/171697/
+  License: CC0
+  (MuseScore/Ardour Metronom.sf2 was the preferred source; this CC0
+  one-shot is the documented fallback, low-passed for a soft digital tick.)
+- Accent: same source, slightly higher and less filtered
+
+Mechanical Soft
+- “Metronome click 2” by Sadiquecat
+  https://freesound.org/people/Sadiquecat/sounds/793345/
+  License: CC0
+- Accent: same source, slightly higher / brighter

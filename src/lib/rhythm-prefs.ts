@@ -8,8 +8,8 @@ import {
   cloneBar,
   emptyPattern,
   isBeatUnit,
-  isClickSound,
   makeBar,
+  normalizeClickSound,
   normalizeSubdivision,
   parseBeatAccents,
   parseSubdivAccents,
@@ -25,8 +25,9 @@ import {
 } from '@/lib/rhythm'
 import { makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 
-const STORAGE_KEY = 'omnician.rhythm.v8'
+const STORAGE_KEY = 'omnician.rhythm.v9'
 const PREVIOUS_KEYS = [
+  'omnician.rhythm.v8',
   'omnician.rhythm.v7',
   'omnician.rhythm.v6',
   'omnician.rhythm.v5',
@@ -189,7 +190,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
     return {
       bpm: clampBpm(typeof row.bpm === 'number' ? row.bpm : base.bpm),
       mode: row.mode === 'drums' ? 'drums' : row.mode === 'click' ? 'click' : base.mode,
-      clickSound: isClickSound(row.clickSound) ? row.clickSound : DEFAULT_CLICK_SOUND,
+      clickSound: normalizeClickSound(row.clickSound),
       clickBars,
       drumBars,
       clickBarIndex,

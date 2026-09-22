@@ -62,17 +62,26 @@ const LEGACY_SUBDIVISION: Record<string, SubdivisionId> = {
   septuplets: 7,
 }
 
-export const CLICK_SOUNDS = ['woodblock', 'clave', 'digital', 'rim', 'tick'] as const
+export const CLICK_SOUNDS = ['woodSoft', 'clave', 'digitalSoft', 'mechanicalSoft'] as const
 
 export type ClickSoundId = (typeof CLICK_SOUNDS)[number]
-export const DEFAULT_CLICK_SOUND: ClickSoundId = 'woodblock'
+export const DEFAULT_CLICK_SOUND: ClickSoundId = 'woodSoft'
 
 export const CLICK_SOUND_LABELS: Record<ClickSoundId, string> = {
-  woodblock: 'Woodblock',
+  woodSoft: 'Wood Soft',
   clave: 'Clave',
-  digital: 'Digital',
-  rim: 'Rim',
-  tick: 'Soft tick',
+  digitalSoft: 'Digital Soft',
+  mechanicalSoft: 'Mechanical Soft',
+}
+
+/** Old picker ids (and anything unknown) land on Wood Soft. */
+const LEGACY_CLICK_SOUND: Record<string, ClickSoundId> = {
+  woodblock: 'woodSoft',
+  wood: 'woodSoft',
+  digital: 'digitalSoft',
+  rim: 'woodSoft',
+  tick: 'woodSoft',
+  mechanical: 'mechanicalSoft',
 }
 
 /** A hit locked to an exact place in the bar: beat + num/den of that beat. */
@@ -149,6 +158,12 @@ export function isSubdivision(value: unknown): value is SubdivisionId {
 
 export function isClickSound(value: unknown): value is ClickSoundId {
   return typeof value === 'string' && (CLICK_SOUNDS as readonly string[]).includes(value)
+}
+
+export function normalizeClickSound(value: unknown): ClickSoundId {
+  if (isClickSound(value)) return value
+  if (typeof value === 'string' && value in LEGACY_CLICK_SOUND) return LEGACY_CLICK_SOUND[value]
+  return DEFAULT_CLICK_SOUND
 }
 
 export function stepsPerBeat(subdivision: SubdivisionId): number {
