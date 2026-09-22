@@ -26,8 +26,9 @@ import {
 import { DEFAULT_KIT_MIX, parseKitMix, type KitMix } from '@/lib/kit-mix'
 import { makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 
-const STORAGE_KEY = 'omnician.rhythm.v12'
+const STORAGE_KEY = 'omnician.rhythm.v13'
 const PREVIOUS_KEYS = [
+  'omnician.rhythm.v12',
   'omnician.rhythm.v11',
   'omnician.rhythm.v10',
   'omnician.rhythm.v9',

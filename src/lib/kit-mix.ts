@@ -12,6 +12,17 @@ export type KitMix = Record<KitGroupId, number>
 
 export const KIT_MIX_MIN_DB = -48
 export const KIT_MIX_MAX_DB = 6
+/** Rest position: 75% up the throw = 0 dB / calibrated default. */
+export const KIT_MIX_UNITY_POS = 0.75
+
+export const KIT_SCALE_MARKS: { db: number; label: string }[] = [
+  { db: 6, label: '+6' },
+  { db: 0, label: '0' },
+  { db: -6, label: '−6' },
+  { db: -12, label: '−12' },
+  { db: -24, label: '−24' },
+  { db: -48, label: '∞' },
+]
 
 /** Extra gain applied after the fader so 0 on Cymbals stays the quieter default. */
 export const KIT_ZERO_OFFSET_DB: KitMix = {
@@ -60,17 +71,19 @@ export function mixFaderToGain(group: KitGroupId, faderDb: number): number {
   return dbToGain(faderDb + KIT_ZERO_OFFSET_DB[group])
 }
 
-/** Slider 0–1: center is 0 dB, more travel down to −48, headroom up to +6. */
+/** Slider 0–1: 75% up is 0 dB, more travel down to −48, headroom up to +6. */
 export function mixPosToDb(pos: number): number {
   const p = Math.min(1, Math.max(0, pos))
-  if (p <= 0.5) return KIT_MIX_MIN_DB + (0 - KIT_MIX_MIN_DB) * (p / 0.5)
-  return KIT_MIX_MAX_DB * ((p - 0.5) / 0.5)
+  if (p <= KIT_MIX_UNITY_POS) {
+    return KIT_MIX_MIN_DB + (0 - KIT_MIX_MIN_DB) * (p / KIT_MIX_UNITY_POS)
+  }
+  return KIT_MIX_MAX_DB * ((p - KIT_MIX_UNITY_POS) / (1 - KIT_MIX_UNITY_POS))
 }
 
 export function mixDbToPos(db: number): number {
   const d = clampKitDb(db)
-  if (d <= 0) return 0.5 * ((d - KIT_MIX_MIN_DB) / (0 - KIT_MIX_MIN_DB))
-  return 0.5 + 0.5 * (d / KIT_MIX_MAX_DB)
+  if (d <= 0) return KIT_MIX_UNITY_POS * ((d - KIT_MIX_MIN_DB) / (0 - KIT_MIX_MIN_DB))
+  return KIT_MIX_UNITY_POS + (1 - KIT_MIX_UNITY_POS) * (d / KIT_MIX_MAX_DB)
 }
 
 export function formatKitDb(db: number): string {

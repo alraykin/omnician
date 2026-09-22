@@ -5,6 +5,7 @@ import {
   KIT_GROUP_LABELS,
   KIT_MIX_MAX_DB,
   KIT_MIX_MIN_DB,
+  KIT_SCALE_MARKS,
   clampKitDb,
   formatKitDb,
   mixDbToPos,
@@ -24,9 +25,27 @@ const FINE_TRAVEL_PX = 340
 export function KitFaders({ mix, onChange }: KitFadersProps) {
   return (
     <div data-section="kit-faders" className="kit-fader-bank">
-      {KIT_GROUPS.map((group) => (
-        <KitFader key={group} group={group} db={mix[group]} onChange={onChange} />
-      ))}
+      <div className="kit-fader-scale" aria-hidden>
+        <span className="kit-fader-scale-head" />
+        <div className="kit-fader-scale-ladder">
+          {KIT_SCALE_MARKS.map((mark) => (
+            <span
+              key={mark.label}
+              className="kit-fader-scale-mark"
+              data-db={mark.db}
+              style={{ top: `${(1 - mixDbToPos(mark.db)) * 100}%` }}
+            >
+              {mark.label}
+            </span>
+          ))}
+        </div>
+        <span className="kit-fader-scale-foot" />
+      </div>
+      <div className="kit-fader-channels">
+        {KIT_GROUPS.map((group) => (
+          <KitFader key={group} group={group} db={mix[group]} onChange={onChange} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -109,11 +128,13 @@ function KitFader({
     >
       <span className="kit-fader-name">{KIT_GROUP_LABELS[group]}</span>
       <div className="kit-fader-well">
-        <span className="kit-fader-tick kit-fader-tick-top">+</span>
-        <div className="kit-fader-track">
+        <div className="kit-fader-slot">
+          <span className="kit-fader-rail" aria-hidden />
           <span className="kit-fader-fill" style={{ height: `${pos * 100}%` }} />
           <span className="kit-fader-zero" aria-hidden />
-          <span className="kit-fader-cap" style={{ top: `calc(${(1 - pos) * 100}% - 0.36rem)` }} />
+          <span className="kit-fader-cap" style={{ top: `calc(${(1 - pos) * 100}% - 0.42rem)` }}>
+            <span className="kit-fader-cap-face" />
+          </span>
         </div>
       </div>
       <span className="kit-fader-inf" aria-hidden>
