@@ -87,10 +87,11 @@ export function mixDbToPos(db: number): number {
 }
 
 export function formatKitDb(db: number): string {
-  if (db <= KIT_MIX_MIN_DB + 0.4) return '∞'
-  if (Math.abs(db) < 0.25) return '0'
-  const rounded = Math.round(db * 2) / 2
-  return `${rounded > 0 ? '+' : ''}${rounded}`
+  if (db <= KIT_MIX_MIN_DB + 0.05) return '∞'
+  const rounded = Math.round(db * 10) / 10
+  if (Math.abs(rounded) < 0.05) return '0.0'
+  const mag = Math.abs(rounded).toFixed(1)
+  return rounded > 0 ? `+${mag}` : `−${mag}`
 }
 
 export function parseKitMix(raw: unknown, migrateActualCymbals = false): KitMix {
