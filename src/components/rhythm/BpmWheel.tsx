@@ -15,16 +15,16 @@ const MIN_RADIUS = 28
 const FLICK_WINDOW_MS = 90
 const FLICK_PEAK_MS = 45
 const FLICK_MIN_BPM_S = 18
-const FLICK_MAX_BPM_S = 380
-const FRICTION_FAST = 1.15
-const FRICTION_SLOW = 3.55
+const FLICK_MAX_BPM_S = 240
+const FRICTION_FAST = 1.72
+const FRICTION_SLOW = 3.6
 const COAST_STOP_BPM_S = 2.6
 
 type Sample = { t: number; x: number; y: number }
 
 function coastFriction(bpmPerSec: number): number {
   const speed = Math.abs(bpmPerSec)
-  const t = Math.min(1, speed / 140)
+  const t = Math.min(1, speed / 220)
   return FRICTION_SLOW + (FRICTION_FAST - FRICTION_SLOW) * t * t
 }
 
@@ -35,7 +35,7 @@ function boostFlick(rawBpmPerSec: number): number {
   if (speed < FLICK_MIN_BPM_S) return 0
   const span = Math.max(1, FLICK_MAX_BPM_S - FLICK_MIN_BPM_S)
   const t = Math.min(1, (speed - FLICK_MIN_BPM_S) / span)
-  const gain = 1.12 + 1.55 * t * t
+  const gain = 1.1 + 1.25 * t * t
   return sign * Math.min(FLICK_MAX_BPM_S, speed * gain)
 }
 
