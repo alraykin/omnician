@@ -123,4 +123,4 @@ That is not required to try Omnician today.
 
 **Click** voices are CC0 / public domain. Copies live in `public/rhythm/clicks/` with a LICENSE file. Wood uses Druminfected’s metronome tick; its original accent was clipped, so the strong hit is a Versilian VCSL woodblock. Clave is VCSL. Digital is NenadSimic’s menu click, low-passed. Mechanical is Sadiquecat’s metronome click 2.
 
-**Drums** are acoustic one-shots from the Pearl Master Studio pack by enoe (CC BY 3.0). See `public/rhythm/drums/LICENSE.txt`.
+**Drums** — Pearl Master Studio by enoe (CC BY 3.0) for kick, snare, hats, toms, ride, and crash. Rim (cross-stick) and clap are CC0 from the Versilian Community Sample Library. Hats and cymbals are high-passed; snare/clap tails are shortened. See `public/rhythm/drums/LICENSE.txt`.

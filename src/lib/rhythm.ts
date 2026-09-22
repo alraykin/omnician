@@ -21,9 +21,9 @@ export const VOICE_LABELS: Record<VoiceId, string> = {
   clap: 'Clap',
   closedHat: 'Closed',
   openHat: 'Open',
-  highTom: 'Hi tom',
-  midTom: 'Mid',
-  floorTom: 'Floor',
+  highTom: 'Tom 1',
+  midTom: 'Tom 2',
+  floorTom: 'Fl Tom',
   ride: 'Ride',
   crash: 'Crash',
 }

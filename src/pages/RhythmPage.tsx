@@ -44,7 +44,7 @@ import {
 } from '@/lib/rhythm'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
-import { RHYTHM_PRESETS, applyPreset, makeDefaultRockBars, matchPreset } from '@/lib/rhythm-presets'
+import { RHYTHM_PRESETS, barsForPreset, matchPreset } from '@/lib/rhythm-presets'
 import { cn } from '@/lib/utils'
 
 const BEAT_VALUES = Array.from({ length: MAX_BEATS - MIN_BEATS + 1 }, (_, index) => index + MIN_BEATS)
@@ -134,19 +134,9 @@ export function RhythmPage() {
   const loadPreset = (id: string) => {
     const preset = RHYTHM_PRESETS.find((item) => item.id === id)
     if (!preset) return
-    if (id === 'rock-44') {
-      setDrumBars(makeDefaultRockBars())
-      setDrumBarIndex(0)
-      setBpm(DEFAULT_BPM)
-      setPresetId(preset.id)
-      setPickerOpen(false)
-      return
-    }
-    if (!current) return
-    const next = applyPreset(preset)
-    setDrumBars((currentBars) =>
-      currentBars.map((bar, index) => (index === drumBarIndex ? next : setBarSubdivision(bar, next.subdivision))),
-    )
+    setDrumBars(barsForPreset(preset).map(cloneBar))
+    setDrumBarIndex(0)
+    if (id === 'rock-44') setBpm(DEFAULT_BPM)
     setPresetId(preset.id)
     setPickerOpen(false)
   }
@@ -282,12 +272,9 @@ export function RhythmPage() {
             data-bar-count={bars.length}
             data-rhythm-mode={mode}
           >
-            <div className="mb-1.5 flex items-center justify-between gap-2">
+            <div className="mb-1.5">
               <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Bars · meter
-              </p>
-              <p className="text-xs tabular-nums text-slate-400">
-                Bar {barIndex + 1}/{bars.length} · {liveMeter}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">

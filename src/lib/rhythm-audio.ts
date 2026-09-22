@@ -18,6 +18,8 @@ const SAMPLE_FILES: Partial<Record<VoiceId, string>> = {
   floorTom: '/rhythm/drums/floor-tom.wav',
   ride: '/rhythm/drums/ride.wav',
   crash: '/rhythm/drums/crash.wav',
+  rim: '/rhythm/drums/rim.wav',
+  clap: '/rhythm/drums/clap.wav',
 }
 
 const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
@@ -113,39 +115,41 @@ function bakeSnare(ctx: AudioContext): AudioBuffer {
 }
 
 function bakeHat(ctx: AudioContext, open: boolean): AudioBuffer {
-  const seconds = open ? 0.55 : 0.09
-  const freqs = [318, 347, 412, 449, 483, 523, 612, 687]
+  const seconds = open ? 0.42 : 0.07
+  const freqs = open
+    ? [880, 1040, 1188, 1340, 1510, 1720, 1980]
+    : [980, 1210, 1480, 1720, 2050, 2380]
   return renderBuffer(ctx, seconds, (data, sr) => {
     const phases = freqs.map(() => 0)
-    const decay = open ? 0.18 : 0.028
+    const decay = open ? 0.12 : 0.018
     for (let i = 0; i < data.length; i += 1) {
       const t = i / sr
       let metal = 0
       for (let f = 0; f < freqs.length; f += 1) {
-        phases[f] += (Math.PI * 2 * freqs[f] * (open ? 1 : 1.04)) / sr
+        phases[f] += (Math.PI * 2 * freqs[f] * (open ? 1 : 1.03)) / sr
         const square = Math.sin(phases[f]) > 0 ? 1 : -1
         metal += square / freqs.length
       }
-      const hiss = (Math.random() * 2 - 1) * 0.35
-      const tone = (metal * 0.75 + hiss) * env(t, 0.0004, decay)
-      data[i] = tanh(tone * 1.8) * (open ? 0.55 : 0.48)
+      const hiss = (Math.random() * 2 - 1) * 0.4
+      const tone = (metal * 0.7 + hiss) * env(t, 0.00035, decay)
+      data[i] = tanh(tone * 1.7) * (open ? 0.5 : 0.44)
     }
   })
 }
 
 function bakeCrash(ctx: AudioContext): AudioBuffer {
-  const freqs = [420, 487, 533, 611, 673, 754, 812, 901, 1040, 1188]
-  return renderBuffer(ctx, 1.6, (data, sr) => {
+  const freqs = [620, 780, 910, 1080, 1290, 1540, 1810, 2100]
+  return renderBuffer(ctx, 1.05, (data, sr) => {
     const phases = freqs.map(() => Math.random() * Math.PI * 2)
     for (let i = 0; i < data.length; i += 1) {
       const t = i / sr
       let metal = 0
       for (let f = 0; f < freqs.length; f += 1) {
-        phases[f] += (Math.PI * 2 * freqs[f] * (1 + t * 0.015)) / sr
+        phases[f] += (Math.PI * 2 * freqs[f] * (1 + t * 0.012)) / sr
         metal += Math.sin(phases[f]) / freqs.length
       }
-      const wash = (Math.random() * 2 - 1) * env(t, 0.002, 0.55)
-      data[i] = tanh(metal * env(t, 0.003, 0.62) * 1.3 + wash * 0.45) * 0.7
+      const wash = (Math.random() * 2 - 1) * env(t, 0.0015, 0.38)
+      data[i] = tanh(metal * env(t, 0.002, 0.48) * 1.2 + wash * 0.4) * 0.62
     }
   })
 }
@@ -165,8 +169,8 @@ function bakeTom(ctx: AudioContext, freq: number, seconds: number): AudioBuffer 
 }
 
 function bakeRide(ctx: AudioContext): AudioBuffer {
-  const freqs = [380, 512, 647, 801, 934, 1102, 1288]
-  return renderBuffer(ctx, 1.35, (data, sr) => {
+  const freqs = [640, 880, 1120, 1380, 1640, 1980, 2360]
+  return renderBuffer(ctx, 0.95, (data, sr) => {
     const phases = freqs.map(() => Math.random() * Math.PI * 2)
     for (let i = 0; i < data.length; i += 1) {
       const t = i / sr
@@ -175,41 +179,39 @@ function bakeRide(ctx: AudioContext): AudioBuffer {
         phases[f] += (Math.PI * 2 * freqs[f]) / sr
         metal += Math.sin(phases[f]) / freqs.length
       }
-      const ping = metal * env(t, 0.001, 0.55)
-      const wash = (Math.random() * 2 - 1) * env(t, 0.001, 0.42) * 0.28
-      data[i] = tanh(ping * 1.15 + wash) * 0.55
+      const ping = metal * env(t, 0.0008, 0.38)
+      const wash = (Math.random() * 2 - 1) * env(t, 0.0008, 0.28) * 0.22
+      data[i] = tanh(ping * 1.1 + wash) * 0.5
     }
   })
 }
 
 function bakeRim(ctx: AudioContext): AudioBuffer {
-  return renderBuffer(ctx, 0.16, (data, sr) => {
-    let p = 0
-    let p2 = 0
+  return renderBuffer(ctx, 0.14, (data, sr) => {
+    let body = 0
     for (let i = 0; i < data.length; i += 1) {
       const t = i / sr
-      p += (Math.PI * 2 * (620 - t * 1400)) / sr
-      p2 += (Math.PI * 2 * (1480 - t * 3200)) / sr
-      const stick = Math.sin(p) * env(t, 0.0003, 0.028)
-      const rim = Math.sin(p2) * env(t, 0.0002, 0.012) * 0.55
-      const crack = (Math.random() * 2 - 1) * env(t, 0.00015, 0.014) * 0.7
-      data[i] = tanh(stick * 0.85 + rim + crack) * 0.78
+      body += (Math.PI * 2 * (210 - t * 380)) / sr
+      const wood = Math.sin(body) * env(t, 0.0004, 0.018) * 0.35
+      const stick = (Math.random() * 2 - 1) * env(t, 0.00015, 0.009) * 0.85
+      const shell = (Math.random() * 2 - 1) * env(t, 0.0003, 0.022) * 0.22
+      data[i] = tanh(wood + stick + shell) * 0.7
     }
   })
 }
 
 function bakeClap(ctx: AudioContext): AudioBuffer {
-  return renderBuffer(ctx, 0.28, (data, sr) => {
-    const bursts = [0, 0.011, 0.023]
+  return renderBuffer(ctx, 0.11, (data, sr) => {
+    const bursts = [0, 0.009, 0.018]
     for (let i = 0; i < data.length; i += 1) {
       const t = i / sr
       let noise = 0
       for (const offset of bursts) {
         const local = t - offset
         if (local < 0) continue
-        noise += (Math.random() * 2 - 1) * env(local, 0.0006, offset === 0.023 ? 0.055 : 0.018)
+        noise += (Math.random() * 2 - 1) * env(local, 0.0004, 0.014)
       }
-      data[i] = tanh(noise * 1.6) * 0.72
+      data[i] = tanh(noise * 1.45) * 0.68
     }
   })
 }

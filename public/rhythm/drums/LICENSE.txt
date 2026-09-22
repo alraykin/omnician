@@ -6,14 +6,24 @@ https://creativecommons.org/licenses/by/3.0/
 
 Files used (trimmed/normalized for the Omnician practice kit):
 - kick.wav       from kick-01.wav
-- snare.wav      from snare-02.wav
-- closed-hat.wav from hihat-closed.wav
-- open-hat.wav   from hihat-open.wav
+- snare.wav      from snare-02.wav (tail faded)
+- closed-hat.wav from hihat-closed.wav (high-passed)
+- open-hat.wav   from hihat-open.wav (high-passed)
 - high-tom.wav   from tom-01.wav
 - mid-tom.wav    from tom-02.wav
 - floor-tom.wav  from tom-03.wav
-- ride.wav       from ride-01.wav
-- crash.wav      from crash-01.wav
+- ride.wav       from ride-01.wav (high-passed)
+- crash.wav      from crash-01.wav (high-passed)
 
 You may copy, redistribute, and use these samples commercially if you
 keep this attribution with the project.
+
+---
+
+Rim and clap (CC0, no attribution required)
+Versilian Community Sample Library / sgossner
+https://github.com/sgossner/VCSL
+https://versilian-studios.com/vcsl/
+
+- rim.wav  from Snare Drum, Modern 3 / Snare4_Xstick_v2_rr1_Mid.wav (cross-stick)
+- clap.wav from Idiophones / Claps / SoloClap_vl3.wav (tightened)

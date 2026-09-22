@@ -25,6 +25,8 @@ export type RhythmPreset = {
   beatUnit: BeatUnit
   subdivision: SubdivisionId
   accents?: number[]
+  hits: Partial<Record<VoiceId, number[]>>
+  fill?: Partial<Record<VoiceId, number[]>>
   pattern: ReturnType<typeof patternFromHits>
 }
 
@@ -37,6 +39,7 @@ function preset(
   subdivision: SubdivisionId,
   hits: Partial<Record<VoiceId, number[]>>,
   accents?: number[],
+  fill?: Partial<Record<VoiceId, number[]>>,
 ): RhythmPreset {
   return {
     id,
@@ -46,6 +49,8 @@ function preset(
     beatUnit,
     subdivision,
     accents,
+    hits,
+    fill,
     pattern: patternFromHits(beats, subdivision, hits),
   }
 }
@@ -67,7 +72,7 @@ const ROCK_FILL: Partial<Record<VoiceId, number[]>> = {
 }
 
 export const RHYTHM_PRESETS: RhythmPreset[] = [
-  preset('rock-44', 'Rock', 'Backbeat 8ths', 4, 4, 2, ROCK_GROOVE),
+  preset('rock-44', 'Rock', 'Backbeat 8ths', 4, 4, 2, ROCK_GROOVE, undefined, ROCK_FILL),
   preset('punk-44', 'Punk', 'Driving 8th kicks', 4, 4, 2, {
     kick: [0, 1, 2, 3, 4, 5, 6, 7],
     snare: [2, 6],
@@ -201,37 +206,85 @@ export function findPreset(id: string): RhythmPreset | undefined {
   return RHYTHM_PRESETS.find((item) => item.id === id)
 }
 
+const LOOP_BARS = 4
+const CRASH_BARS = [0, 2]
+
+function hitsWithoutCrash(
+  hits: Partial<Record<VoiceId, number[]>>,
+): Partial<Record<VoiceId, number[]>> {
+  const next = { ...hits }
+  delete next.crash
+  return next
+}
+
+function barFromHits(
+  beats: number,
+  beatUnit: BeatUnit,
+  subdivision: SubdivisionId,
+  hits: Partial<Record<VoiceId, number[]>>,
+  accents?: number[],
+): RhythmBar {
+  return makeBar(beats, beatUnit, subdivision, patternFromHits(beats, subdivision, hits), accents)
+}
+
+/** 4-bar phrase. Crash only on bars 1 and 3 when the groove includes a crash. */
+export function makeGrooveBars(
+  beats: number,
+  beatUnit: BeatUnit,
+  subdivision: SubdivisionId,
+  hits: Partial<Record<VoiceId, number[]>>,
+  fill?: Partial<Record<VoiceId, number[]>>,
+  accents?: number[],
+): RhythmBar[] {
+  const body = hitsWithoutCrash(hits)
+  const crashing =
+    hits.crash && hits.crash.length > 0 ? { ...body, crash: hits.crash } : body
+  const useCrash = crashing !== body
+  return Array.from({ length: LOOP_BARS }, (_, index) => {
+    if (fill && index === LOOP_BARS - 1) {
+      return barFromHits(beats, beatUnit, subdivision, fill, accents)
+    }
+    const patternHits = useCrash && CRASH_BARS.includes(index) ? crashing : body
+    return barFromHits(beats, beatUnit, subdivision, patternHits, accents)
+  })
+}
+
+export function barsForPreset(item: RhythmPreset): RhythmBar[] {
+  return makeGrooveBars(
+    item.beats,
+    item.beatUnit,
+    item.subdivision,
+    item.hits,
+    item.fill,
+    item.accents,
+  ).map(cloneBar)
+}
+
 export function matchPreset(bar: RhythmBar): RhythmPreset | null {
   return (
-    RHYTHM_PRESETS.find(
-      (item) =>
-        item.beats === bar.beats &&
-        item.beatUnit === bar.beatUnit &&
-        item.subdivision === bar.subdivision &&
-        patternsEqual(item.pattern, bar.pattern),
+    RHYTHM_PRESETS.find((item) =>
+      barsForPreset(item).some(
+        (loopBar) =>
+          loopBar.beats === bar.beats &&
+          loopBar.beatUnit === bar.beatUnit &&
+          loopBar.subdivision === bar.subdivision &&
+          patternsEqual(loopBar.pattern, bar.pattern),
+      ),
     ) ?? null
   )
 }
 
-export function presetToBar(preset: RhythmPreset): RhythmBar {
-  return makeBar(
-    preset.beats,
-    preset.beatUnit,
-    preset.subdivision,
-    preset.pattern,
-    preset.accents,
-  )
+export function presetToBar(item: RhythmPreset): RhythmBar {
+  return cloneBar(barsForPreset(item)[0] ?? makeBar(item.beats, item.beatUnit, item.subdivision, item.pattern, item.accents))
 }
 
-export function applyPreset(preset: RhythmPreset): RhythmBar {
-  return presetToBar(preset)
+export function applyPreset(item: RhythmPreset): RhythmBar {
+  return presetToBar(item)
 }
 
-/** First-open Rock: three groove bars, then a short tom fill into the one. */
+/** First-open Rock: three groove bars (crash on 1 and 3), then a short tom fill. */
 export function makeDefaultRockBars(): RhythmBar[] {
-  const groove = makeBar(4, 4, 2, patternFromHits(4, 2, ROCK_GROOVE))
-  const fill = makeBar(4, 4, 2, patternFromHits(4, 2, ROCK_FILL))
-  return [cloneBar(groove), cloneBar(groove), cloneBar(groove), cloneBar(fill)]
+  return makeGrooveBars(4, 4, 2, ROCK_GROOVE, ROCK_FILL)
 }
 
 /** First-open Click: a single empty 4/4 bar (eighths), not the 4-bar Rock loop. */

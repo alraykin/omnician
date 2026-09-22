@@ -48,6 +48,7 @@ export function DrumGrid({
             <div key={voice} className="flex items-center gap-1">
               <button
                 type="button"
+                data-voice={voice}
                 onClick={() => onPreview(voice)}
                 className="w-[3.45rem] shrink-0 truncate rounded-lg px-0.5 py-1 text-left text-[0.65rem] font-semibold leading-tight text-slate-300 hover:bg-white/6 hover:text-white"
               >
