@@ -15,15 +15,6 @@ export const KIT_MIX_MAX_DB = 6
 /** Rest position: 75% up the throw = 0 dB / calibrated default. */
 export const KIT_MIX_UNITY_POS = 0.75
 
-export const KIT_SCALE_MARKS: { db: number; label: string }[] = [
-  { db: 6, label: '+6' },
-  { db: 0, label: '0' },
-  { db: -6, label: '−6' },
-  { db: -12, label: '−12' },
-  { db: -24, label: '−24' },
-  { db: -48, label: '∞' },
-]
-
 /** Extra gain applied after the fader so 0 on Cymbals stays the quieter default. */
 export const KIT_ZERO_OFFSET_DB: KitMix = {
   kick: 0,

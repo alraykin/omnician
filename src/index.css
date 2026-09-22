@@ -145,57 +145,11 @@ body {
   --kit-fader-track-h: 4.7rem;
   --kit-fader-foot-h: 1.55rem;
   --kit-fader-cap-half: 0.42rem;
-  display: grid;
-  grid-template-columns: 1.55rem minmax(0, 1fr);
-  gap: 0.15rem 0.2rem;
   margin-top: 0.5rem;
-  padding: 0.4rem 0.3rem 0.35rem 0.2rem;
+  padding: 0.4rem 0.35rem 0.35rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.95rem;
   background: rgba(20, 26, 40, 0.88);
-}
-
-.kit-fader-scale {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.kit-fader-scale-head {
-  height: var(--kit-fader-name-h);
-  flex-shrink: 0;
-}
-
-.kit-fader-scale-foot {
-  height: var(--kit-fader-foot-h);
-  flex-shrink: 0;
-}
-
-.kit-fader-scale-ladder {
-  position: relative;
-  height: var(--kit-fader-track-h);
-  overflow: visible;
-}
-
-.kit-fader-scale-mark {
-  position: absolute;
-  right: 0;
-  left: 0;
-  transform: translateY(-50%);
-  font-size: 0.52rem;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.02em;
-  text-align: right;
-  color: #94a3b8;
-}
-
-.kit-fader-scale-mark[data-db='0'] {
-  color: #e9d5ff;
-}
-
-.kit-fader-scale-mark[data-db='6'] {
-  color: #c4b5fd;
 }
 
 .kit-fader-channels {
@@ -376,7 +330,7 @@ body {
   --kit-fader-track-h: 11.4rem;
   --kit-fader-cap-half: 0.64rem;
   display: flex;
-  width: 8.4rem;
+  width: 6.4rem;
   flex-direction: column;
   align-items: center;
   padding: 0.85rem 0.7rem 0.75rem;
@@ -395,17 +349,6 @@ body {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #e9d5ff;
-}
-
-.kit-fader-zoom-body {
-  display: grid;
-  grid-template-columns: 1.7rem 2.8rem;
-  align-items: stretch;
-  gap: 0.15rem;
-}
-
-.kit-fader-zoom-scale {
-  display: block;
 }
 
 .kit-fader-zoom-throw {

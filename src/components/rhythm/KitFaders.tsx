@@ -6,7 +6,6 @@ import {
   KIT_GROUP_LABELS,
   KIT_MIX_MAX_DB,
   KIT_MIX_MIN_DB,
-  KIT_SCALE_MARKS,
   clampKitDb,
   formatKitDb,
   mixDbToPos,
@@ -28,22 +27,6 @@ export function KitFaders({ mix, onChange }: KitFadersProps) {
 
   return (
     <div data-section="kit-faders" className="kit-fader-bank">
-      <div className="kit-fader-scale" aria-hidden>
-        <span className="kit-fader-scale-head" />
-        <div className="kit-fader-scale-ladder">
-          {KIT_SCALE_MARKS.map((mark) => (
-            <span
-              key={mark.label}
-              className="kit-fader-scale-mark"
-              data-db={mark.db}
-              style={{ top: `${(1 - mixDbToPos(mark.db)) * 100}%` }}
-            >
-              {mark.label}
-            </span>
-          ))}
-        </div>
-        <span className="kit-fader-scale-foot" />
-      </div>
       <div className="kit-fader-channels">
         {KIT_GROUPS.map((group) => (
           <KitFader
@@ -198,24 +181,8 @@ function KitFaderZoom({ group, db }: { group: KitGroupId; db: number }) {
     <div className="kit-fader-zoom" data-kit-fader-zoom={group} aria-hidden>
       <div className="kit-fader-zoom-card">
         <p className="kit-fader-zoom-name">{KIT_GROUP_LABELS[group]}</p>
-        <div className="kit-fader-zoom-body">
-          <div className="kit-fader-scale kit-fader-zoom-scale">
-            <div className="kit-fader-scale-ladder">
-              {KIT_SCALE_MARKS.map((mark) => (
-                <span
-                  key={mark.label}
-                  className="kit-fader-scale-mark"
-                  data-db={mark.db}
-                  style={{ top: `${(1 - mixDbToPos(mark.db)) * 100}%` }}
-                >
-                  {mark.label}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="kit-fader-zoom-throw">
-            <FaderThrow db={db} />
-          </div>
+        <div className="kit-fader-zoom-throw">
+          <FaderThrow db={db} />
         </div>
         <p className="kit-fader-zoom-readout">{formatKitDb(db)}</p>
       </div>
