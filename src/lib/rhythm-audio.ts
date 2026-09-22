@@ -8,7 +8,7 @@ export function getAudioCtor(): AudioContextCtor | undefined {
   return window.AudioContext ?? view.webkitAudioContext
 }
 
-const SAMPLE_FILES: Record<VoiceId, string> = {
+const SAMPLE_FILES: Partial<Record<VoiceId, string>> = {
   kick: '/rhythm/drums/kick.wav',
   snare: '/rhythm/drums/snare.wav',
   closedHat: '/rhythm/drums/closed-hat.wav',
@@ -21,7 +21,7 @@ const SAMPLE_FILES: Record<VoiceId, string> = {
 }
 
 const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
-  woodSoft: {
+  wood: {
     normal: '/rhythm/clicks/wood-soft-tick.wav',
     accent: '/rhythm/clicks/wood-soft-accent.wav',
   },
@@ -29,11 +29,11 @@ const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
     normal: '/rhythm/clicks/clave-tick.wav',
     accent: '/rhythm/clicks/clave-accent.wav',
   },
-  digitalSoft: {
+  digital: {
     normal: '/rhythm/clicks/digital-soft-tick.wav',
     accent: '/rhythm/clicks/digital-soft-accent.wav',
   },
-  mechanicalSoft: {
+  mechanical: {
     normal: '/rhythm/clicks/mechanical-soft-tick.wav',
     accent: '/rhythm/clicks/mechanical-soft-accent.wav',
   },
@@ -43,6 +43,8 @@ const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
 const SAMPLE_GAIN: Record<VoiceId, number> = {
   kick: 1,
   snare: 0.92,
+  rim: 0.78,
+  clap: 0.82,
   closedHat: 0.72,
   openHat: 0.62,
   highTom: 0.88,
@@ -180,10 +182,44 @@ function bakeRide(ctx: AudioContext): AudioBuffer {
   })
 }
 
+function bakeRim(ctx: AudioContext): AudioBuffer {
+  return renderBuffer(ctx, 0.16, (data, sr) => {
+    let p = 0
+    let p2 = 0
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      p += (Math.PI * 2 * (620 - t * 1400)) / sr
+      p2 += (Math.PI * 2 * (1480 - t * 3200)) / sr
+      const stick = Math.sin(p) * env(t, 0.0003, 0.028)
+      const rim = Math.sin(p2) * env(t, 0.0002, 0.012) * 0.55
+      const crack = (Math.random() * 2 - 1) * env(t, 0.00015, 0.014) * 0.7
+      data[i] = tanh(stick * 0.85 + rim + crack) * 0.78
+    }
+  })
+}
+
+function bakeClap(ctx: AudioContext): AudioBuffer {
+  return renderBuffer(ctx, 0.28, (data, sr) => {
+    const bursts = [0, 0.011, 0.023]
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      let noise = 0
+      for (const offset of bursts) {
+        const local = t - offset
+        if (local < 0) continue
+        noise += (Math.random() * 2 - 1) * env(local, 0.0006, offset === 0.023 ? 0.055 : 0.018)
+      }
+      data[i] = tanh(noise * 1.6) * 0.72
+    }
+  })
+}
+
 function bakeSynthDrums(ctx: AudioContext): Record<VoiceId, AudioBuffer> {
   return {
     kick: bakeKick(ctx),
     snare: bakeSnare(ctx),
+    rim: bakeRim(ctx),
+    clap: bakeClap(ctx),
     closedHat: bakeHat(ctx, false),
     openHat: bakeHat(ctx, true),
     highTom: bakeTom(ctx, 196, 0.55),
@@ -230,8 +266,10 @@ async function loadDrums(ctx: AudioContext): Promise<Record<VoiceId, AudioBuffer
   const drums = bakeSynthDrums(ctx)
   await Promise.all(
     (Object.keys(SAMPLE_FILES) as VoiceId[]).map(async (voice) => {
+      const url = SAMPLE_FILES[voice]
+      if (!url) return
       try {
-        drums[voice] = await loadSample(ctx, SAMPLE_FILES[voice])
+        drums[voice] = await loadSample(ctx, url)
       } catch {
         // Keep the synthesized one-shot for this lane.
       }
@@ -255,7 +293,7 @@ function bakeClick(
 
 function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
   const clicks: Record<ClickSoundId, ClickPair> = {
-    woodSoft: bakeClick(ctx, (data, sr, accent) => {
+    wood: bakeClick(ctx, (data, sr, accent) => {
       const f0 = accent ? 560 : 430
       let p = 0
       let p2 = 0
@@ -279,7 +317,7 @@ function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
           Math.sin(p) * env(t, 0.0003, accent ? 0.024 : 0.016) * (accent ? 0.7 : 0.46)
       }
     }),
-    digitalSoft: bakeClick(ctx, (data, sr, accent) => {
+    digital: bakeClick(ctx, (data, sr, accent) => {
       const f0 = accent ? 1320 : 980
       let p = 0
       for (let i = 0; i < data.length; i += 1) {
@@ -289,7 +327,7 @@ function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
         data[i] = square * env(t, 0.0004, accent ? 0.028 : 0.018) * (accent ? 0.34 : 0.22)
       }
     }),
-    mechanicalSoft: bakeClick(ctx, (data, sr, accent) => {
+    mechanical: bakeClick(ctx, (data, sr, accent) => {
       let p = 0
       for (let i = 0; i < data.length; i += 1) {
         const t = i / sr
@@ -355,7 +393,7 @@ function scaleBuffer(buffer: AudioBuffer, gain: number, ceiling: number): void {
 
 /** Match unaccented clicks to one loudness; accents stay a bit hotter than their own base. */
 function matchClickLoudness(clicks: Record<ClickSoundId, ClickPair>): Record<ClickSoundId, ClickPair> {
-  const target = attackLoudness(clicks.woodSoft.normal)
+  const target = attackLoudness(clicks.wood.normal)
   const accentBoost = Math.pow(10, 2.4 / 20)
   for (const id of Object.keys(clicks) as ClickSoundId[]) {
     const pair = clicks[id]
@@ -461,13 +499,17 @@ export class RhythmKit {
   click(
     time: number,
     level: 0 | 1 | 2,
-    sound: ClickSoundId = 'woodSoft',
+    sound: ClickSoundId = 'wood',
+    onBeat = true,
   ): void {
-    const pair = this.clicks[sound] ?? this.clicks.woodSoft
+    const pair = this.clicks[sound] ?? this.clicks.wood
     // Off/soft share the tick; strong uses the accent one-shot (timbre, not just louder).
     const buffer = level === 2 ? pair.accent : pair.normal
-    const gain = level === 2 ? 0.92 : level === 1 ? 0.7 : 0.4
-    const rate = level === 1 ? 1.03 : 1
+    const baseGain = level === 2 ? 0.92 : level === 1 ? 0.7 : 0.4
+    const baseRate = level === 1 ? 1.03 : 1
+    // Within-beat pulses sit a little higher so they never match a main-beat click.
+    const rate = onBeat ? baseRate : baseRate * 1.09
+    const gain = onBeat ? baseGain : baseGain * 0.86
     this.fire(buffer, time, gain, rate)
   }
 
@@ -480,8 +522,8 @@ export class RhythmKit {
     if (voice === 'openHat' && source) this.openHat = source
   }
 
-  previewClick(sound: ClickSoundId, level: 0 | 1 | 2 = 2): void {
-    this.click(this.ctx.currentTime + 0.01, level, sound)
+  previewClick(sound: ClickSoundId, level: 0 | 1 | 2 = 2, onBeat = true): void {
+    this.click(this.ctx.currentTime + 0.01, level, sound, onBeat)
   }
 
   private fire(buffer: AudioBuffer, time: number, gain: number, rate = 1): GainNode {

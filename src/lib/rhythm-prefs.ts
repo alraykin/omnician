@@ -25,8 +25,9 @@ import {
 } from '@/lib/rhythm'
 import { makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 
-const STORAGE_KEY = 'omnician.rhythm.v9'
+const STORAGE_KEY = 'omnician.rhythm.v10'
 const PREVIOUS_KEYS = [
+  'omnician.rhythm.v9',
   'omnician.rhythm.v8',
   'omnician.rhythm.v7',
   'omnician.rhythm.v6',

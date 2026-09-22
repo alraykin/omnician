@@ -1,6 +1,8 @@
 export const VOICES = [
   'kick',
   'snare',
+  'rim',
+  'clap',
   'closedHat',
   'openHat',
   'highTom',
@@ -15,11 +17,13 @@ export type VoiceId = (typeof VOICES)[number]
 export const VOICE_LABELS: Record<VoiceId, string> = {
   kick: 'Kick',
   snare: 'Snare',
-  closedHat: 'Closed hat',
-  openHat: 'Open hat',
-  highTom: 'High tom',
-  midTom: 'Mid tom',
-  floorTom: 'Floor tom',
+  rim: 'Rim',
+  clap: 'Clap',
+  closedHat: 'Closed',
+  openHat: 'Open',
+  highTom: 'Hi tom',
+  midTom: 'Mid',
+  floorTom: 'Floor',
   ride: 'Ride',
   crash: 'Crash',
 }
@@ -62,26 +66,26 @@ const LEGACY_SUBDIVISION: Record<string, SubdivisionId> = {
   septuplets: 7,
 }
 
-export const CLICK_SOUNDS = ['woodSoft', 'clave', 'digitalSoft', 'mechanicalSoft'] as const
+export const CLICK_SOUNDS = ['wood', 'clave', 'digital', 'mechanical'] as const
 
 export type ClickSoundId = (typeof CLICK_SOUNDS)[number]
-export const DEFAULT_CLICK_SOUND: ClickSoundId = 'woodSoft'
+export const DEFAULT_CLICK_SOUND: ClickSoundId = 'wood'
 
 export const CLICK_SOUND_LABELS: Record<ClickSoundId, string> = {
-  woodSoft: 'Wood Soft',
+  wood: 'Wood',
   clave: 'Clave',
-  digitalSoft: 'Digital Soft',
-  mechanicalSoft: 'Mechanical Soft',
+  digital: 'Digital',
+  mechanical: 'Mechanical',
 }
 
-/** Old picker ids (and anything unknown) land on Wood Soft. */
+/** Old picker ids (and anything unknown) land on Wood. */
 const LEGACY_CLICK_SOUND: Record<string, ClickSoundId> = {
-  woodblock: 'woodSoft',
-  wood: 'woodSoft',
-  digital: 'digitalSoft',
-  rim: 'woodSoft',
-  tick: 'woodSoft',
-  mechanical: 'mechanicalSoft',
+  woodSoft: 'wood',
+  woodblock: 'wood',
+  digitalSoft: 'digital',
+  mechanicalSoft: 'mechanical',
+  rim: 'wood',
+  tick: 'wood',
 }
 
 /** A hit locked to an exact place in the bar: beat + num/den of that beat. */

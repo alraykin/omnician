@@ -129,10 +129,10 @@ export function useRhythmEngine({
   )
 
   const previewClick = useCallback(
-    async (sound: ClickSoundId, level: AccentLevel = 2) => {
+    async (sound: ClickSoundId, level: AccentLevel = 2, onBeat = true) => {
       const kit = await ensureKit()
       if (!kit) return
-      kit.previewClick(sound, level)
+      kit.previewClick(sound, level, onBeat)
     },
     [ensureKit],
   )
@@ -235,7 +235,7 @@ export function useRhythmEngine({
         )
         if (step === 0) armDrumBar(barIndex, time)
         if (liveModeRef.current === 'click') {
-          kit.click(time, accent, clickRef.current)
+          kit.click(time, accent, clickRef.current, onBeat)
         }
 
         const delay = Math.max(0, (time - kit.ctx.currentTime) * 1000)

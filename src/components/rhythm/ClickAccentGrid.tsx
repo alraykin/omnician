@@ -46,23 +46,7 @@ export function ClickAccentGrid({
   const liveSlot = live && liveStep >= 0 ? liveStep % Math.max(1, steps) : -1
 
   return (
-    <div data-section="accents" className="space-y-2.5">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-          Accents · tap to cycle
-        </p>
-        <p className="flex items-center gap-2 text-[0.65rem] font-semibold text-slate-500">
-          <span className="inline-flex items-center gap-1">
-            <span className="size-2.5 rounded-full bg-[#C4B5FD]" />
-            Soft
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="size-2.5 rounded-full bg-[#A855F7]" />
-            Strong
-          </span>
-        </p>
-      </div>
-
+    <div data-section="accents" className="space-y-2">
       <div>
         <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
           Beats

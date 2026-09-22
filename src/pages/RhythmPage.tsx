@@ -222,10 +222,7 @@ export function RhythmPage() {
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:thin]"
         >
           <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">Rhythm</h1>
-              <p className="hidden text-xs text-slate-400 sm:block">Click or drums — same tempo, any meter.</p>
-            </div>
+            <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">Rhythm</h1>
             <div
               className="grid w-[11.5rem] shrink-0 grid-cols-2 rounded-xl border border-white/10 bg-[#141A28] p-0.5"
               data-section="mode"
@@ -381,6 +378,7 @@ export function RhythmPage() {
                     aria-label={SUBDIVISION_LABELS[steps]}
                     title={SUBDIVISION_LABELS[steps]}
                     aria-pressed={current.subdivision === steps}
+                    data-subdivision={steps}
                     onClick={() => setSubdivision(steps)}
                     className={cn(
                       'flex h-12 w-[2.85rem] shrink-0 items-center justify-center rounded-lg sm:h-14 sm:w-[3.2rem]',
@@ -394,17 +392,14 @@ export function RhythmPage() {
                 ))}
               </div>
             </div>
-            <p className="mt-1 text-[0.7rem] text-slate-500">
-              {SUBDIVISION_LABELS[current.subdivision]} · same on every bar
-            </p>
           </section>
 
           {mode === 'click' ? (
             <section className="mt-2.5 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4">
-              <div className="mb-2.5 flex items-center gap-3">
+              <div className="mb-2 flex items-center gap-2.5">
                 <div
                   className={cn(
-                    'flex size-14 shrink-0 items-center justify-center rounded-full border-[3px] sm:size-20',
+                    'flex size-11 shrink-0 items-center justify-center rounded-full border-[3px] sm:size-12',
                     playhead.beat >= 0
                       ? playhead.accent === 2
                         ? 'omni-beat-pulse border-[#A855F7] bg-[#A855F7]/25'
@@ -418,7 +413,7 @@ export function RhythmPage() {
                   aria-live="polite"
                   data-pulse-level={playhead.accent}
                 >
-                  <span className="text-2xl font-bold tabular-nums text-white sm:text-3xl">
+                  <span className="text-lg font-bold tabular-nums text-white sm:text-xl">
                     {playhead.beat < 0
                       ? '—'
                       : playhead.subdivision
@@ -426,9 +421,8 @@ export function RhythmPage() {
                         : playhead.beat + 1}
                   </span>
                 </div>
-                <p className="min-w-0 text-[0.7rem] leading-4 text-slate-500">
-                  Outer row is the beats. Inner row is one nested pattern that
-                  repeats inside every beat.
+                <p className="min-w-0 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Accents
                 </p>
               </div>
               <ClickAccentGrid
@@ -445,21 +439,23 @@ export function RhythmPage() {
                   void previewClick(
                     clickSound,
                     nestAccent(beatAccentAt(next, beat), 0),
+                    true,
                   )
                 }}
                 onCycleSubdiv={(slot) => {
                   const steps = stepsPerBeat(current.subdivision)
                   const next = cycleSubdivAccent(current.subdivAccents, slot, steps)
                   patchBar(barIndex, { ...current, subdivAccents: next })
-                  void previewClick(clickSound, nestAccent(0, subdivAccentAt(next, slot, steps)))
+                  void previewClick(
+                    clickSound,
+                    nestAccent(0, subdivAccentAt(next, slot, steps)),
+                    false,
+                  )
                 }}
               />
-              <p className="mt-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Click sound
-              </p>
               <div
                 data-section="click-sound"
-                className="mt-1 flex w-full flex-wrap gap-1.5"
+                className="mt-2.5 grid w-full grid-cols-4 gap-1"
               >
                 {CLICK_SOUNDS.map((id) => (
                   <button
@@ -472,7 +468,7 @@ export function RhythmPage() {
                       void previewClick(id)
                     }}
                     className={cn(
-                      'h-8 whitespace-nowrap rounded-lg px-2.5 text-sm font-semibold',
+                      'h-8 min-w-0 rounded-lg px-1 text-[0.7rem] font-semibold sm:text-sm',
                       clickSound === id
                         ? 'bg-[#A855F7] text-white'
                         : 'border border-white/10 bg-white/4 text-slate-200',
@@ -589,10 +585,6 @@ function PresetSheet({
         <h2 id="rhythm-presets-title" className="text-xl font-bold tracking-tight text-white">
           Beat library
         </h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Picking a beat sets this bar’s meter. Subdivision is shared across all
-          bars and does not move existing hits.
-        </p>
         <PresetGroup
           title={`For ${meterLabel(current.beats, current.beatUnit)}`}
           items={local}
@@ -638,6 +630,7 @@ function PresetGroup({
             key={item.id}
             type="button"
             onClick={() => onSelect(item.id)}
+            data-preset={item.id}
             className={cn(
               'flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-left',
               item.id === selectedId
