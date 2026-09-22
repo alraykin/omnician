@@ -22,8 +22,10 @@ export function AppChrome({
   return (
     <div
       className={cn(
-        'relative flex min-h-svh flex-col overflow-x-hidden',
-        compact ? 'px-4 py-3 sm:px-8 sm:py-5' : 'px-5 py-6 sm:px-8 sm:py-8',
+        'relative flex flex-col',
+        compact
+          ? 'h-svh max-h-svh overflow-hidden px-4 py-3 sm:px-8 sm:py-5'
+          : 'min-h-svh overflow-x-hidden px-5 py-6 sm:px-8 sm:py-8',
       )}
     >
       <div className="stage-glow" aria-hidden />

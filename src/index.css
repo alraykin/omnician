@@ -179,7 +179,7 @@ body {
 }
 
 .bpm-dial {
-  --ring-radius: 73px;
+  --ring-radius: 62px;
   touch-action: none;
   overscroll-behavior: none;
   background:
@@ -194,6 +194,10 @@ body {
 @media (min-width: 640px) {
   .bpm-dial {
     --ring-radius: 79px;
+  }
+
+  .bpm-dial-face {
+    inset: 22px;
   }
 }
 
@@ -244,7 +248,7 @@ body {
 
 .bpm-dial-face {
   position: absolute;
-  inset: 22px;
+  inset: 19px;
   overflow: hidden;
   border-radius: 50%;
   background:

@@ -212,7 +212,10 @@ export function RhythmPage() {
   return (
     <AppChrome align="fill" wide compact>
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:thin]">
+        <div
+          data-rhythm-scroll
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:thin]"
+        >
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">Rhythm</h1>
@@ -240,7 +243,7 @@ export function RhythmPage() {
             </div>
           </div>
 
-          <section className="mt-2.5 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2.5 sm:px-4">
+          <section className="mt-2 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4">
             <div className="flex flex-col items-center">
               <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
               <p className="relative z-20 mt-1 text-[0.65rem] text-slate-500">{pulseLabel(current.beatUnit)}</p>
@@ -396,7 +399,7 @@ export function RhythmPage() {
               <div className="flex items-center gap-3">
                 <div
                   className={cn(
-                    'flex size-[4.5rem] shrink-0 items-center justify-center rounded-full border-[3px] sm:size-20',
+                    'flex size-14 shrink-0 items-center justify-center rounded-full border-[3px] sm:size-20',
                     playhead.beat >= 0
                       ? playhead.accent
                         ? 'omni-beat-pulse border-[#A855F7] bg-[#A855F7]/25'
@@ -407,7 +410,7 @@ export function RhythmPage() {
                   )}
                   aria-live="polite"
                 >
-                  <span className="text-3xl font-bold tabular-nums text-white">
+                  <span className="text-2xl font-bold tabular-nums text-white sm:text-3xl">
                     {playhead.beat >= 0 ? playhead.beat + 1 : '—'}
                   </span>
                 </div>
@@ -509,7 +512,7 @@ export function RhythmPage() {
 
         <div
           data-section="transport"
-          className="relative z-30 shrink-0 border-t border-white/10 bg-[#0B0F1A]/95 pt-2 pb-[max(0.55rem,env(safe-area-inset-bottom))] backdrop-blur-md"
+          className="relative z-40 shrink-0 border-t border-white/10 bg-[#0B0F1A]/95 pt-2 pb-[max(0.55rem,env(safe-area-inset-bottom))]"
         >
           <div className="mb-1.5 flex items-center justify-between gap-2 text-[0.7rem] text-slate-400">
             <p className="min-w-0 truncate tabular-nums">

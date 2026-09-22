@@ -263,7 +263,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative size-[176px] sm:size-[188px]">
+      <div className="relative size-[152px] sm:size-[188px]">
         <div
           aria-hidden
           className="pointer-events-none absolute -bottom-1 left-1/2 h-4 w-28 -translate-x-1/2 rounded-full bg-black/50 blur-md"
@@ -337,7 +337,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
             }
           }}
         >
-          <div className="bpm-dial pointer-events-none relative size-[176px] select-none rounded-full sm:size-[188px]">
+          <div className="bpm-dial pointer-events-none relative size-[152px] select-none rounded-full sm:size-[188px]">
             <span aria-hidden className="bpm-dial-pip" />
             <div
               aria-hidden
@@ -391,7 +391,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
                       }
                       event.stopPropagation()
                     }}
-                    className="pointer-events-auto mt-0.5 w-[5.2rem] bg-transparent text-center text-5xl font-bold tabular-nums tracking-tight text-white outline-none caret-[#C084FC]"
+                    className="pointer-events-auto mt-0.5 w-[5.2rem] bg-transparent text-center text-4xl font-bold tabular-nums tracking-tight text-white outline-none caret-[#C084FC] sm:text-5xl"
                   />
                 ) : (
                   <button
@@ -400,7 +400,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
                       if (movedRef.current) return
                       setDraft(String(shown))
                     }}
-                    className="pointer-events-auto mt-0.5 rounded-xl px-2 text-5xl font-bold tabular-nums tracking-tight text-white"
+                    className="pointer-events-auto mt-0.5 rounded-xl px-2 text-4xl font-bold tabular-nums tracking-tight text-white sm:text-5xl"
                   >
                     {shown}
                   </button>
