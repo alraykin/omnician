@@ -30,7 +30,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
   const [shown, setShown] = useState(value)
   const editing = draft !== null
   const live = dragging || coasting
-  const ringAngle = (visual - MIN_BPM) * DEG_PER_BPM
+  const ringAngle = (MIN_BPM - visual) * DEG_PER_BPM
 
   const visualRef = useRef(value)
   const emittedRef = useRef(value)
@@ -161,7 +161,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
       if (editingRef.current) return
       event.preventDefault()
       stopCoast()
-      const dir = event.deltaY > 0 ? -1 : 1
+      const dir = event.deltaY > 0 ? 1 : -1
       const steps = Math.max(1, Math.round(Math.abs(event.deltaY) / 48))
       emitIfNeeded(emittedRef.current + dir * steps)
     }
