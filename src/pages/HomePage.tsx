@@ -12,7 +12,7 @@ export function HomePage() {
         <p className="mb-5 max-w-sm text-[0.65rem] font-semibold uppercase leading-4 tracking-[0.16em] text-[#C084FC]/80 sm:text-xs sm:tracking-[0.22em]">
           The ultimate practice companion
         </p>
-        <OmnicianWordmark className="h-14 w-auto sm:h-[4.75rem] md:h-24" />
+        <OmnicianWordmark className="h-[5.5rem] w-auto sm:h-28 md:h-36" />
         <p className="mt-4 max-w-md text-base text-slate-400 sm:text-lg">
           You&apos;re becoming an Omnician.
         </p>

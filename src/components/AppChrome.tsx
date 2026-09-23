@@ -41,7 +41,7 @@ export function AppChrome({
             Home
           </Link>
         </Button>
-        <OmnicianWordmark className={cn('w-auto', compact ? 'h-6 sm:h-8' : 'h-7 sm:h-8')} />
+        <OmnicianWordmark className={cn('w-auto', compact ? 'h-9 sm:h-11' : 'h-10 sm:h-12')} />
         <span className="w-[4.5rem]" aria-hidden />
       </header>
       <main
