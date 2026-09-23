@@ -8,9 +8,9 @@ type OmnicianMarkProps = {
 export function OmnicianMark({ className, title = 'Omnician' }: OmnicianMarkProps) {
   return (
     <img
-      src="/omnician-mark.png"
+      src="/brand/omnician-mark.png"
       alt={title}
-      className={cn('shrink-0 object-contain', className)}
+      className={cn('shrink-0 bg-transparent object-contain', className)}
     />
   )
 }
@@ -18,9 +18,9 @@ export function OmnicianMark({ className, title = 'Omnician' }: OmnicianMarkProp
 export function OmnicianWordmark({ className }: { className?: string }) {
   return (
     <img
-      src="/omnician-logo.png"
+      src="/brand/omnician-wordmark.png"
       alt="Omnician"
-      className={cn('block h-auto w-auto max-w-full select-none', className)}
+      className={cn('block h-auto w-auto max-w-full select-none bg-transparent', className)}
     />
   )
 }
