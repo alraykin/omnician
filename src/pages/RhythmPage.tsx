@@ -1,11 +1,12 @@
-import { ChevronDown, Lock, Minus, Play, Plus, Square, Trash2 } from 'lucide-react'
+import { ChevronDown, Lock, Minus, Play, Plus, Square } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
 import { BpmWheel } from '@/components/rhythm/BpmWheel'
+import { BarStrip } from '@/components/rhythm/BarStrip'
 import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
-import { DrumGrid } from '@/components/rhythm/DrumGrid'
+import { DrumBarStage } from '@/components/rhythm/DrumBarStage'
 import { KitFaders } from '@/components/rhythm/KitFaders'
 import { SnapWheel } from '@/components/rhythm/SnapWheel'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
@@ -31,7 +32,6 @@ import {
   nestAccent,
   subdivAccentAt,
   meterLabel,
-  patternToGrid,
   pulseLabel,
   setBarSubdivision,
   stepsPerBeat,
@@ -83,7 +83,8 @@ export function RhythmPage() {
   const setBarIndex = mode === 'click' ? setClickBarIndex : setDrumBarIndex
 
   const current = bars[Math.min(barIndex, bars.length - 1)] ?? bars[0]
-  const { playheadStore, preview, previewClick, ensureKit, holdUntilCycle, halt } = useRhythmEngine({
+  const { playheadStore, preview, previewClick, previewBar, previewClickBar, ensureKit, holdUntilCycle, halt } =
+    useRhythmEngine({
     playing,
     bpm,
     mode,
@@ -201,28 +202,35 @@ export function RhythmPage() {
   }
 
   const onPaintCell = useCallback(
-    (voice: VoiceId, step: number, on: boolean, playPreview: boolean) => {
-      const apply = mode === 'drums' ? setDrumBars : setClickBars
+    (targetBar: number, voice: VoiceId, step: number, on: boolean, playPreview: boolean) => {
       let changed = false
-      apply((bars) => {
-        const bar = bars[Math.min(barIndex, bars.length - 1)]
-        if (!bar) return bars
+      setDrumBars((currentBars) => {
+        const bar = currentBars[targetBar]
+        if (!bar) return currentBars
         const nextPattern = setHit(bar.pattern, voice, step, bar.beats, bar.subdivision, on)
-        if (nextPattern === bar.pattern) return bars
+        if (nextPattern === bar.pattern) return currentBars
         changed = true
-        return bars.map((item, index) => (index === barIndex ? { ...item, pattern: nextPattern } : item))
+        return currentBars.map((item, index) =>
+          index === targetBar ? { ...item, pattern: nextPattern } : item,
+        )
       })
       if (changed) setPresetId(matched?.id ?? presetId)
       if (playPreview) void preview(voice)
     },
-    [barIndex, matched?.id, mode, presetId, preview],
+    [matched?.id, presetId, preview],
   )
 
-  const gridPattern = useMemo(
-    () =>
-      current ? patternToGrid(current.pattern, current.beats, current.subdivision) : null,
-    [current],
-  )
+  const chooseDrumBar = (index: number) => {
+    setDrumBarIndex(index)
+    const bar = drumBars[index]
+    if (bar && !playing) void previewBar(bar)
+  }
+
+  const chooseClickBar = (index: number) => {
+    setClickBarIndex(index)
+    const bar = clickBars[index]
+    if (bar && !playing) void previewClickBar(bar)
+  }
 
   const startStop = async () => {
     if (playing) {
@@ -323,42 +331,10 @@ export function RhythmPage() {
           >
             <div className="mb-1.5">
               <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Bars · meter
+                Meter
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-1">
-              <BarPills
-                store={playheadStore}
-                bars={bars}
-                barIndex={barIndex}
-                playing={playing}
-                onSelect={setBarIndex}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8"
-                onClick={addBar}
-                disabled={bars.length >= MAX_BARS}
-              >
-                <Plus className="size-3.5" />
-                Bar
-              </Button>
-              {bars.length > 1 ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8"
-                  onClick={() => removeBar(barIndex)}
-                  aria-label="Remove this bar"
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              ) : null}
-            </div>
-            <div className="mt-2 flex items-center justify-center gap-2 sm:gap-4">
+            <div className="flex items-center justify-center gap-2 sm:gap-4">
               <SnapWheel
                 compact
                 label="Beats"
@@ -415,6 +391,19 @@ export function RhythmPage() {
 
           {mode === 'click' ? (
             <section className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4 lg:col-start-2 lg:row-span-3 lg:row-start-1">
+              <div className="mb-3">
+                  <BarStrip
+                    store={playheadStore}
+                    bars={clickBars}
+                    barIndex={clickBarIndex}
+                    playing={playing}
+                    kinds={false}
+                    canAdd={clickBars.length < MAX_BARS}
+                  onSelect={chooseClickBar}
+                  onAdd={addBar}
+                  onRemove={() => removeBar(clickBarIndex)}
+                />
+              </div>
               <ClickLiveHeader
                 store={playheadStore}
                 playing={playing}
@@ -492,15 +481,25 @@ export function RhythmPage() {
                 </span>
                 <span className="text-xs font-semibold text-slate-400">Change</span>
               </button>
-              <DrumGrid
-                beats={current.beats}
-                subdivisionSteps={stepsPerBeat(current.subdivision)}
-                pattern={gridPattern ?? patternToGrid(current.pattern, current.beats, current.subdivision)}
-                playheadStore={playheadStore}
-                barIndex={barIndex}
+              <div className="mb-3 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-3">
+                <BarStrip
+                  store={playheadStore}
+                  bars={drumBars}
+                  barIndex={drumBarIndex}
+                  playing={playing}
+                  canAdd={drumBars.length < MAX_BARS}
+                  onSelect={chooseDrumBar}
+                  onAdd={addBar}
+                  onRemove={() => removeBar(drumBarIndex)}
+                />
+              </div>
+              <DrumBarStage
+                bars={drumBars}
+                barIndex={drumBarIndex}
                 playing={playing}
+                playheadStore={playheadStore}
                 onPaint={onPaintCell}
-                onPreview={preview}
+                onPreviewVoice={preview}
               />
               <KitFaders mix={kitMix} onChange={setGroupMix} />
               <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-600">
@@ -569,54 +568,12 @@ function PlayheadBarSync({
   onBar: (bar: number) => void
 }) {
   const playhead = usePlayhead(store)
+  const wasPlaying = useRef(false)
   useEffect(() => {
-    if (playing) onBar(playhead.bar)
-  }, [playhead.bar, playing, onBar])
+    if (wasPlaying.current && !playing && playhead.bar >= 0) onBar(playhead.bar)
+    wasPlaying.current = playing
+  }, [onBar, playhead.bar, playing])
   return null
-}
-
-function BarPills({
-  store,
-  bars,
-  barIndex,
-  playing,
-  onSelect,
-}: {
-  store: PlayheadStore
-  bars: readonly RhythmBar[]
-  barIndex: number
-  playing: boolean
-  onSelect: (index: number) => void
-}) {
-  const playhead = usePlayhead(store)
-  return (
-    <>
-      {bars.map((bar, index) => {
-        const live = playing && playhead.bar === index
-        return (
-          <button
-            key={`bar-${index}`}
-            type="button"
-            data-bar-pill={index}
-            onClick={() => onSelect(index)}
-            className={cn(
-              'h-8 min-w-8 rounded-lg px-1.5 text-sm font-semibold sm:px-2',
-              index === barIndex
-                ? 'bg-[#A855F7] text-white'
-                : 'border border-white/10 bg-white/4 text-slate-200',
-              live && 'omni-beat-pulse',
-            )}
-          >
-            {index + 1}
-            <span className="mx-1 text-[0.65rem] font-medium opacity-40">·</span>
-            <span className="text-[0.65rem] font-medium opacity-70">
-              {meterLabel(bar.beats, bar.beatUnit)}
-            </span>
-          </button>
-        )
-      })}
-    </>
-  )
 }
 
 function ClickLiveHeader({

@@ -186,6 +186,46 @@ export function useRhythmEngine({
     [ensureKit],
   )
 
+  const previewBar = useCallback(
+    async (bar: RhythmBar) => {
+      const kit = await ensureKit()
+      if (!kit || playingRef.current) return
+      kit.stopAll()
+      const start = kit.ctx.currentTime + 0.03
+      const tempo = bpmRef.current
+      for (const voice of VOICES) {
+        for (const hit of bar.pattern[voice] ?? []) {
+          if (hit.beat < 0 || hit.beat >= bar.beats) continue
+          kit.hit(voice, start + hitTimeInBar(hit, tempo), false)
+        }
+      }
+    },
+    [ensureKit],
+  )
+
+  const previewClickBar = useCallback(
+    async (bar: RhythmBar) => {
+      const kit = await ensureKit()
+      if (!kit || playingRef.current) return
+      kit.stopAll()
+      const start = kit.ctx.currentTime + 0.03
+      const stepSec = stepDurationSec(bpmRef.current, bar.subdivision)
+      const length = Math.max(1, stepsInBar(bar))
+      const steps = stepsPerBeat(bar.subdivision)
+      for (let step = 0; step < length; step += 1) {
+        const beat = beatIndexForStep(step, bar.beats, bar.subdivision)
+        const onBeat = isBeatStep(step, bar.subdivision)
+        const slot = step % Math.max(1, steps)
+        const accent = nestAccent(
+          beatAccentAt(bar.beatAccents, beat),
+          subdivAccentAt(bar.subdivAccents, slot, steps),
+        )
+        kit.click(start + step * stepSec, accent, clickRef.current, onBeat)
+      }
+    },
+    [ensureKit],
+  )
+
   const stopScheduler = useCallback(() => {
     if (timerRef.current !== null) {
       window.clearInterval(timerRef.current)
@@ -385,5 +425,14 @@ export function useRhythmEngine({
     }
   }, [stopScheduler])
 
-  return { playheadStore, preview, previewClick, ensureKit, holdUntilCycle, halt: stopScheduler }
+  return {
+    playheadStore,
+    preview,
+    previewClick,
+    previewBar,
+    previewClickBar,
+    ensureKit,
+    holdUntilCycle,
+    halt: stopScheduler,
+  }
 }
