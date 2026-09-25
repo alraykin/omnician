@@ -28,10 +28,8 @@ export const DrumBarStage = memo(function DrumBarStage({
     if (!scroller) return
 
     const go = (index: number, smooth: boolean) => {
-      const slide = scroller.querySelector<HTMLElement>(`[data-bar-slide="${index}"]`)
-      if (!slide) return
       lastScrolled.current = index
-      const left = slide.offsetLeft
+      const left = scroller.clientWidth * index
       scroller.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' })
     }
 
@@ -44,11 +42,18 @@ export const DrumBarStage = memo(function DrumBarStage({
 
     const live = playheadStore.getSnapshot().bar
     go(live >= 0 ? live : 0, smooth)
-    return playheadStore.subscribe(() => {
+    const onResize = () => go(lastScrolled.current, false)
+    const observer = new ResizeObserver(onResize)
+    observer.observe(scroller)
+    const unsub = playheadStore.subscribe(() => {
       const next = playheadStore.getSnapshot().bar
       if (next < 0 || next === lastScrolled.current) return
       go(next, true)
     })
+    return () => {
+      observer.disconnect()
+      unsub()
+    }
   }, [playheadStore, playing, barIndex, bars.length])
 
   return (
