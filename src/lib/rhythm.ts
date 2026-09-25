@@ -257,13 +257,34 @@ export function toggleHit(
   const steps = stepsPerBeat(subdivision)
   const beat = Math.floor(step / steps)
   const slot = step % steps
-  if (beat < 0 || beat >= beats || slot < 0 || slot >= steps) return clonePattern(pattern)
+  if (beat < 0 || beat >= beats || slot < 0 || slot >= steps) return pattern
   const target = reduceHit(beat, slot, steps)
-  const next = clonePattern(pattern)
-  const row = next[voice]
+  const row = pattern[voice] ?? []
+  const exists = row.some((hit) => sameHit(hit, target))
+  return setHit(pattern, voice, step, beats, subdivision, !exists)
+}
+
+/** Set a grid cell on or off. Returns the same pattern reference when nothing changes. */
+export function setHit(
+  pattern: Pattern,
+  voice: VoiceId,
+  step: number,
+  beats: number,
+  subdivision: SubdivisionId,
+  on: boolean,
+): Pattern {
+  const steps = stepsPerBeat(subdivision)
+  const beat = Math.floor(step / steps)
+  const slot = step % steps
+  if (beat < 0 || beat >= beats || slot < 0 || slot >= steps) return pattern
+  const target = reduceHit(beat, slot, steps)
+  const row = pattern[voice] ?? []
   const index = row.findIndex((hit) => sameHit(hit, target))
-  if (index >= 0) row.splice(index, 1)
-  else row.push(target)
+  if (on && index >= 0) return pattern
+  if (!on && index < 0) return pattern
+  const next = clonePattern(pattern)
+  if (on) next[voice].push(target)
+  else next[voice].splice(index, 1)
   return next
 }
 

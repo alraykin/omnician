@@ -1,5 +1,5 @@
 import { ChevronDown, Lock, Minus, Play, Plus, Square, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
@@ -35,7 +35,7 @@ import {
   pulseLabel,
   setBarSubdivision,
   stepsPerBeat,
-  toggleHit,
+  setHit,
   updateBarMeter,
   type BeatUnit,
   type ClickSoundId,
@@ -106,17 +106,20 @@ export function RhythmPage() {
       : 'Custom beat'
 
   useEffect(() => {
-    saveRhythmPrefs({
-      bpm,
-      mode,
-      clickSound,
-      clickBars,
-      drumBars,
-      clickBarIndex,
-      drumBarIndex,
-      presetId: matched?.id ?? presetId,
-      kitMix,
-    })
+    const id = window.setTimeout(() => {
+      saveRhythmPrefs({
+        bpm,
+        mode,
+        clickSound,
+        clickBars,
+        drumBars,
+        clickBarIndex,
+        drumBarIndex,
+        presetId: matched?.id ?? presetId,
+        kitMix,
+      })
+    }, 220)
+    return () => window.clearTimeout(id)
   }, [
     clickBarIndex,
     clickBars,
@@ -201,19 +204,29 @@ export function RhythmPage() {
     setBpm(clampBpm(60000 / avg))
   }
 
-  const onToggleCell = (voice: VoiceId, step: number) => {
-    if (!current) return
-    const nextPattern = toggleHit(
-      current.pattern,
-      voice,
-      step,
-      current.beats,
-      current.subdivision,
-    )
-    patchBar(barIndex, { ...current, pattern: nextPattern })
-    setPresetId(matched?.id ?? presetId)
-    void preview(voice)
-  }
+  const onPaintCell = useCallback(
+    (voice: VoiceId, step: number, on: boolean, playPreview: boolean) => {
+      const apply = mode === 'drums' ? setDrumBars : setClickBars
+      let changed = false
+      apply((bars) => {
+        const bar = bars[Math.min(barIndex, bars.length - 1)]
+        if (!bar) return bars
+        const nextPattern = setHit(bar.pattern, voice, step, bar.beats, bar.subdivision, on)
+        if (nextPattern === bar.pattern) return bars
+        changed = true
+        return bars.map((item, index) => (index === barIndex ? { ...item, pattern: nextPattern } : item))
+      })
+      if (changed) setPresetId(matched?.id ?? presetId)
+      if (playPreview) void preview(voice)
+    },
+    [barIndex, matched?.id, mode, presetId, preview],
+  )
+
+  const gridPattern = useMemo(
+    () =>
+      current ? patternToGrid(current.pattern, current.beats, current.subdivision) : null,
+    [current],
+  )
 
   const startStop = async () => {
     if (playing) {
@@ -525,11 +538,11 @@ export function RhythmPage() {
               <DrumGrid
                 beats={current.beats}
                 subdivisionSteps={stepsPerBeat(current.subdivision)}
-                pattern={patternToGrid(current.pattern, current.beats, current.subdivision)}
+                pattern={gridPattern ?? patternToGrid(current.pattern, current.beats, current.subdivision)}
                 currentStep={playhead.step}
                 live={playing && playhead.bar === barIndex}
-                onToggle={onToggleCell}
-                onPreview={(voice) => void preview(voice)}
+                onPaint={onPaintCell}
+                onPreview={preview}
               />
               <KitFaders mix={kitMix} onChange={setGroupMix} />
               <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-600">
