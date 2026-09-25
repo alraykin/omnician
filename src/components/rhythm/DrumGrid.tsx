@@ -117,7 +117,7 @@ export const DrumGrid = memo(function DrumGrid({
       ref={rootRef}
       data-drum-grid
       data-bar-index={barIndex}
-      className="max-h-[min(48vh,26rem)] overflow-x-auto overflow-y-auto pb-1 md:max-h-[min(56vh,34rem)] lg:max-h-none"
+      className="max-h-[min(62vh,38rem)] overflow-x-auto overflow-y-auto pb-1 md:max-h-[min(68vh,46rem)] lg:max-h-none"
       onPointerDown={startPaint}
       onClick={(event) => {
         if (pointerPaintedRef.current) {
@@ -139,9 +139,9 @@ export const DrumGrid = memo(function DrumGrid({
     >
       <div
         className="min-w-full"
-        style={{ minWidth: `calc(3.6rem + ${beats} * ${subdivisionSteps} * ${minCell})` }}
+        style={{ minWidth: `calc(5.2rem + ${beats} * ${subdivisionSteps} * ${minCell})` }}
       >
-        <div className="mb-1.5 flex items-center gap-1 pl-[3.55rem] text-[0.6rem] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="mb-1.5 flex items-center gap-1 pl-[5.05rem] text-[0.6rem] font-semibold uppercase tracking-wider text-slate-500 md:pl-[5.45rem]">
           {Array.from({ length: beats }, (_, beat) => (
             <span
               key={`beat-${beat}`}
@@ -160,7 +160,7 @@ export const DrumGrid = memo(function DrumGrid({
                 type="button"
                 data-voice={voice}
                 onClick={() => onPreview(voice)}
-                className="w-[3.45rem] shrink-0 truncate rounded-lg px-0.5 py-1 text-left text-[0.65rem] font-semibold leading-tight text-slate-300 hover:bg-white/6 hover:text-white lg:w-16 lg:text-xs"
+                className="w-[4.95rem] shrink-0 truncate rounded-lg px-0.5 py-1 text-left text-[0.62rem] font-semibold leading-tight text-slate-300 hover:bg-white/6 hover:text-white md:w-[5.35rem] md:text-[0.68rem] lg:w-[5.6rem] lg:text-xs"
               >
                 {VOICE_LABELS[voice]}
               </button>
@@ -214,7 +214,7 @@ const DrumCell = memo(function DrumCell({
       aria-pressed={on}
       aria-label={`${VOICE_LABELS[voice]}, beat ${beat + 1}, slot ${offset + 1}${on ? ', on' : ', off'}`}
       className={cn(
-        'h-6 min-w-[1.05rem] flex-1 touch-none rounded-md border sm:h-7 md:h-8 lg:h-9',
+        'h-5 min-w-[1.05rem] flex-1 touch-none rounded-md border sm:h-6 md:h-7 lg:h-8',
         on ? 'border-[#A855F7] bg-[#A855F7]' : offset === 0 ? 'border-white/14 bg-white/8' : 'border-white/8 bg-white/4',
       )}
     />

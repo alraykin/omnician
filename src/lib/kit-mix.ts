@@ -1,3 +1,5 @@
+import type { VoiceId } from '@/lib/rhythm'
+
 export const KIT_GROUPS = ['kick', 'snare', 'cymbals', 'toms'] as const
 export type KitGroupId = (typeof KIT_GROUPS)[number]
 
@@ -30,21 +32,24 @@ export const DEFAULT_KIT_MIX: KitMix = {
   toms: 0,
 }
 
-export const KIT_VOICE_GROUP: Record<
-  'kick' | 'snare' | 'rim' | 'clap' | 'closedHat' | 'openHat' | 'highTom' | 'midTom' | 'floorTom' | 'ride' | 'crash',
-  KitGroupId
-> = {
+export const KIT_VOICE_GROUP: Record<VoiceId, KitGroupId> = {
   kick: 'kick',
   snare: 'snare',
   rim: 'snare',
   clap: 'snare',
+  highTom: 'toms',
+  midTom: 'toms',
+  lowTom: 'toms',
+  floorTom: 'toms',
   closedHat: 'cymbals',
   openHat: 'cymbals',
   ride: 'cymbals',
+  rideBell: 'cymbals',
   crash: 'cymbals',
-  highTom: 'toms',
-  midTom: 'toms',
-  floorTom: 'toms',
+  crashR: 'cymbals',
+  stack: 'cymbals',
+  splash: 'cymbals',
+  china: 'cymbals',
 }
 
 export function clampKitDb(value: number, fallback = 0): number {

@@ -145,6 +145,9 @@ body {
   --kit-fader-track-h: 4.7rem;
   --kit-fader-foot-h: 1.05rem;
   --kit-fader-cap-half: 0.42rem;
+  --kit-fader-slot-w: 0.52rem;
+  --kit-fader-cap-w: 1.58rem;
+  --kit-fader-cap-h: 0.84rem;
   margin-top: 0.5rem;
   padding: 0.4rem 0.35rem 0.35rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -154,20 +157,31 @@ body {
 
 @media (min-width: 768px) {
   .kit-fader-bank {
-    --kit-fader-track-h: 6.2rem;
-    padding: 0.55rem 0.55rem 0.45rem;
+    --kit-fader-track-h: 8.8rem;
+    --kit-fader-cap-half: 0.56rem;
+    --kit-fader-slot-w: 0.86rem;
+    --kit-fader-cap-w: 2.28rem;
+    --kit-fader-cap-h: 1.12rem;
+    padding: 0.65rem 0.75rem 0.5rem;
+  }
+
+  .kit-fader-channel {
+    min-height: 11.2rem;
   }
 }
 
 @media (min-width: 1024px) {
   .kit-fader-bank {
-    --kit-fader-track-h: 8.4rem;
-    --kit-fader-cap-half: 0.48rem;
-    padding: 0.7rem 0.85rem 0.55rem;
+    --kit-fader-track-h: 10.4rem;
+    --kit-fader-cap-half: 0.64rem;
+    --kit-fader-slot-w: 0.98rem;
+    --kit-fader-cap-w: 2.55rem;
+    --kit-fader-cap-h: 1.28rem;
+    padding: 0.75rem 1rem 0.6rem;
   }
 
   .kit-fader-channel {
-    min-height: 10.2rem;
+    min-height: 13rem;
   }
 }
 
@@ -215,7 +229,7 @@ body {
 
 .kit-fader-slot {
   position: relative;
-  width: 0.52rem;
+  width: var(--kit-fader-slot-w);
   height: 100%;
   overflow: visible;
   border-radius: 0.18rem;
@@ -264,9 +278,9 @@ body {
   position: absolute;
   left: 50%;
   z-index: 3;
-  width: 1.58rem;
-  height: 0.84rem;
-  margin-left: -0.79rem;
+  width: var(--kit-fader-cap-w);
+  height: var(--kit-fader-cap-h);
+  margin-left: calc(var(--kit-fader-cap-w) / -2);
   filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.55));
 }
 

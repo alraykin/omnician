@@ -502,7 +502,7 @@ export function RhythmPage() {
               />
               <KitFaders mix={kitMix} onChange={setGroupMix} />
               <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-600">
-                Pearl Master Studio by enoe (CC BY 3.0)
+                Pearl Master Studio by enoe (CC BY 3.0) · ride bell + china CC0
               </p>
             </section>
           )}

@@ -24,9 +24,18 @@ const FINE_TRAVEL_PX = 340
 
 export function KitFaders({ mix, onChange }: KitFadersProps) {
   const [held, setHeld] = useState<KitGroupId | null>(null)
+  const [wideUi, setWideUi] = useState(false)
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 768px)')
+    const sync = () => setWideUi(media.matches)
+    sync()
+    media.addEventListener('change', sync)
+    return () => media.removeEventListener('change', sync)
+  }, [])
 
   return (
-    <div data-section="kit-faders" className="kit-fader-bank">
+    <div data-section="kit-faders" className="kit-fader-bank" data-wide={wideUi ? 'true' : 'false'}>
       <div className="kit-fader-channels">
         {KIT_GROUPS.map((group) => (
           <KitFader
@@ -34,13 +43,14 @@ export function KitFaders({ mix, onChange }: KitFadersProps) {
             group={group}
             db={mix[group]}
             held={held === group}
+            wideUi={wideUi}
             onChange={onChange}
             onHoldStart={() => setHeld(group)}
             onHoldEnd={() => setHeld((current) => (current === group ? null : current))}
           />
         ))}
       </div>
-      {held && typeof document !== 'undefined'
+      {held && !wideUi && typeof document !== 'undefined'
         ? createPortal(
             <KitFaderZoom group={held} db={mix[held]} />,
             document.body,
@@ -54,6 +64,7 @@ function KitFader({
   group,
   db,
   held,
+  wideUi,
   onChange,
   onHoldStart,
   onHoldEnd,
@@ -61,17 +72,19 @@ function KitFader({
   group: KitGroupId
   db: number
   held: boolean
+  wideUi: boolean
   onChange: (group: KitGroupId, db: number) => void
   onHoldStart: () => void
   onHoldEnd: () => void
 }) {
-  const dragRef = useRef<{ pointerId: number; startY: number; startPos: number } | null>(null)
+  const dragRef = useRef<{ pointerId: number; startY: number; startPos: number; travel: number } | null>(null)
+  const wellRef = useRef<HTMLDivElement>(null)
 
   const moveTo = useCallback(
     (clientY: number) => {
       const drag = dragRef.current
       if (!drag) return
-      const nextPos = Math.min(1, Math.max(0, drag.startPos + (drag.startY - clientY) / FINE_TRAVEL_PX))
+      const nextPos = Math.min(1, Math.max(0, drag.startPos + (drag.startY - clientY) / drag.travel))
       onChange(group, mixPosToDb(nextPos))
     },
     [group, onChange],
@@ -111,7 +124,13 @@ function KitFader({
         event.preventDefault()
         event.stopPropagation()
         event.currentTarget.setPointerCapture(event.pointerId)
-        dragRef.current = { pointerId: event.pointerId, startY: event.clientY, startPos: mixDbToPos(db) }
+        const wellH = wellRef.current?.getBoundingClientRect().height ?? FINE_TRAVEL_PX
+        dragRef.current = {
+          pointerId: event.pointerId,
+          startY: event.clientY,
+          startPos: mixDbToPos(db),
+          travel: wideUi ? Math.max(wellH, 80) : FINE_TRAVEL_PX,
+        }
         onHoldStart()
       }}
       onPointerMove={(event) => {
@@ -147,7 +166,7 @@ function KitFader({
       }}
     >
       <span className="kit-fader-name">{KIT_GROUP_LABELS[group]}</span>
-      <div className="kit-fader-well">
+      <div className="kit-fader-well" ref={wellRef}>
         <FaderThrow db={db} />
       </div>
       <span className="kit-fader-foot">

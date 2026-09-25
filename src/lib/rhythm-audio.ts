@@ -16,9 +16,15 @@ const SAMPLE_FILES: Partial<Record<VoiceId, string>> = {
   openHat: '/rhythm/drums/open-hat.wav',
   highTom: '/rhythm/drums/high-tom.wav',
   midTom: '/rhythm/drums/mid-tom.wav',
+  lowTom: '/rhythm/drums/low-tom.wav',
   floorTom: '/rhythm/drums/floor-tom.wav',
   ride: '/rhythm/drums/ride.wav',
+  rideBell: '/rhythm/drums/ride-bell.wav',
   crash: '/rhythm/drums/crash.wav',
+  crashR: '/rhythm/drums/crash-r.wav',
+  stack: '/rhythm/drums/stack.wav',
+  splash: '/rhythm/drums/splash.wav',
+  china: '/rhythm/drums/china.wav',
   rim: '/rhythm/drums/rim.wav',
   clap: '/rhythm/drums/clap.wav',
 }
@@ -48,14 +54,30 @@ const SAMPLE_GAIN: Record<VoiceId, number> = {
   snare: 0.92,
   rim: 0.78,
   clap: 0.82,
-  closedHat: 0.72,
-  openHat: 1.05,
   highTom: 0.88,
   midTom: 0.9,
+  lowTom: 0.92,
   floorTom: 0.94,
+  closedHat: 0.72,
+  openHat: 1.05,
   ride: 0.7,
+  rideBell: 0.78,
   crash: 0.78,
+  crashR: 0.82,
+  stack: 0.8,
+  splash: 0.76,
+  china: 0.8,
 }
+
+const CHOKE_HAT_VOICES: ReadonlySet<VoiceId> = new Set([
+  'closedHat',
+  'openHat',
+  'crash',
+  'crashR',
+  'stack',
+  'splash',
+  'china',
+])
 
 function renderBuffer(
   ctx: AudioContext,
@@ -187,6 +209,92 @@ function bakeRide(ctx: AudioContext): AudioBuffer {
   })
 }
 
+function bakeRideBell(ctx: AudioContext): AudioBuffer {
+  const freqs = [980, 1470, 1960, 2480, 3120]
+  return renderBuffer(ctx, 0.55, (data, sr) => {
+    const phases = freqs.map(() => Math.random() * Math.PI * 2)
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      let metal = 0
+      for (let f = 0; f < freqs.length; f += 1) {
+        phases[f] += (Math.PI * 2 * freqs[f]) / sr
+        metal += Math.sin(phases[f]) / freqs.length
+      }
+      const ping = metal * env(t, 0.0004, 0.16)
+      const click = (Math.random() * 2 - 1) * env(t, 0.0002, 0.012) * 0.28
+      data[i] = tanh(ping * 1.35 + click) * 0.52
+    }
+  })
+}
+
+function bakeCrashR(ctx: AudioContext): AudioBuffer {
+  const freqs = [720, 910, 1180, 1540, 1920]
+  return renderBuffer(ctx, 0.22, (data, sr) => {
+    const phases = freqs.map(() => Math.random() * Math.PI * 2)
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      let metal = 0
+      for (let f = 0; f < freqs.length; f += 1) {
+        phases[f] += (Math.PI * 2 * freqs[f]) / sr
+        metal += Math.sin(phases[f]) / freqs.length
+      }
+      const wash = (Math.random() * 2 - 1) * env(t, 0.0008, 0.06)
+      data[i] = tanh(metal * env(t, 0.001, 0.055) * 1.3 + wash * 0.35) * 0.58
+    }
+  })
+}
+
+function bakeStack(ctx: AudioContext): AudioBuffer {
+  const freqs = [540, 780, 1100, 1480, 1860, 2300]
+  return renderBuffer(ctx, 0.48, (data, sr) => {
+    const phases = freqs.map(() => Math.random() * Math.PI * 2)
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      let metal = 0
+      for (let f = 0; f < freqs.length; f += 1) {
+        phases[f] += (Math.PI * 2 * freqs[f] * (1 + t * 0.02)) / sr
+        metal += (Math.sin(phases[f]) > 0 ? 1 : -1) / freqs.length
+      }
+      const trash = (Math.random() * 2 - 1) * env(t, 0.0006, 0.14)
+      data[i] = tanh(metal * env(t, 0.0008, 0.12) * 1.15 + trash * 0.45) * 0.55
+    }
+  })
+}
+
+function bakeSplash(ctx: AudioContext): AudioBuffer {
+  const freqs = [1100, 1480, 1860, 2240, 2680]
+  return renderBuffer(ctx, 0.62, (data, sr) => {
+    const phases = freqs.map(() => Math.random() * Math.PI * 2)
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      let metal = 0
+      for (let f = 0; f < freqs.length; f += 1) {
+        phases[f] += (Math.PI * 2 * freqs[f]) / sr
+        metal += Math.sin(phases[f]) / freqs.length
+      }
+      const wash = (Math.random() * 2 - 1) * env(t, 0.0008, 0.2)
+      data[i] = tanh(metal * env(t, 0.0007, 0.2) * 1.15 + wash * 0.32) * 0.5
+    }
+  })
+}
+
+function bakeChina(ctx: AudioContext): AudioBuffer {
+  const freqs = [380, 520, 740, 980, 1290, 1680, 2140]
+  return renderBuffer(ctx, 1.05, (data, sr) => {
+    const phases = freqs.map(() => Math.random() * Math.PI * 2)
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      let metal = 0
+      for (let f = 0; f < freqs.length; f += 1) {
+        phases[f] += (Math.PI * 2 * freqs[f] * (1 + t * 0.018)) / sr
+        metal += (Math.sin(phases[f]) > 0 ? 1 : -1) / freqs.length
+      }
+      const wash = (Math.random() * 2 - 1) * env(t, 0.0012, 0.36)
+      data[i] = tanh(metal * env(t, 0.0015, 0.34) * 1.05 + wash * 0.42) * 0.56
+    }
+  })
+}
+
 function bakeRim(ctx: AudioContext): AudioBuffer {
   return renderBuffer(ctx, 0.14, (data, sr) => {
     let body = 0
@@ -223,13 +331,19 @@ function bakeSynthDrums(ctx: AudioContext): Record<VoiceId, AudioBuffer> {
     snare: bakeSnare(ctx),
     rim: bakeRim(ctx),
     clap: bakeClap(ctx),
-    closedHat: bakeHat(ctx, false),
-    openHat: bakeHat(ctx, true),
     highTom: bakeTom(ctx, 196, 0.55),
     midTom: bakeTom(ctx, 147, 0.62),
+    lowTom: bakeTom(ctx, 120, 0.66),
     floorTom: bakeTom(ctx, 98, 0.72),
+    closedHat: bakeHat(ctx, false),
+    openHat: bakeHat(ctx, true),
     ride: bakeRide(ctx),
+    rideBell: bakeRideBell(ctx),
     crash: bakeCrash(ctx),
+    crashR: bakeCrashR(ctx),
+    stack: bakeStack(ctx),
+    splash: bakeSplash(ctx),
+    china: bakeChina(ctx),
   }
 }
 
@@ -524,7 +638,7 @@ export class RhythmKit {
   }
 
   hit(voice: VoiceId, time: number, accent: boolean): void {
-    if (voice === 'closedHat' || voice === 'openHat' || voice === 'crash') {
+    if (CHOKE_HAT_VOICES.has(voice)) {
       this.chokeHats(time)
     }
     if (voice === 'openHat') this.chokeClosed(time)

@@ -11,9 +11,13 @@ Files used (trimmed/normalized for the Omnician practice kit):
 - open-hat.wav   from hihat-open.wav (high-passed)
 - high-tom.wav   from tom-01.wav
 - mid-tom.wav    from tom-02.wav
+- low-tom.wav    from tom-02.wav pitched between Tom 2 and the floor tom
 - floor-tom.wav  from tom-03.wav
 - ride.wav       from ride-01.wav (high-passed)
-- crash.wav      from crash-01.wav (high-passed)
+- crash.wav      from crash-01.wav (high-passed) — Crash L
+- crash-r.wav    from crash-02.wav, short choked envelope — Crash R
+- splash.wav     from splash-01.wav (high-passed)
+- stack.wav      from splash-02.wav layered with a short crash-02 choke
 
 You may copy, redistribute, and use these samples commercially if you
 keep this attribution with the project.
@@ -27,3 +31,21 @@ https://versilian-studios.com/vcsl/
 
 - rim.wav  from Snare Drum, Modern 3 / Snare4_Xstick_v2_rr1_Mid.wav (cross-stick)
 - clap.wav from Idiophones / Claps / SoloClap_vl3.wav (tightened)
+
+---
+
+Ride bell (CC0 1.0, no attribution required)
+Virtuosity Drums — Versilian Studios / Karoryfer
+https://github.com/sfzinstruments/virtuosity_drums
+via ferrosintesis-samples-drumkit (mid ride bell, trimmed)
+
+- ride-bell.wav
+
+---
+
+China (CC0 1.0, no attribution required)
+Karoryfer Big Rusty Drums — 18" china, overhead, stick
+https://github.com/sfzinstruments/karoryfer.big-rusty-drums
+via ferrosintesis-samples-drumkit2 (trimmed / high-passed)
+
+- china.wav

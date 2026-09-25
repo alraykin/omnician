@@ -3,13 +3,19 @@ export const VOICES = [
   'snare',
   'rim',
   'clap',
-  'closedHat',
-  'openHat',
   'highTom',
   'midTom',
+  'lowTom',
   'floorTom',
+  'closedHat',
+  'openHat',
   'ride',
+  'rideBell',
   'crash',
+  'crashR',
+  'stack',
+  'splash',
+  'china',
 ] as const
 
 export type VoiceId = (typeof VOICES)[number]
@@ -17,15 +23,21 @@ export type VoiceId = (typeof VOICES)[number]
 export const VOICE_LABELS: Record<VoiceId, string> = {
   kick: 'Kick',
   snare: 'Snare',
-  rim: 'Rim',
+  rim: 'Rimshot',
   clap: 'Clap',
-  closedHat: 'Closed',
-  openHat: 'Open',
   highTom: 'Tom 1',
   midTom: 'Tom 2',
+  lowTom: 'Tom 3',
   floorTom: 'Fl Tom',
+  closedHat: 'HH Closed',
+  openHat: 'HH Open',
   ride: 'Ride',
-  crash: 'Crash',
+  rideBell: 'Ride Bell',
+  crash: 'Crash L',
+  crashR: 'Crash R',
+  stack: 'Stack',
+  splash: 'Splash',
+  china: 'China',
 }
 
 export type RhythmMode = 'click' | 'drums'
