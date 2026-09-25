@@ -8,10 +8,12 @@ import { BarStrip } from '@/components/rhythm/BarStrip'
 import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
 import { DrumBarStage } from '@/components/rhythm/DrumBarStage'
 import { KitFaders } from '@/components/rhythm/KitFaders'
+import { KitIntensityControl } from '@/components/rhythm/KitIntensity'
 import { SnapWheel } from '@/components/rhythm/SnapWheel'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { usePlayhead, useRhythmEngine, type PlayheadStore } from '@/hooks/useRhythmEngine'
+import { snareRoleFromStep, type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
 import {
   BEAT_UNITS,
@@ -73,6 +75,7 @@ export function RhythmPage() {
   const [drumBarIndex, setDrumBarIndex] = useState(prefs.drumBarIndex)
   const [presetId, setPresetId] = useState<string | null>(prefs.presetId)
   const [kitMix, setKitMix] = useState<KitMix>(prefs.kitMix)
+  const [kitIntensity, setKitIntensity] = useState<KitIntensity>(prefs.kitIntensity)
   const [playing, setPlaying] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const tapTimes = useRef<number[]>([])
@@ -91,6 +94,7 @@ export function RhythmPage() {
     bars,
     clickSound,
     kitMix,
+    kitIntensity,
   })
 
   const matched = current ? matchPreset(current) : null
@@ -126,6 +130,7 @@ export function RhythmPage() {
         drumBarIndex,
         presetId: matched?.id ?? presetId,
         kitMix,
+        kitIntensity,
       })
     }, 220)
     return () => window.clearTimeout(id)
@@ -136,6 +141,7 @@ export function RhythmPage() {
     drumBarIndex,
     drumBars,
     bpm,
+    kitIntensity,
     kitMix,
     matched?.id,
     mode,
@@ -215,7 +221,12 @@ export function RhythmPage() {
 
   const onPaintCell = useCallback(
     (targetBar: number, voice: VoiceId, step: number, on: boolean, playPreview: boolean) => {
-      if (playPreview) preview(voice)
+      if (playPreview) {
+        const bar = drumBars[targetBar]
+        const role =
+          voice === 'snare' && bar ? snareRoleFromStep(step, bar.subdivision) : 'backbeat'
+        preview(voice, role)
+      }
       let changed = false
       setDrumBars((currentBars) => {
         const bar = currentBars[targetBar]
@@ -229,7 +240,7 @@ export function RhythmPage() {
       })
       if (changed) setPresetId(matched?.id ?? presetId)
     },
-    [matched?.id, presetId, preview],
+    [drumBars, matched?.id, presetId, preview],
   )
 
   const chooseDrumBar = (index: number) => {
@@ -510,9 +521,28 @@ export function RhythmPage() {
                 onPaint={onPaintCell}
                 onPreviewVoice={preview}
               />
+              <KitIntensityControl value={kitIntensity} onChange={setKitIntensity} />
               <KitFaders mix={kitMix} onChange={setGroupMix} />
-              <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-600">
-                Pearl Master Studio by enoe (CC BY 3.0) · ride bell + china CC0
+              <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-500">
+                Drums: CrocellKit by{' '}
+                <a
+                  className="underline decoration-white/20 underline-offset-2 hover:text-slate-300"
+                  href="https://drumgizmo.org/wiki/doku.php?id=kits:crocellkit"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  DrumGizmo.org
+                </a>{' '}
+                (Lars Muldjord / Crocell / JBOSound), stereo mix by Henry Järvinen —{' '}
+                <a
+                  className="underline decoration-white/20 underline-offset-2 hover:text-slate-300"
+                  href="https://creativecommons.org/licenses/by/4.0/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  CC BY 4.0
+                </a>
+                , samples edited. Clap: VCSL (CC0).
               </p>
             </section>
           )}

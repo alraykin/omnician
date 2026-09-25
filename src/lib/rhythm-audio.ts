@@ -1,3 +1,10 @@
+import {
+  DEFAULT_KIT_INTENSITY,
+  resolveTier,
+  useRimshotBackbeat,
+  type HitRole,
+  type KitIntensity,
+} from '@/lib/kit-intensity'
 import { DEFAULT_KIT_MIX, KIT_VOICE_GROUP, mixFaderToGain, type KitMix } from '@/lib/kit-mix'
 import { CLICK_SOUNDS, type ClickSoundId, type VoiceId } from '@/lib/rhythm'
 
@@ -23,24 +30,49 @@ export function createRhythmContext(): AudioContext {
   }
 }
 
-const SAMPLE_FILES: Partial<Record<VoiceId, string>> = {
-  kick: '/rhythm/drums/kick.wav',
-  snare: '/rhythm/drums/snare.wav',
-  closedHat: '/rhythm/drums/closed-hat.wav',
-  openHat: '/rhythm/drums/open-hat.wav',
-  highTom: '/rhythm/drums/high-tom.wav',
-  midTom: '/rhythm/drums/mid-tom.wav',
-  lowTom: '/rhythm/drums/low-tom.wav',
-  floorTom: '/rhythm/drums/floor-tom.wav',
-  ride: '/rhythm/drums/ride.wav',
+const LEGACY_FILES: Partial<Record<VoiceId, string>> = {
+  clap: '/rhythm/drums/clap.wav',
   rideBell: '/rhythm/drums/ride-bell.wav',
-  crash: '/rhythm/drums/crash.wav',
   stack: '/rhythm/drums/stack.wav',
   splash: '/rhythm/drums/splash.wav',
   china: '/rhythm/drums/china.wav',
-  rim: '/rhythm/drums/rim.wav',
-  clap: '/rhythm/drums/clap.wav',
 }
+
+type CrocellPiece =
+  | 'kick'
+  | 'snare_snappy_p2'
+  | 'rimshot_snappy_p2'
+  | 'sidestick'
+  | 'hihat_closed'
+  | 'hihat_open'
+  | 'crash'
+  | 'ride'
+  | 'tom_high'
+  | 'tom_mid'
+  | 'tom_low'
+
+const VOICE_PIECE: Partial<Record<VoiceId, CrocellPiece>> = {
+  kick: 'kick',
+  snare: 'snare_snappy_p2',
+  rim: 'sidestick',
+  highTom: 'tom_high',
+  midTom: 'tom_mid',
+  lowTom: 'tom_mid',
+  floorTom: 'tom_low',
+  closedHat: 'hihat_closed',
+  openHat: 'hihat_open',
+  ride: 'ride',
+  crash: 'crash',
+}
+
+type CrocellFile = {
+  piece: CrocellPiece
+  tier: KitIntensity
+  rr: number
+  file: string
+}
+
+type LayerBank = Partial<Record<CrocellPiece, Partial<Record<KitIntensity, AudioBuffer[]>>>>
 
 const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
   wood: {
@@ -64,18 +96,18 @@ const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
 /** Per-voice mix so hats sit under kick/snare and the crash is splashy, not huge. */
 const SAMPLE_GAIN: Record<VoiceId, number> = {
   kick: 1,
-  snare: 0.92,
-  rim: 0.78,
+  snare: 1.05,
+  rim: 1,
   clap: 0.82,
-  highTom: 0.88,
-  midTom: 0.9,
-  lowTom: 0.92,
-  floorTom: 0.94,
-  closedHat: 0.72,
-  openHat: 1.05,
-  ride: 0.7,
-  rideBell: 0.78,
-  crash: 0.78,
+  highTom: 1,
+  midTom: 1,
+  lowTom: 1,
+  floorTom: 1,
+  closedHat: 2,
+  openHat: 1.6,
+  ride: 2.8,
+  rideBell: 0.9,
+  crash: 0.92,
   stack: 0.8,
   splash: 0.76,
   china: 0.8,
@@ -372,20 +404,79 @@ async function loadSample(ctx: AudioContext, url: string): Promise<AudioBuffer> 
   return decodeAudio(ctx, data)
 }
 
-async function loadDrums(ctx: AudioContext): Promise<Record<VoiceId, AudioBuffer>> {
-  const drums = bakeSynthDrums(ctx)
+async function loadLegacyDrums(
+  ctx: AudioContext,
+  drums: Record<VoiceId, AudioBuffer>,
+): Promise<Record<VoiceId, AudioBuffer>> {
   await Promise.all(
-    (Object.keys(SAMPLE_FILES) as VoiceId[]).map(async (voice) => {
-      const url = SAMPLE_FILES[voice]
+    (Object.keys(LEGACY_FILES) as VoiceId[]).map(async (voice) => {
+      const url = LEGACY_FILES[voice]
       if (!url) return
       try {
-        drums[voice] = await loadSample(ctx, url)
+        drums[voice] = await loadSample(ctx, `${import.meta.env.BASE_URL}${url.replace(/^\//, '')}`)
       } catch {
         // Keep the synthesized one-shot for this lane.
       }
     }),
   )
   return drums
+}
+
+function crocellUrl(file: string): string {
+  return `${import.meta.env.BASE_URL}rhythm/drums/crocell/${file}`
+}
+
+async function loadCrocellManifest(): Promise<CrocellFile[]> {
+  const response = await fetch(crocellUrl('manifest.json'), { cache: 'force-cache' })
+  if (!response.ok) throw new Error('crocell manifest')
+  const data = (await response.json()) as { files?: CrocellFile[] }
+  return Array.isArray(data.files) ? data.files : []
+}
+
+function storeLayer(bank: LayerBank, piece: CrocellPiece, tier: KitIntensity, buffer: AudioBuffer): void {
+  const tiers = bank[piece] ?? (bank[piece] = {})
+  const row = tiers[tier] ?? (tiers[tier] = [])
+  row.push(buffer)
+}
+
+function filePriority(tier: KitIntensity, focus: KitIntensity): number {
+  return Math.abs(tier - focus)
+}
+
+function pickNearestTier(
+  rows: Partial<Record<KitIntensity, AudioBuffer[]>>,
+  tier: KitIntensity,
+): AudioBuffer[] | undefined {
+  if (rows[tier]?.length) return rows[tier]
+  for (const delta of [1, -1, 2, -2, 3, -3, 4, -4]) {
+    const next = (tier + delta) as KitIntensity
+    if (next < 1 || next > 5) continue
+    if (rows[next]?.length) return rows[next]
+  }
+  return undefined
+}
+
+async function loadCrocellLayers(
+  ctx: AudioContext,
+  bank: LayerBank,
+  focus: KitIntensity,
+): Promise<void> {
+  const files = await loadCrocellManifest()
+  const ordered = [...files].sort((a, b) => filePriority(a.tier, focus) - filePriority(b.tier, focus))
+  const queue = [...ordered]
+  const workers = Array.from({ length: 6 }, async () => {
+    while (queue.length > 0) {
+      const row = queue.shift()
+      if (!row) return
+      try {
+        const buffer = await loadSample(ctx, crocellUrl(row.file))
+        storeLayer(bank, row.piece, row.tier, buffer)
+      } catch {
+        // Synth / already-loaded neighbor covers this hit.
+      }
+    }
+  })
+  await Promise.all(workers)
 }
 
 type ClickPair = { normal: AudioBuffer; accent: AudioBuffer }
@@ -601,10 +692,12 @@ function exposeDrumDebug(): void {
       return {
         previewPathMs: lastPreviewPathMs,
         context: kit?.ctx.state ?? 'none',
+        intensity: kit?.intensity ?? null,
+        loadedLayers: kit?.loadedLayerCount() ?? 0,
         baseLatencyMs: kit ? Math.round(kit.ctx.baseLatency * 1000) : null,
         outputLatencyMs:
           kit && 'outputLatency' in kit.ctx ? Math.round((kit.ctx.outputLatency as number) * 1000) : null,
-        voices: kit ? Object.keys(kit.voiceIds()) : [],
+        voices: kit ? kit.voiceIds() : [],
       }
     },
   })
@@ -612,9 +705,12 @@ function exposeDrumDebug(): void {
 
 export class RhythmKit {
   readonly ctx: AudioContext
+  intensity: KitIntensity = DEFAULT_KIT_INTENSITY
   private readonly master: GainNode
   private drums: Record<VoiceId, AudioBuffer>
   private clicks: Record<ClickSoundId, ClickPair>
+  private readonly layers: LayerBank = {}
+  private readonly rr = new Map<string, number>()
   private mix: KitMix = { ...DEFAULT_KIT_MIX }
   private openHat: { gain: GainNode; start: number } | null = null
   private closedHat: { gain: GainNode; start: number } | null = null
@@ -635,14 +731,17 @@ export class RhythmKit {
     comp.connect(ctx.destination)
     this.drums = bakeSynthDrums(ctx)
     this.clicks = bakeClicks(ctx)
-    this.ready = Promise.all([loadDrums(ctx), loadClicks(ctx, this.clicks)])
-      .then(([drums, clicks]) => {
+    this.ready = Promise.all([
+      loadLegacyDrums(ctx, this.drums).then((drums) => {
         this.drums = drums
+      }),
+      loadClicks(ctx, this.clicks).then((clicks) => {
         this.clicks = clicks
-      })
-      .catch(() => {
-        // Keep synthesized one-shots if WAV fetch/decode fails.
-      })
+      }),
+      loadCrocellLayers(ctx, this.layers, this.intensity),
+    ])
+      .then(() => undefined)
+      .catch(() => undefined)
   }
 
   static async create(ctx: AudioContext): Promise<RhythmKit> {
@@ -653,6 +752,19 @@ export class RhythmKit {
 
   voiceIds(): VoiceId[] {
     return Object.keys(this.drums) as VoiceId[]
+  }
+
+  loadedLayerCount(): number {
+    let count = 0
+    for (const tiers of Object.values(this.layers)) {
+      if (!tiers) continue
+      for (const row of Object.values(tiers)) count += row?.length ?? 0
+    }
+    return count
+  }
+
+  setIntensity(next: KitIntensity): void {
+    this.intensity = next
   }
 
   async unlock(): Promise<void> {
@@ -686,7 +798,7 @@ export class RhythmKit {
     this.mix = { ...mix }
   }
 
-  hit(voice: VoiceId, time: number, accent: boolean): void {
+  hit(voice: VoiceId, time: number, role: HitRole = 'normal'): void {
     if (CHOKE_HAT_VOICES.has(voice)) {
       this.chokeHats(time)
     }
@@ -694,15 +806,16 @@ export class RhythmKit {
     const group = KIT_VOICE_GROUP[voice]
     const groupGain = mixFaderToGain(group, this.mix[group] ?? 0)
     const mix = (SAMPLE_GAIN[voice] ?? 1) * groupGain
-    const source = this.fire(this.drums[voice], time, (accent ? 1.12 : 1) * mix)
+    const buffer = this.bufferFor(voice, role) ?? this.drums[voice]
+    const source = this.fire(buffer, time, mix)
     if (voice === 'openHat' && source) this.openHat = { gain: source, start: time }
     if (voice === 'closedHat' && source) this.closedHat = { gain: source, start: time }
   }
 
-  previewVoice(voice: VoiceId): void {
+  previewVoice(voice: VoiceId, role: HitRole = 'backbeat'): void {
     const started = performance.now()
     if (this.ctx.state === 'suspended') void this.ctx.resume()
-    this.hit(voice, 0, false)
+    this.hit(voice, 0, role)
     lastPreviewPathMs = performance.now() - started
   }
 
@@ -740,6 +853,31 @@ export class RhythmKit {
     } catch {
       this.master.gain.setValueAtTime(0.9, now)
     }
+  }
+
+  private bufferFor(voice: VoiceId, role: HitRole): AudioBuffer | null {
+    const intensity = this.intensity
+    const tier = resolveTier(intensity, voice === 'snare' ? role : 'normal')
+    let piece = VOICE_PIECE[voice]
+    if (voice === 'snare' && useRimshotBackbeat(intensity, role)) {
+      piece = 'rimshot_snappy_p2'
+    }
+    if (!piece) return this.drums[voice] ?? null
+    return (
+      this.nextRoundRobin(piece, tier) ??
+      (piece === 'rimshot_snappy_p2' ? this.nextRoundRobin('snare_snappy_p2', tier) : null)
+    )
+  }
+
+  private nextRoundRobin(piece: CrocellPiece, tier: KitIntensity): AudioBuffer | null {
+    const rows = this.layers[piece]
+    if (!rows) return null
+    const available = pickNearestTier(rows, tier)
+    if (!available || available.length === 0) return null
+    const key = `${piece}:${tier}`
+    const index = this.rr.get(key) ?? 0
+    this.rr.set(key, index + 1)
+    return available[index % available.length] ?? available[0]
   }
 
   private fire(buffer: AudioBuffer, time: number, gain: number, rate = 1): GainNode {

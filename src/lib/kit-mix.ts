@@ -21,7 +21,7 @@ export const KIT_MIX_UNITY_POS = 0.75
 export const KIT_ZERO_OFFSET_DB: KitMix = {
   kick: 0,
   snare: 0,
-  cymbals: -4.5,
+  cymbals: -1.5,
   toms: 0,
 }
 

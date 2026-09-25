@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
+import { DEFAULT_KIT_INTENSITY, snareHitRole, type HitRole, type KitIntensity } from '@/lib/kit-intensity'
 import { DEFAULT_KIT_MIX, type KitMix } from '@/lib/kit-mix'
 import { getOrCreateRhythmKit, type RhythmKit } from '@/lib/rhythm-audio'
 import {
@@ -99,6 +100,7 @@ export function useRhythmEngine({
   bars,
   clickSound,
   kitMix = DEFAULT_KIT_MIX,
+  kitIntensity = DEFAULT_KIT_INTENSITY,
 }: {
   playing: boolean
   bpm: number
@@ -106,6 +108,7 @@ export function useRhythmEngine({
   bars: readonly RhythmBar[]
   clickSound: ClickSoundId
   kitMix?: KitMix
+  kitIntensity?: KitIntensity
 }) {
   const [holdUntilCycle, setHoldUntilCycle] = useState(false)
   const playheadStoreRef = useRef<PlayheadWriter | null>(null)
@@ -128,6 +131,7 @@ export function useRhythmEngine({
   const liveModeRef = useRef(mode)
   const liveBarsRef = useRef(bars)
   const kitMixRef = useRef(kitMix)
+  const intensityRef = useRef(kitIntensity)
 
   playingRef.current = playing
   bpmRef.current = bpm
@@ -135,6 +139,7 @@ export function useRhythmEngine({
   pendingModeRef.current = mode
   pendingBarsRef.current = bars
   kitMixRef.current = kitMix
+  intensityRef.current = kitIntensity
 
   if (!playing || liveModeRef.current !== mode) {
     liveModeRef.current = mode
@@ -153,6 +158,7 @@ export function useRhythmEngine({
     const kit = getOrCreateRhythmKit()
     if (!kit) return null
     kit.setMix(kitMixRef.current)
+    kit.setIntensity(intensityRef.current)
     kitRef.current = kit
     return kit
   }, [])
@@ -165,10 +171,10 @@ export function useRhythmEngine({
   }, [grabKit])
 
   const preview = useCallback(
-    (voice: VoiceId) => {
+    (voice: VoiceId, role: HitRole = 'backbeat') => {
       const kit = grabKit()
       if (!kit) return
-      kit.previewVoice(voice)
+      kit.previewVoice(voice, role)
     },
     [grabKit],
   )
@@ -193,7 +199,7 @@ export function useRhythmEngine({
       for (const voice of VOICES) {
         for (const hit of bar.pattern[voice] ?? []) {
           if (hit.beat < 0 || hit.beat >= bar.beats) continue
-          kit.hit(voice, start + hitTimeInBar(hit, tempo), false)
+          kit.hit(voice, start + hitTimeInBar(hit, tempo), voice === 'snare' ? snareHitRole(hit) : 'normal')
         }
       }
     },
@@ -245,6 +251,10 @@ export function useRhythmEngine({
   useEffect(() => {
     kitRef.current?.setMix(kitMix)
   }, [kitMix])
+
+  useEffect(() => {
+    kitRef.current?.setIntensity(kitIntensity)
+  }, [kitIntensity])
 
   useEffect(() => {
     if (!playing) {
@@ -309,7 +319,7 @@ export function useRhythmEngine({
         for (const voice of VOICES) {
           for (const hit of bar.pattern[voice] ?? []) {
             if (hit.beat < 0 || hit.beat >= bar.beats) continue
-            kit.hit(voice, barStart + hitTimeInBar(hit, bpmRef.current), false)
+            kit.hit(voice, barStart + hitTimeInBar(hit, bpmRef.current), voice === 'snare' ? snareHitRole(hit) : 'normal')
           }
         }
       }

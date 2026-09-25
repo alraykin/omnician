@@ -1,0 +1,1166 @@
+{
+  "kit": "CrocellKit",
+  "format": "AAC 192k 44.1 kHz stereo",
+  "files": [
+    {
+      "piece": "crash",
+      "tier": 1,
+      "rr": 1,
+      "file": "crash/t1_rr1.m4a",
+      "peak_db": -34.14,
+      "rms_db": -47.62
+    },
+    {
+      "piece": "crash",
+      "tier": 1,
+      "rr": 2,
+      "file": "crash/t1_rr2.m4a",
+      "peak_db": -30.82,
+      "rms_db": -43.77
+    },
+    {
+      "piece": "crash",
+      "tier": 2,
+      "rr": 1,
+      "file": "crash/t2_rr1.m4a",
+      "peak_db": -30.82,
+      "rms_db": -43.77
+    },
+    {
+      "piece": "crash",
+      "tier": 2,
+      "rr": 2,
+      "file": "crash/t2_rr2.m4a",
+      "peak_db": -29.28,
+      "rms_db": -41.63
+    },
+    {
+      "piece": "crash",
+      "tier": 3,
+      "rr": 1,
+      "file": "crash/t3_rr1.m4a",
+      "peak_db": -24.13,
+      "rms_db": -35.77
+    },
+    {
+      "piece": "crash",
+      "tier": 3,
+      "rr": 2,
+      "file": "crash/t3_rr2.m4a",
+      "peak_db": -24.05,
+      "rms_db": -35.68
+    },
+    {
+      "piece": "crash",
+      "tier": 4,
+      "rr": 1,
+      "file": "crash/t4_rr1.m4a",
+      "peak_db": -16.72,
+      "rms_db": -29.04
+    },
+    {
+      "piece": "crash",
+      "tier": 4,
+      "rr": 2,
+      "file": "crash/t4_rr2.m4a",
+      "peak_db": -16.44,
+      "rms_db": -28.85
+    },
+    {
+      "piece": "crash",
+      "tier": 5,
+      "rr": 1,
+      "file": "crash/t5_rr1.m4a",
+      "peak_db": -14.61,
+      "rms_db": -26.6
+    },
+    {
+      "piece": "crash",
+      "tier": 5,
+      "rr": 2,
+      "file": "crash/t5_rr2.m4a",
+      "peak_db": -12.35,
+      "rms_db": -23.59
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 1,
+      "rr": 1,
+      "file": "hihat_closed/t1_rr1.m4a",
+      "peak_db": -42.37,
+      "rms_db": -60.27
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 1,
+      "rr": 2,
+      "file": "hihat_closed/t1_rr2.m4a",
+      "peak_db": -36.08,
+      "rms_db": -56.23
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 1,
+      "rr": 3,
+      "file": "hihat_closed/t1_rr3.m4a",
+      "peak_db": -33.56,
+      "rms_db": -54.23
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 2,
+      "rr": 1,
+      "file": "hihat_closed/t2_rr1.m4a",
+      "peak_db": -36.08,
+      "rms_db": -56.23
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 2,
+      "rr": 2,
+      "file": "hihat_closed/t2_rr2.m4a",
+      "peak_db": -33.56,
+      "rms_db": -54.23
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 2,
+      "rr": 3,
+      "file": "hihat_closed/t2_rr3.m4a",
+      "peak_db": -34.03,
+      "rms_db": -52.88
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 3,
+      "rr": 1,
+      "file": "hihat_closed/t3_rr1.m4a",
+      "peak_db": -32.68,
+      "rms_db": -50.5
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 3,
+      "rr": 2,
+      "file": "hihat_closed/t3_rr2.m4a",
+      "peak_db": -32.08,
+      "rms_db": -50.25
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 3,
+      "rr": 3,
+      "file": "hihat_closed/t3_rr3.m4a",
+      "peak_db": -29.94,
+      "rms_db": -48.03
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 4,
+      "rr": 1,
+      "file": "hihat_closed/t4_rr1.m4a",
+      "peak_db": -27.22,
+      "rms_db": -43.91
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 4,
+      "rr": 2,
+      "file": "hihat_closed/t4_rr2.m4a",
+      "peak_db": -25.89,
+      "rms_db": -43.09
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 4,
+      "rr": 3,
+      "file": "hihat_closed/t4_rr3.m4a",
+      "peak_db": -25.51,
+      "rms_db": -42.26
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 5,
+      "rr": 1,
+      "file": "hihat_closed/t5_rr1.m4a",
+      "peak_db": -23.7,
+      "rms_db": -38.36
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 5,
+      "rr": 2,
+      "file": "hihat_closed/t5_rr2.m4a",
+      "peak_db": -22.35,
+      "rms_db": -37.45
+    },
+    {
+      "piece": "hihat_closed",
+      "tier": 5,
+      "rr": 3,
+      "file": "hihat_closed/t5_rr3.m4a",
+      "peak_db": -21.72,
+      "rms_db": -37.08
+    },
+    {
+      "piece": "hihat_open",
+      "tier": 1,
+      "rr": 1,
+      "file": "hihat_open/t1_rr1.m4a",
+      "peak_db": -43.07,
+      "rms_db": -56.96
+    },
+    {
+      "piece": "hihat_open",
+      "tier": 1,
+      "rr": 2,
+      "file": "hihat_open/t1_rr2.m4a",
+      "peak_db": -40.66,
+      "rms_db": -54.26
+    },
+    {
+      "piece": "hihat_open",
+      "tier": 2,
+      "rr": 1,
+      "file": "hihat_open/t2_rr1.m4a",
+      "peak_db": -36.73,
+      "rms_db": -50.58
+    },
+    {
+      "piece": "hihat_open",
+      "tier": 2,
+      "rr": 2,
+      "file": "hihat_open/t2_rr2.m4a",
+      "peak_db": -36.76,
+      "rms_db": -49.96
+    },
+    {
+      "piece": "hihat_open",
+      "tier": 3,
+      "rr": 1,
+      "file": "hihat_open/t3_rr1.m4a",
+      "peak_db": -31.31,
+      "rms_db": -44.59
+    },
+    {
+      "piece": "hihat_open",
+      "tier": 3,
+      "rr": 2,
+      "file": "hihat_open/t3_rr2.m4a",
+      "peak_db": -30.26,
+      "rms_db": -44.16
+    },
+    {
+      "piece": "hihat_open",
+      "tier": 4,
+      "rr": 1,
+      "file": "hihat_open/t4_rr1.m4a",
+      "peak_db": -25.9,
+      "rms_db": -40.3
+    },
+    {
+      "piece": "hihat_open",
+      "tier": 4,
+      "rr": 2,
+      "file": "hihat_open/t4_rr2.m4a",
+      "peak_db": -27.0,
+      "rms_db": -39.95
+    },
+    {
+      "piece": "hihat_open",
+      "tier": 5,
+      "rr": 1,
+      "file": "hihat_open/t5_rr1.m4a",
+      "peak_db": -19.6,
+      "rms_db": -34.08
+    },
+    {
+      "piece": "hihat_open",
+      "tier": 5,
+      "rr": 2,
+      "file": "hihat_open/t5_rr2.m4a",
+      "peak_db": -20.17,
+      "rms_db": -34.09
+    },
+    {
+      "piece": "kick",
+      "tier": 1,
+      "rr": 1,
+      "file": "kick/t1_rr1.m4a",
+      "peak_db": -19.32,
+      "rms_db": -31.61
+    },
+    {
+      "piece": "kick",
+      "tier": 1,
+      "rr": 2,
+      "file": "kick/t1_rr2.m4a",
+      "peak_db": -18.16,
+      "rms_db": -30.37
+    },
+    {
+      "piece": "kick",
+      "tier": 1,
+      "rr": 3,
+      "file": "kick/t1_rr3.m4a",
+      "peak_db": -16.75,
+      "rms_db": -29.1
+    },
+    {
+      "piece": "kick",
+      "tier": 2,
+      "rr": 1,
+      "file": "kick/t2_rr1.m4a",
+      "peak_db": -19.32,
+      "rms_db": -31.61
+    },
+    {
+      "piece": "kick",
+      "tier": 2,
+      "rr": 2,
+      "file": "kick/t2_rr2.m4a",
+      "peak_db": -18.16,
+      "rms_db": -30.37
+    },
+    {
+      "piece": "kick",
+      "tier": 2,
+      "rr": 3,
+      "file": "kick/t2_rr3.m4a",
+      "peak_db": -16.75,
+      "rms_db": -29.1
+    },
+    {
+      "piece": "kick",
+      "tier": 3,
+      "rr": 1,
+      "file": "kick/t3_rr1.m4a",
+      "peak_db": -16.75,
+      "rms_db": -29.1
+    },
+    {
+      "piece": "kick",
+      "tier": 3,
+      "rr": 2,
+      "file": "kick/t3_rr2.m4a",
+      "peak_db": -11.72,
+      "rms_db": -24.1
+    },
+    {
+      "piece": "kick",
+      "tier": 3,
+      "rr": 3,
+      "file": "kick/t3_rr3.m4a",
+      "peak_db": -11.22,
+      "rms_db": -23.69
+    },
+    {
+      "piece": "kick",
+      "tier": 4,
+      "rr": 1,
+      "file": "kick/t4_rr1.m4a",
+      "peak_db": -7.72,
+      "rms_db": -20.44
+    },
+    {
+      "piece": "kick",
+      "tier": 4,
+      "rr": 2,
+      "file": "kick/t4_rr2.m4a",
+      "peak_db": -7.42,
+      "rms_db": -20.09
+    },
+    {
+      "piece": "kick",
+      "tier": 4,
+      "rr": 3,
+      "file": "kick/t4_rr3.m4a",
+      "peak_db": -7.26,
+      "rms_db": -20.0
+    },
+    {
+      "piece": "kick",
+      "tier": 5,
+      "rr": 1,
+      "file": "kick/t5_rr1.m4a",
+      "peak_db": -1.17,
+      "rms_db": -14.45
+    },
+    {
+      "piece": "kick",
+      "tier": 5,
+      "rr": 2,
+      "file": "kick/t5_rr2.m4a",
+      "peak_db": -1.09,
+      "rms_db": -14.34
+    },
+    {
+      "piece": "kick",
+      "tier": 5,
+      "rr": 3,
+      "file": "kick/t5_rr3.m4a",
+      "peak_db": -1.0,
+      "rms_db": -14.15
+    },
+    {
+      "piece": "ride",
+      "tier": 1,
+      "rr": 1,
+      "file": "ride/t1_rr1.m4a",
+      "peak_db": -51.09,
+      "rms_db": -65.07
+    },
+    {
+      "piece": "ride",
+      "tier": 1,
+      "rr": 2,
+      "file": "ride/t1_rr2.m4a",
+      "peak_db": -49.9,
+      "rms_db": -64.64
+    },
+    {
+      "piece": "ride",
+      "tier": 2,
+      "rr": 1,
+      "file": "ride/t2_rr1.m4a",
+      "peak_db": -45.18,
+      "rms_db": -59.32
+    },
+    {
+      "piece": "ride",
+      "tier": 2,
+      "rr": 2,
+      "file": "ride/t2_rr2.m4a",
+      "peak_db": -43.83,
+      "rms_db": -58.91
+    },
+    {
+      "piece": "ride",
+      "tier": 3,
+      "rr": 1,
+      "file": "ride/t3_rr1.m4a",
+      "peak_db": -40.15,
+      "rms_db": -54.38
+    },
+    {
+      "piece": "ride",
+      "tier": 3,
+      "rr": 2,
+      "file": "ride/t3_rr2.m4a",
+      "peak_db": -38.16,
+      "rms_db": -51.99
+    },
+    {
+      "piece": "ride",
+      "tier": 4,
+      "rr": 1,
+      "file": "ride/t4_rr1.m4a",
+      "peak_db": -33.27,
+      "rms_db": -48.1
+    },
+    {
+      "piece": "ride",
+      "tier": 4,
+      "rr": 2,
+      "file": "ride/t4_rr2.m4a",
+      "peak_db": -33.21,
+      "rms_db": -47.8
+    },
+    {
+      "piece": "ride",
+      "tier": 5,
+      "rr": 1,
+      "file": "ride/t5_rr1.m4a",
+      "peak_db": -26.19,
+      "rms_db": -41.02
+    },
+    {
+      "piece": "ride",
+      "tier": 5,
+      "rr": 2,
+      "file": "ride/t5_rr2.m4a",
+      "peak_db": -25.33,
+      "rms_db": -40.94
+    },
+    {
+      "piece": "rimshot_snappy_p2",
+      "tier": 1,
+      "rr": 1,
+      "file": "rimshot_snappy_p2/t1_rr1.m4a",
+      "peak_db": -14.78,
+      "rms_db": -31.12
+    },
+    {
+      "piece": "rimshot_snappy_p2",
+      "tier": 1,
+      "rr": 2,
+      "file": "rimshot_snappy_p2/t1_rr2.m4a",
+      "peak_db": -7.54,
+      "rms_db": -25.21
+    },
+    {
+      "piece": "rimshot_snappy_p2",
+      "tier": 2,
+      "rr": 1,
+      "file": "rimshot_snappy_p2/t2_rr1.m4a",
+      "peak_db": -14.78,
+      "rms_db": -31.12
+    },
+    {
+      "piece": "rimshot_snappy_p2",
+      "tier": 2,
+      "rr": 2,
+      "file": "rimshot_snappy_p2/t2_rr2.m4a",
+      "peak_db": -7.54,
+      "rms_db": -25.21
+    },
+    {
+      "piece": "rimshot_snappy_p2",
+      "tier": 3,
+      "rr": 1,
+      "file": "rimshot_snappy_p2/t3_rr1.m4a",
+      "peak_db": -14.78,
+      "rms_db": -31.12
+    },
+    {
+      "piece": "rimshot_snappy_p2",
+      "tier": 3,
+      "rr": 2,
+      "file": "rimshot_snappy_p2/t3_rr2.m4a",
+      "peak_db": -7.54,
+      "rms_db": -25.21
+    },
+    {
+      "piece": "rimshot_snappy_p2",
+      "tier": 4,
+      "rr": 1,
+      "file": "rimshot_snappy_p2/t4_rr1.m4a",
+      "peak_db": -7.54,
+      "rms_db": -25.21
+    },
+    {
+      "piece": "rimshot_snappy_p2",
+      "tier": 4,
+      "rr": 2,
+      "file": "rimshot_snappy_p2/t4_rr2.m4a",
+      "peak_db": -5.15,
+      "rms_db": -22.33
+    },
+    {
+      "piece": "rimshot_snappy_p2",
+      "tier": 5,
+      "rr": 1,
+      "file": "rimshot_snappy_p2/t5_rr1.m4a",
+      "peak_db": -3.84,
+      "rms_db": -18.43
+    },
+    {
+      "piece": "rimshot_snappy_p2",
+      "tier": 5,
+      "rr": 2,
+      "file": "rimshot_snappy_p2/t5_rr2.m4a",
+      "peak_db": -4.36,
+      "rms_db": -18.12
+    },
+    {
+      "piece": "sidestick",
+      "tier": 1,
+      "rr": 1,
+      "file": "sidestick/t1_rr1.m4a",
+      "peak_db": -49.03,
+      "rms_db": -62.56
+    },
+    {
+      "piece": "sidestick",
+      "tier": 1,
+      "rr": 2,
+      "file": "sidestick/t1_rr2.m4a",
+      "peak_db": -48.23,
+      "rms_db": -61.56
+    },
+    {
+      "piece": "sidestick",
+      "tier": 1,
+      "rr": 3,
+      "file": "sidestick/t1_rr3.m4a",
+      "peak_db": -43.08,
+      "rms_db": -57.11
+    },
+    {
+      "piece": "sidestick",
+      "tier": 2,
+      "rr": 1,
+      "file": "sidestick/t2_rr1.m4a",
+      "peak_db": -48.23,
+      "rms_db": -61.56
+    },
+    {
+      "piece": "sidestick",
+      "tier": 2,
+      "rr": 2,
+      "file": "sidestick/t2_rr2.m4a",
+      "peak_db": -43.08,
+      "rms_db": -57.11
+    },
+    {
+      "piece": "sidestick",
+      "tier": 2,
+      "rr": 3,
+      "file": "sidestick/t2_rr3.m4a",
+      "peak_db": -38.21,
+      "rms_db": -52.54
+    },
+    {
+      "piece": "sidestick",
+      "tier": 3,
+      "rr": 1,
+      "file": "sidestick/t3_rr1.m4a",
+      "peak_db": -38.21,
+      "rms_db": -52.54
+    },
+    {
+      "piece": "sidestick",
+      "tier": 3,
+      "rr": 2,
+      "file": "sidestick/t3_rr2.m4a",
+      "peak_db": -37.3,
+      "rms_db": -51.17
+    },
+    {
+      "piece": "sidestick",
+      "tier": 3,
+      "rr": 3,
+      "file": "sidestick/t3_rr3.m4a",
+      "peak_db": -36.87,
+      "rms_db": -50.15
+    },
+    {
+      "piece": "sidestick",
+      "tier": 4,
+      "rr": 1,
+      "file": "sidestick/t4_rr1.m4a",
+      "peak_db": -30.91,
+      "rms_db": -45.85
+    },
+    {
+      "piece": "sidestick",
+      "tier": 4,
+      "rr": 2,
+      "file": "sidestick/t4_rr2.m4a",
+      "peak_db": -31.82,
+      "rms_db": -45.3
+    },
+    {
+      "piece": "sidestick",
+      "tier": 4,
+      "rr": 3,
+      "file": "sidestick/t4_rr3.m4a",
+      "peak_db": -30.87,
+      "rms_db": -44.57
+    },
+    {
+      "piece": "sidestick",
+      "tier": 5,
+      "rr": 1,
+      "file": "sidestick/t5_rr1.m4a",
+      "peak_db": -25.84,
+      "rms_db": -41.12
+    },
+    {
+      "piece": "sidestick",
+      "tier": 5,
+      "rr": 2,
+      "file": "sidestick/t5_rr2.m4a",
+      "peak_db": -26.33,
+      "rms_db": -40.14
+    },
+    {
+      "piece": "sidestick",
+      "tier": 5,
+      "rr": 3,
+      "file": "sidestick/t5_rr3.m4a",
+      "peak_db": -24.61,
+      "rms_db": -39.71
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 1,
+      "rr": 1,
+      "file": "snare_snappy_p2/t1_rr1.m4a",
+      "peak_db": -26.79,
+      "rms_db": -42.31
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 1,
+      "rr": 2,
+      "file": "snare_snappy_p2/t1_rr2.m4a",
+      "peak_db": -24.2,
+      "rms_db": -40.17
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 1,
+      "rr": 3,
+      "file": "snare_snappy_p2/t1_rr3.m4a",
+      "peak_db": -20.36,
+      "rms_db": -37.19
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 2,
+      "rr": 1,
+      "file": "snare_snappy_p2/t2_rr1.m4a",
+      "peak_db": -19.77,
+      "rms_db": -36.79
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 2,
+      "rr": 2,
+      "file": "snare_snappy_p2/t2_rr2.m4a",
+      "peak_db": -19.64,
+      "rms_db": -36.63
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 2,
+      "rr": 3,
+      "file": "snare_snappy_p2/t2_rr3.m4a",
+      "peak_db": -18.18,
+      "rms_db": -34.99
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 3,
+      "rr": 1,
+      "file": "snare_snappy_p2/t3_rr1.m4a",
+      "peak_db": -14.95,
+      "rms_db": -30.05
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 3,
+      "rr": 2,
+      "file": "snare_snappy_p2/t3_rr2.m4a",
+      "peak_db": -15.78,
+      "rms_db": -29.35
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 3,
+      "rr": 3,
+      "file": "snare_snappy_p2/t3_rr3.m4a",
+      "peak_db": -14.46,
+      "rms_db": -29.18
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 4,
+      "rr": 1,
+      "file": "snare_snappy_p2/t4_rr1.m4a",
+      "peak_db": -9.85,
+      "rms_db": -24.08
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 4,
+      "rr": 2,
+      "file": "snare_snappy_p2/t4_rr2.m4a",
+      "peak_db": -9.57,
+      "rms_db": -23.9
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 4,
+      "rr": 3,
+      "file": "snare_snappy_p2/t4_rr3.m4a",
+      "peak_db": -8.74,
+      "rms_db": -23.0
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 5,
+      "rr": 1,
+      "file": "snare_snappy_p2/t5_rr1.m4a",
+      "peak_db": -5.42,
+      "rms_db": -17.73
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 5,
+      "rr": 2,
+      "file": "snare_snappy_p2/t5_rr2.m4a",
+      "peak_db": -5.17,
+      "rms_db": -17.67
+    },
+    {
+      "piece": "snare_snappy_p2",
+      "tier": 5,
+      "rr": 3,
+      "file": "snare_snappy_p2/t5_rr3.m4a",
+      "peak_db": -5.44,
+      "rms_db": -17.59
+    },
+    {
+      "piece": "tom_high",
+      "tier": 1,
+      "rr": 1,
+      "file": "tom_high/t1_rr1.m4a",
+      "peak_db": -33.42,
+      "rms_db": -41.37
+    },
+    {
+      "piece": "tom_high",
+      "tier": 1,
+      "rr": 2,
+      "file": "tom_high/t1_rr2.m4a",
+      "peak_db": -32.73,
+      "rms_db": -40.22
+    },
+    {
+      "piece": "tom_high",
+      "tier": 1,
+      "rr": 3,
+      "file": "tom_high/t1_rr3.m4a",
+      "peak_db": -30.98,
+      "rms_db": -38.55
+    },
+    {
+      "piece": "tom_high",
+      "tier": 2,
+      "rr": 1,
+      "file": "tom_high/t2_rr1.m4a",
+      "peak_db": -30.98,
+      "rms_db": -38.55
+    },
+    {
+      "piece": "tom_high",
+      "tier": 2,
+      "rr": 2,
+      "file": "tom_high/t2_rr2.m4a",
+      "peak_db": -26.44,
+      "rms_db": -37.15
+    },
+    {
+      "piece": "tom_high",
+      "tier": 2,
+      "rr": 3,
+      "file": "tom_high/t2_rr3.m4a",
+      "peak_db": -23.65,
+      "rms_db": -33.81
+    },
+    {
+      "piece": "tom_high",
+      "tier": 3,
+      "rr": 1,
+      "file": "tom_high/t3_rr1.m4a",
+      "peak_db": -21.19,
+      "rms_db": -31.27
+    },
+    {
+      "piece": "tom_high",
+      "tier": 3,
+      "rr": 2,
+      "file": "tom_high/t3_rr2.m4a",
+      "peak_db": -21.43,
+      "rms_db": -30.97
+    },
+    {
+      "piece": "tom_high",
+      "tier": 3,
+      "rr": 3,
+      "file": "tom_high/t3_rr3.m4a",
+      "peak_db": -19.64,
+      "rms_db": -29.87
+    },
+    {
+      "piece": "tom_high",
+      "tier": 4,
+      "rr": 1,
+      "file": "tom_high/t4_rr1.m4a",
+      "peak_db": -16.14,
+      "rms_db": -24.97
+    },
+    {
+      "piece": "tom_high",
+      "tier": 4,
+      "rr": 2,
+      "file": "tom_high/t4_rr2.m4a",
+      "peak_db": -16.45,
+      "rms_db": -24.95
+    },
+    {
+      "piece": "tom_high",
+      "tier": 4,
+      "rr": 3,
+      "file": "tom_high/t4_rr3.m4a",
+      "peak_db": -15.75,
+      "rms_db": -24.14
+    },
+    {
+      "piece": "tom_high",
+      "tier": 5,
+      "rr": 1,
+      "file": "tom_high/t5_rr1.m4a",
+      "peak_db": -9.24,
+      "rms_db": -19.76
+    },
+    {
+      "piece": "tom_high",
+      "tier": 5,
+      "rr": 2,
+      "file": "tom_high/t5_rr2.m4a",
+      "peak_db": -8.37,
+      "rms_db": -19.26
+    },
+    {
+      "piece": "tom_high",
+      "tier": 5,
+      "rr": 3,
+      "file": "tom_high/t5_rr3.m4a",
+      "peak_db": -8.13,
+      "rms_db": -18.52
+    },
+    {
+      "piece": "tom_low",
+      "tier": 1,
+      "rr": 1,
+      "file": "tom_low/t1_rr1.m4a",
+      "peak_db": -34.71,
+      "rms_db": -44.01
+    },
+    {
+      "piece": "tom_low",
+      "tier": 1,
+      "rr": 2,
+      "file": "tom_low/t1_rr2.m4a",
+      "peak_db": -33.78,
+      "rms_db": -42.53
+    },
+    {
+      "piece": "tom_low",
+      "tier": 1,
+      "rr": 3,
+      "file": "tom_low/t1_rr3.m4a",
+      "peak_db": -32.0,
+      "rms_db": -40.98
+    },
+    {
+      "piece": "tom_low",
+      "tier": 2,
+      "rr": 1,
+      "file": "tom_low/t2_rr1.m4a",
+      "peak_db": -29.38,
+      "rms_db": -38.97
+    },
+    {
+      "piece": "tom_low",
+      "tier": 2,
+      "rr": 2,
+      "file": "tom_low/t2_rr2.m4a",
+      "peak_db": -26.49,
+      "rms_db": -36.25
+    },
+    {
+      "piece": "tom_low",
+      "tier": 2,
+      "rr": 3,
+      "file": "tom_low/t2_rr3.m4a",
+      "peak_db": -26.06,
+      "rms_db": -35.77
+    },
+    {
+      "piece": "tom_low",
+      "tier": 3,
+      "rr": 1,
+      "file": "tom_low/t3_rr1.m4a",
+      "peak_db": -21.32,
+      "rms_db": -31.67
+    },
+    {
+      "piece": "tom_low",
+      "tier": 3,
+      "rr": 2,
+      "file": "tom_low/t3_rr2.m4a",
+      "peak_db": -21.4,
+      "rms_db": -31.71
+    },
+    {
+      "piece": "tom_low",
+      "tier": 3,
+      "rr": 3,
+      "file": "tom_low/t3_rr3.m4a",
+      "peak_db": -17.92,
+      "rms_db": -29.53
+    },
+    {
+      "piece": "tom_low",
+      "tier": 4,
+      "rr": 1,
+      "file": "tom_low/t4_rr1.m4a",
+      "peak_db": -13.03,
+      "rms_db": -24.9
+    },
+    {
+      "piece": "tom_low",
+      "tier": 4,
+      "rr": 2,
+      "file": "tom_low/t4_rr2.m4a",
+      "peak_db": -13.25,
+      "rms_db": -24.83
+    },
+    {
+      "piece": "tom_low",
+      "tier": 4,
+      "rr": 3,
+      "file": "tom_low/t4_rr3.m4a",
+      "peak_db": -11.9,
+      "rms_db": -24.48
+    },
+    {
+      "piece": "tom_low",
+      "tier": 5,
+      "rr": 1,
+      "file": "tom_low/t5_rr1.m4a",
+      "peak_db": -7.91,
+      "rms_db": -19.93
+    },
+    {
+      "piece": "tom_low",
+      "tier": 5,
+      "rr": 2,
+      "file": "tom_low/t5_rr2.m4a",
+      "peak_db": -8.03,
+      "rms_db": -19.32
+    },
+    {
+      "piece": "tom_low",
+      "tier": 5,
+      "rr": 3,
+      "file": "tom_low/t5_rr3.m4a",
+      "peak_db": -6.9,
+      "rms_db": -18.92
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 1,
+      "rr": 1,
+      "file": "tom_mid/t1_rr1.m4a",
+      "peak_db": -27.21,
+      "rms_db": -35.54
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 1,
+      "rr": 2,
+      "file": "tom_mid/t1_rr2.m4a",
+      "peak_db": -26.1,
+      "rms_db": -33.79
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 1,
+      "rr": 3,
+      "file": "tom_mid/t1_rr3.m4a",
+      "peak_db": -25.4,
+      "rms_db": -32.34
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 2,
+      "rr": 1,
+      "file": "tom_mid/t2_rr1.m4a",
+      "peak_db": -27.21,
+      "rms_db": -35.54
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 2,
+      "rr": 2,
+      "file": "tom_mid/t2_rr2.m4a",
+      "peak_db": -26.1,
+      "rms_db": -33.79
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 2,
+      "rr": 3,
+      "file": "tom_mid/t2_rr3.m4a",
+      "peak_db": -25.4,
+      "rms_db": -32.34
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 3,
+      "rr": 1,
+      "file": "tom_mid/t3_rr1.m4a",
+      "peak_db": -21.97,
+      "rms_db": -29.99
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 3,
+      "rr": 2,
+      "file": "tom_mid/t3_rr2.m4a",
+      "peak_db": -20.05,
+      "rms_db": -29.41
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 3,
+      "rr": 3,
+      "file": "tom_mid/t3_rr3.m4a",
+      "peak_db": -17.86,
+      "rms_db": -27.75
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 4,
+      "rr": 1,
+      "file": "tom_mid/t4_rr1.m4a",
+      "peak_db": -10.68,
+      "rms_db": -21.88
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 4,
+      "rr": 2,
+      "file": "tom_mid/t4_rr2.m4a",
+      "peak_db": -11.1,
+      "rms_db": -21.46
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 4,
+      "rr": 3,
+      "file": "tom_mid/t4_rr3.m4a",
+      "peak_db": -11.2,
+      "rms_db": -21.51
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 5,
+      "rr": 1,
+      "file": "tom_mid/t5_rr1.m4a",
+      "peak_db": -7.43,
+      "rms_db": -17.22
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 5,
+      "rr": 2,
+      "file": "tom_mid/t5_rr2.m4a",
+      "peak_db": -6.33,
+      "rms_db": -16.77
+    },
+    {
+      "piece": "tom_mid",
+      "tier": 5,
+      "rr": 3,
+      "file": "tom_mid/t5_rr3.m4a",
+      "peak_db": -7.19,
+      "rms_db": -16.67
+    }
+  ]
+}
