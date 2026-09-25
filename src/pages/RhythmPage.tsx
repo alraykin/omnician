@@ -397,7 +397,6 @@ export function RhythmPage() {
                     bars={clickBars}
                     barIndex={clickBarIndex}
                     playing={playing}
-                    kinds={false}
                     canAdd={clickBars.length < MAX_BARS}
                   onSelect={chooseClickBar}
                   onAdd={addBar}
