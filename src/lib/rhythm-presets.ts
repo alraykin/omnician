@@ -325,16 +325,15 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
           kick: [0, 1, 2, 3, 8, 9, 10, 11, 14],
           snare: [4, 12],
           closedHat: hatsExcept([6, 14]),
-          crashR: [6, 14],
           stack: [8],
           china: [0],
-          crash: [0],
+          crash: [0, 6, 14],
         },
         {
           kick: [0, 1, 2, 3, 8, 9],
           snare: [4, 12],
           closedHat: [0, 2, 4, 6, 8],
-          crashR: [6],
+          crash: [6],
           stack: [8],
           midTom: [10],
           lowTom: [11, 12],
@@ -1069,7 +1068,7 @@ function barHitsForIndex(hits: HitMap, fill: HitMap | undefined, mid: HitMap | u
   return body
 }
 
-/** 8-bar phrase. Crash L on beat 1 every 4 bars; fill lands on bar 8. */
+/** 8-bar phrase. Crash on beat 1 every 4 bars; fill lands on bar 8. */
 export function makeGrooveBars(
   beats: number,
   beatUnit: BeatUnit,
@@ -1120,7 +1119,7 @@ export function applyPreset(item: RhythmPreset): RhythmBar {
   return presetToBar(item)
 }
 
-/** First-open Rock: 8 bars, Crash L on 1 and 5, tom fill on 8. */
+/** First-open Rock: 8 bars, Crash on 1 and 5, tom fill on 8. */
 export function makeDefaultRockBars(): RhythmBar[] {
   return makeGrooveBars(4, 4, 4, ROCK_GROOVE, ROCK_FILL)
 }

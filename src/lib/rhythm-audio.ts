@@ -9,6 +9,20 @@ export function getAudioCtor(): AudioContextCtor | undefined {
   return window.AudioContext ?? view.webkitAudioContext
 }
 
+export function createRhythmContext(): AudioContext {
+  const Ctor = getAudioCtor()
+  if (!Ctor) throw new Error('NO_AUDIO')
+  try {
+    return new Ctor({ latencyHint: 'interactive', sampleRate: 48000 })
+  } catch {
+    try {
+      return new Ctor({ latencyHint: 'interactive' })
+    } catch {
+      return new Ctor()
+    }
+  }
+}
+
 const SAMPLE_FILES: Partial<Record<VoiceId, string>> = {
   kick: '/rhythm/drums/kick.wav',
   snare: '/rhythm/drums/snare.wav',
@@ -21,7 +35,6 @@ const SAMPLE_FILES: Partial<Record<VoiceId, string>> = {
   ride: '/rhythm/drums/ride.wav',
   rideBell: '/rhythm/drums/ride-bell.wav',
   crash: '/rhythm/drums/crash.wav',
-  crashR: '/rhythm/drums/crash-r.wav',
   stack: '/rhythm/drums/stack.wav',
   splash: '/rhythm/drums/splash.wav',
   china: '/rhythm/drums/china.wav',
@@ -63,7 +76,6 @@ const SAMPLE_GAIN: Record<VoiceId, number> = {
   ride: 0.7,
   rideBell: 0.78,
   crash: 0.78,
-  crashR: 0.82,
   stack: 0.8,
   splash: 0.76,
   china: 0.8,
@@ -73,7 +85,6 @@ const CHOKE_HAT_VOICES: ReadonlySet<VoiceId> = new Set([
   'closedHat',
   'openHat',
   'crash',
-  'crashR',
   'stack',
   'splash',
   'china',
@@ -227,23 +238,6 @@ function bakeRideBell(ctx: AudioContext): AudioBuffer {
   })
 }
 
-function bakeCrashR(ctx: AudioContext): AudioBuffer {
-  const freqs = [720, 910, 1180, 1540, 1920]
-  return renderBuffer(ctx, 0.22, (data, sr) => {
-    const phases = freqs.map(() => Math.random() * Math.PI * 2)
-    for (let i = 0; i < data.length; i += 1) {
-      const t = i / sr
-      let metal = 0
-      for (let f = 0; f < freqs.length; f += 1) {
-        phases[f] += (Math.PI * 2 * freqs[f]) / sr
-        metal += Math.sin(phases[f]) / freqs.length
-      }
-      const wash = (Math.random() * 2 - 1) * env(t, 0.0008, 0.06)
-      data[i] = tanh(metal * env(t, 0.001, 0.055) * 1.3 + wash * 0.35) * 0.58
-    }
-  })
-}
-
 function bakeStack(ctx: AudioContext): AudioBuffer {
   const freqs = [540, 780, 1100, 1480, 1860, 2300]
   return renderBuffer(ctx, 0.48, (data, sr) => {
@@ -340,7 +334,6 @@ function bakeSynthDrums(ctx: AudioContext): Record<VoiceId, AudioBuffer> {
     ride: bakeRide(ctx),
     rideBell: bakeRideBell(ctx),
     crash: bakeCrash(ctx),
-    crashR: bakeCrashR(ctx),
     stack: bakeStack(ctx),
     splash: bakeSplash(ctx),
     china: bakeChina(ctx),
@@ -551,7 +544,11 @@ export function playWheelTick(): void {
   lastWheelTickAt = now
   try {
     if (!wheelTickCtx || wheelTickCtx.state === 'closed') {
-      wheelTickCtx = new Ctor()
+      try {
+        wheelTickCtx = createRhythmContext()
+      } catch {
+        wheelTickCtx = new Ctor()
+      }
       wheelTickBuffer = bakeWheelTick(wheelTickCtx)
     }
     const ctx = wheelTickCtx
@@ -564,10 +561,53 @@ export function playWheelTick(): void {
     amp.gain.value = 0.64
     source.connect(amp)
     amp.connect(ctx.destination)
-    source.start()
+    source.start(0)
   } catch {
     // Audio can fail before a user gesture; ignore.
   }
+}
+
+let sharedKit: RhythmKit | null = null
+let lastPreviewPathMs = 0
+
+export function lastDrumPreviewPathMs(): number {
+  return lastPreviewPathMs
+}
+
+export function getOrCreateRhythmKit(): RhythmKit | null {
+  if (sharedKit && sharedKit.ctx.state !== 'closed') return sharedKit
+  try {
+    sharedKit = new RhythmKit(createRhythmContext())
+    void sharedKit.unlock()
+    exposeDrumDebug()
+    return sharedKit
+  } catch {
+    return null
+  }
+}
+
+export function primeRhythmKit(): void {
+  const kit = getOrCreateRhythmKit()
+  if (!kit) return
+  void kit.unlock()
+}
+
+function exposeDrumDebug(): void {
+  if (typeof window === 'undefined') return
+  Object.defineProperty(window, '__OMNICIAN_DRUM__', {
+    configurable: true,
+    get() {
+      const kit = sharedKit
+      return {
+        previewPathMs: lastPreviewPathMs,
+        context: kit?.ctx.state ?? 'none',
+        baseLatencyMs: kit ? Math.round(kit.ctx.baseLatency * 1000) : null,
+        outputLatencyMs:
+          kit && 'outputLatency' in kit.ctx ? Math.round((kit.ctx.outputLatency as number) * 1000) : null,
+        voices: kit ? Object.keys(kit.voiceIds()) : [],
+      }
+    },
+  })
 }
 
 export class RhythmKit {
@@ -611,9 +651,18 @@ export class RhythmKit {
     return kit
   }
 
+  voiceIds(): VoiceId[] {
+    return Object.keys(this.drums) as VoiceId[]
+  }
+
   async unlock(): Promise<void> {
-    if (this.ctx.state === 'suspended') await this.ctx.resume()
-    await this.ready
+    if (this.ctx.state === 'suspended') {
+      try {
+        await this.ctx.resume()
+      } catch {
+        // Need a later gesture on iOS.
+      }
+    }
   }
 
   click(
@@ -650,8 +699,18 @@ export class RhythmKit {
     if (voice === 'closedHat' && source) this.closedHat = { gain: source, start: time }
   }
 
+  previewVoice(voice: VoiceId): void {
+    const started = performance.now()
+    if (this.ctx.state === 'suspended') void this.ctx.resume()
+    this.hit(voice, 0, false)
+    lastPreviewPathMs = performance.now() - started
+  }
+
   previewClick(sound: ClickSoundId, level: 0 | 1 | 2 = 2, onBeat = true): void {
-    this.click(this.ctx.currentTime + 0.01, level, sound, onBeat)
+    const started = performance.now()
+    if (this.ctx.state === 'suspended') void this.ctx.resume()
+    this.click(0, level, sound, onBeat)
+    lastPreviewPathMs = performance.now() - started
   }
 
   /** Cut every scheduled click and drum the instant Stop is pressed. */
@@ -686,12 +745,14 @@ export class RhythmKit {
   private fire(buffer: AudioBuffer, time: number, gain: number, rate = 1): GainNode {
     const source = this.ctx.createBufferSource()
     source.buffer = buffer
-    source.playbackRate.setValueAtTime(rate, time)
+    const when = time <= 0 ? 0 : time
+    const gainTime = when === 0 ? this.ctx.currentTime : when
+    source.playbackRate.setValueAtTime(rate, gainTime)
     const amp = this.ctx.createGain()
-    amp.gain.setValueAtTime(Math.max(0.0001, gain), time)
+    amp.gain.setValueAtTime(Math.max(0.0001, gain), gainTime)
     source.connect(amp)
     amp.connect(this.master)
-    source.start(time)
+    source.start(when)
     this.sources.push(source)
     source.onended = () => {
       this.sources = this.sources.filter((item) => item !== source)

@@ -13,8 +13,8 @@ import {
   normalizeSubdivision,
   parseBeatAccents,
   parseSubdivAccents,
-  reduceHit,
-  stepsPerBeat,
+  parseVoiceHits,
+  absorbCrashRHits,
   type BeatUnit,
   type ClickSoundId,
   type Pattern,
@@ -26,8 +26,9 @@ import {
 import { DEFAULT_KIT_MIX, parseKitMix, type KitMix } from '@/lib/kit-mix'
 import { barsForPreset, findPreset, makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 
-const STORAGE_KEY = 'omnician.rhythm.v17'
+const STORAGE_KEY = 'omnician.rhythm.v18'
 const PREVIOUS_KEYS = [
+  'omnician.rhythm.v17',
   'omnician.rhythm.v16',
   'omnician.rhythm.v15',
   'omnician.rhythm.v14',
@@ -71,50 +72,14 @@ function fallback(): RhythmPrefs {
   }
 }
 
-function isBoolRow(value: unknown): value is boolean[] {
-  return Array.isArray(value) && value.every((item) => typeof item === 'boolean')
-}
-
-function isHitRow(value: unknown): boolean {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (item) =>
-        item &&
-        typeof item === 'object' &&
-        Number.isInteger((item as { beat?: unknown }).beat) &&
-        Number.isInteger((item as { num?: unknown }).num) &&
-        Number.isInteger((item as { den?: unknown }).den),
-    )
-  )
-}
-
 function parsePattern(raw: unknown, beats: number, subdivision: SubdivisionId): Pattern {
   const empty = emptyPattern()
   if (!raw || typeof raw !== 'object') return empty
   const row = raw as Partial<Record<VoiceId, unknown>>
-  const steps = stepsPerBeat(subdivision)
   for (const voice of VOICES) {
-    const items = row[voice]
-    if (isHitRow(items)) {
-      for (const item of items as { beat: number; num: number; den: number }[]) {
-        if (item.den > 0 && item.beat >= 0 && item.beat < beats) {
-          empty[voice].push(reduceHit(item.beat, item.num, item.den))
-        }
-      }
-      continue
-    }
-    if (!isBoolRow(items)) continue
-    items.forEach((on, step) => {
-      if (!on) return
-      const beat = Math.floor(step / steps)
-      const slot = step % steps
-      if (beat >= 0 && beat < beats && slot >= 0 && slot < steps) {
-        empty[voice].push(reduceHit(beat, slot, steps))
-      }
-    })
+    empty[voice] = parseVoiceHits(row[voice], beats, subdivision)
   }
-  return empty
+  return absorbCrashRHits(raw, empty, beats, subdivision)
 }
 
 function parseBar(raw: unknown, fallbackSub: SubdivisionId): RhythmBar | null {

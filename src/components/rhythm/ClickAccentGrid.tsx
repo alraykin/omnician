@@ -8,7 +8,7 @@ import {
   type SubdivAccent,
   type SubdivisionId,
 } from '@/lib/rhythm'
-import { cn } from '@/lib/utils'
+import { activateOnPointer, cn } from '@/lib/utils'
 
 type ClickAccentGridProps = {
   beats: number
@@ -69,9 +69,9 @@ export function ClickAccentGrid({
                   data-beat={beat}
                   data-level={level}
                   aria-label={`Beat ${beat + 1}, ${LEVEL_NAME[level]}`}
-                  onClick={() => onCycleBeat(beat)}
+                  {...activateOnPointer(() => onCycleBeat(beat))}
                   className={cn(
-                    'flex size-10 shrink-0 items-center justify-center rounded-full border text-sm font-bold tabular-nums sm:size-11 lg:size-12',
+                    'flex size-10 shrink-0 touch-manipulation items-center justify-center rounded-full border text-sm font-bold tabular-nums sm:size-11 lg:size-12',
                     accentTone(level, true),
                     now && 'omni-beat-pulse',
                   )}
@@ -101,9 +101,9 @@ export function ClickAccentGrid({
                   data-slot={slot}
                   data-level={inner}
                   aria-label={`Within beat, step ${slot + 1}, ${LEVEL_NAME[inner]}`}
-                  onClick={() => onCycleSubdiv(slot)}
+                  {...activateOnPointer(() => onCycleSubdiv(slot))}
                   className={cn(
-                    'flex size-8 shrink-0 items-center justify-center rounded-lg border text-xs font-bold tabular-nums sm:size-9',
+                    'flex size-8 shrink-0 touch-manipulation items-center justify-center rounded-lg border text-xs font-bold tabular-nums sm:size-9',
                     accentTone(inner, false),
                     now && 'omni-beat-pulse',
                   )}

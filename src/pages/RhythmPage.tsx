@@ -45,6 +45,7 @@ import {
   type VoiceId,
 } from '@/lib/rhythm'
 import { playWheelTick } from '@/lib/rhythm-audio'
+import { activateOnPointer, cn } from '@/lib/utils'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
 import {
   RHYTHM_STYLES,
@@ -54,7 +55,6 @@ import {
   type RhythmPreset,
   type RhythmStyle,
 } from '@/lib/rhythm-presets'
-import { cn } from '@/lib/utils'
 
 const BEAT_VALUES = Array.from({ length: MAX_BEATS - MIN_BEATS + 1 }, (_, index) => index + MIN_BEATS)
 
@@ -101,6 +101,18 @@ export function RhythmPage() {
     : savedPreset
       ? `${savedPreset.name} · edited`
       : 'Custom beat'
+
+  useEffect(() => {
+    const resume = () => {
+      void ensureKit()
+    }
+    window.addEventListener('pointerdown', resume)
+    document.addEventListener('visibilitychange', resume)
+    return () => {
+      window.removeEventListener('pointerdown', resume)
+      document.removeEventListener('visibilitychange', resume)
+    }
+  }, [ensureKit])
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -203,6 +215,7 @@ export function RhythmPage() {
 
   const onPaintCell = useCallback(
     (targetBar: number, voice: VoiceId, step: number, on: boolean, playPreview: boolean) => {
+      if (playPreview) preview(voice)
       let changed = false
       setDrumBars((currentBars) => {
         const bar = currentBars[targetBar]
@@ -215,7 +228,6 @@ export function RhythmPage() {
         )
       })
       if (changed) setPresetId(matched?.id ?? presetId)
-      if (playPreview) void preview(voice)
     },
     [matched?.id, presetId, preview],
   )
@@ -270,15 +282,19 @@ export function RhythmPage() {
                   aria-pressed={mode === item}
                   data-mode={item}
                   onPointerDown={(event) => {
+                    if (event.button !== 0) return
+                    event.preventDefault()
                     event.stopPropagation()
                     chooseMode(item)
                   }}
-                  onClick={(event) => {
+                  onClick={(event) => event.preventDefault()}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return
                     event.preventDefault()
                     chooseMode(item)
                   }}
                   className={cn(
-                    'relative z-30 h-11 min-h-11 flex-1 rounded-full text-sm font-semibold capitalize transition',
+                    'relative z-30 h-11 min-h-11 flex-1 touch-manipulation rounded-full text-sm font-semibold capitalize transition',
                     mode === item ? 'bg-[#A855F7] text-white' : 'text-slate-300 hover:text-white',
                   )}
                 >
@@ -302,12 +318,13 @@ export function RhythmPage() {
                   variant="outline"
                   size="sm"
                   aria-label="Slower by 5"
-                  onClick={() => changeBpm(bpm - 5, true)}
+                  className="touch-manipulation"
+                  {...activateOnPointer(() => changeBpm(bpm - 5, true))}
                 >
                   <Minus className="size-3.5" />
                   5
                 </Button>
-                <Button type="button" variant="outline" size="sm" onClick={tapTempo}>
+                <Button type="button" variant="outline" size="sm" className="touch-manipulation" {...activateOnPointer(tapTempo)}>
                   Tap
                 </Button>
                 <Button
@@ -315,7 +332,8 @@ export function RhythmPage() {
                   variant="outline"
                   size="sm"
                   aria-label="Faster by 5"
-                  onClick={() => changeBpm(bpm + 5, true)}
+                  className="touch-manipulation"
+                  {...activateOnPointer(() => changeBpm(bpm + 5, true))}
                 >
                   <Plus className="size-3.5" />
                   5
@@ -374,9 +392,9 @@ export function RhythmPage() {
                     title={SUBDIVISION_LABELS[steps]}
                     aria-pressed={current.subdivision === steps}
                     data-subdivision={steps}
-                    onClick={() => setSubdivision(steps)}
+                    {...activateOnPointer(() => setSubdivision(steps))}
                     className={cn(
-                      'flex h-12 w-[2.85rem] shrink-0 items-center justify-center rounded-lg sm:h-14 sm:w-[3.2rem] lg:h-11 lg:w-[2.4rem]',
+                      'flex h-12 w-[2.85rem] shrink-0 touch-manipulation items-center justify-center rounded-lg sm:h-14 sm:w-[3.2rem] lg:h-11 lg:w-[2.4rem]',
                       current.subdivision === steps
                         ? 'bg-[#A855F7] text-white'
                         : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
@@ -419,22 +437,14 @@ export function RhythmPage() {
                 playing={playing}
                 onCycleBeat={(beat) => {
                   const next = cycleBeatAccent(current.beatAccents, beat, current.beats)
+                  previewClick(clickSound, nestAccent(beatAccentAt(next, beat), 0), true)
                   patchBar(barIndex, { ...current, beatAccents: next })
-                  void previewClick(
-                    clickSound,
-                    nestAccent(beatAccentAt(next, beat), 0),
-                    true,
-                  )
                 }}
                 onCycleSubdiv={(slot) => {
                   const steps = stepsPerBeat(current.subdivision)
                   const next = cycleSubdivAccent(current.subdivAccents, slot, steps)
+                  previewClick(clickSound, nestAccent(0, subdivAccentAt(next, slot, steps)), false)
                   patchBar(barIndex, { ...current, subdivAccents: next })
-                  void previewClick(
-                    clickSound,
-                    nestAccent(0, subdivAccentAt(next, slot, steps)),
-                    false,
-                  )
                 }}
               />
               <div
@@ -447,12 +457,12 @@ export function RhythmPage() {
                     type="button"
                     data-click-sound={id}
                     aria-pressed={clickSound === id}
-                    onClick={() => {
+                    {...activateOnPointer(() => {
+                      previewClick(id)
                       setClickSound(id)
-                      void previewClick(id)
-                    }}
+                    })}
                     className={cn(
-                      'h-8 min-w-0 rounded-lg px-1 text-[0.7rem] font-semibold sm:text-sm',
+                      'h-8 min-w-0 touch-manipulation rounded-lg px-1 text-[0.7rem] font-semibold sm:text-sm',
                       clickSound === id
                         ? 'bg-[#A855F7] text-white'
                         : 'border border-white/10 bg-white/4 text-slate-200',
@@ -535,9 +545,9 @@ export function RhythmPage() {
             type="button"
             size="lg"
             variant={playing ? 'outline' : 'default'}
-            className="h-14 w-full text-base lg:mx-auto lg:max-w-md"
+            className="h-14 w-full touch-manipulation text-base lg:mx-auto lg:max-w-md"
             data-transport="play"
-            onClick={() => void startStop()}
+            {...activateOnPointer(() => void startStop())}
           >
             {playing ? <Square className="size-4 fill-current" /> : <Play className="size-4 fill-current" />}
             {playing ? 'Stop' : 'Play'}

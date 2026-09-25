@@ -2,10 +2,12 @@ import { Link } from 'react-router-dom'
 
 import { ToolIcon } from '@/components/ToolIcons'
 import type { PracticeTool } from '@/data/tools'
+import { primeRhythmKit } from '@/lib/rhythm-audio'
 import { primeTuner } from '@/lib/tuner-session'
 
 function primeIfNeeded(slug: PracticeTool['slug']) {
   if (slug === 'tuner') primeTuner()
+  if (slug === 'rhythm') primeRhythmKit()
 }
 
 export function ToolButton({ tool }: { tool: PracticeTool }) {

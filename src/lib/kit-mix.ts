@@ -46,7 +46,6 @@ export const KIT_VOICE_GROUP: Record<VoiceId, KitGroupId> = {
   ride: 'cymbals',
   rideBell: 'cymbals',
   crash: 'cymbals',
-  crashR: 'cymbals',
   stack: 'cymbals',
   splash: 'cymbals',
   china: 'cymbals',

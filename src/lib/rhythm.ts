@@ -12,7 +12,6 @@ export const VOICES = [
   'ride',
   'rideBell',
   'crash',
-  'crashR',
   'stack',
   'splash',
   'china',
@@ -33,8 +32,7 @@ export const VOICE_LABELS: Record<VoiceId, string> = {
   openHat: 'HH Open',
   ride: 'Ride',
   rideBell: 'Ride Bell',
-  crash: 'Crash L',
-  crashR: 'Crash R',
+  crash: 'Crash',
   stack: 'Stack',
   splash: 'Splash',
   china: 'China',
@@ -209,6 +207,62 @@ export function reduceHit(beat: number, num: number, den: number): HitPos {
 
 export function sameHit(a: HitPos, b: HitPos): boolean {
   return a.beat === b.beat && a.num * b.den === b.num * a.den
+}
+
+export function dedupeHits(hits: readonly HitPos[]): HitPos[] {
+  const next: HitPos[] = []
+  for (const hit of hits) {
+    if (!next.some((item) => sameHit(item, hit))) next.push(hit)
+  }
+  return next
+}
+
+/** Saved Crash R hits land on Crash; matching steps stay one hit. */
+function isHitRow(value: unknown): value is HitPos[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        item &&
+        typeof item === 'object' &&
+        Number.isInteger((item as HitPos).beat) &&
+        Number.isInteger((item as HitPos).num) &&
+        Number.isInteger((item as HitPos).den),
+    )
+  )
+}
+
+export function parseVoiceHits(raw: unknown, beats: number, subdivision: SubdivisionId): HitPos[] {
+  const steps = stepsPerBeat(subdivision)
+  const hits: HitPos[] = []
+  if (isHitRow(raw)) {
+    for (const item of raw) {
+      if (item.den > 0 && item.beat >= 0 && item.beat < beats) {
+        hits.push(reduceHit(item.beat, item.num, item.den))
+      }
+    }
+    return hits
+  }
+  if (Array.isArray(raw) && raw.every((item) => typeof item === 'boolean')) {
+    raw.forEach((on, step) => {
+      if (!on) return
+      const beat = Math.floor(step / steps)
+      const slot = step % steps
+      if (beat >= 0 && beat < beats && slot >= 0 && slot < steps) {
+        hits.push(reduceHit(beat, slot, steps))
+      }
+    })
+  }
+  return hits
+}
+
+export function absorbCrashRHits(raw: unknown, pattern: Pattern, beats: number, subdivision: SubdivisionId): Pattern {
+  if (!raw || typeof raw !== 'object') return pattern
+  const extra = parseVoiceHits((raw as { crashR?: unknown }).crashR, beats, subdivision)
+  if (extra.length === 0) return pattern
+  const next = clonePattern(pattern)
+  next.crash = dedupeHits([...(next.crash ?? []), ...extra])
+  return next
 }
 
 export function hitSlot(hit: HitPos, steps: number): number | null {

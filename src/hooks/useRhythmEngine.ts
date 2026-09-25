@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { DEFAULT_KIT_MIX, type KitMix } from '@/lib/kit-mix'
-import { getAudioCtor, RhythmKit } from '@/lib/rhythm-audio'
+import { getOrCreateRhythmKit, type RhythmKit } from '@/lib/rhythm-audio'
 import {
   VOICES,
   beatAccentAt,
@@ -73,6 +73,14 @@ export function usePlayhead(store: PlayheadStore): Playhead {
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
 }
 
+export function usePlayheadBar(store: PlayheadStore): number {
+  return useSyncExternalStore(
+    store.subscribe,
+    () => store.getSnapshot().bar,
+    () => store.getSnapshot().bar,
+  )
+}
+
 function cycleSignature(mode: RhythmMode, bars: readonly RhythmBar[]): string {
   return [
     mode,
@@ -105,7 +113,6 @@ export function useRhythmEngine({
   const playheadStore = playheadStoreRef.current
 
   const kitRef = useRef<RhythmKit | null>(null)
-  const kitPromiseRef = useRef<Promise<RhythmKit | null> | null>(null)
   const timerRef = useRef<number | null>(null)
   const rafRef = useRef<number | null>(null)
   const cuesRef = useRef<Array<Playhead & { time: number }>>([])
@@ -142,56 +149,46 @@ export function useRhythmEngine({
     cuesRef.current = []
   }, [])
 
-  const ensureKit = useCallback(async () => {
-    if (kitRef.current) {
-      kitRef.current.setMix(kitMixRef.current)
-      await kitRef.current.unlock()
-      return kitRef.current
-    }
-    if (!kitPromiseRef.current) {
-      const Ctor = getAudioCtor()
-      if (!Ctor) return null
-      kitPromiseRef.current = (async () => {
-        try {
-          const kit = await RhythmKit.create(new Ctor())
-          kit.setMix(kitMixRef.current)
-          kitRef.current = kit
-          return kit
-        } catch {
-          kitPromiseRef.current = null
-          return null
-        }
-      })()
-    }
-    const kit = await kitPromiseRef.current
-    if (kit) await kit.unlock()
+  const grabKit = useCallback(() => {
+    const kit = getOrCreateRhythmKit()
+    if (!kit) return null
+    kit.setMix(kitMixRef.current)
+    kitRef.current = kit
     return kit
   }, [])
 
+  const ensureKit = useCallback(async () => {
+    const kit = grabKit()
+    if (!kit) return null
+    await kit.unlock()
+    return kit
+  }, [grabKit])
+
   const preview = useCallback(
-    async (voice: VoiceId) => {
-      const kit = await ensureKit()
+    (voice: VoiceId) => {
+      const kit = grabKit()
       if (!kit) return
-      kit.hit(voice, kit.ctx.currentTime + 0.01, false)
+      kit.previewVoice(voice)
     },
-    [ensureKit],
+    [grabKit],
   )
 
   const previewClick = useCallback(
-    async (sound: ClickSoundId, level: AccentLevel = 2, onBeat = true) => {
-      const kit = await ensureKit()
+    (sound: ClickSoundId, level: AccentLevel = 2, onBeat = true) => {
+      const kit = grabKit()
       if (!kit) return
       kit.previewClick(sound, level, onBeat)
     },
-    [ensureKit],
+    [grabKit],
   )
 
   const previewBar = useCallback(
-    async (bar: RhythmBar) => {
-      const kit = await ensureKit()
+    (bar: RhythmBar) => {
+      const kit = grabKit()
       if (!kit || playingRef.current) return
+      void kit.unlock()
       kit.stopAll()
-      const start = kit.ctx.currentTime + 0.03
+      const start = kit.ctx.currentTime
       const tempo = bpmRef.current
       for (const voice of VOICES) {
         for (const hit of bar.pattern[voice] ?? []) {
@@ -200,15 +197,16 @@ export function useRhythmEngine({
         }
       }
     },
-    [ensureKit],
+    [grabKit],
   )
 
   const previewClickBar = useCallback(
-    async (bar: RhythmBar) => {
-      const kit = await ensureKit()
+    (bar: RhythmBar) => {
+      const kit = grabKit()
       if (!kit || playingRef.current) return
+      void kit.unlock()
       kit.stopAll()
-      const start = kit.ctx.currentTime + 0.03
+      const start = kit.ctx.currentTime
       const stepSec = stepDurationSec(bpmRef.current, bar.subdivision)
       const length = Math.max(1, stepsInBar(bar))
       const steps = stepsPerBeat(bar.subdivision)
@@ -223,7 +221,7 @@ export function useRhythmEngine({
         kit.click(start + step * stepSec, accent, clickRef.current, onBeat)
       }
     },
-    [ensureKit],
+    [grabKit],
   )
 
   const stopScheduler = useCallback(() => {
@@ -241,8 +239,8 @@ export function useRhythmEngine({
   }, [clearVisuals])
 
   useEffect(() => {
-    if (mode === 'drums' || pendingModeRef.current === 'drums') void ensureKit()
-  }, [mode, ensureKit])
+    void ensureKit()
+  }, [ensureKit])
 
   useEffect(() => {
     kitRef.current?.setMix(kitMix)
@@ -414,14 +412,7 @@ export function useRhythmEngine({
   useEffect(() => {
     return () => {
       stopScheduler()
-      const kit = kitRef.current
       kitRef.current = null
-      kitPromiseRef.current = null
-      if (kit) {
-        window.setTimeout(() => {
-          void kit.ctx.close()
-        }, 200)
-      }
     }
   }, [stopScheduler])
 

@@ -2,7 +2,7 @@ import { Plus, Trash2 } from 'lucide-react'
 
 import { usePlayhead, type PlayheadStore } from '@/hooks/useRhythmEngine'
 import { meterLabel, type RhythmBar } from '@/lib/rhythm'
-import { cn } from '@/lib/utils'
+import { activateOnPointer, cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 export function BarStrip({
@@ -81,9 +81,9 @@ export function BarStrip({
                 playing ? 'show this bar' : 'preview this bar'
               }`}
               aria-pressed={selected}
-              onClick={() => onSelect(index)}
+              {...activateOnPointer(() => onSelect(index))}
               className={cn(
-                'flex size-9 items-center justify-center rounded-lg text-sm font-semibold tabular-nums',
+                'flex size-9 touch-manipulation items-center justify-center rounded-lg text-sm font-semibold tabular-nums',
                 selected ? 'bg-[#A855F7] text-white' : 'border border-white/10 bg-white/4 text-slate-200',
                 live && 'omni-beat-pulse',
               )}

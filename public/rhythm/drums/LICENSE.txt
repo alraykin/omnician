@@ -14,8 +14,8 @@ Files used (trimmed/normalized for the Omnician practice kit):
 - low-tom.wav    from tom-02.wav pitched between Tom 2 and the floor tom
 - floor-tom.wav  from tom-03.wav
 - ride.wav       from ride-01.wav (high-passed)
-- crash.wav      from crash-01.wav (high-passed) — Crash L
-- crash-r.wav    from crash-02.wav, short choked envelope — Crash R
+- crash.wav      from crash-01.wav (high-passed) — Crash
+- crash-r.wav    unused leftover (Crash R was folded onto Crash)
 - splash.wav     from splash-01.wav (high-passed)
 - stack.wav      from splash-02.wav layered with a short crash-02 choke
 
