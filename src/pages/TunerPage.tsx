@@ -225,13 +225,14 @@ export function TunerPage() {
 
         <section
           className={cn(
-            'mt-4 flex min-h-0 flex-1 flex-col items-center rounded-3xl border px-4 py-4 sm:px-6 sm:py-5',
+            'mt-4 flex min-h-0 flex-1 flex-col items-center rounded-3xl border px-4 py-4 sm:px-6 sm:py-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8',
             inTune && live
               ? 'border-emerald-400/50 bg-emerald-500/10'
               : 'border-white/10 bg-[#141A28]/80',
           )}
           aria-live="polite"
         >
+          <div className="flex min-h-0 w-full flex-1 flex-col items-center">
           <NoteDisplay
             live={live}
             inTune={inTune}
@@ -276,9 +277,10 @@ export function TunerPage() {
               active={live}
             />
           </div>
+          </div>
 
           {instrumentMode ? (
-            <div className="mt-4 w-full">
+            <div className="mt-4 w-full lg:mt-2">
               <Headstock
                 strings={strings}
                 config={activeInstrument}
@@ -300,17 +302,17 @@ export function TunerPage() {
               />
             </div>
           ) : (
-            <div className="mt-4 w-full">
+            <div className="mt-4 w-full lg:mt-2">
               <ChromaticCalibration a4Hz={a4Hz} onChange={setA4Hz} compact />
             </div>
           )}
 
-          <p className="mt-4 min-h-10 text-center text-sm leading-6 text-slate-400">
+          <p className="mt-4 min-h-10 text-center text-sm leading-6 text-slate-400 lg:col-span-2">
             {statusMessage(status, live, instrumentMode, autoString)}
           </p>
         </section>
 
-        <div className="mt-5">
+        <div className="mt-5 lg:mx-auto lg:w-full lg:max-w-md">
           {status === 'listening' || status === 'starting' ? (
             <Button
               type="button"

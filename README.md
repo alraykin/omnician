@@ -74,7 +74,7 @@ Click the terminal window and press **Control + C**.
 
 ## What you will see
 
-- **Home** — the locked Omnician wordmark (circular O + *omni* in white + *cian* in purple), the greeting *Hello — are you ready to rock?*, and two tools: Tuner and Rhythm
+- **Home** — the locked Omnician wordmark (circular O + *omni* in white + *cian* in purple), the greeting *Hello — are you ready to rock?*, and two tools: Tuner and Rhythm. The same pages keep a phone stack, a wider tablet column, and a desktop workspace (Rhythm puts tempo and meter beside the grid; Tuner sits the gauge next to the headstock).
 - **Tuner**
   - Tap **Change** for top-level chips: Chromatic, Guitar, Bass, Ukulele, Folk, My customs
   - Guitar opens a submenu by setup (6 / 7 / 8 / 9 / 10 / 12-string and Baritone). Bass opens 4–8 string. Folk holds Banjo, Mandolin, Violin / Fiddle, and Bouzouki

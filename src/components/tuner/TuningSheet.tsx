@@ -128,7 +128,7 @@ export function TuningSheet({
       <div
         role="dialog"
         aria-labelledby="tuning-sheet-title"
-        className="flex h-[92svh] w-full max-w-lg flex-col rounded-t-3xl border border-white/10 bg-[#0F1422] sm:h-[min(40rem,90svh)] sm:rounded-3xl"
+        className="flex h-[92svh] w-full max-w-lg flex-col rounded-t-3xl border border-white/10 bg-[#0F1422] sm:h-[min(40rem,90svh)] sm:rounded-3xl md:max-w-2xl lg:max-w-3xl"
       >
         <div className="shrink-0 px-4 pb-3 pt-4">
           <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">

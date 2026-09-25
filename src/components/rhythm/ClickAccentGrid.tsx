@@ -66,7 +66,7 @@ export function ClickAccentGrid({
                   aria-label={`Beat ${beat + 1}, ${LEVEL_NAME[level]}`}
                   onClick={() => onCycleBeat(beat)}
                   className={cn(
-                    'flex size-10 shrink-0 items-center justify-center rounded-full border text-sm font-bold tabular-nums sm:size-11',
+                    'flex size-10 shrink-0 items-center justify-center rounded-full border text-sm font-bold tabular-nums sm:size-11 lg:size-12',
                     accentTone(level, true),
                     now && 'omni-beat-pulse',
                   )}

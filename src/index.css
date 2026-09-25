@@ -152,6 +152,25 @@ body {
   background: rgba(20, 26, 40, 0.88);
 }
 
+@media (min-width: 768px) {
+  .kit-fader-bank {
+    --kit-fader-track-h: 6.2rem;
+    padding: 0.55rem 0.55rem 0.45rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .kit-fader-bank {
+    --kit-fader-track-h: 8.4rem;
+    --kit-fader-cap-half: 0.48rem;
+    padding: 0.7rem 0.85rem 0.55rem;
+  }
+
+  .kit-fader-channel {
+    min-height: 10.2rem;
+  }
+}
+
 .kit-fader-channels {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

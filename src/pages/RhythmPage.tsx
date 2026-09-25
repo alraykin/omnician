@@ -270,7 +270,11 @@ export function RhythmPage() {
             </div>
           </div>
 
-          <section className="relative isolate z-0 mt-2 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4">
+          <div
+            data-rhythm-layout
+            className="mt-2 grid grid-cols-1 gap-2.5 lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:gap-4"
+          >
+          <section className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4 lg:col-start-1 lg:row-start-1">
             <div className="flex flex-col items-center">
               <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
               <p className="relative z-20 mt-1 text-[0.65rem] text-slate-500">{pulseLabel(current.beatUnit)}</p>
@@ -303,7 +307,7 @@ export function RhythmPage() {
           </section>
 
           <section
-            className="mt-2.5 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4"
+            className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4 lg:col-start-1 lg:row-start-2"
             data-bar-count={bars.length}
             data-rhythm-mode={mode}
           >
@@ -382,7 +386,7 @@ export function RhythmPage() {
             </div>
           </section>
 
-          <section className="mt-2.5">
+          <section className="lg:col-start-1 lg:row-start-3">
             <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
               Subdivision
             </p>
@@ -403,7 +407,7 @@ export function RhythmPage() {
                     data-subdivision={steps}
                     onClick={() => setSubdivision(steps)}
                     className={cn(
-                      'flex h-12 w-[2.85rem] shrink-0 items-center justify-center rounded-lg sm:h-14 sm:w-[3.2rem]',
+                      'flex h-12 w-[2.85rem] shrink-0 items-center justify-center rounded-lg sm:h-14 sm:w-[3.2rem] lg:h-16 lg:w-[3.6rem]',
                       current.subdivision === steps
                         ? 'bg-[#A855F7] text-white'
                         : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
@@ -417,7 +421,7 @@ export function RhythmPage() {
           </section>
 
           {mode === 'click' ? (
-            <section className="mt-2.5 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4">
+            <section className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4 lg:col-start-2 lg:row-span-3 lg:row-start-1">
               <div className="mb-2 flex items-center gap-2.5">
                 <div
                   className={cn(
@@ -502,7 +506,7 @@ export function RhythmPage() {
               </div>
             </section>
           ) : (
-            <section className="mt-2.5">
+            <section className="lg:col-start-2 lg:row-span-3 lg:row-start-1">
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}
@@ -533,6 +537,7 @@ export function RhythmPage() {
               </p>
             </section>
           )}
+          </div>
         </div>
 
         <div
@@ -558,7 +563,7 @@ export function RhythmPage() {
             type="button"
             size="lg"
             variant={playing ? 'outline' : 'default'}
-            className="h-14 w-full text-base"
+            className="h-14 w-full text-base lg:mx-auto lg:max-w-md"
             data-transport="play"
             onClick={() => void startStop()}
           >
@@ -604,7 +609,7 @@ function PresetSheet({
       <div
         role="dialog"
         aria-labelledby="rhythm-presets-title"
-        className="max-h-[90svh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5"
+        className="max-h-[90svh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5 md:max-w-2xl lg:max-w-4xl"
       >
         <h2 id="rhythm-presets-title" className="text-xl font-bold tracking-tight text-white">
           Beat library
@@ -643,7 +648,7 @@ function PresetGroup({
       <h3 className="px-1 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {title}
       </h3>
-      <div className="space-y-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         {styles.map((style) => (
           <StyleMenu
             key={style.id}

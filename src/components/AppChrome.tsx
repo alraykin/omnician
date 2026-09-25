@@ -13,28 +13,29 @@ type AppChromeProps = {
   compact?: boolean
 }
 
+const SHELL = {
+  default: 'max-w-lg md:max-w-3xl lg:max-w-5xl',
+  wide: 'max-w-lg md:max-w-3xl lg:max-w-6xl xl:max-w-7xl',
+}
+
 export function AppChrome({
   children,
   align = 'center',
   wide = false,
   compact = false,
 }: AppChromeProps) {
+  const shell = wide ? SHELL.wide : SHELL.default
   return (
     <div
       className={cn(
         'relative flex flex-col',
         compact
-          ? 'h-svh max-h-svh overflow-hidden px-4 py-3 sm:px-8 sm:py-5'
-          : 'min-h-svh overflow-x-hidden px-5 py-6 sm:px-8 sm:py-8',
+          ? 'h-svh max-h-svh overflow-hidden px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-5 lg:px-10'
+          : 'min-h-svh overflow-x-hidden px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-9',
       )}
     >
       <div className="stage-glow" aria-hidden />
-      <header
-        className={cn(
-          'relative z-10 mx-auto flex w-full items-center justify-between',
-          wide ? 'max-w-3xl' : 'max-w-lg',
-        )}
-      >
+      <header className={cn('relative z-10 mx-auto flex w-full items-center justify-between', shell)}>
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link to="/">
             <ArrowLeft className="size-4" />
@@ -46,10 +47,10 @@ export function AppChrome({
       </header>
       <main
         className={cn(
-          'relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col',
+          'relative z-10 mx-auto flex w-full flex-1 flex-col',
+          shell,
           compact ? 'pb-0' : 'pb-8',
           align === 'center' && 'items-center justify-center px-2 text-center',
-          align === 'fill' && (wide ? 'sm:max-w-3xl' : 'sm:max-w-xl'),
           align === 'fill' && (compact ? 'min-h-0 overflow-hidden pt-2' : 'pt-4'),
         )}
       >

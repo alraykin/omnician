@@ -263,7 +263,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative size-[152px] sm:size-[188px]">
+      <div className="relative size-[152px] sm:size-[188px] lg:size-[216px]">
         <div
           aria-hidden
           className="pointer-events-none absolute -bottom-1 left-1/2 h-4 w-28 -translate-x-1/2 rounded-full bg-black/50 blur-md"
@@ -337,7 +337,7 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
             }
           }}
         >
-          <div className="bpm-dial pointer-events-none relative size-[152px] select-none rounded-full sm:size-[188px]">
+          <div className="bpm-dial pointer-events-none relative size-[152px] select-none rounded-full sm:size-[188px] lg:size-[216px]">
             <span aria-hidden className="bpm-dial-pip" />
             <div
               aria-hidden
