@@ -72,23 +72,33 @@ export async function requestRawMic(): Promise<MediaStream> {
   throw lastError instanceof Error ? lastError : new Error('MIC_FAILED')
 }
 
+function errorName(error: unknown): string {
+  if (!error || typeof error !== 'object' || !('name' in error)) return ''
+  return String(error.name)
+}
+
+function errorMessage(error: unknown): string {
+  if (!error || typeof error !== 'object' || !('message' in error)) return ''
+  return String(error.message)
+}
+
 export function isPermissionError(error: unknown): boolean {
-  if (!(error instanceof DOMException) && !(error instanceof Error)) return false
+  const name = errorName(error)
   return (
-    error.name === 'NotAllowedError' ||
-    error.name === 'PermissionDeniedError' ||
-    error.name === 'SecurityError'
+    name === 'NotAllowedError' ||
+    name === 'PermissionDeniedError' ||
+    name === 'SecurityError'
   )
 }
 
 export function isUnavailableError(error: unknown): boolean {
-  if (!(error instanceof DOMException) && !(error instanceof Error)) return false
+  const name = errorName(error)
   return (
-    error.name === 'NotFoundError' ||
-    error.name === 'DevicesNotFoundError' ||
-    error.name === 'NotReadableError' ||
-    error.name === 'OverconstrainedError' ||
-    (error instanceof Error && error.message === 'NO_MIC_API')
+    name === 'NotFoundError' ||
+    name === 'DevicesNotFoundError' ||
+    name === 'NotReadableError' ||
+    name === 'OverconstrainedError' ||
+    errorMessage(error) === 'NO_MIC_API'
   )
 }
 

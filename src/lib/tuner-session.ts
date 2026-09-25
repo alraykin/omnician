@@ -62,6 +62,7 @@ let pageCount = 0
 let leaveTimer = 0
 let orphanTimer = 0
 let lastStartHadGesture = false
+let lastError = ''
 
 let audio: AudioContext | null = null
 let stream: MediaStream | null = null
@@ -90,6 +91,7 @@ function exposeDebug(): void {
         track: stream?.getAudioTracks()[0]?.readyState ?? 'none',
         context: audio?.state ?? 'none',
         pages: pageCount,
+        lastError,
       }
     },
   })
@@ -304,6 +306,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
       const [resolved] = await Promise.all([streamPromise, resumePromise])
       nextStream = resolved
     } catch (error) {
+      lastError = `${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error)}`
       if (audio === ctx) audio = null
       await closeContext(ctx)
       if (sessionId !== session) return
