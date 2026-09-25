@@ -1,5 +1,6 @@
-import { memo, useCallback, useRef, type PointerEvent } from 'react'
+import { memo, useCallback, useEffect, useRef, type PointerEvent } from 'react'
 
+import { type PlayheadStore } from '@/hooks/useRhythmEngine'
 import { VOICE_LABELS, VOICES, type VoiceId } from '@/lib/rhythm'
 import { cn } from '@/lib/utils'
 
@@ -9,8 +10,9 @@ type DrumGridProps = {
   beats: number
   subdivisionSteps: number
   pattern: DrumGridPattern
-  currentStep: number
-  live: boolean
+  playheadStore: PlayheadStore
+  barIndex: number
+  playing: boolean
   onPaint: (voice: VoiceId, step: number, on: boolean, preview: boolean) => void
   onPreview: (voice: VoiceId) => void
 }
@@ -38,8 +40,9 @@ export const DrumGrid = memo(function DrumGrid({
   beats,
   subdivisionSteps,
   pattern,
-  currentStep,
-  live,
+  playheadStore,
+  barIndex,
+  playing,
   onPaint,
   onPreview,
 }: DrumGridProps) {
@@ -69,6 +72,31 @@ export const DrumGrid = memo(function DrumGrid({
   const endPaint = useCallback(() => {
     paintRef.current = null
   }, [])
+
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const nowClass = 'is-now'
+    let painted: Element[] = []
+    const apply = () => {
+      const snap = playheadStore.getSnapshot()
+      const live = playing && snap.bar === barIndex && snap.step >= 0
+      for (const node of painted) node.classList.remove(nowClass)
+      painted = []
+      if (!live) {
+        root.removeAttribute('data-playhead-step')
+        return
+      }
+      root.setAttribute('data-playhead-step', String(snap.step))
+      const nodes = root.querySelectorAll(`[data-grid-cell][data-step="${snap.step}"]`)
+      nodes.forEach((node) => {
+        node.classList.add(nowClass)
+        painted.push(node)
+      })
+    }
+    apply()
+    return playheadStore.subscribe(apply)
+  }, [playheadStore, barIndex, playing])
 
   const startPaint = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -149,7 +177,6 @@ export const DrumGrid = memo(function DrumGrid({
                           beat={beat}
                           offset={offset}
                           on={Boolean(pattern[voice]?.[step])}
-                          now={live && currentStep === step}
                         />
                       )
                     })}
@@ -170,14 +197,12 @@ const DrumCell = memo(function DrumCell({
   beat,
   offset,
   on,
-  now,
 }: {
   voice: VoiceId
   step: number
   beat: number
   offset: number
   on: boolean
-  now: boolean
 }) {
   return (
     <button
@@ -190,7 +215,6 @@ const DrumCell = memo(function DrumCell({
       className={cn(
         'h-6 min-w-[1.05rem] flex-1 touch-none rounded-md border sm:h-7 md:h-8 lg:h-9',
         on ? 'border-[#A855F7] bg-[#A855F7]' : offset === 0 ? 'border-white/14 bg-white/8' : 'border-white/8 bg-white/4',
-        now && 'ring-2 ring-white/80 ring-offset-1 ring-offset-[#0B0F1A]',
       )}
     />
   )

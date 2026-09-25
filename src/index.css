@@ -411,6 +411,11 @@ body {
   animation: omni-beat-pulse 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+[data-grid-cell].is-now {
+  box-shadow: 0 0 0 2px rgba(248, 250, 252, 0.88);
+  z-index: 1;
+}
+
 .bpm-dial-hit {
   width: 280px;
   height: 280px;

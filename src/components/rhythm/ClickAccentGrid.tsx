@@ -1,3 +1,4 @@
+import { usePlayhead, type PlayheadStore } from '@/hooks/useRhythmEngine'
 import {
   beatAccentAt,
   stepsPerBeat,
@@ -14,9 +15,9 @@ type ClickAccentGridProps = {
   subdivision: SubdivisionId
   beatAccents: readonly BeatAccent[]
   subdivAccents: readonly SubdivAccent[]
-  liveBeat: number
-  liveStep: number
-  live: boolean
+  playheadStore: PlayheadStore
+  barIndex: number
+  playing: boolean
   onCycleBeat: (beat: number) => void
   onCycleSubdiv: (slot: number) => void
 }
@@ -36,13 +37,17 @@ export function ClickAccentGrid({
   subdivision,
   beatAccents,
   subdivAccents,
-  liveBeat,
-  liveStep,
-  live,
+  playheadStore,
+  barIndex,
+  playing,
   onCycleBeat,
   onCycleSubdiv,
 }: ClickAccentGridProps) {
+  const playhead = usePlayhead(playheadStore)
   const steps = stepsPerBeat(subdivision)
+  const live = playing && playhead.bar === barIndex
+  const liveBeat = playhead.beat
+  const liveStep = playhead.step
   const liveSlot = live && liveStep >= 0 ? liveStep % Math.max(1, steps) : -1
 
   return (

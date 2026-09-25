@@ -954,8 +954,8 @@ export function findStyle(id: RhythmStyleId): RhythmStyle | undefined {
   return RHYTHM_STYLES.find((item) => item.id === id)
 }
 
-const LOOP_BARS = 4
-const CRASH_BARS = [0, 2]
+const LOOP_BARS = 8
+const CRASH_EVERY = 4
 
 function hitsWithoutCrash(hits: HitMap): HitMap {
   const next = { ...hits }
@@ -975,15 +975,15 @@ function barFromHits(
 
 function barHitsForIndex(hits: HitMap, fill: HitMap | undefined, mid: HitMap | undefined, index: number): HitMap {
   if (fill && index === LOOP_BARS - 1) return hitsWithoutCrash(fill)
-  if (mid && index === 1) return hitsWithoutCrash(mid)
+  if (mid && index % CRASH_EVERY === 1) return hitsWithoutCrash(mid)
   const body = hitsWithoutCrash(hits)
-  if (hits.crash && hits.crash.length > 0 && CRASH_BARS.includes(index)) {
-    return { ...body, crash: hits.crash }
+  if (index % CRASH_EVERY === 0) {
+    return { ...body, crash: hits.crash && hits.crash.length > 0 ? hits.crash : [0] }
   }
   return body
 }
 
-/** 4-bar phrase. Crash only on bars 1 and 3 when the groove includes a crash. */
+/** 8-bar phrase. Crash on beat 1 every 4 bars; fill lands on bar 8. */
 export function makeGrooveBars(
   beats: number,
   beatUnit: BeatUnit,
@@ -1034,7 +1034,7 @@ export function applyPreset(item: RhythmPreset): RhythmBar {
   return presetToBar(item)
 }
 
-/** First-open Rock: three groove bars (crash on 1 and 3), then a short tom fill. */
+/** First-open Rock: 8 bars, crash on 1 and 5, tom fill on 8. */
 export function makeDefaultRockBars(): RhythmBar[] {
   return makeGrooveBars(4, 4, 4, ROCK_GROOVE, ROCK_FILL)
 }

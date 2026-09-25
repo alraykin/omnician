@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { DEFAULT_KIT_MIX, type KitMix } from '@/lib/kit-mix'
 import { getAudioCtor, RhythmKit } from '@/lib/rhythm-audio'
@@ -30,6 +30,48 @@ export type Playhead = {
 
 const LOOKAHEAD_MS = 25
 const SCHEDULE_AHEAD = 0.12
+/** Paint the step a frame early so React/DOM land with the audible hit. */
+const VISUAL_LEAD = 0.02
+
+const IDLE_PLAYHEAD: Playhead = { bar: 0, step: -1, beat: -1, accent: 0, subdivision: false }
+
+export type PlayheadStore = {
+  getSnapshot: () => Playhead
+  subscribe: (onStoreChange: () => void) => () => void
+}
+
+type PlayheadWriter = PlayheadStore & { set: (next: Playhead) => void }
+
+function createPlayheadStore(): PlayheadWriter {
+  let snapshot = IDLE_PLAYHEAD
+  const listeners = new Set<() => void>()
+  return {
+    getSnapshot: () => snapshot,
+    subscribe: (onStoreChange) => {
+      listeners.add(onStoreChange)
+      return () => {
+        listeners.delete(onStoreChange)
+      }
+    },
+    set: (next) => {
+      if (
+        snapshot.bar === next.bar &&
+        snapshot.step === next.step &&
+        snapshot.beat === next.beat &&
+        snapshot.accent === next.accent &&
+        snapshot.subdivision === next.subdivision
+      ) {
+        return
+      }
+      snapshot = next
+      for (const listener of listeners) listener()
+    },
+  }
+}
+
+export function usePlayhead(store: PlayheadStore): Playhead {
+  return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
+}
 
 function cycleSignature(mode: RhythmMode, bars: readonly RhythmBar[]): string {
   return [
@@ -57,19 +99,16 @@ export function useRhythmEngine({
   clickSound: ClickSoundId
   kitMix?: KitMix
 }) {
-  const [playhead, setPlayhead] = useState<Playhead>({
-    bar: 0,
-    step: -1,
-    beat: -1,
-    accent: 0,
-    subdivision: false,
-  })
   const [holdUntilCycle, setHoldUntilCycle] = useState(false)
+  const playheadStoreRef = useRef<PlayheadWriter | null>(null)
+  if (!playheadStoreRef.current) playheadStoreRef.current = createPlayheadStore()
+  const playheadStore = playheadStoreRef.current
 
   const kitRef = useRef<RhythmKit | null>(null)
   const kitPromiseRef = useRef<Promise<RhythmKit | null> | null>(null)
   const timerRef = useRef<number | null>(null)
-  const visualRef = useRef<number[]>([])
+  const rafRef = useRef<number | null>(null)
+  const cuesRef = useRef<Array<Playhead & { time: number }>>([])
   const nextTimeRef = useRef(0)
   const stepRef = useRef(0)
   const barRef = useRef(0)
@@ -96,8 +135,11 @@ export function useRhythmEngine({
   }
 
   const clearVisuals = useCallback(() => {
-    for (const id of visualRef.current) window.clearTimeout(id)
-    visualRef.current = []
+    if (rafRef.current !== null) {
+      window.cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    cuesRef.current = []
   }, [])
 
   const ensureKit = useCallback(async () => {
@@ -151,7 +193,7 @@ export function useRhythmEngine({
     }
     clearVisuals()
     kitRef.current?.stopAll()
-    setPlayhead({ bar: 0, step: -1, beat: -1, accent: 0, subdivision: false })
+    playheadStore.set(IDLE_PLAYHEAD)
     setHoldUntilCycle(false)
     stepRef.current = 0
     barRef.current = 0
@@ -250,18 +292,14 @@ export function useRhythmEngine({
           kit.click(time, accent, clickRef.current, onBeat)
         }
 
-        const delay = Math.max(0, (time - kit.ctx.currentTime) * 1000)
-        const id = window.setTimeout(() => {
-          if (!playingRef.current) return
-          setPlayhead({
-            bar: barIndex,
-            step,
-            beat,
-            accent,
-            subdivision: !onBeat,
-          })
-        }, delay)
-        visualRef.current.push(id)
+        cuesRef.current.push({
+          time,
+          bar: barIndex,
+          step,
+          beat,
+          accent,
+          subdivision: !onBeat,
+        })
       }
 
       const tick = () => {
@@ -292,8 +330,33 @@ export function useRhythmEngine({
         }
       }
 
+      const pumpVisuals = () => {
+        if (!playingRef.current) return
+        const due = kit.ctx.currentTime + VISUAL_LEAD
+        const queue = cuesRef.current
+        let latest: (Playhead & { time: number }) | null = null
+        let count = 0
+        for (const cue of queue) {
+          if (cue.time > due) break
+          latest = cue
+          count += 1
+        }
+        if (count > 0) queue.splice(0, count)
+        if (latest) {
+          playheadStore.set({
+            bar: latest.bar,
+            step: latest.step,
+            beat: latest.beat,
+            accent: latest.accent,
+            subdivision: latest.subdivision,
+          })
+        }
+        rafRef.current = window.requestAnimationFrame(pumpVisuals)
+      }
+
       tick()
       timerRef.current = window.setInterval(tick, LOOKAHEAD_MS)
+      rafRef.current = window.requestAnimationFrame(pumpVisuals)
     }
 
     void start()
@@ -322,5 +385,5 @@ export function useRhythmEngine({
     }
   }, [stopScheduler])
 
-  return { playhead, preview, previewClick, ensureKit, holdUntilCycle, halt: stopScheduler }
+  return { playheadStore, preview, previewClick, ensureKit, holdUntilCycle, halt: stopScheduler }
 }

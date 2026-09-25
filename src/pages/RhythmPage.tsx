@@ -10,7 +10,7 @@ import { KitFaders } from '@/components/rhythm/KitFaders'
 import { SnapWheel } from '@/components/rhythm/SnapWheel'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
-import { useRhythmEngine } from '@/hooks/useRhythmEngine'
+import { usePlayhead, useRhythmEngine, type PlayheadStore } from '@/hooks/useRhythmEngine'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
 import {
   BEAT_UNITS,
@@ -83,7 +83,7 @@ export function RhythmPage() {
   const setBarIndex = mode === 'click' ? setClickBarIndex : setDrumBarIndex
 
   const current = bars[Math.min(barIndex, bars.length - 1)] ?? bars[0]
-  const { playhead, preview, previewClick, ensureKit, holdUntilCycle, halt } = useRhythmEngine({
+  const { playheadStore, preview, previewClick, ensureKit, holdUntilCycle, halt } = useRhythmEngine({
     playing,
     bpm,
     mode,
@@ -91,10 +91,6 @@ export function RhythmPage() {
     clickSound,
     kitMix,
   })
-
-  useEffect(() => {
-    if (playing) setBarIndex(playhead.bar)
-  }, [playhead.bar, playing, setBarIndex])
 
   const matched = current ? matchPreset(current) : null
   const edited = Boolean(matched === null && presetId)
@@ -330,31 +326,14 @@ export function RhythmPage() {
                 Bars · meter
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {bars.map((bar, index) => {
-                const live = playing && playhead.bar === index
-                return (
-                  <button
-                    key={`bar-${index}`}
-                    type="button"
-                    data-bar-pill={index}
-                    onClick={() => setBarIndex(index)}
-                    className={cn(
-                      'h-8 min-w-8 rounded-lg px-2 text-sm font-semibold',
-                      index === barIndex
-                        ? 'bg-[#A855F7] text-white'
-                        : 'border border-white/10 bg-white/4 text-slate-200',
-                      live && 'omni-beat-pulse',
-                    )}
-                  >
-                    {index + 1}
-                    <span className="mx-1 text-[0.65rem] font-medium opacity-40">·</span>
-                    <span className="text-[0.65rem] font-medium opacity-70">
-                      {meterLabel(bar.beats, bar.beatUnit)}
-                    </span>
-                  </button>
-                )
-              })}
+            <div className="flex flex-wrap items-center gap-1">
+              <BarPills
+                store={playheadStore}
+                bars={bars}
+                barIndex={barIndex}
+                playing={playing}
+                onSelect={setBarIndex}
+              />
               <Button
                 type="button"
                 variant="outline"
@@ -436,43 +415,20 @@ export function RhythmPage() {
 
           {mode === 'click' ? (
             <section className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4 lg:col-start-2 lg:row-span-3 lg:row-start-1">
-              <div className="mb-2 flex items-center gap-2.5">
-                <div
-                  className={cn(
-                    'flex size-11 shrink-0 items-center justify-center rounded-full border-[3px] sm:size-12',
-                    playhead.beat >= 0
-                      ? playhead.accent === 2
-                        ? 'omni-beat-pulse border-[#A855F7] bg-[#A855F7]/25'
-                        : playhead.accent === 1
-                          ? 'omni-beat-pulse border-[#C4B5FD] bg-[#C4B5FD]/20'
-                          : playhead.subdivision
-                            ? 'border-white/20 bg-white/5'
-                            : 'border-[#C084FC]/70 bg-[#A855F7]/10'
-                      : 'border-white/12 bg-[#0B0F1A]',
-                  )}
-                  aria-live="polite"
-                  data-pulse-level={playhead.accent}
-                >
-                  <span className="text-lg font-bold tabular-nums text-white sm:text-xl">
-                    {playhead.beat < 0
-                      ? '—'
-                      : playhead.subdivision
-                        ? `${playhead.beat + 1}·${(playhead.step % Math.max(1, stepsPerBeat(current.subdivision))) + 1}`
-                        : playhead.beat + 1}
-                  </span>
-                </div>
-                <p className="min-w-0 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Accents
-                </p>
-              </div>
+              <ClickLiveHeader
+                store={playheadStore}
+                playing={playing}
+                barIndex={barIndex}
+                subdivision={current.subdivision}
+              />
               <ClickAccentGrid
                 beats={current.beats}
                 subdivision={current.subdivision}
                 beatAccents={current.beatAccents}
                 subdivAccents={current.subdivAccents}
-                liveBeat={playhead.beat}
-                liveStep={playhead.step}
-                live={playing && playhead.bar === barIndex}
+                playheadStore={playheadStore}
+                barIndex={barIndex}
+                playing={playing}
                 onCycleBeat={(beat) => {
                   const next = cycleBeatAccent(current.beatAccents, beat, current.beats)
                   patchBar(barIndex, { ...current, beatAccents: next })
@@ -540,8 +496,9 @@ export function RhythmPage() {
                 beats={current.beats}
                 subdivisionSteps={stepsPerBeat(current.subdivision)}
                 pattern={gridPattern ?? patternToGrid(current.pattern, current.beats, current.subdivision)}
-                currentStep={playhead.step}
-                live={playing && playhead.bar === barIndex}
+                playheadStore={playheadStore}
+                barIndex={barIndex}
+                playing={playing}
                 onPaint={onPaintCell}
                 onPreview={preview}
               />
@@ -554,20 +511,23 @@ export function RhythmPage() {
           </div>
         </div>
 
+        <PlayheadBarSync store={playheadStore} playing={playing} onBar={setBarIndex} />
         <div
           data-section="transport"
-          data-playhead-bar={playhead.bar}
-          data-playhead-step={playhead.step}
           data-hold-until-cycle={holdUntilCycle ? 'true' : 'false'}
           className="relative z-40 shrink-0 border-t border-white/10 bg-[#0B0F1A]/95 pt-2 pb-[max(0.55rem,env(safe-area-inset-bottom))]"
         >
           <div className="mb-1.5 flex items-center justify-between gap-2 text-[0.7rem] text-slate-400">
-            <p className="min-w-0 truncate tabular-nums">
-              {bpm} BPM · {liveMeter}
-              {mode === 'click' ? ` · ${CLICK_SOUND_LABELS[clickSound]}` : ''}
-              {playing && bars.length > 1 ? ` · bar ${playhead.bar + 1}` : ''}
-              {holdUntilCycle ? ' · next cycle' : ''}
-            </p>
+            <TransportReadout
+              store={playheadStore}
+              playing={playing}
+              bars={bars.length}
+              bpm={bpm}
+              liveMeter={liveMeter}
+              mode={mode}
+              clickSound={clickSound}
+              holdUntilCycle={holdUntilCycle}
+            />
             <span className="inline-flex shrink-0 items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-wider text-slate-500">
               <Lock className="size-3" />
               Speed Builder
@@ -596,6 +556,146 @@ export function RhythmPage() {
         />
       ) : null}
     </AppChrome>
+  )
+}
+
+function PlayheadBarSync({
+  store,
+  playing,
+  onBar,
+}: {
+  store: PlayheadStore
+  playing: boolean
+  onBar: (bar: number) => void
+}) {
+  const playhead = usePlayhead(store)
+  useEffect(() => {
+    if (playing) onBar(playhead.bar)
+  }, [playhead.bar, playing, onBar])
+  return null
+}
+
+function BarPills({
+  store,
+  bars,
+  barIndex,
+  playing,
+  onSelect,
+}: {
+  store: PlayheadStore
+  bars: readonly RhythmBar[]
+  barIndex: number
+  playing: boolean
+  onSelect: (index: number) => void
+}) {
+  const playhead = usePlayhead(store)
+  return (
+    <>
+      {bars.map((bar, index) => {
+        const live = playing && playhead.bar === index
+        return (
+          <button
+            key={`bar-${index}`}
+            type="button"
+            data-bar-pill={index}
+            onClick={() => onSelect(index)}
+            className={cn(
+              'h-8 min-w-8 rounded-lg px-1.5 text-sm font-semibold sm:px-2',
+              index === barIndex
+                ? 'bg-[#A855F7] text-white'
+                : 'border border-white/10 bg-white/4 text-slate-200',
+              live && 'omni-beat-pulse',
+            )}
+          >
+            {index + 1}
+            <span className="mx-1 text-[0.65rem] font-medium opacity-40">·</span>
+            <span className="text-[0.65rem] font-medium opacity-70">
+              {meterLabel(bar.beats, bar.beatUnit)}
+            </span>
+          </button>
+        )
+      })}
+    </>
+  )
+}
+
+function ClickLiveHeader({
+  store,
+  playing,
+  barIndex,
+  subdivision,
+}: {
+  store: PlayheadStore
+  playing: boolean
+  barIndex: number
+  subdivision: SubdivisionId
+}) {
+  const playhead = usePlayhead(store)
+  const live = playing && playhead.bar === barIndex
+  return (
+    <div className="mb-2 flex items-center gap-2.5">
+      <div
+        className={cn(
+          'flex size-11 shrink-0 items-center justify-center rounded-full border-[3px] sm:size-12',
+          live && playhead.beat >= 0
+            ? playhead.accent === 2
+              ? 'omni-beat-pulse border-[#A855F7] bg-[#A855F7]/25'
+              : playhead.accent === 1
+                ? 'omni-beat-pulse border-[#C4B5FD] bg-[#C4B5FD]/20'
+                : playhead.subdivision
+                  ? 'border-white/20 bg-white/5'
+                  : 'border-[#C084FC]/70 bg-[#A855F7]/10'
+            : 'border-white/12 bg-[#0B0F1A]',
+        )}
+        aria-live="polite"
+        data-pulse-level={playhead.accent}
+      >
+        <span className="text-lg font-bold tabular-nums text-white sm:text-xl">
+          {!live || playhead.beat < 0
+            ? '—'
+            : playhead.subdivision
+              ? `${playhead.beat + 1}·${(playhead.step % Math.max(1, stepsPerBeat(subdivision))) + 1}`
+              : playhead.beat + 1}
+        </span>
+      </div>
+      <p className="min-w-0 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+        Accents
+      </p>
+    </div>
+  )
+}
+
+function TransportReadout({
+  store,
+  playing,
+  bars,
+  bpm,
+  liveMeter,
+  mode,
+  clickSound,
+  holdUntilCycle,
+}: {
+  store: PlayheadStore
+  playing: boolean
+  bars: number
+  bpm: number
+  liveMeter: string
+  mode: RhythmMode
+  clickSound: ClickSoundId
+  holdUntilCycle: boolean
+}) {
+  const playhead = usePlayhead(store)
+  return (
+    <p
+      className="min-w-0 truncate tabular-nums"
+      data-playhead-bar={playhead.bar}
+      data-playhead-step={playhead.step}
+    >
+      {bpm} BPM · {liveMeter}
+      {mode === 'click' ? ` · ${CLICK_SOUND_LABELS[clickSound]}` : ''}
+      {playing && bars > 1 ? ` · bar ${playhead.bar + 1}` : ''}
+      {holdUntilCycle ? ' · next cycle' : ''}
+    </p>
   )
 }
 
