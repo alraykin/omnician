@@ -464,6 +464,7 @@ export class RhythmKit {
   private mix: KitMix = { ...DEFAULT_KIT_MIX }
   private openHat: { gain: GainNode; start: number } | null = null
   private closedHat: { gain: GainNode; start: number } | null = null
+  private sources: AudioBufferSourceNode[] = []
   private readonly ready: Promise<void>
 
   constructor(ctx: AudioContext) {
@@ -539,6 +540,35 @@ export class RhythmKit {
     this.click(this.ctx.currentTime + 0.01, level, sound, onBeat)
   }
 
+  /** Cut every scheduled click and drum the instant Stop is pressed. */
+  stopAll(): void {
+    const now = this.ctx.currentTime
+    for (const source of this.sources) {
+      try {
+        source.onended = null
+        source.stop(now)
+      } catch {
+        // Already finished or cancelled.
+      }
+      try {
+        source.disconnect()
+      } catch {
+        // Already disconnected.
+      }
+    }
+    this.sources = []
+    this.openHat = null
+    this.closedHat = null
+    try {
+      this.master.gain.cancelScheduledValues(now)
+      this.master.gain.setValueAtTime(Math.max(0.0001, this.master.gain.value), now)
+      this.master.gain.linearRampToValueAtTime(0.0001, now + 0.004)
+      this.master.gain.setValueAtTime(0.9, now + 0.008)
+    } catch {
+      this.master.gain.setValueAtTime(0.9, now)
+    }
+  }
+
   private fire(buffer: AudioBuffer, time: number, gain: number, rate = 1): GainNode {
     const source = this.ctx.createBufferSource()
     source.buffer = buffer
@@ -548,6 +578,10 @@ export class RhythmKit {
     source.connect(amp)
     amp.connect(this.master)
     source.start(time)
+    this.sources.push(source)
+    source.onended = () => {
+      this.sources = this.sources.filter((item) => item !== source)
+    }
     return amp
   }
 

@@ -83,7 +83,7 @@ export function RhythmPage() {
   const setBarIndex = mode === 'click' ? setClickBarIndex : setDrumBarIndex
 
   const current = bars[Math.min(barIndex, bars.length - 1)] ?? bars[0]
-  const { playhead, preview, previewClick, ensureKit, holdUntilCycle } = useRhythmEngine({
+  const { playhead, preview, previewClick, ensureKit, holdUntilCycle, halt } = useRhythmEngine({
     playing,
     bpm,
     mode,
@@ -230,6 +230,7 @@ export function RhythmPage() {
 
   const startStop = async () => {
     if (playing) {
+      halt()
       setPlaying(false)
       return
     }

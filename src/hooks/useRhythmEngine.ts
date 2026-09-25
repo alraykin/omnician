@@ -150,6 +150,7 @@ export function useRhythmEngine({
       timerRef.current = null
     }
     clearVisuals()
+    kitRef.current?.stopAll()
     setPlayhead({ bar: 0, step: -1, beat: -1, accent: 0, subdivision: false })
     setHoldUntilCycle(false)
     stepRef.current = 0
@@ -321,5 +322,5 @@ export function useRhythmEngine({
     }
   }, [stopScheduler])
 
-  return { playhead, preview, previewClick, ensureKit, holdUntilCycle }
+  return { playhead, preview, previewClick, ensureKit, holdUntilCycle, halt: stopScheduler }
 }
