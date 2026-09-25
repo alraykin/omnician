@@ -40,7 +40,7 @@ type EstimateMsg = {
 async function loadPitchWorklet(audio: AudioContext): Promise<boolean> {
   if (!audio.audioWorklet) return false
   try {
-    await audio.audioWorklet.addModule(new URL('../worklets/pitch-processor.ts', import.meta.url))
+    await audio.audioWorklet.addModule(`${import.meta.env.BASE_URL}tuner/pitch-processor.js`)
     return true
   } catch {
     return false
