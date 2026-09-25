@@ -92,19 +92,21 @@ export function isUnavailableError(error: unknown): boolean {
   )
 }
 
-export async function createTunerContext(): Promise<AudioContext> {
+export function createTunerContextSync(): AudioContext {
   const Ctor =
     window.AudioContext ??
     (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!Ctor) throw Object.assign(new Error('NO_AUDIO'), { code: 'unavailable' })
 
-  let audio: AudioContext
   try {
-    audio = new Ctor({ latencyHint: 'interactive', sampleRate: 48000 })
+    return new Ctor({ latencyHint: 'interactive', sampleRate: 48000 })
   } catch {
-    audio = new Ctor({ latencyHint: 'interactive' })
+    return new Ctor({ latencyHint: 'interactive' })
   }
+}
 
+export async function createTunerContext(): Promise<AudioContext> {
+  const audio = createTunerContextSync()
   if (audio.state === 'suspended') {
     await audio.resume()
   }

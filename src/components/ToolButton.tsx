@@ -2,11 +2,18 @@ import { Link } from 'react-router-dom'
 
 import { ToolIcon } from '@/components/ToolIcons'
 import type { PracticeTool } from '@/data/tools'
+import { primeTuner } from '@/lib/tuner-session'
+
+function primeIfNeeded(slug: PracticeTool['slug']) {
+  if (slug === 'tuner') primeTuner()
+}
 
 export function ToolButton({ tool }: { tool: PracticeTool }) {
   return (
     <Link
       to={`/${tool.slug}`}
+      onPointerDown={() => primeIfNeeded(tool.slug)}
+      onClick={() => primeIfNeeded(tool.slug)}
       className="group relative flex min-h-[7.5rem] items-center gap-4 overflow-hidden rounded-3xl border border-white/10 bg-[#141A28]/90 px-5 py-5 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.9)] transition duration-200 hover:-translate-y-0.5 hover:border-[#A855F7]/55 hover:bg-[#1A2033] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0F1A] sm:min-h-[10.5rem] sm:flex-col sm:items-start sm:justify-between sm:px-6 sm:py-6"
     >
       <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#A855F7]/50 to-transparent opacity-0 transition group-hover:opacity-100" />

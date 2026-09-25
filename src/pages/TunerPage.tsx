@@ -7,7 +7,6 @@ import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
 import { Headstock } from '@/components/tuner/Headstock'
 import { TunerGauge } from '@/components/tuner/TunerGauge'
 import { TuningSheet } from '@/components/tuner/TuningSheet'
-import { Button } from '@/components/ui/button'
 import { useCustomTunings } from '@/hooks/useCustomTunings'
 import { useTuner, type TunerStatus } from '@/hooks/useTuner'
 import { loadTunerPrefs, saveTunerPrefs } from '@/lib/custom-presets'
@@ -31,6 +30,12 @@ import {
   type InstrumentId,
 } from '@/lib/presets'
 import { playReferenceTone } from '@/lib/reference-tone'
+import {
+  enterTunerPage,
+  leaveTunerPage,
+  resumeTuner,
+  startTuner,
+} from '@/lib/tuner-session'
 import { cn } from '@/lib/utils'
 
 export function TunerPage() {
@@ -49,7 +54,33 @@ export function TunerPage() {
   const inTuneRef = useRef(false)
   const autoPendingRef = useRef<{ id: string; hits: number } | null>(null)
 
-  const { status, reading, start, stop } = useTuner(a4Hz)
+  const { status, reading, needsGesture } = useTuner(a4Hz)
+
+  useEffect(() => {
+    enterTunerPage()
+
+    const onGesture = () => {
+      void startTuner({ fromGesture: true })
+    }
+    const onResume = () => {
+      void resumeTuner()
+    }
+
+    window.addEventListener('pointerdown', onGesture)
+    window.addEventListener('touchstart', onGesture, { passive: true })
+    window.addEventListener('keydown', onGesture)
+    document.addEventListener('visibilitychange', onResume)
+    window.addEventListener('pageshow', onResume)
+
+    return () => {
+      window.removeEventListener('pointerdown', onGesture)
+      window.removeEventListener('touchstart', onGesture)
+      window.removeEventListener('keydown', onGesture)
+      document.removeEventListener('visibilitychange', onResume)
+      window.removeEventListener('pageshow', onResume)
+      leaveTunerPage()
+    }
+  }, [])
 
   const customPresets = tunings.map(customToPreset)
   const current = resolvePreset(presetId, customPresets)
@@ -243,6 +274,8 @@ export function TunerPage() {
               : 'border-white/10 bg-[#141A28]/80',
           )}
           aria-live="polite"
+          data-tuner-status={status}
+          data-tuner-gesture={needsGesture ? 'needed' : 'ready'}
         >
           <div className="flex min-h-0 w-full flex-1 flex-col items-center">
           <NoteDisplay
@@ -319,34 +352,15 @@ export function TunerPage() {
             </div>
           )}
 
-          <p className="mt-4 min-h-10 text-center text-sm leading-6 text-slate-400 lg:col-span-2">
-            {statusMessage(status, live, instrumentMode, autoString)}
+          <p
+            className={cn(
+              'mt-4 min-h-10 text-center text-sm leading-6 lg:col-span-2',
+              needsGesture || status === 'denied' ? 'text-slate-500' : 'text-slate-400',
+            )}
+          >
+            {statusMessage(status, live, instrumentMode, autoString, needsGesture)}
           </p>
         </section>
-
-        <div className="mt-5 lg:mx-auto lg:w-full lg:max-w-md">
-          {status === 'listening' || status === 'starting' ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              className="h-14 w-full text-base"
-              onClick={stop}
-              disabled={status === 'starting'}
-            >
-              {status === 'starting' ? 'Starting…' : 'Stop'}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="lg"
-              className="h-14 w-full text-base"
-              onClick={() => void start()}
-            >
-              Start Tuning
-            </Button>
-          )}
-        </div>
       </div>
 
       <TuningSheet
@@ -463,19 +477,20 @@ function statusMessage(
   live: boolean,
   instrumentMode: boolean,
   autoString: boolean,
+  needsGesture: boolean,
 ): string {
-  if (status === 'idle') {
-    return 'Tap Start Tuning, allow the microphone, then play a note near the phone.'
-  }
-  if (status === 'starting') return 'Asking for microphone access…'
   if (status === 'denied') {
-    return 'Microphone is blocked. Allow the mic for this site in your browser or phone settings, then tap Start Tuning again.'
+    return 'Microphone is blocked. Allow the mic for this site in your browser or phone Settings, then tap anywhere to try again.'
   }
   if (status === 'unavailable') {
     return 'Omnician could not find a microphone, or this page is not using a secure (https) connection.'
   }
   if (status === 'error') {
-    return 'Something went wrong starting the tuner. Close other apps using the mic, then try again.'
+    return 'Something went wrong starting the tuner. Close other apps using the mic, then tap anywhere to try again.'
+  }
+  if (status === 'starting') return 'Asking for microphone access…'
+  if (needsGesture || status === 'idle') {
+    return 'Tap anywhere to start listening'
   }
   if (status === 'listening' && !live) return 'Play a note…'
   if (instrumentMode && autoString) {
