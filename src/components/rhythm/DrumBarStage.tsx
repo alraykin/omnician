@@ -56,7 +56,7 @@ export const DrumBarStage = memo(function DrumBarStage({
       ref={scrollerRef}
       data-bar-stage
       className={cn(
-        'flex snap-x snap-mandatory overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        'grid grid-flow-col auto-cols-[100%] snap-x snap-mandatory overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         playing ? 'overflow-x-hidden' : 'scroll-smooth',
       )}
     >
@@ -64,7 +64,7 @@ export const DrumBarStage = memo(function DrumBarStage({
         <div
           key={`slide-${index}`}
           data-bar-slide={index}
-          className="w-full min-w-full shrink-0 basis-full snap-start"
+          className="min-w-0 snap-start overflow-hidden"
         >
           <DrumGrid
             beats={bar.beats}
