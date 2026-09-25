@@ -117,7 +117,7 @@ export const DrumGrid = memo(function DrumGrid({
       ref={rootRef}
       data-drum-grid
       data-bar-index={barIndex}
-      className="max-h-[min(62vh,38rem)] overflow-x-auto overflow-y-auto pb-1 md:max-h-[min(68vh,46rem)] lg:max-h-none"
+      className="max-h-[min(46vh,28rem)] overflow-x-auto overflow-y-auto pb-1 md:max-h-[min(50vh,32rem)] lg:max-h-[min(54vh,36rem)]"
       onPointerDown={startPaint}
       onClick={(event) => {
         if (pointerPaintedRef.current) {

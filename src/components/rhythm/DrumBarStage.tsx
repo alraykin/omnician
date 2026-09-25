@@ -25,7 +25,7 @@ export const DrumBarStage = memo(function DrumBarStage({
   if (!bar) return null
 
   return (
-    <div data-bar-stage data-bar-slide={active}>
+    <div data-bar-stage data-bar-slide={active} className="min-h-0">
       <DrumGrid
         beats={bar.beats}
         subdivisionSteps={stepsPerBeat(bar.subdivision)}

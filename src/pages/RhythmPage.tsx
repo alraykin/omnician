@@ -464,7 +464,7 @@ export function RhythmPage() {
               </div>
             </section>
           ) : (
-            <section className="lg:col-start-2 lg:row-span-3 lg:row-start-1">
+            <section className="flex min-h-0 flex-col lg:col-start-2 lg:row-span-3 lg:row-start-1">
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}
