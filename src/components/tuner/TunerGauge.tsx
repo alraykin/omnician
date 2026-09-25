@@ -59,12 +59,12 @@ export function TunerGauge({ cents, readout, inTune, active }: TunerGaugeProps) 
       }
 
       const delta = target - shownRef.current
-      const catchUp = locked ? 0.22 : Math.abs(delta) > 28 ? 0.12 : 0.07
+      const catchUp = locked ? 0.38 : Math.abs(delta) > 10 ? 0.42 : 0.2
       shownRef.current += delta * catchUp
-      if (locked) shownRef.current += (0 - shownRef.current) * 0.28
-      if (Math.abs(shownRef.current) < 0.35) shownRef.current = 0
+      if (locked) shownRef.current += (0 - shownRef.current) * 0.4
+      if (Math.abs(shownRef.current) < 0.28) shownRef.current = 0
 
-      if (now - lastTrail > 58) {
+      if (now - lastTrail > 16) {
         lastTrail = now
         const history = historyRef.current
         if (live && targetCents !== null) {

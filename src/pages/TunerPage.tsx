@@ -47,6 +47,7 @@ export function TunerPage() {
   const [tunedIds, setTunedIds] = useState<Set<string>>(() => new Set())
   const [inTune, setInTune] = useState(false)
   const inTuneRef = useRef(false)
+  const autoPendingRef = useRef<{ id: string; hits: number } | null>(null)
 
   const { status, reading, start, stop } = useTuner(a4Hz)
 
@@ -102,7 +103,18 @@ export function TunerPage() {
 
   useEffect(() => {
     if (!autoString || !tracked) return
-    if (tracked.string.id === autoId) return
+    if (tracked.string.id === autoId) {
+      autoPendingRef.current = null
+      return
+    }
+    const pending = autoPendingRef.current
+    if (!pending || pending.id !== tracked.string.id) {
+      autoPendingRef.current = { id: tracked.string.id, hits: 1 }
+      return
+    }
+    pending.hits += 1
+    if (pending.hits < 2) return
+    autoPendingRef.current = null
     setAutoId(tracked.string.id)
     const index = strings.findIndex((item) => item.id === tracked.string.id)
     if (index >= 0) setFocusIndex(index)

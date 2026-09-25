@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { TUNER_FEEL } from '@/lib/feel'
-import { A4_HZ, analyzeFrequency, rms, type DetectedNote } from '@/lib/notes'
+import { analyzeFrequency, A4_HZ, rms } from '@/lib/notes'
 import {
-  createPitchDetector,
-  estimatePitch,
-  PITCH_BUFFER_SIZE,
-} from '@/lib/pitch-detector'
+  connectRawInput,
+  createTunerContext,
+  isPermissionError,
+  isUnavailableError,
+  logCapture,
+  requestRawMic,
+} from '@/lib/mic-capture'
+import { createSmoothState, pushEstimate, type SmoothState } from '@/lib/pitch-smooth'
+import { createPitchScratch, estimateFromFilled } from '@/lib/yin'
 
-const MIN_HZ = 30
-const MAX_HZ = 1400
-const LOW_BAND_HZ = 80
-const RUMBLE_HZ = 52
-const AGC_TARGET = 0.06
-const AGC_MIN = 1.1
-const AGC_MAX = 10
+const AGC_TARGET = 0.055
+const AGC_MIN = 1.05
+const AGC_MAX = 8
+const UI_PERIOD_MS = 16
 
 export type TunerStatus =
   | 'idle'
@@ -24,111 +25,26 @@ export type TunerStatus =
   | 'unavailable'
   | 'error'
 
-export type TunerReading = DetectedNote & {
+export type TunerReading = ReturnType<typeof analyzeFrequency> & {
   clarity: number
 }
 
-type AudioContextCtor = typeof AudioContext
-
-function getAudioContextCtor(): AudioContextCtor | undefined {
-  if (typeof window === 'undefined') return undefined
-  const view = window as Window & { webkitAudioContext?: AudioContextCtor }
-  return window.AudioContext ?? view.webkitAudioContext
+type EstimateMsg = {
+  type: 'estimate'
+  hz: number
+  clarity: number
+  rms: number
+  time: number
 }
 
-async function requestMic(): Promise<MediaStream> {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw Object.assign(new Error('NO_MIC_API'), { code: 'unavailable' })
-  }
-
-  const detailed: MediaStreamConstraints = {
-    audio: {
-      echoCancellation: false,
-      autoGainControl: true,
-      noiseSuppression: false,
-      channelCount: 1,
-    },
-    video: false,
-  }
-
+async function loadPitchWorklet(audio: AudioContext): Promise<boolean> {
+  if (!audio.audioWorklet) return false
   try {
-    return await navigator.mediaDevices.getUserMedia(detailed)
-  } catch (error) {
-    if (isPermissionError(error)) throw error
-    return navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-  }
-}
-
-function isPermissionError(error: unknown): boolean {
-  if (!(error instanceof DOMException) && !(error instanceof Error)) return false
-  return (
-    error.name === 'NotAllowedError' ||
-    error.name === 'PermissionDeniedError' ||
-    error.name === 'SecurityError'
-  )
-}
-
-function isUnavailableError(error: unknown): boolean {
-  if (!(error instanceof DOMException) && !(error instanceof Error)) return false
-  return (
-    error.name === 'NotFoundError' ||
-    error.name === 'DevicesNotFoundError' ||
-    error.name === 'NotReadableError' ||
-    error.name === 'OverconstrainedError' ||
-    (error instanceof Error && error.message === 'NO_MIC_API')
-  )
-}
-
-function passesConfidence(
-  frequency: number,
-  clarity: number,
-  signal: number,
-): boolean {
-  if (!Number.isFinite(frequency) || frequency < MIN_HZ || frequency > MAX_HZ) {
+    await audio.audioWorklet.addModule(new URL('../worklets/pitch-processor.ts', import.meta.url))
+    return true
+  } catch {
     return false
   }
-
-  let clarityFloor = TUNER_FEEL.minClarity
-  let rmsFloor = TUNER_FEEL.minRms
-
-  if (frequency < RUMBLE_HZ) {
-    clarityFloor = Math.max(clarityFloor, 0.9)
-    rmsFloor = Math.max(rmsFloor, 0.012)
-  } else if (frequency < LOW_BAND_HZ) {
-    clarityFloor = Math.max(clarityFloor, 0.84)
-    rmsFloor = Math.max(rmsFloor, 0.006)
-  }
-
-  return clarity >= clarityFloor && signal >= rmsFloor
-}
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b)
-  return sorted[Math.floor(sorted.length / 2)]
-}
-
-function connectInput(audio: AudioContext, source: AudioNode, analyser: AnalyserNode) {
-  const highpass = audio.createBiquadFilter()
-  highpass.type = 'highpass'
-  highpass.frequency.value = 40
-  highpass.Q.value = 0.65
-
-  const compressor = audio.createDynamicsCompressor()
-  compressor.threshold.value = -36
-  compressor.knee.value = 24
-  compressor.ratio.value = 8
-  compressor.attack.value = 0.005
-  compressor.release.value = 0.2
-
-  const makeup = audio.createGain()
-  makeup.gain.value = 2.6
-
-  source.connect(highpass)
-  highpass.connect(compressor)
-  compressor.connect(makeup)
-  makeup.connect(analyser)
-
-  return makeup
 }
 
 export function useTuner(a4Hz = A4_HZ) {
@@ -136,36 +52,63 @@ export function useTuner(a4Hz = A4_HZ) {
   const [reading, setReading] = useState<TunerReading | null>(null)
 
   const statusRef = useRef(status)
+  const readingRef = useRef(reading)
   const audioRef = useRef<AudioContext | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const oscRef = useRef<OscillatorNode | null>(null)
+  const workletRef = useRef<AudioWorkletNode | null>(null)
   const makeupRef = useRef<GainNode | null>(null)
   const rafRef = useRef(0)
-  const lastHeardRef = useRef(0)
-  const lastPublishRef = useRef(0)
-  const smoothHzRef = useRef<number | null>(null)
-  const pendingHzRef = useRef<number | null>(null)
-  const pendingCountRef = useRef(0)
-  const medianRef = useRef<number[]>([])
-  const agcRef = useRef(3)
   const sessionRef = useRef(0)
   const a4Ref = useRef(a4Hz)
+  const smoothRef = useRef<SmoothState>(createSmoothState())
+  const lastPublishRef = useRef(0)
+  const lastTickRef = useRef(0)
+  const agcRef = useRef(2.4)
 
   statusRef.current = status
+  readingRef.current = reading
   a4Ref.current = a4Hz
+
+  const applyEstimate = useCallback((hz: number, clarity: number, signal: number, now: number) => {
+    const prev = lastTickRef.current || now
+    lastTickRef.current = now
+    const dt = Math.min(0.05, Math.max(0.003, (now - prev) / 1000))
+    const next = pushEstimate(smoothRef.current, hz, clarity, signal, now, dt)
+
+    if (next.hz === null) {
+      if (readingRef.current !== null && now - lastPublishRef.current > 32) {
+        lastPublishRef.current = now
+        setReading(null)
+      }
+      return
+    }
+
+    const due = next.snapped || now - lastPublishRef.current >= UI_PERIOD_MS
+    if (!due) return
+    lastPublishRef.current = now
+    const note = analyzeFrequency(next.hz, a4Ref.current)
+    setReading({ ...note, clarity })
+  }, [])
 
   const stop = useCallback(() => {
     sessionRef.current += 1
     cancelAnimationFrame(rafRef.current)
     rafRef.current = 0
-    lastHeardRef.current = 0
     lastPublishRef.current = 0
-    smoothHzRef.current = null
-    pendingHzRef.current = null
-    pendingCountRef.current = 0
-    medianRef.current = []
+    lastTickRef.current = 0
+    smoothRef.current = createSmoothState()
     makeupRef.current = null
-    agcRef.current = 3
+    agcRef.current = 2.4
+
+    const worklet = workletRef.current
+    workletRef.current = null
+    try {
+      worklet?.port.close()
+      worklet?.disconnect()
+    } catch {
+      // already gone
+    }
 
     const stream = streamRef.current
     streamRef.current = null
@@ -194,12 +137,6 @@ export function useTuner(a4Hz = A4_HZ) {
       return
     }
 
-    const AudioContextCtor = getAudioContextCtor()
-    if (!AudioContextCtor) {
-      setStatus('unavailable')
-      return
-    }
-
     if (!window.isSecureContext) {
       setStatus('unavailable')
       return
@@ -207,18 +144,16 @@ export function useTuner(a4Hz = A4_HZ) {
 
     setStatus('starting')
     setReading(null)
+    smoothRef.current = createSmoothState()
 
     const session = sessionRef.current + 1
     sessionRef.current = session
 
-    const audio = new AudioContextCtor({ latencyHint: 'interactive' })
+    let audio: AudioContext
     try {
-      if (audio.state === 'suspended') {
-        await audio.resume()
-      }
+      audio = await createTunerContext()
     } catch {
-      await audio.close()
-      if (sessionRef.current === session) setStatus('error')
+      if (sessionRef.current === session) setStatus('unavailable')
       return
     }
 
@@ -227,29 +162,24 @@ export function useTuner(a4Hz = A4_HZ) {
       return
     }
 
-    const analyser = audio.createAnalyser()
-    analyser.fftSize = PITCH_BUFFER_SIZE
-    analyser.smoothingTimeConstant = 0
-
-    const demoHz = Number(
-      new URLSearchParams(window.location.search).get('demo'),
-    )
+    const demoHz = Number(new URLSearchParams(window.location.search).get('demo'))
     const useDemo = Number.isFinite(demoHz) && demoHz > 20 && demoHz < 4000
 
+    let source: AudioNode
     if (useDemo) {
       const oscillator = audio.createOscillator()
       const gain = audio.createGain()
       gain.gain.value = 0.22
-      oscillator.type = 'sine'
+      oscillator.type = 'sawtooth'
       oscillator.frequency.value = demoHz
       oscillator.connect(gain)
-      makeupRef.current = connectInput(audio, gain, analyser)
       oscillator.start()
       oscRef.current = oscillator
+      source = gain
     } else {
       let stream: MediaStream
       try {
-        stream = await requestMic()
+        stream = await requestRawMic()
       } catch (error) {
         await audio.close()
         if (isPermissionError(error)) {
@@ -270,130 +200,99 @@ export function useTuner(a4Hz = A4_HZ) {
         return
       }
 
-      makeupRef.current = connectInput(
-        audio,
-        audio.createMediaStreamSource(stream),
-        analyser,
-      )
       streamRef.current = stream
+      const track = stream.getAudioTracks()[0]
+      if (track) {
+        logCapture({
+          settings: track.getSettings(),
+          constraints: track.getConstraints(),
+          contextSampleRate: audio.sampleRate,
+          baseLatency: audio.baseLatency,
+          outputLatency: 'outputLatency' in audio ? audio.outputLatency : null,
+        })
+      }
+      source = audio.createMediaStreamSource(stream)
     }
 
-    const detector = createPitchDetector()
-    const buffer = new Float32Array(PITCH_BUFFER_SIZE)
-    const boosted = new Float32Array(PITCH_BUFFER_SIZE)
-
-    audioRef.current = audio
-
-    if (sessionRef.current !== session) {
-      streamRef.current?.getTracks().forEach((track) => track.stop())
+    if (audio.state === 'suspended') {
       try {
-        oscRef.current?.stop()
+        await audio.resume()
       } catch {
-        // already stopped
+        // iOS can reject a late resume; start() itself is the gesture.
       }
-      oscRef.current = null
-      if (audio.state !== 'closed') void audio.close()
+    }
+
+    const workletOk = await loadPitchWorklet(audio)
+    if (sessionRef.current !== session) {
+      streamRef.current?.getTracks().forEach((item) => item.stop())
+      await audio.close()
       return
     }
 
-    setStatus('listening')
+    audioRef.current = audio
 
-    const tick = () => {
+    const onEstimate = (hz: number, clarity: number, signal: number) => {
       if (sessionRef.current !== session) return
-      analyser.getFloatTimeDomainData(buffer)
-      const raw = rms(buffer)
-      if (raw > 0.0012) {
-        const desired = Math.min(AGC_MAX, Math.max(AGC_MIN, AGC_TARGET / raw))
-        agcRef.current = agcRef.current * 0.94 + desired * 0.06
+      if (signal > 0.0012) {
+        const desired = Math.min(AGC_MAX, Math.max(AGC_MIN, AGC_TARGET / signal))
+        agcRef.current = agcRef.current * 0.88 + desired * 0.12
       } else {
-        agcRef.current = agcRef.current * 0.97 + AGC_MIN * 0.03
+        agcRef.current = agcRef.current * 0.96 + AGC_MIN * 0.04
       }
-      const agc = agcRef.current
       const makeup = makeupRef.current
       if (makeup) {
-        const nextGain = Math.min(7, 1.3 + agc * 0.28)
-        makeup.gain.value = makeup.gain.value * 0.9 + nextGain * 0.1
+        const nextGain = Math.min(6.2, 1.15 + agcRef.current * 0.32)
+        makeup.gain.setTargetAtTime(nextGain, audio.currentTime, 0.03)
       }
+      applyEstimate(hz, clarity, signal * agcRef.current, performance.now())
+    }
 
-      for (let i = 0; i < buffer.length; i += 1) {
-        const sample = buffer[i] * agc
-        boosted[i] = Math.max(-1, Math.min(1, sample))
+    if (workletOk) {
+      const node = new AudioWorkletNode(audio, 'omnician-pitch', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+      })
+      node.port.onmessage = (event: MessageEvent<EstimateMsg>) => {
+        if (event.data?.type !== 'estimate') return
+        onEstimate(event.data.hz, event.data.clarity, event.data.rms)
       }
-      const signal = rms(boosted)
-
-      const { frequency, clarity } = estimatePitch(
-        detector,
-        boosted,
-        audio.sampleRate,
-      )
-      const now = performance.now()
-      const strong = passesConfidence(frequency, clarity, signal)
-
-      if (strong) {
-        const pending = pendingHzRef.current
-        const samePitch =
-          pending !== null &&
-          Math.abs(12 * Math.log2(frequency / pending)) < 0.22
-
-        if (samePitch && pending !== null) {
-          pendingHzRef.current = pending * 0.65 + frequency * 0.35
-          pendingCountRef.current += 1
-        } else {
-          pendingHzRef.current = frequency
-          pendingCountRef.current = 1
-        }
-
-        const needed =
-          frequency < RUMBLE_HZ ? TUNER_FEEL.lockFrames + 1 : TUNER_FEEL.lockFrames
-        if (pendingCountRef.current >= needed) {
-          const accepted = pendingHzRef.current ?? frequency
-          const window = medianRef.current
-          window.push(accepted)
-          if (window.length > TUNER_FEEL.medianSize) window.shift()
-          const mid = window.length >= 3 ? median(window) : accepted
-          const previous = smoothHzRef.current
-          const jump =
-            previous === null
-              ? 0
-              : Math.abs(12 * Math.log2(mid / previous))
-          let next = mid
-          if (previous && jump < TUNER_FEEL.jumpSemitones) {
-            const centsOff = jump * 100
-            if (centsOff < 8) {
-              next = previous * 0.965 + mid * 0.035
-            } else if (centsOff < 18) {
-              next = previous * 0.9 + mid * 0.1
-            } else {
-              next = previous * TUNER_FEEL.smoothPrev + mid * TUNER_FEEL.smoothNext
-            }
-          } else if (previous && jump >= TUNER_FEEL.jumpSemitones) {
-            next = previous
-            pendingCountRef.current = Math.min(pendingCountRef.current, 1)
-          }
-          smoothHzRef.current = next
-          lastHeardRef.current = now
-          if (now - lastPublishRef.current > 50) {
-            lastPublishRef.current = now
-            const note = analyzeFrequency(next, a4Ref.current)
-            setReading({ ...note, clarity })
-          }
-        }
-      } else {
-        pendingCountRef.current = Math.max(0, pendingCountRef.current - 1)
-        if (pendingCountRef.current === 0) {
-          pendingHzRef.current = null
-          medianRef.current = []
-        }
-        if (now - lastHeardRef.current > TUNER_FEEL.holdMs) {
-          smoothHzRef.current = null
-          setReading(null)
-        }
+      makeupRef.current = connectRawInput(audio, source, node)
+      workletRef.current = node
+    } else {
+      const analyser = audio.createAnalyser()
+      analyser.fftSize = 4096
+      analyser.smoothingTimeConstant = 0
+      makeupRef.current = connectRawInput(audio, source, analyser)
+      const scratch = createPitchScratch(4096)
+      const buffer = new Float32Array(4096)
+      let prevHz: number | null = null
+      const tick = () => {
+        if (sessionRef.current !== session) return
+        analyser.getFloatTimeDomainData(buffer)
+        const signal = rms(buffer.subarray(buffer.length - 512))
+        const estimate = estimateFromFilled(buffer, buffer.length, audio.sampleRate, scratch, prevHz)
+        if (estimate.frequency > 0 && estimate.clarity >= 0.55) prevHz = estimate.frequency
+        onEstimate(estimate.frequency, estimate.clarity, signal)
+        rafRef.current = requestAnimationFrame(tick)
       }
-
       rafRef.current = requestAnimationFrame(tick)
     }
 
-    rafRef.current = requestAnimationFrame(tick)
+    setStatus('listening')
+  }, [applyEstimate])
+
+  useEffect(() => {
+    const resume = () => {
+      const audio = audioRef.current
+      if (audio && audio.state === 'suspended') void audio.resume()
+    }
+    window.addEventListener('pointerdown', resume)
+    document.addEventListener('visibilitychange', resume)
+    return () => {
+      window.removeEventListener('pointerdown', resume)
+      document.removeEventListener('visibilitychange', resume)
+    }
   }, [])
 
   useEffect(() => () => stop(), [stop])
