@@ -395,7 +395,7 @@ export function RhythmPage() {
                 role="group"
                 aria-label="Subdivision"
                 data-section="subdivision"
-                className="flex w-max min-w-full justify-between gap-1 px-1"
+                className="flex w-max min-w-full justify-between gap-1 px-1 lg:w-full lg:flex-wrap lg:justify-start"
               >
                 {SUBDIVISIONS.map((steps) => (
                   <button
@@ -407,7 +407,7 @@ export function RhythmPage() {
                     data-subdivision={steps}
                     onClick={() => setSubdivision(steps)}
                     className={cn(
-                      'flex h-12 w-[2.85rem] shrink-0 items-center justify-center rounded-lg sm:h-14 sm:w-[3.2rem] lg:h-16 lg:w-[3.6rem]',
+                      'flex h-12 w-[2.85rem] shrink-0 items-center justify-center rounded-lg sm:h-14 sm:w-[3.2rem] lg:h-11 lg:w-[2.4rem]',
                       current.subdivision === steps
                         ? 'bg-[#A855F7] text-white'
                         : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
