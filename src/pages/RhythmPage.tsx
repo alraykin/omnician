@@ -331,7 +331,10 @@ export function RhythmPage() {
             data-rhythm-layout
             className="mt-2 grid grid-cols-1 gap-2.5 lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:gap-4"
           >
-          <section className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4 lg:col-start-1 lg:row-start-1">
+          <section className={cn(
+            'relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4 lg:col-start-1 lg:row-start-1',
+            mode === 'click' && 'max-lg:order-3',
+          )}>
             <div className="flex flex-col items-center">
               <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
               <p className="relative z-20 mt-1 text-[0.65rem] text-slate-500">{pulseLabel(current.beatUnit)}</p>
@@ -366,7 +369,10 @@ export function RhythmPage() {
           </section>
 
           <section
-            className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4 lg:col-start-1 lg:row-start-2"
+            className={cn(
+              'rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4 lg:col-start-1 lg:row-start-2',
+              mode === 'click' && 'max-lg:order-4',
+            )}
             data-bar-count={bars.length}
             data-rhythm-mode={mode}
           >
@@ -396,7 +402,7 @@ export function RhythmPage() {
             </div>
           </section>
 
-          <section className="lg:col-start-1 lg:row-start-3">
+          <section className={cn('lg:col-start-1 lg:row-start-3', mode === 'click' && 'max-lg:order-2')}>
             <div className="mb-1 flex items-center justify-between gap-2">
               <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 {mode === 'click' && subdivEditBeat !== null
@@ -459,7 +465,7 @@ export function RhythmPage() {
           </section>
 
           {mode === 'click' ? (
-            <section className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4 lg:col-start-2 lg:row-span-3 lg:row-start-1">
+            <section className="max-lg:order-1 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4 lg:col-start-2 lg:row-span-3 lg:row-start-1">
               <div className="mb-3">
                   <BarStrip
                     store={playheadStore}
@@ -664,10 +670,10 @@ function ClickLiveHeader({
   const playhead = usePlayhead(store)
   const live = playing && playhead.bar === barIndex
   return (
-    <div className="mb-2 flex items-center gap-2.5">
+    <div className="mb-1.5 flex items-center gap-2.5">
       <div
         className={cn(
-          'flex size-11 shrink-0 items-center justify-center rounded-full border-[3px] sm:size-12',
+          'flex size-10 shrink-0 items-center justify-center rounded-full border-[3px] sm:size-12',
           live && playhead.beat >= 0
             ? playhead.accent === 2
               ? 'omni-beat-pulse border-[#A855F7] bg-[#A855F7]/25'
