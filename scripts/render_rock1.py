@@ -64,7 +64,7 @@ REVERB_SEND = {
     "kick": 0.05,
     "snare": 0.18,
     "rim": 0.17,
-    "clap": 0.26,
+    "clap": 0.2,
     "highTom": 0.18,
     "midTom": 0.17,
     "lowTom": 0.16,
@@ -78,9 +78,9 @@ REVERB_SEND = {
     "splash": 0.13,
     "china": 0.13,
 }
-REVERB_RETURN = 0.34
-REVERB_DECAY = 0.74
-REVERB_IR_SECONDS = 0.82
+REVERB_RETURN = 0.17
+REVERB_DECAY = 0.6
+REVERB_IR_SECONDS = 0.7
 REVERB_HP_HZ = 240
 
 CYMBALS = {

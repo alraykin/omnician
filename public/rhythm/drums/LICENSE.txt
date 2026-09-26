@@ -25,6 +25,6 @@ License: CC0 1.0
 ---
 
 Drum-room send
-A short stereo impulse response is generated in the app (0.74 s decay,
+A short stereo impulse response is generated in the app (0.6 s decay,
 early reflections, damped highs). No third-party IR is used. Applied to
 drums only; the click stays dry.

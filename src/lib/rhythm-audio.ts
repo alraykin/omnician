@@ -122,15 +122,15 @@ const MAKEUP_GAIN = Math.pow(10, 19.5 / 20)
 const LIMITER_CEILING = Math.pow(10, -1.5 / 20)
 
 /** Shared drum-room send. Dry path is untouched so grid taps stay at 0 ms. */
-const REVERB_DECAY = 0.74
-const REVERB_IR_SECONDS = 0.82
+const REVERB_DECAY = 0.6
+const REVERB_IR_SECONDS = 0.7
 const REVERB_HP_HZ = 240
-const REVERB_RETURN = 0.34
+const REVERB_RETURN = 0.17
 const REVERB_SEND: Record<VoiceId, number> = {
   kick: 0.05,
   snare: 0.18,
   rim: 0.17,
-  clap: 0.26,
+  clap: 0.2,
   highTom: 0.18,
   midTom: 0.17,
   lowTom: 0.16,
