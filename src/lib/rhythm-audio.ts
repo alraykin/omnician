@@ -30,14 +30,6 @@ export function createRhythmContext(): AudioContext {
   }
 }
 
-const LEGACY_FILES: Partial<Record<VoiceId, string>> = {
-  clap: '/rhythm/drums/clap.wav',
-  rideBell: '/rhythm/drums/ride-bell.wav',
-  stack: '/rhythm/drums/stack.wav',
-  splash: '/rhythm/drums/splash.wav',
-  china: '/rhythm/drums/china.wav',
-}
-
 type CrocellPiece =
   | 'kick'
   | 'snare_snappy_p2'
@@ -47,14 +39,20 @@ type CrocellPiece =
   | 'hihat_open'
   | 'crash'
   | 'ride'
+  | 'ride_bell'
   | 'tom_high'
   | 'tom_mid'
   | 'tom_low'
+  | 'china'
+  | 'splash'
+  | 'stack'
+  | 'clap'
 
-const VOICE_PIECE: Partial<Record<VoiceId, CrocellPiece>> = {
+const VOICE_PIECE: Record<VoiceId, CrocellPiece> = {
   kick: 'kick',
   snare: 'snare_snappy_p2',
   rim: 'sidestick',
+  clap: 'clap',
   highTom: 'tom_high',
   midTom: 'tom_mid',
   lowTom: 'tom_mid',
@@ -62,7 +60,11 @@ const VOICE_PIECE: Partial<Record<VoiceId, CrocellPiece>> = {
   closedHat: 'hihat_closed',
   openHat: 'hihat_open',
   ride: 'ride',
+  rideBell: 'ride_bell',
   crash: 'crash',
+  stack: 'stack',
+  splash: 'splash',
+  china: 'china',
 }
 
 type CrocellFile = {
@@ -93,25 +95,31 @@ const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
   },
 }
 
-/** Per-voice mix so hats sit under kick/snare and the crash is splashy, not huge. */
+/** Hidden per-lane trims under the 75% / 0 dB fader rest. Kick+snare lead. */
 const SAMPLE_GAIN: Record<VoiceId, number> = {
-  kick: 1,
-  snare: 1.05,
-  rim: 1,
-  clap: 0.82,
-  highTom: 1,
-  midTom: 1,
-  lowTom: 1,
-  floorTom: 1,
-  closedHat: 2,
-  openHat: 1.6,
-  ride: 2.8,
-  rideBell: 0.9,
-  crash: 0.92,
-  stack: 0.8,
-  splash: 0.76,
-  china: 0.8,
+  kick: 1.2,
+  snare: 1.28,
+  rim: 1.22,
+  clap: 1.32,
+  highTom: 1.22,
+  midTom: 1.2,
+  lowTom: 1.2,
+  floorTom: 1.18,
+  closedHat: 2.15,
+  openHat: 1.58,
+  ride: 3.25,
+  rideBell: 4.35,
+  crash: 0.88,
+  stack: 1.05,
+  splash: 2.45,
+  china: 1.92,
 }
+
+/** Master input stays unity so fader dB readouts stay honest. Loudness is makeup. */
+const MASTER_GAIN = 1
+/** Makeup into the limiter — tuned to −12…−10 LUFS on Rock 1 @ 4. */
+const MAKEUP_GAIN = Math.pow(10, 19.5 / 20)
+const LIMITER_CEILING = Math.pow(10, -1.5 / 20)
 
 const CHOKE_HAT_VOICES: ReadonlySet<VoiceId> = new Set([
   'closedHat',
@@ -404,24 +412,6 @@ async function loadSample(ctx: AudioContext, url: string): Promise<AudioBuffer> 
   return decodeAudio(ctx, data)
 }
 
-async function loadLegacyDrums(
-  ctx: AudioContext,
-  drums: Record<VoiceId, AudioBuffer>,
-): Promise<Record<VoiceId, AudioBuffer>> {
-  await Promise.all(
-    (Object.keys(LEGACY_FILES) as VoiceId[]).map(async (voice) => {
-      const url = LEGACY_FILES[voice]
-      if (!url) return
-      try {
-        drums[voice] = await loadSample(ctx, `${import.meta.env.BASE_URL}${url.replace(/^\//, '')}`)
-      } catch {
-        // Keep the synthesized one-shot for this lane.
-      }
-    }),
-  )
-  return drums
-}
-
 function crocellUrl(file: string): string {
   return `${import.meta.env.BASE_URL}rhythm/drums/crocell/${file}`
 }
@@ -606,6 +596,33 @@ function matchClickLoudness(clicks: Record<ClickSoundId, ClickPair>): Record<Cli
   return clicks
 }
 
+function makeBrickwall(ctx: AudioContext, ceiling: number): WaveShaperNode {
+  const curve = new Float32Array(4096)
+  for (let i = 0; i < curve.length; i += 1) {
+    const x = (i / (curve.length - 1)) * 2 - 1
+    curve[i] = Math.max(-ceiling, Math.min(ceiling, x))
+  }
+  const shaper = ctx.createWaveShaper()
+  shaper.curve = curve
+  shaper.oversample = '2x'
+  return shaper
+}
+
+function makeKickBus(ctx: AudioContext, dest: AudioNode): AudioNode {
+  const body = ctx.createBiquadFilter()
+  body.type = 'peaking'
+  body.frequency.value = 230
+  body.Q.value = 0.75
+  body.gain.value = 1.6
+  const beater = ctx.createBiquadFilter()
+  beater.type = 'highshelf'
+  beater.frequency.value = 2600
+  beater.gain.value = 1.15
+  body.connect(beater)
+  beater.connect(dest)
+  return body
+}
+
 function bakeWheelTick(ctx: AudioContext): AudioBuffer {
   return renderBuffer(ctx, 0.034, (data, sr) => {
     let ping = 0
@@ -707,6 +724,8 @@ export class RhythmKit {
   readonly ctx: AudioContext
   intensity: KitIntensity = DEFAULT_KIT_INTENSITY
   private readonly master: GainNode
+  private readonly makeup: GainNode
+  private readonly kickBus: AudioNode
   private drums: Record<VoiceId, AudioBuffer>
   private clicks: Record<ClickSoundId, ClickPair>
   private readonly layers: LayerBank = {}
@@ -720,21 +739,31 @@ export class RhythmKit {
   constructor(ctx: AudioContext) {
     this.ctx = ctx
     this.master = ctx.createGain()
-    this.master.gain.value = 0.9
-    const comp = ctx.createDynamicsCompressor()
-    comp.threshold.value = -16
-    comp.knee.value = 10
-    comp.ratio.value = 3.2
-    comp.attack.value = 0.003
-    comp.release.value = 0.14
-    this.master.connect(comp)
-    comp.connect(ctx.destination)
+    this.master.gain.value = MASTER_GAIN
+    const glue = ctx.createDynamicsCompressor()
+    glue.threshold.value = -16
+    glue.knee.value = 8
+    glue.ratio.value = 2.2
+    glue.attack.value = 0.005
+    glue.release.value = 0.18
+    this.makeup = ctx.createGain()
+    this.makeup.gain.value = MAKEUP_GAIN
+    const limiter = ctx.createDynamicsCompressor()
+    limiter.threshold.value = -1.2
+    limiter.knee.value = 0
+    limiter.ratio.value = 20
+    limiter.attack.value = 0.002
+    limiter.release.value = 0.055
+    const wall = makeBrickwall(ctx, LIMITER_CEILING)
+    this.master.connect(glue)
+    glue.connect(this.makeup)
+    this.makeup.connect(limiter)
+    limiter.connect(wall)
+    wall.connect(ctx.destination)
+    this.kickBus = makeKickBus(ctx, this.master)
     this.drums = bakeSynthDrums(ctx)
     this.clicks = bakeClicks(ctx)
     this.ready = Promise.all([
-      loadLegacyDrums(ctx, this.drums).then((drums) => {
-        this.drums = drums
-      }),
       loadClicks(ctx, this.clicks).then((clicks) => {
         this.clicks = clicks
       }),
@@ -786,7 +815,8 @@ export class RhythmKit {
     const pair = this.clicks[sound] ?? this.clicks.wood
     // Off/soft share the tick; strong uses the accent one-shot (timbre, not just louder).
     const buffer = level === 2 ? pair.accent : pair.normal
-    const baseGain = level === 2 ? 0.92 : level === 1 ? 0.7 : 0.4
+    // Clicks share the loud master bus; keep them full but not hotter than a snare.
+    const baseGain = level === 2 ? 0.2 : level === 1 ? 0.15 : 0.085
     const baseRate = level === 1 ? 1.03 : 1
     // Within-beat pulses sit a little higher so they never match a main-beat click.
     const rate = onBeat ? baseRate : baseRate * 1.09
@@ -807,7 +837,7 @@ export class RhythmKit {
     const groupGain = mixFaderToGain(group, this.mix[group] ?? 0)
     const mix = (SAMPLE_GAIN[voice] ?? 1) * groupGain
     const buffer = this.bufferFor(voice, role) ?? this.drums[voice]
-    const source = this.fire(buffer, time, mix)
+    const source = this.fire(buffer, time, mix, 1, voice === 'kick')
     if (voice === 'openHat' && source) this.openHat = { gain: source, start: time }
     if (voice === 'closedHat' && source) this.closedHat = { gain: source, start: time }
   }
@@ -849,9 +879,9 @@ export class RhythmKit {
       this.master.gain.cancelScheduledValues(now)
       this.master.gain.setValueAtTime(Math.max(0.0001, this.master.gain.value), now)
       this.master.gain.linearRampToValueAtTime(0.0001, now + 0.004)
-      this.master.gain.setValueAtTime(0.9, now + 0.008)
+      this.master.gain.setValueAtTime(MASTER_GAIN, now + 0.008)
     } catch {
-      this.master.gain.setValueAtTime(0.9, now)
+      this.master.gain.setValueAtTime(MASTER_GAIN, now)
     }
   }
 
@@ -862,10 +892,11 @@ export class RhythmKit {
     if (voice === 'snare' && useRimshotBackbeat(intensity, role)) {
       piece = 'rimshot_snappy_p2'
     }
-    if (!piece) return this.drums[voice] ?? null
     return (
       this.nextRoundRobin(piece, tier) ??
-      (piece === 'rimshot_snappy_p2' ? this.nextRoundRobin('snare_snappy_p2', tier) : null)
+      (piece === 'rimshot_snappy_p2' ? this.nextRoundRobin('snare_snappy_p2', tier) : null) ??
+      this.drums[voice] ??
+      null
     )
   }
 
@@ -880,7 +911,7 @@ export class RhythmKit {
     return available[index % available.length] ?? available[0]
   }
 
-  private fire(buffer: AudioBuffer, time: number, gain: number, rate = 1): GainNode {
+  private fire(buffer: AudioBuffer, time: number, gain: number, rate = 1, viaKick = false): GainNode {
     const source = this.ctx.createBufferSource()
     source.buffer = buffer
     const when = time <= 0 ? 0 : time
@@ -889,7 +920,7 @@ export class RhythmKit {
     const amp = this.ctx.createGain()
     amp.gain.setValueAtTime(Math.max(0.0001, gain), gainTime)
     source.connect(amp)
-    amp.connect(this.master)
+    amp.connect(viaKick ? this.kickBus : this.master)
     source.start(when)
     this.sources.push(source)
     source.onended = () => {

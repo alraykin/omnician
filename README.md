@@ -125,4 +125,4 @@ That is not required to try Omnician today.
 
 **Click** voices are CC0 / public domain. Copies live in `public/rhythm/clicks/` with a LICENSE file. Wood uses Druminfected’s metronome tick; its original accent was clipped, so the strong hit is a Versilian VCSL woodblock. Clave is VCSL. Digital is NenadSimic’s menu click, low-passed. Mechanical is Sadiquecat’s metronome click 2.
 
-**Drums** — CrocellKit by DrumGizmo.org (Lars Muldjord / Crocell / JBOSound), stereo mix by Henry Järvinen, CC BY 4.0; samples edited. Clap is CC0 from the Versilian Community Sample Library. Ride bell is CC0 from Virtuosity Drums. China is CC0 from Karoryfer Big Rusty Drums. Stack and splash still use leftover Pearl Master Studio hits (enoe, CC BY 3.0). See `public/rhythm/drums/LICENSE.txt`.
+**Drums** — CrocellKit by DrumGizmo.org (Lars Muldjord / Crocell / JBOSound), stereo mix by Henry Järvinen, CC BY 4.0; samples edited. Ride bell, china, splash and stack come from that same stereo mix (RideRBell, ChinaR, SplashL, CrashRStopped). Clap is CC0 from the Versilian Community Sample Library (SoloClap velocity layers, level-matched). See `public/rhythm/drums/LICENSE.txt`.

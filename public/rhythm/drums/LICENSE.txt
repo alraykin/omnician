@@ -1,36 +1,23 @@
-CrocellKit (main drum kit)
+CrocellKit (main drum kit and extra cymbal lanes)
 Source kit: https://drumgizmo.org/wiki/doku.php?id=kits:crocellkit
 Authors: DrumGizmo.org / Lars Muldjord / Crocell / JBOSound
 Stereo MIX downmix: Henry Järvinen
 License: Creative Commons Attribution 4.0 International (CC BY 4.0)
 https://creativecommons.org/licenses/by/4.0/
 
-Omnician uses the approved CrocellKit one-shots (5 intensity tiers, round-robin)
+Omnician uses CrocellKit one-shots (5 intensity tiers, round-robin)
 encoded to AAC 192 kbps for the web. Tiers keep their natural relative loudness.
-Samples were edited before this pack (tightened toms, snappy snare); no extra
-EQ or normalization is applied here.
-
-Pieces: kick, snare (snare_snappy_p2), rimshot_snappy_p2 (hard snare backbeats),
-sidestick (Rim), hihat closed/open, crash, ride, tom high/mid/low.
+Approved kick / snare / rimshot / toms / hats / crash / ride files are unchanged.
+Ride bell, china, splash, and stack were added from the same stereo mix:
+- Ride Bell — RideRBell
+- China — ChinaR
+- Splash — SplashL
+- Stack — CrashRStopped (extra choked crash from the kit; CrocellKit has no stacked cymbal)
 
 ---
 
 Clap (CC0, no attribution required)
 Versilian Community Sample Library / sgossner
 https://github.com/sgossner/VCSL
-- clap.wav from Idiophones / Claps / SoloClap_vl3.wav
-
----
-
-Extra cymbal one-shots still used for Ride Bell, Stack, Splash, and China
-(these pieces are not in the CrocellKit pack):
-
-Ride bell — CC0 1.0, Virtuosity Drums / Versilian Studios / Karoryfer
-- ride-bell.wav
-
-China — CC0 1.0, Karoryfer Big Rusty Drums
-- china.wav
-
-Stack / Splash — leftover Pearl Master Studio (enoe, CC BY 3.0)
-https://oramics.github.io/sampled/DRUMS/pearl-master-studio/
-- stack.wav, splash.wav
+- SoloClap_vl1 … vl4, tone- and level-matched to the kit
+License: CC0 1.0

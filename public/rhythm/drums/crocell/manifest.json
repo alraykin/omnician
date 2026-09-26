@@ -3,6 +3,126 @@
   "format": "AAC 192k 44.1 kHz stereo",
   "files": [
     {
+      "piece": "china",
+      "tier": 1,
+      "rr": 1,
+      "file": "china/t1_rr1.m4a",
+      "peak_db": -40.72,
+      "rms_db": -59.13
+    },
+    {
+      "piece": "china",
+      "tier": 1,
+      "rr": 2,
+      "file": "china/t1_rr2.m4a",
+      "peak_db": -34.38,
+      "rms_db": -53.14
+    },
+    {
+      "piece": "china",
+      "tier": 2,
+      "rr": 1,
+      "file": "china/t2_rr1.m4a",
+      "peak_db": -30.6,
+      "rms_db": -50.77
+    },
+    {
+      "piece": "china",
+      "tier": 2,
+      "rr": 2,
+      "file": "china/t2_rr2.m4a",
+      "peak_db": -24.64,
+      "rms_db": -44.69
+    },
+    {
+      "piece": "china",
+      "tier": 3,
+      "rr": 1,
+      "file": "china/t3_rr1.m4a",
+      "peak_db": -25.91,
+      "rms_db": -45.42
+    },
+    {
+      "piece": "china",
+      "tier": 3,
+      "rr": 2,
+      "file": "china/t3_rr2.m4a",
+      "peak_db": -22.09,
+      "rms_db": -43.26
+    },
+    {
+      "piece": "china",
+      "tier": 4,
+      "rr": 1,
+      "file": "china/t4_rr1.m4a",
+      "peak_db": -20.74,
+      "rms_db": -41.58
+    },
+    {
+      "piece": "china",
+      "tier": 4,
+      "rr": 2,
+      "file": "china/t4_rr2.m4a",
+      "peak_db": -18.75,
+      "rms_db": -39.79
+    },
+    {
+      "piece": "china",
+      "tier": 5,
+      "rr": 1,
+      "file": "china/t5_rr1.m4a",
+      "peak_db": -17.26,
+      "rms_db": -39.37
+    },
+    {
+      "piece": "china",
+      "tier": 5,
+      "rr": 2,
+      "file": "china/t5_rr2.m4a",
+      "peak_db": -16.71,
+      "rms_db": -37.85
+    },
+    {
+      "piece": "clap",
+      "tier": 1,
+      "rr": 1,
+      "file": "clap/t1_rr1.m4a",
+      "peak_db": -19.36,
+      "rms_db": -48.02
+    },
+    {
+      "piece": "clap",
+      "tier": 2,
+      "rr": 1,
+      "file": "clap/t2_rr1.m4a",
+      "peak_db": -13.62,
+      "rms_db": -42.43
+    },
+    {
+      "piece": "clap",
+      "tier": 3,
+      "rr": 1,
+      "file": "clap/t3_rr1.m4a",
+      "peak_db": -9.74,
+      "rms_db": -40.66
+    },
+    {
+      "piece": "clap",
+      "tier": 4,
+      "rr": 1,
+      "file": "clap/t4_rr1.m4a",
+      "peak_db": -9.74,
+      "rms_db": -40.66
+    },
+    {
+      "piece": "clap",
+      "tier": 5,
+      "rr": 1,
+      "file": "clap/t5_rr1.m4a",
+      "peak_db": -5.66,
+      "rms_db": -36.26
+    },
+    {
       "piece": "crash",
       "tier": 1,
       "rr": 1,
@@ -483,6 +603,86 @@
       "rms_db": -40.94
     },
     {
+      "piece": "ride_bell",
+      "tier": 1,
+      "rr": 1,
+      "file": "ride_bell/t1_rr1.m4a",
+      "peak_db": -53.01,
+      "rms_db": -76.39
+    },
+    {
+      "piece": "ride_bell",
+      "tier": 1,
+      "rr": 2,
+      "file": "ride_bell/t1_rr2.m4a",
+      "peak_db": -40.95,
+      "rms_db": -65.56
+    },
+    {
+      "piece": "ride_bell",
+      "tier": 2,
+      "rr": 1,
+      "file": "ride_bell/t2_rr1.m4a",
+      "peak_db": -39.58,
+      "rms_db": -64.45
+    },
+    {
+      "piece": "ride_bell",
+      "tier": 2,
+      "rr": 2,
+      "file": "ride_bell/t2_rr2.m4a",
+      "peak_db": -31.14,
+      "rms_db": -56.74
+    },
+    {
+      "piece": "ride_bell",
+      "tier": 3,
+      "rr": 1,
+      "file": "ride_bell/t3_rr1.m4a",
+      "peak_db": -31.35,
+      "rms_db": -57.44
+    },
+    {
+      "piece": "ride_bell",
+      "tier": 3,
+      "rr": 2,
+      "file": "ride_bell/t3_rr2.m4a",
+      "peak_db": -27.54,
+      "rms_db": -53.99
+    },
+    {
+      "piece": "ride_bell",
+      "tier": 4,
+      "rr": 1,
+      "file": "ride_bell/t4_rr1.m4a",
+      "peak_db": -27.14,
+      "rms_db": -53.94
+    },
+    {
+      "piece": "ride_bell",
+      "tier": 4,
+      "rr": 2,
+      "file": "ride_bell/t4_rr2.m4a",
+      "peak_db": -21.77,
+      "rms_db": -50.13
+    },
+    {
+      "piece": "ride_bell",
+      "tier": 5,
+      "rr": 1,
+      "file": "ride_bell/t5_rr1.m4a",
+      "peak_db": -22.17,
+      "rms_db": -49.88
+    },
+    {
+      "piece": "ride_bell",
+      "tier": 5,
+      "rr": 2,
+      "file": "ride_bell/t5_rr2.m4a",
+      "peak_db": -18.58,
+      "rms_db": -47.67
+    },
+    {
       "piece": "rimshot_snappy_p2",
       "tier": 1,
       "rr": 1,
@@ -801,6 +1001,158 @@
       "file": "snare_snappy_p2/t5_rr3.m4a",
       "peak_db": -5.44,
       "rms_db": -17.59
+    },
+    {
+      "piece": "splash",
+      "tier": 1,
+      "rr": 1,
+      "file": "splash/t1_rr1.m4a",
+      "peak_db": -51.21,
+      "rms_db": -70.91
+    },
+    {
+      "piece": "splash",
+      "tier": 1,
+      "rr": 2,
+      "file": "splash/t1_rr2.m4a",
+      "peak_db": -47.17,
+      "rms_db": -66.91
+    },
+    {
+      "piece": "splash",
+      "tier": 2,
+      "rr": 1,
+      "file": "splash/t2_rr1.m4a",
+      "peak_db": -40.53,
+      "rms_db": -58.91
+    },
+    {
+      "piece": "splash",
+      "tier": 2,
+      "rr": 2,
+      "file": "splash/t2_rr2.m4a",
+      "peak_db": -38.22,
+      "rms_db": -57.57
+    },
+    {
+      "piece": "splash",
+      "tier": 3,
+      "rr": 1,
+      "file": "splash/t3_rr1.m4a",
+      "peak_db": -32.96,
+      "rms_db": -53.16
+    },
+    {
+      "piece": "splash",
+      "tier": 3,
+      "rr": 2,
+      "file": "splash/t3_rr2.m4a",
+      "peak_db": -28.22,
+      "rms_db": -50.06
+    },
+    {
+      "piece": "splash",
+      "tier": 4,
+      "rr": 1,
+      "file": "splash/t4_rr1.m4a",
+      "peak_db": -25.51,
+      "rms_db": -46.59
+    },
+    {
+      "piece": "splash",
+      "tier": 4,
+      "rr": 2,
+      "file": "splash/t4_rr2.m4a",
+      "peak_db": -28.15,
+      "rms_db": -47.72
+    },
+    {
+      "piece": "splash",
+      "tier": 5,
+      "rr": 1,
+      "file": "splash/t5_rr1.m4a",
+      "peak_db": -24.22,
+      "rms_db": -47.1
+    },
+    {
+      "piece": "splash",
+      "tier": 5,
+      "rr": 2,
+      "file": "splash/t5_rr2.m4a",
+      "peak_db": -23.93,
+      "rms_db": -46.13
+    },
+    {
+      "piece": "stack",
+      "tier": 1,
+      "rr": 1,
+      "file": "stack/t1_rr1.m4a",
+      "peak_db": -33.87,
+      "rms_db": -53.27
+    },
+    {
+      "piece": "stack",
+      "tier": 1,
+      "rr": 2,
+      "file": "stack/t1_rr2.m4a",
+      "peak_db": -26.33,
+      "rms_db": -44.9
+    },
+    {
+      "piece": "stack",
+      "tier": 2,
+      "rr": 1,
+      "file": "stack/t2_rr1.m4a",
+      "peak_db": -25.49,
+      "rms_db": -43.89
+    },
+    {
+      "piece": "stack",
+      "tier": 2,
+      "rr": 2,
+      "file": "stack/t2_rr2.m4a",
+      "peak_db": -20.56,
+      "rms_db": -39.88
+    },
+    {
+      "piece": "stack",
+      "tier": 3,
+      "rr": 1,
+      "file": "stack/t3_rr1.m4a",
+      "peak_db": -17.55,
+      "rms_db": -38.14
+    },
+    {
+      "piece": "stack",
+      "tier": 3,
+      "rr": 2,
+      "file": "stack/t3_rr2.m4a",
+      "peak_db": -18.1,
+      "rms_db": -37.53
+    },
+    {
+      "piece": "stack",
+      "tier": 4,
+      "rr": 1,
+      "file": "stack/t4_rr1.m4a",
+      "peak_db": -16.44,
+      "rms_db": -36.91
+    },
+    {
+      "piece": "stack",
+      "tier": 4,
+      "rr": 2,
+      "file": "stack/t4_rr2.m4a",
+      "peak_db": -16.29,
+      "rms_db": -36.54
+    },
+    {
+      "piece": "stack",
+      "tier": 5,
+      "rr": 1,
+      "file": "stack/t5_rr1.m4a",
+      "peak_db": -15.16,
+      "rms_db": -34.1
     },
     {
       "piece": "tom_high",
@@ -1162,5 +1514,12 @@
       "peak_db": -7.19,
       "rms_db": -16.67
     }
-  ]
+  ],
+  "extras": {
+    "ride_bell": "CrocellKit RideRBell stereo mix",
+    "china": "CrocellKit ChinaR stereo mix",
+    "splash": "CrocellKit SplashL stereo mix",
+    "stack": "CrocellKit CrashRStopped extra cymbal, used for Stack",
+    "clap": "VCSL SoloClap velocity layers, tone-matched"
+  }
 }

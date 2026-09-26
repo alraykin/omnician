@@ -542,7 +542,8 @@ export function RhythmPage() {
                 >
                   CC BY 4.0
                 </a>
-                , samples edited. Clap: VCSL (CC0).
+                , samples edited. Ride bell, china, splash and stack from the same
+                CrocellKit stereo mix. Clap: VCSL SoloClap (CC0), level-matched.
               </p>
             </section>
           )}

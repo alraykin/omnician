@@ -51,13 +51,20 @@ export function playInTuneChime(): void {
 
   const start = audio.currentTime + 0.01
   const master = audio.createGain()
-  master.gain.value = 0.9
+  master.gain.value = 1.35
   const filter = audio.createBiquadFilter()
   filter.type = 'lowpass'
   filter.frequency.value = 2600
   filter.Q.value = 0.7
+  const limiter = audio.createDynamicsCompressor()
+  limiter.threshold.value = -1.2
+  limiter.knee.value = 0
+  limiter.ratio.value = 20
+  limiter.attack.value = 0.002
+  limiter.release.value = 0.08
   filter.connect(master)
-  master.connect(audio.destination)
+  master.connect(limiter)
+  limiter.connect(audio.destination)
 
   // Soft “lock”: C5 – E5 – G5, then a quiet C6 sparkle.
   voice(audio, filter, 523.25, start, 0.92, 'sine', 0.2)
