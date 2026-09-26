@@ -161,8 +161,8 @@ export function SubdivIcon({
     <svg
       viewBox="0 0 56 40"
       className={className}
-      width={tiny ? 20 : compact ? 28 : 48}
-      height={tiny ? 14 : compact ? 20 : 34}
+      width={tiny ? 24 : compact ? 28 : 48}
+      height={tiny ? 17 : compact ? 20 : 34}
       aria-hidden
     >
       {steps === 3 ? (
