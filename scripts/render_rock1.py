@@ -60,6 +60,29 @@ SAMPLE_GAIN_AFTER = {
 
 SAMPLE_GAIN = SAMPLE_GAIN_BEFORE
 
+REVERB_SEND = {
+    "kick": 0.05,
+    "snare": 0.18,
+    "rim": 0.17,
+    "clap": 0.26,
+    "highTom": 0.18,
+    "midTom": 0.17,
+    "lowTom": 0.16,
+    "floorTom": 0.16,
+    "closedHat": 0.07,
+    "openHat": 0.09,
+    "ride": 0.11,
+    "rideBell": 0.1,
+    "crash": 0.13,
+    "stack": 0.12,
+    "splash": 0.13,
+    "china": 0.13,
+}
+REVERB_RETURN = 0.34
+REVERB_DECAY = 0.74
+REVERB_IR_SECONDS = 0.82
+REVERB_HP_HZ = 240
+
 CYMBALS = {
     "closedHat",
     "openHat",
@@ -324,11 +347,13 @@ def render(
     extra_map: dict[str, dict[int, list[Path]]] | None,
     kick_eq: bool,
     phone_hp: float | None,
+    use_reverb: bool = False,
 ) -> np.ndarray:
     bank = parse_manifest()
     cache = load_cache(bank, extra_map)
     total = int((BAR * BARS + TAIL) * SR)
     mix = np.zeros((total, 2), dtype=np.float64)
+    send = np.zeros((total, 2), dtype=np.float64)
     rr = {}
     cymbal_gain = db_to_gain(cymbal_offset_db)
 
@@ -358,9 +383,67 @@ def render(
                 t0 = int((bar * BAR + step * STEP) * SR)
                 end = min(total, t0 + audio.shape[0])
                 mix[t0:end] += audio[: end - t0]
+                if use_reverb:
+                    send[t0:end] += audio[: end - t0] * REVERB_SEND.get(voice, 0.0)
+
+    if use_reverb:
+        wet = fft_convolve(biquad_highpass(send, REVERB_HP_HZ), bake_room_ir())
+        wet = wet[:total] * REVERB_RETURN
+        mix += wet
 
     mix *= master_gain * db_to_gain(makeup_db)
     return mix.astype(np.float32)
+
+
+def bake_room_ir() -> np.ndarray:
+    n = int(SR * REVERB_IR_SECONDS)
+    ir = np.zeros((n, 2), dtype=np.float64)
+    seed = 0xC0CE11
+    def rand() -> float:
+        nonlocal seed
+        seed = (seed + 0x6D2B79F5) & 0xFFFFFFFF
+        t = seed
+        t = (t ^ (t >> 15)) * (t | 1) & 0xFFFFFFFF
+        t ^= (t + ((t ^ (t >> 7)) * (t | 61) & 0xFFFFFFFF)) & 0xFFFFFFFF
+        return ((t ^ (t >> 14)) & 0xFFFFFFFF) / 4294967296
+    tau = REVERB_DECAY / math.log(1000)
+    early = (
+        (0.0064, 0.62, -0.38),
+        (0.0118, 0.48, 0.42),
+        (0.0186, 0.36, -0.18),
+        (0.0274, 0.26, 0.5),
+        (0.0385, 0.18, -0.46),
+        (0.051, 0.13, 0.22),
+        (0.067, 0.09, -0.28),
+    )
+    for t, g, pan in early:
+        i = min(n - 1, int(t * SR))
+        ir[i, 0] += g * (0.5 - pan * 0.5)
+        ir[i, 1] += g * (0.5 + pan * 0.5)
+    lp = [0.0, 0.0]
+    for i in range(n):
+        t = i / SR
+        decay = math.exp(-t / tau)
+        bright = math.exp(-t * 5.2)
+        coeff = 0.18 + 0.62 * (1 - bright)
+        for ch in range(2):
+            noise = rand() * 2 - 1
+            lp[ch] += coeff * (noise - lp[ch])
+            ir[i, ch] += lp[ch] * decay * 0.2
+    peak = float(np.max(np.abs(ir)))
+    if peak > 0:
+        ir *= 0.92 / peak
+    return ir
+
+
+def fft_convolve(x: np.ndarray, ir: np.ndarray) -> np.ndarray:
+    n = x.shape[0] + ir.shape[0] - 1
+    nfft = 1 << (n - 1).bit_length()
+    out = np.zeros((n, 2), dtype=np.float64)
+    for ch in range(2):
+        spectrum = np.fft.rfft(x[:, ch], nfft) * np.fft.rfft(ir[:, ch], nfft)
+        out[:, ch] = np.fft.irfft(spectrum, nfft)[:n]
+    return out
 
 
 def biquad_highpass(x: np.ndarray, freq: float) -> np.ndarray:
@@ -478,6 +561,7 @@ def main() -> None:
         extra_map=extra,
         kick_eq=args.kick_eq,
         phone_hp=None,
+        use_reverb=args.after,
     )
     out = args.out or Path(f"/tmp/rock1_{args.label}_i{args.intensity}.wav")
     dry = out.with_name(out.stem + "_dry.wav")

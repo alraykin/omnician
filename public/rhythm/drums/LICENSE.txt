@@ -21,3 +21,10 @@ Versilian Community Sample Library / sgossner
 https://github.com/sgossner/VCSL
 - SoloClap_vl1 … vl4, tone- and level-matched to the kit
 License: CC0 1.0
+
+---
+
+Drum-room send
+A short stereo impulse response is generated in the app (0.74 s decay,
+early reflections, damped highs). No third-party IR is used. Applied to
+drums only; the click stays dry.

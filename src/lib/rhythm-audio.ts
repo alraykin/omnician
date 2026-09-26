@@ -121,6 +121,30 @@ const MASTER_GAIN = 1
 const MAKEUP_GAIN = Math.pow(10, 19.5 / 20)
 const LIMITER_CEILING = Math.pow(10, -1.5 / 20)
 
+/** Shared drum-room send. Dry path is untouched so grid taps stay at 0 ms. */
+const REVERB_DECAY = 0.74
+const REVERB_IR_SECONDS = 0.82
+const REVERB_HP_HZ = 240
+const REVERB_RETURN = 0.34
+const REVERB_SEND: Record<VoiceId, number> = {
+  kick: 0.05,
+  snare: 0.18,
+  rim: 0.17,
+  clap: 0.26,
+  highTom: 0.18,
+  midTom: 0.17,
+  lowTom: 0.16,
+  floorTom: 0.16,
+  closedHat: 0.07,
+  openHat: 0.09,
+  ride: 0.11,
+  rideBell: 0.1,
+  crash: 0.13,
+  stack: 0.12,
+  splash: 0.13,
+  china: 0.13,
+}
+
 const CHOKE_HAT_VOICES: ReadonlySet<VoiceId> = new Set([
   'closedHat',
   'openHat',
@@ -608,6 +632,88 @@ function makeBrickwall(ctx: AudioContext, ceiling: number): WaveShaperNode {
   return shaper
 }
 
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/** Short drum-room IR: early taps + damped noise tail. No third-party sample. */
+function bakeRoomIR(ctx: AudioContext): AudioBuffer {
+  const sr = ctx.sampleRate
+  const n = Math.max(1, Math.floor(sr * REVERB_IR_SECONDS))
+  const ir = ctx.createBuffer(2, n, sr)
+  const left = ir.getChannelData(0)
+  const right = ir.getChannelData(1)
+  const rand = mulberry32(0xc0ce11)
+  const tau = REVERB_DECAY / Math.log(1000)
+  const early: ReadonlyArray<{ t: number; g: number; pan: number }> = [
+    { t: 0.0064, g: 0.62, pan: -0.38 },
+    { t: 0.0118, g: 0.48, pan: 0.42 },
+    { t: 0.0186, g: 0.36, pan: -0.18 },
+    { t: 0.0274, g: 0.26, pan: 0.5 },
+    { t: 0.0385, g: 0.18, pan: -0.46 },
+    { t: 0.051, g: 0.13, pan: 0.22 },
+    { t: 0.067, g: 0.09, pan: -0.28 },
+  ]
+  for (const tap of early) {
+    const i = Math.min(n - 1, Math.floor(tap.t * sr))
+    const leftG = tap.g * (0.5 - tap.pan * 0.5)
+    const rightG = tap.g * (0.5 + tap.pan * 0.5)
+    left[i] += leftG
+    right[i] += rightG
+  }
+  let lpL = 0
+  let lpR = 0
+  for (let i = 0; i < n; i += 1) {
+    const t = i / sr
+    const decay = Math.exp(-t / tau)
+    const bright = Math.exp(-t * 5.2)
+    const coeff = 0.18 + 0.62 * (1 - bright)
+    const noiseL = rand() * 2 - 1
+    const noiseR = rand() * 2 - 1
+    lpL += coeff * (noiseL - lpL)
+    lpR += coeff * (noiseR - lpR)
+    const tail = decay * 0.2
+    left[i] += lpL * tail
+    right[i] += lpR * tail
+  }
+  let peak = 0
+  for (let i = 0; i < n; i += 1) {
+    peak = Math.max(peak, Math.abs(left[i]), Math.abs(right[i]))
+  }
+  const trim = peak > 0 ? 0.92 / peak : 1
+  for (let i = 0; i < n; i += 1) {
+    left[i] *= trim
+    right[i] *= trim
+  }
+  return ir
+}
+
+function makeReverbBus(ctx: AudioContext, dest: AudioNode): { send: GainNode; wet: GainNode } {
+  const send = ctx.createGain()
+  send.gain.value = 1
+  const hp = ctx.createBiquadFilter()
+  hp.type = 'highpass'
+  hp.frequency.value = REVERB_HP_HZ
+  hp.Q.value = 0.7
+  const conv = ctx.createConvolver()
+  conv.normalize = false
+  conv.buffer = bakeRoomIR(ctx)
+  const wet = ctx.createGain()
+  wet.gain.value = REVERB_RETURN
+  send.connect(hp)
+  hp.connect(conv)
+  conv.connect(wet)
+  wet.connect(dest)
+  return { send, wet }
+}
+
 function makeKickBus(ctx: AudioContext, dest: AudioNode): AudioNode {
   const body = ctx.createBiquadFilter()
   body.type = 'peaking'
@@ -726,6 +832,8 @@ export class RhythmKit {
   private readonly master: GainNode
   private readonly makeup: GainNode
   private readonly kickBus: AudioNode
+  private readonly reverbSend: GainNode
+  private readonly reverbWet: GainNode
   private drums: Record<VoiceId, AudioBuffer>
   private clicks: Record<ClickSoundId, ClickPair>
   private readonly layers: LayerBank = {}
@@ -761,6 +869,9 @@ export class RhythmKit {
     limiter.connect(wall)
     wall.connect(ctx.destination)
     this.kickBus = makeKickBus(ctx, this.master)
+    const room = makeReverbBus(ctx, this.master)
+    this.reverbSend = room.send
+    this.reverbWet = room.wet
     this.drums = bakeSynthDrums(ctx)
     this.clicks = bakeClicks(ctx)
     this.ready = Promise.all([
@@ -837,7 +948,7 @@ export class RhythmKit {
     const groupGain = mixFaderToGain(group, this.mix[group] ?? 0)
     const mix = (SAMPLE_GAIN[voice] ?? 1) * groupGain
     const buffer = this.bufferFor(voice, role) ?? this.drums[voice]
-    const source = this.fire(buffer, time, mix, 1, voice === 'kick')
+    const source = this.fire(buffer, time, mix, 1, voice)
     if (voice === 'openHat' && source) this.openHat = { gain: source, start: time }
     if (voice === 'closedHat' && source) this.closedHat = { gain: source, start: time }
   }
@@ -876,6 +987,14 @@ export class RhythmKit {
     this.openHat = null
     this.closedHat = null
     try {
+      this.reverbWet.gain.cancelScheduledValues(now)
+      this.reverbWet.gain.setValueAtTime(Math.max(0.0001, this.reverbWet.gain.value), now)
+      this.reverbWet.gain.linearRampToValueAtTime(0.0001, now + 0.03)
+      this.reverbWet.gain.setValueAtTime(REVERB_RETURN, now + 0.05)
+    } catch {
+      this.reverbWet.gain.setValueAtTime(REVERB_RETURN, now)
+    }
+    try {
       this.master.gain.cancelScheduledValues(now)
       this.master.gain.setValueAtTime(Math.max(0.0001, this.master.gain.value), now)
       this.master.gain.linearRampToValueAtTime(0.0001, now + 0.004)
@@ -911,7 +1030,7 @@ export class RhythmKit {
     return available[index % available.length] ?? available[0]
   }
 
-  private fire(buffer: AudioBuffer, time: number, gain: number, rate = 1, viaKick = false): GainNode {
+  private fire(buffer: AudioBuffer, time: number, gain: number, rate = 1, voice?: VoiceId): GainNode {
     const source = this.ctx.createBufferSource()
     source.buffer = buffer
     const when = time <= 0 ? 0 : time
@@ -920,7 +1039,14 @@ export class RhythmKit {
     const amp = this.ctx.createGain()
     amp.gain.setValueAtTime(Math.max(0.0001, gain), gainTime)
     source.connect(amp)
-    amp.connect(viaKick ? this.kickBus : this.master)
+    amp.connect(voice === 'kick' ? this.kickBus : this.master)
+    const sendAmt = voice ? REVERB_SEND[voice] : 0
+    if (sendAmt > 0) {
+      const send = this.ctx.createGain()
+      send.gain.setValueAtTime(sendAmt, gainTime)
+      amp.connect(send)
+      send.connect(this.reverbSend)
+    }
     source.start(when)
     this.sources.push(source)
     source.onended = () => {
