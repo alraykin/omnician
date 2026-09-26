@@ -431,8 +431,14 @@ export function barDurationSec(beats: number, bpm: number): number {
   return clampBeats(beats) * beatDurationSec(bpm)
 }
 
-/** Meter-aware Click defaults: strong on 1, softer secondary later — never every beat. */
-export function defaultBeatAccents(beats: number, beatUnit: BeatUnit): BeatAccent[] {
+/** Strong on beat 1 only. Every other beat is unaccented, for every meter. */
+export function defaultBeatAccents(beats: number, _beatUnit?: BeatUnit): BeatAccent[] {
+  clampBeats(beats)
+  return [{ beat: 0, level: 2 }]
+}
+
+/** Pre–beat-1-only defaults: strong on 1 plus meter-aware softs (e.g. beat 3 in 4/4). */
+export function legacyDefaultBeatAccents(beats: number, beatUnit: BeatUnit): BeatAccent[] {
   const count = clampBeats(beats)
   const next: BeatAccent[] = [{ beat: 0, level: 2 }]
   const soft: number[] = []
@@ -456,6 +462,25 @@ export function defaultBeatAccents(beats: number, beatUnit: BeatUnit): BeatAccen
     if (beat > 0 && beat < count) next.push({ beat, level: 1 })
   }
   return next
+}
+
+export function accentsEqual(left: readonly BeatAccent[], right: readonly BeatAccent[]): boolean {
+  if (left.length !== right.length) return false
+  const a = [...left].sort((x, y) => x.beat - y.beat)
+  const b = [...right].sort((x, y) => x.beat - y.beat)
+  return a.every((item, index) => item.beat === b[index].beat && item.level === b[index].level)
+}
+
+/** Reset saved accents that still match the old meter-aware default. */
+export function migrateLegacyDefaultAccents(
+  accents: readonly BeatAccent[],
+  beats: number,
+  beatUnit: BeatUnit,
+): BeatAccent[] {
+  if (accentsEqual(accents, legacyDefaultBeatAccents(beats, beatUnit))) {
+    return defaultBeatAccents(beats, beatUnit)
+  }
+  return accents.map(cloneBeatAccent)
 }
 
 export function accentsFromBeatIndices(beats: number, indices: number[]): BeatAccent[] {
@@ -497,21 +522,20 @@ function isLegacyAccentPos(value: unknown): boolean {
 }
 
 export function parseBeatAccents(raw: unknown, beats: number, beatUnit: BeatUnit): BeatAccent[] {
-  if (!Array.isArray(raw)) return defaultBeatAccents(beats, beatUnit)
-  if (raw.length === 0) return []
-  if (raw.every(isBeatAccent) && raw.every((item) => !('num' in item) && !('den' in item))) {
-    return clampBeatAccents(raw, beats)
-  }
-  if (raw.every(isLegacyAccentPos)) {
+  let next: BeatAccent[]
+  if (!Array.isArray(raw)) next = defaultBeatAccents(beats, beatUnit)
+  else if (raw.length === 0) next = []
+  else if (raw.every(isBeatAccent) && raw.every((item) => !('num' in item) && !('den' in item))) {
+    next = clampBeatAccents(raw, beats)
+  } else if (raw.every(isLegacyAccentPos)) {
     const downbeats = (raw as { beat: number; num: number; den: number; level: 1 | 2 }[])
       .filter((item) => item.num === 0)
       .map((item) => ({ beat: item.beat, level: item.level }))
-    return downbeats.length > 0 ? clampBeatAccents(downbeats, beats) : defaultBeatAccents(beats, beatUnit)
+    next = downbeats.length > 0 ? clampBeatAccents(downbeats, beats) : defaultBeatAccents(beats, beatUnit)
+  } else {
+    next = defaultBeatAccents(beats, beatUnit)
   }
-  if (raw.every((item) => Number.isInteger(item))) {
-    return defaultBeatAccents(beats, beatUnit)
-  }
-  return defaultBeatAccents(beats, beatUnit)
+  return migrateLegacyDefaultAccents(next, beats, beatUnit)
 }
 
 export function beatAccentAt(accents: readonly BeatAccent[], beat: number): AccentLevel {

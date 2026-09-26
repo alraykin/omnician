@@ -6,30 +6,27 @@ import { AppChrome } from '@/components/AppChrome'
 import { BpmWheel } from '@/components/rhythm/BpmWheel'
 import { BarStrip } from '@/components/rhythm/BarStrip'
 import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
+import { CompactMeter } from '@/components/rhythm/CompactMeter'
 import { DrumBarStage } from '@/components/rhythm/DrumBarStage'
 import { KitFaders } from '@/components/rhythm/KitFaders'
 import { KitIntensityControl } from '@/components/rhythm/KitIntensity'
-import { SnapWheel } from '@/components/rhythm/SnapWheel'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { usePlayhead, useRhythmEngine, type PlayheadStore } from '@/hooks/useRhythmEngine'
 import { snareRoleFromStep, type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
 import {
-  BEAT_UNITS,
   CLICK_SOUND_LABELS,
   CLICK_SOUNDS,
   DEFAULT_BPM,
   MAX_BARS,
-  MIN_BEATS,
-  MAX_BEATS,
   SUBDIVISION_LABELS,
   SUBDIVISIONS,
-  UNIT_LABELS,
   clampBpm,
   beatAccentAt,
   cloneBar,
   cycleBeatAccent,
+  defaultBeatAccents,
   meterLabel,
   pulseLabel,
   setBarSubdivision,
@@ -54,8 +51,6 @@ import {
   type RhythmPreset,
   type RhythmStyle,
 } from '@/lib/rhythm-presets'
-
-const BEAT_VALUES = Array.from({ length: MAX_BEATS - MIN_BEATS + 1 }, (_, index) => index + MIN_BEATS)
 
 export function RhythmPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -195,7 +190,9 @@ export function RhythmPage() {
 
   const addBar = () => {
     if (bars.length >= MAX_BARS || !current) return
-    setBars((currentBars) => [...currentBars, cloneBar(current)])
+    const next = cloneBar(current)
+    next.beatAccents = defaultBeatAccents(next.beats, next.beatUnit)
+    setBars((currentBars) => [...currentBars, next])
     setBarIndex(bars.length)
   }
 
@@ -327,7 +324,7 @@ export function RhythmPage() {
           <div
             data-rhythm-layout
             data-rhythm-mode="click"
-            className="mt-1.5 flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:items-start lg:gap-4"
+            className="mt-1.5 flex flex-col gap-1.5 lg:grid lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:items-start lg:gap-4"
           >
             <section className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4 lg:col-start-1 lg:row-start-1">
               <div className="flex flex-col items-center">
@@ -473,7 +470,7 @@ export function RhythmPage() {
               ))}
             </div>
 
-            <section className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2 sm:px-3 lg:col-start-2">
+            <section className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5 lg:col-start-2">
               <BarStrip
                 store={playheadStore}
                 bars={clickBars}
@@ -487,39 +484,22 @@ export function RhythmPage() {
             </section>
 
             <section
-              className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2 sm:px-4 lg:col-start-1 lg:row-start-2"
+              className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5 lg:col-start-1 lg:row-start-2"
               data-bar-count={bars.length}
               data-rhythm-mode="click"
             >
-              <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Meter
-              </p>
-              <div className="flex items-center justify-center gap-2 sm:gap-4">
-                <SnapWheel
-                  compact
-                  label="Beats"
-                  values={BEAT_VALUES}
-                  value={current.beats}
-                  onChange={(beats) => setMeter(beats, current.beatUnit)}
-                />
-                <p className="pt-4 text-2xl font-bold text-slate-500">/</p>
-                <SnapWheel
-                  compact
-                  label="Beat unit"
-                  wide
-                  values={BEAT_UNITS}
-                  value={current.beatUnit}
-                  format={(unit) => `${unit} · ${UNIT_LABELS[unit]}`}
-                  onChange={(unit) => setMeter(current.beats, unit)}
-                />
-              </div>
+              <CompactMeter
+                beats={current.beats}
+                beatUnit={current.beatUnit}
+                onChange={setMeter}
+              />
             </section>
           </div>
           ) : (
           <div
             data-rhythm-layout
             data-rhythm-mode="drums"
-            className="mt-2 grid grid-cols-1 gap-2.5 lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:gap-4"
+            className="mt-1.5 grid grid-cols-1 gap-1.5 lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:gap-4"
           >
             <section className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4 lg:col-start-1 lg:row-start-1">
               <div className="flex flex-col items-center">
@@ -555,32 +535,15 @@ export function RhythmPage() {
               </div>
             </section>
             <section
-              className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4 lg:col-start-1 lg:row-start-2"
+              className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5 lg:col-start-1 lg:row-start-2"
               data-bar-count={bars.length}
               data-rhythm-mode="drums"
             >
-              <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Meter
-              </p>
-              <div className="flex items-center justify-center gap-2 sm:gap-4">
-                <SnapWheel
-                  compact
-                  label="Beats"
-                  values={BEAT_VALUES}
-                  value={current.beats}
-                  onChange={(beats) => setMeter(beats, current.beatUnit)}
-                />
-                <p className="pt-4 text-2xl font-bold text-slate-500">/</p>
-                <SnapWheel
-                  compact
-                  label="Beat unit"
-                  wide
-                  values={BEAT_UNITS}
-                  value={current.beatUnit}
-                  format={(unit) => `${unit} · ${UNIT_LABELS[unit]}`}
-                  onChange={(unit) => setMeter(current.beats, unit)}
-                />
-              </div>
+              <CompactMeter
+                beats={current.beats}
+                beatUnit={current.beatUnit}
+                onChange={setMeter}
+              />
             </section>
             <section className="lg:col-start-1 lg:row-start-3">
               <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -631,8 +594,8 @@ export function RhythmPage() {
                 </span>
                 <span className="text-xs font-semibold text-slate-400">Change</span>
               </button>
-              <div className="mb-3 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-3">
-                <BarStrip
+              <div className="mb-2 rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5">
+                <BarStrip>
                   store={playheadStore}
                   bars={drumBars}
                   barIndex={drumBarIndex}

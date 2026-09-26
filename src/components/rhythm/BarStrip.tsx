@@ -1,9 +1,8 @@
 import { Plus, Trash2 } from 'lucide-react'
 
 import { usePlayhead, type PlayheadStore } from '@/hooks/useRhythmEngine'
-import { meterLabel, type RhythmBar } from '@/lib/rhythm'
+import { type RhythmBar } from '@/lib/rhythm'
 import { activateOnPointer, cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 
 export function BarStrip({
   store,
@@ -26,49 +25,17 @@ export function BarStrip({
 }) {
   const playhead = usePlayhead(store)
   const active = playing && playhead.bar >= 0 ? playhead.bar : barIndex
-  const current = bars[active] ?? bars[0]
 
   return (
-    <div data-bar-strip className="space-y-1.5">
-      <div className="flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-            {playing ? 'Now playing' : 'Selected bar'}
-          </p>
-          <p
-            className="mt-0.5 text-base font-bold tabular-nums tracking-tight text-white sm:text-xl"
-            data-bar-now={active + 1}
-            data-bar-total={bars.length}
-          >
-            Bar {active + 1} of {bars.length}
-          </p>
-          {current ? (
-            <p className="text-sm font-medium text-slate-400">
-              {meterLabel(current.beats, current.beatUnit)}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Button type="button" variant="outline" size="sm" className="h-8" onClick={onAdd} disabled={!canAdd}>
-            <Plus className="size-3.5" />
-            Bar
-          </Button>
-          {bars.length > 1 ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8"
-              onClick={onRemove}
-              aria-label="Remove this bar"
-            >
-              <Trash2 className="size-3.5" />
-            </Button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1">
+    <div data-bar-strip className="flex items-center gap-1.5">
+      <p
+        className="shrink-0 text-sm font-bold tabular-nums tracking-tight text-white"
+        data-bar-now={active + 1}
+        data-bar-total={bars.length}
+      >
+        Bar {active + 1} of {bars.length}
+      </p>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
         {bars.map((_, index) => {
           const live = playing && playhead.bar === index
           const selected = index === active
@@ -83,7 +50,7 @@ export function BarStrip({
               aria-pressed={selected}
               {...activateOnPointer(() => onSelect(index))}
               className={cn(
-                'flex size-9 touch-manipulation items-center justify-center rounded-lg text-sm font-semibold tabular-nums',
+                'flex size-7 touch-manipulation items-center justify-center rounded-md text-xs font-semibold tabular-nums',
                 selected ? 'bg-[#A855F7] text-white' : 'border border-white/10 bg-white/4 text-slate-200',
                 live && 'omni-beat-pulse',
               )}
@@ -93,9 +60,27 @@ export function BarStrip({
           )
         })}
       </div>
-      <p className="text-[0.65rem] text-slate-500">
-        {playing ? 'The grid shows the bar that is playing.' : 'Tap a bar to hear it.'}
-      </p>
+      <div className="flex shrink-0 items-center gap-0.5">
+        <button
+          type="button"
+          aria-label="Add bar"
+          disabled={!canAdd}
+          onClick={onAdd}
+          className="flex size-7 touch-manipulation items-center justify-center rounded-md border border-white/12 text-slate-200 disabled:opacity-40"
+        >
+          <Plus className="size-3.5" />
+        </button>
+        {bars.length > 1 ? (
+          <button
+            type="button"
+            aria-label="Remove this bar"
+            onClick={onRemove}
+            className="flex size-7 touch-manipulation items-center justify-center rounded-md text-slate-300 hover:bg-white/8 hover:text-white"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        ) : null}
+      </div>
     </div>
   )
 }
