@@ -27,5 +27,5 @@ License: CC0 1.0
 Drum-room send
 A medium stereo impulse response is generated in the app (1.35 s decay,
 15 ms predelay, damped highs). The return sits after the dry clipper at
-about 10% wet. No third-party IR is used. Applied to drums only; the
-click stays dry.
+about 1% wet (−40 dB vs dry). No third-party IR is used. Applied to drums
+only; the click stays dry.

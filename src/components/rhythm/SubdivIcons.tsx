@@ -148,17 +148,19 @@ function EighthTriplets() {
 export function SubdivIcon({
   steps,
   className,
+  compact = false,
 }: {
   steps: SubdivisionId
   className?: string
+  compact?: boolean
 }) {
   const spec = steps === 3 ? null : ICONS[steps]
   return (
     <svg
       viewBox="0 0 56 40"
       className={className}
-      width="48"
-      height="34"
+      width={compact ? 28 : 48}
+      height={compact ? 20 : 34}
       aria-hidden
     >
       {steps === 3 ? (

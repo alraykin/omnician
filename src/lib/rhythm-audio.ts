@@ -124,8 +124,8 @@ const REVERB_DECAY = 1.35
 const REVERB_IR_SECONDS = 1.65
 const REVERB_PREDELAY = 0.015
 const REVERB_HP_HZ = 240
-/** 10% wet vs dry (−20 dB), after the same static gain as the dry path. */
-const REVERB_RETURN = 0.1
+/** ~1% wet vs dry (−40 dB), after the same static gain as the dry path. */
+const REVERB_RETURN = 0.01
 const REVERB_SEND: Record<VoiceId, number> = {
   kick: 0.7,
   snare: 1,

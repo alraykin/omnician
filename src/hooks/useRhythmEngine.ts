@@ -5,15 +5,14 @@ import { DEFAULT_KIT_MIX, type KitMix } from '@/lib/kit-mix'
 import { getOrCreateRhythmKit, type RhythmKit } from '@/lib/rhythm-audio'
 import {
   VOICES,
+  barDurationSec,
   beatAccentAt,
   beatIndexForStep,
+  clickPulsesInBar,
   hitTimeInBar,
   isBeatStep,
-  nestAccent,
   stepDurationSec,
   stepsInBar,
-  stepsPerBeat,
-  subdivAccentAt,
   type AccentLevel,
   type ClickSoundId,
   type RhythmBar,
@@ -88,7 +87,7 @@ function cycleSignature(mode: RhythmMode, bars: readonly RhythmBar[]): string {
     String(bars.length),
     ...bars.map(
       (bar) =>
-        `${bar.beats}/${bar.beatUnit}/${bar.subdivision}:${JSON.stringify(bar.beatAccents)}:${JSON.stringify(bar.subdivAccents)}`,
+        `${bar.beats}/${bar.beatUnit}/${bar.subdivision}:${JSON.stringify(bar.beatAccents)}:${JSON.stringify(bar.beatSubdivisions)}`,
     ),
   ].join('|')
 }
@@ -213,18 +212,9 @@ export function useRhythmEngine({
       void kit.unlock()
       kit.stopAll()
       const start = kit.ctx.currentTime
-      const stepSec = stepDurationSec(bpmRef.current, bar.subdivision)
-      const length = Math.max(1, stepsInBar(bar))
-      const steps = stepsPerBeat(bar.subdivision)
-      for (let step = 0; step < length; step += 1) {
-        const beat = beatIndexForStep(step, bar.beats, bar.subdivision)
-        const onBeat = isBeatStep(step, bar.subdivision)
-        const slot = step % Math.max(1, steps)
-        const accent = nestAccent(
-          beatAccentAt(bar.beatAccents, beat),
-          subdivAccentAt(bar.subdivAccents, slot, steps),
-        )
-        kit.click(start + step * stepSec, accent, clickRef.current, onBeat)
+      for (const pulse of clickPulsesInBar(bar, bpmRef.current)) {
+        const accent = pulse.onBeat ? beatAccentAt(bar.beatAccents, pulse.beat) : 0
+        kit.click(start + pulse.offsetSec, accent, clickRef.current, pulse.onBeat)
       }
     },
     [grabKit],
@@ -303,7 +293,8 @@ export function useRhythmEngine({
           pending &&
           pending.beats === live.beats &&
           pending.beatUnit === live.beatUnit &&
-          pending.subdivision === live.subdivision
+          pending.subdivision === live.subdivision &&
+          JSON.stringify(pending.beatSubdivisions) === JSON.stringify(live.beatSubdivisions)
         ) {
           return { ...live, pattern: pending.pattern }
         }
@@ -324,29 +315,40 @@ export function useRhythmEngine({
         }
       }
 
-      const scheduleStep = (barIndex: number, step: number, time: number) => {
+      const scheduleDrumStep = (barIndex: number, step: number, time: number) => {
         const bar = playbackBar(barIndex)
         if (!bar) return
         const beat = beatIndexForStep(step, bar.beats, bar.subdivision)
         const onBeat = isBeatStep(step, bar.subdivision)
-        const steps = stepsPerBeat(bar.subdivision)
-        const slot = step % Math.max(1, steps)
-        const accent = nestAccent(
-          beatAccentAt(bar.beatAccents, beat),
-          subdivAccentAt(bar.subdivAccents, slot, steps),
-        )
         if (step === 0) armDrumBar(barIndex, time)
-        if (liveModeRef.current === 'click') {
-          kit.click(time, accent, clickRef.current, onBeat)
-        }
-
         cuesRef.current.push({
           time,
           bar: barIndex,
           step,
           beat,
-          accent,
+          accent: 0,
           subdivision: !onBeat,
+        })
+      }
+
+      const scheduleClickPulse = (
+        barIndex: number,
+        bar: RhythmBar,
+        step: number,
+        time: number,
+      ) => {
+        const pulses = clickPulsesInBar(bar, bpmRef.current)
+        const pulse = pulses[step]
+        if (!pulse) return
+        const accent = pulse.onBeat ? beatAccentAt(bar.beatAccents, pulse.beat) : 0
+        kit.click(time, accent, clickRef.current, pulse.onBeat)
+        cuesRef.current.push({
+          time,
+          bar: barIndex,
+          step: pulse.slot,
+          beat: pulse.beat,
+          accent,
+          subdivision: !pulse.onBeat,
         })
       }
 
@@ -358,13 +360,22 @@ export function useRhythmEngine({
           const barIndex = ((barRef.current % sequence.length) + sequence.length) % sequence.length
           const bar = playbackBar(barIndex)
           if (!bar) return
-          const length = Math.max(1, stepsInBar(bar))
+          const time = nextTimeRef.current
+          const clickMode = liveModeRef.current === 'click'
+          const pulses = clickMode ? clickPulsesInBar(bar, bpmRef.current) : []
+          const length = clickMode ? Math.max(1, pulses.length) : Math.max(1, stepsInBar(bar))
           const step = stepRef.current
-          scheduleStep(barIndex, step, nextTimeRef.current)
-          nextTimeRef.current += stepDurationSec(bpmRef.current, bar.subdivision)
+          const pulse = pulses[step]
+
+          if (clickMode) scheduleClickPulse(barIndex, bar, step, time)
+          else scheduleDrumStep(barIndex, step, time)
+
           const nextStep = step + 1
           if (nextStep >= length) {
             const wrapped = (barIndex + 1) % sequence.length
+            const barEnd = clickMode
+              ? time - (pulse?.offsetSec ?? 0) + barDurationSec(bar.beats, bpmRef.current)
+              : time + stepDurationSec(bpmRef.current, bar.subdivision)
             stepRef.current = 0
             if (wrapped === 0) {
               commitPendingCycle()
@@ -372,8 +383,19 @@ export function useRhythmEngine({
             } else {
               barRef.current = wrapped
             }
+            const nextBar = playbackBar(barRef.current)
+            if (liveModeRef.current === 'click' && nextBar) {
+              const nextPulses = clickPulsesInBar(nextBar, bpmRef.current)
+              nextTimeRef.current = barEnd + (nextPulses[0]?.offsetSec ?? 0)
+            } else {
+              nextTimeRef.current = barEnd
+            }
+          } else if (clickMode && pulse && pulses[nextStep]) {
+            stepRef.current = nextStep
+            nextTimeRef.current = time + (pulses[nextStep].offsetSec - pulse.offsetSec)
           } else {
             stepRef.current = nextStep
+            nextTimeRef.current = time + stepDurationSec(bpmRef.current, bar.subdivision)
           }
         }
       }

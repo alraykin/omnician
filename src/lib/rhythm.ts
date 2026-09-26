@@ -116,19 +116,24 @@ export const ACCENT_LEVEL_LABELS: Record<AccentLevel, string> = {
   2: 'Strong',
 }
 
-/** Outer layer: accent on a main beat of the bar. */
+/** Accent on a main beat of the bar. Subdivision clicks stay unaccented. */
 export type BeatAccent = { beat: number; level: 1 | 2 }
-
-/** Inner layer: one nested pattern that repeats inside every beat. */
-export type SubdivAccent = { num: number; den: number; level: 1 | 2 }
 
 export type RhythmBar = {
   beats: number
   beatUnit: BeatUnit
   subdivision: SubdivisionId
+  /** Per-beat click subdivision. Drums keep using `subdivision` for the grid. */
+  beatSubdivisions: SubdivisionId[]
   beatAccents: BeatAccent[]
-  subdivAccents: SubdivAccent[]
   pattern: Pattern
+}
+
+export type ClickPulse = {
+  beat: number
+  slot: number
+  onBeat: boolean
+  offsetSec: number
 }
 
 export const UNIT_LABELS: Record<BeatUnit, string> = {
@@ -373,17 +378,57 @@ function nextAccentLevel(current: AccentLevel): AccentLevel {
   return 0
 }
 
-/** Strong wins, else soft, else off — nested layers, not independent grids. */
-export function nestAccent(outer: AccentLevel, inner: AccentLevel): AccentLevel {
-  return Math.max(outer, inner) as AccentLevel
-}
-
 export function cloneBeatAccent(accent: BeatAccent): BeatAccent {
   return { beat: accent.beat, level: accent.level }
 }
 
-export function cloneSubdivAccent(accent: SubdivAccent): SubdivAccent {
-  return { num: accent.num, den: accent.den, level: accent.level }
+export function normalizeBeatSubdivisions(
+  beats: number,
+  subdivision: SubdivisionId,
+  existing?: readonly unknown[],
+): SubdivisionId[] {
+  const count = clampBeats(beats)
+  const fallback = normalizeSubdivision(subdivision)
+  return Array.from({ length: count }, (_, index) => {
+    const raw = existing?.[index]
+    return isSubdivision(raw) ? raw : fallback
+  })
+}
+
+export function beatSubdivisionAt(
+  bar: Pick<RhythmBar, 'subdivision' | 'beatSubdivisions'>,
+  beat: number,
+): SubdivisionId {
+  return bar.beatSubdivisions[beat] ?? bar.subdivision
+}
+
+export function setBeatSubdivision(bar: RhythmBar, beat: number, subdivision: SubdivisionId): RhythmBar {
+  if (beat < 0 || beat >= bar.beats) return cloneBar(bar)
+  const next = cloneBar(bar)
+  next.beatSubdivisions[beat] = normalizeSubdivision(subdivision)
+  return next
+}
+
+export function clickPulsesInBar(bar: Pick<RhythmBar, 'beats' | 'subdivision' | 'beatSubdivisions'>, bpm: number): ClickPulse[] {
+  const beatSec = beatDurationSec(bpm)
+  const pulses: ClickPulse[] = []
+  for (let beat = 0; beat < bar.beats; beat += 1) {
+    const steps = Math.max(1, stepsPerBeat(beatSubdivisionAt(bar, beat)))
+    const slotSec = beatSec / steps
+    for (let slot = 0; slot < steps; slot += 1) {
+      pulses.push({
+        beat,
+        slot,
+        onBeat: slot === 0,
+        offsetSec: beat * beatSec + slot * slotSec,
+      })
+    }
+  }
+  return pulses
+}
+
+export function barDurationSec(beats: number, bpm: number): number {
+  return clampBeats(beats) * beatDurationSec(bpm)
 }
 
 /** Meter-aware Click defaults: strong on 1, softer secondary later — never every beat. */
@@ -433,30 +478,10 @@ export function clampBeatAccents(accents: readonly BeatAccent[], beats: number):
   return next
 }
 
-export function clampSubdivAccents(accents: readonly SubdivAccent[]): SubdivAccent[] {
-  const next: SubdivAccent[] = []
-  for (const accent of accents) {
-    if (!Number.isInteger(accent.num) || !Number.isInteger(accent.den) || accent.den <= 0) continue
-    if (accent.level !== 1 && accent.level !== 2) continue
-    const hit = reduceHit(0, accent.num, accent.den)
-    const row: SubdivAccent = { num: hit.num, den: hit.den, level: accent.level }
-    const index = next.findIndex((item) => item.num === row.num && item.den === row.den)
-    if (index >= 0) next[index] = row
-    else next.push(row)
-  }
-  return next
-}
-
 function isBeatAccent(value: unknown): value is BeatAccent {
   if (!value || typeof value !== 'object') return false
   const row = value as { beat?: unknown; level?: unknown }
   return Number.isInteger(row.beat) && (row.level === 1 || row.level === 2)
-}
-
-function isSubdivAccent(value: unknown): value is SubdivAccent {
-  if (!value || typeof value !== 'object') return false
-  const row = value as { num?: unknown; den?: unknown; level?: unknown }
-  return Number.isInteger(row.num) && Number.isInteger(row.den) && (row.level === 1 || row.level === 2)
 }
 
 /** v7 stacked-grid accents: only lift downbeats into the outer beat row. */
@@ -489,26 +514,8 @@ export function parseBeatAccents(raw: unknown, beats: number, beatUnit: BeatUnit
   return defaultBeatAccents(beats, beatUnit)
 }
 
-export function parseSubdivAccents(raw: unknown): SubdivAccent[] {
-  if (!Array.isArray(raw) || raw.length === 0) return []
-  if (raw.every(isSubdivAccent)) return clampSubdivAccents(raw)
-  return []
-}
-
 export function beatAccentAt(accents: readonly BeatAccent[], beat: number): AccentLevel {
   return accents.find((item) => item.beat === beat)?.level ?? 0
-}
-
-export function subdivAccentAt(
-  accents: readonly SubdivAccent[],
-  slot: number,
-  steps: number,
-): AccentLevel {
-  for (const accent of accents) {
-    const index = hitSlot({ beat: 0, num: accent.num, den: accent.den }, steps)
-    if (index === slot) return accent.level
-  }
-  return 0
 }
 
 export function cycleBeatAccent(
@@ -521,19 +528,6 @@ export function cycleBeatAccent(
   const without = accents.filter((item) => item.beat !== beat).map(cloneBeatAccent)
   if (nextLevel === 0) return without
   return [...without, { beat, level: nextLevel }]
-}
-
-export function cycleSubdivAccent(
-  accents: readonly SubdivAccent[],
-  slot: number,
-  steps: number,
-): SubdivAccent[] {
-  if (slot < 0 || slot >= steps) return accents.map(cloneSubdivAccent)
-  const nextLevel = nextAccentLevel(subdivAccentAt(accents, slot, steps))
-  const without = accents.filter((item) => hitSlot({ beat: 0, num: item.num, den: item.den }, steps) !== slot)
-  if (nextLevel === 0) return without.map(cloneSubdivAccent)
-  const hit = reduceHit(0, slot, steps)
-  return [...without.map(cloneSubdivAccent), { num: hit.num, den: hit.den, level: nextLevel }]
 }
 
 export function patternFromHits(
@@ -562,7 +556,7 @@ export function makeBar(
   subdivision: SubdivisionId = DEFAULT_SUBDIVISION,
   pattern?: Pattern,
   accents?: BeatAccent[] | number[],
-  subdivAccents?: SubdivAccent[],
+  beatSubdivisions?: readonly SubdivisionId[],
 ): RhythmBar {
   const safeBeats = clampBeats(beats)
   const sub = normalizeSubdivision(subdivision)
@@ -578,8 +572,8 @@ export function makeBar(
     beats: safeBeats,
     beatUnit,
     subdivision: sub,
+    beatSubdivisions: normalizeBeatSubdivisions(safeBeats, sub, beatSubdivisions),
     beatAccents,
-    subdivAccents: clampSubdivAccents(subdivAccents ?? []),
     pattern: filterPatternBeats(pattern ?? emptyPattern(), safeBeats),
   }
 }
@@ -589,8 +583,8 @@ export function cloneBar(bar: RhythmBar): RhythmBar {
     beats: bar.beats,
     beatUnit: bar.beatUnit,
     subdivision: bar.subdivision,
+    beatSubdivisions: normalizeBeatSubdivisions(bar.beats, bar.subdivision, bar.beatSubdivisions),
     beatAccents: bar.beatAccents.map(cloneBeatAccent),
-    subdivAccents: bar.subdivAccents.map(cloneSubdivAccent),
     pattern: clonePattern(bar.pattern),
   }
 }
@@ -603,22 +597,25 @@ export function updateBarMeter(
 ): RhythmBar {
   const safeBeats = clampBeats(beats)
   const meterChanged = safeBeats !== bar.beats || beatUnit !== bar.beatUnit
+  const sub = normalizeSubdivision(subdivision)
   return {
     beats: safeBeats,
     beatUnit,
-    subdivision: normalizeSubdivision(subdivision),
+    subdivision: sub,
+    beatSubdivisions: normalizeBeatSubdivisions(safeBeats, sub, bar.beatSubdivisions),
     beatAccents: meterChanged
       ? defaultBeatAccents(safeBeats, beatUnit)
       : clampBeatAccents(bar.beatAccents, safeBeats),
-    subdivAccents: bar.subdivAccents.map(cloneSubdivAccent),
     pattern: filterPatternBeats(bar.pattern, safeBeats),
   }
 }
 
 export function setBarSubdivision(bar: RhythmBar, subdivision: SubdivisionId): RhythmBar {
+  const sub = normalizeSubdivision(subdivision)
   return {
     ...cloneBar(bar),
-    subdivision: normalizeSubdivision(subdivision),
+    subdivision: sub,
+    beatSubdivisions: normalizeBeatSubdivisions(bar.beats, sub),
   }
 }
 

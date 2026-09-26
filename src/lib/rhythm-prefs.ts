@@ -9,10 +9,10 @@ import {
   emptyPattern,
   isBeatUnit,
   makeBar,
+  normalizeBeatSubdivisions,
   normalizeClickSound,
   normalizeSubdivision,
   parseBeatAccents,
-  parseSubdivAccents,
   parseVoiceHits,
   absorbCrashRHits,
   type BeatUnit,
@@ -27,8 +27,9 @@ import { DEFAULT_KIT_INTENSITY, clampKitIntensity, type KitIntensity } from '@/l
 import { DEFAULT_KIT_MIX, parseKitMix, type KitMix } from '@/lib/kit-mix'
 import { barsForPreset, findPreset, makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 
-const STORAGE_KEY = 'omnician.rhythm.v19'
+const STORAGE_KEY = 'omnician.rhythm.v20'
 const PREVIOUS_KEYS = [
+  'omnician.rhythm.v19',
   'omnician.rhythm.v18',
   'omnician.rhythm.v17',
   'omnician.rhythm.v16',
@@ -93,7 +94,7 @@ function parseBar(raw: unknown, fallbackSub: SubdivisionId): RhythmBar | null {
     beatUnit?: unknown
     subdivision?: unknown
     beatAccents?: unknown
-    subdivAccents?: unknown
+    beatSubdivisions?: unknown
     accents?: unknown
     pattern?: unknown
   }
@@ -101,20 +102,31 @@ function parseBar(raw: unknown, fallbackSub: SubdivisionId): RhythmBar | null {
   const beatUnit: BeatUnit = isBeatUnit(row.beatUnit) ? row.beatUnit : 4
   const subdivision = normalizeSubdivision(row.subdivision ?? fallbackSub)
   const beatAccents = parseBeatAccents(row.beatAccents ?? row.accents, beats, beatUnit)
-  const subdivAccents = parseSubdivAccents(row.subdivAccents)
+  const beatSubdivisions = Array.isArray(row.beatSubdivisions)
+    ? normalizeBeatSubdivisions(beats, subdivision, row.beatSubdivisions)
+    : undefined
   return makeBar(
     beats,
     beatUnit,
     subdivision,
     parsePattern(row.pattern, beats, subdivision),
     beatAccents,
-    subdivAccents,
+    beatSubdivisions,
   )
 }
 
 function syncSubdivision(bars: RhythmBar[]): RhythmBar[] {
   const sub = bars[0]?.subdivision ?? 2
-  return bars.map((bar) => ({ ...bar, subdivision: sub }))
+  return bars.map((bar) => {
+    const uniform = bar.beatSubdivisions.every((item) => item === bar.subdivision)
+    return {
+      ...bar,
+      subdivision: sub,
+      beatSubdivisions: uniform
+        ? normalizeBeatSubdivisions(bar.beats, sub)
+        : normalizeBeatSubdivisions(bar.beats, sub, bar.beatSubdivisions),
+    }
+  })
 }
 
 function parseBars(raw: unknown, fallbackBars: RhythmBar[]): RhythmBar[] {

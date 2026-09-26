@@ -1,69 +1,60 @@
+import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { usePlayhead, type PlayheadStore } from '@/hooks/useRhythmEngine'
 import {
   beatAccentAt,
-  stepsPerBeat,
-  subdivAccentAt,
+  beatSubdivisionAt,
   type AccentLevel,
-  type BeatAccent,
-  type SubdivAccent,
+  type RhythmBar,
   type SubdivisionId,
 } from '@/lib/rhythm'
 import { activateOnPointer, cn } from '@/lib/utils'
 
 type ClickAccentGridProps = {
-  beats: number
-  subdivision: SubdivisionId
-  beatAccents: readonly BeatAccent[]
-  subdivAccents: readonly SubdivAccent[]
+  bar: RhythmBar
   playheadStore: PlayheadStore
   barIndex: number
   playing: boolean
+  editBeat: number | null
   onCycleBeat: (beat: number) => void
-  onCycleSubdiv: (slot: number) => void
+  onEditBeatSubdiv: (beat: number) => void
 }
 
-function accentTone(level: AccentLevel, outer: boolean) {
+function accentTone(level: AccentLevel) {
   if (level === 2) return 'border-[#A855F7] bg-[#A855F7] text-white'
   if (level === 1) return 'border-[#C4B5FD] bg-[#C4B5FD] text-[#2E1064]'
-  return outer
-    ? 'border-white/18 bg-white/8 text-slate-100'
-    : 'border-white/10 bg-[#0B0F1A] text-slate-400'
+  return 'border-white/18 bg-white/8 text-slate-100'
 }
 
 const LEVEL_NAME = ['unaccented', 'soft accent', 'strong accent'] as const
 
 export function ClickAccentGrid({
-  beats,
-  subdivision,
-  beatAccents,
-  subdivAccents,
+  bar,
   playheadStore,
   barIndex,
   playing,
+  editBeat,
   onCycleBeat,
-  onCycleSubdiv,
+  onEditBeatSubdiv,
 }: ClickAccentGridProps) {
   const playhead = usePlayhead(playheadStore)
-  const steps = stepsPerBeat(subdivision)
   const live = playing && playhead.bar === barIndex
   const liveBeat = playhead.beat
-  const liveStep = playhead.step
-  const liveSlot = live && liveStep >= 0 ? liveStep % Math.max(1, steps) : -1
 
   return (
-    <div data-section="accents" className="space-y-2">
-      <div>
-        <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-          Beats
-        </p>
-        <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-          <div className="flex w-max min-w-full justify-center gap-1.5 px-1">
-            {Array.from({ length: beats }, (_, beat) => {
-              const level = beatAccentAt(beatAccents, beat)
-              const now = live && liveBeat === beat
-              return (
+    <div data-section="accents" className="space-y-1.5">
+      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+        Beats
+      </p>
+      <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+        <div className="flex w-max min-w-full justify-center gap-1.5 px-1">
+          {Array.from({ length: bar.beats }, (_, beat) => {
+            const level = beatAccentAt(bar.beatAccents, beat)
+            const subdiv = beatSubdivisionAt(bar, beat)
+            const now = live && liveBeat === beat
+            const editing = editBeat === beat
+            return (
+              <div key={`beat-${beat}`} className="flex w-10 shrink-0 flex-col items-center gap-1 sm:w-11">
                 <button
-                  key={`beat-${beat}`}
                   type="button"
                   data-accent-row="beat"
                   data-beat={beat}
@@ -71,50 +62,42 @@ export function ClickAccentGrid({
                   aria-label={`Beat ${beat + 1}, ${LEVEL_NAME[level]}`}
                   {...activateOnPointer(() => onCycleBeat(beat))}
                   className={cn(
-                    'flex size-10 shrink-0 touch-manipulation items-center justify-center rounded-full border text-sm font-bold tabular-nums sm:size-11 lg:size-12',
-                    accentTone(level, true),
+                    'flex size-10 shrink-0 touch-manipulation items-center justify-center rounded-full border text-sm font-bold tabular-nums sm:size-11',
+                    accentTone(level),
                     now && 'omni-beat-pulse',
                   )}
                 >
                   {beat + 1}
                 </button>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-          Within beat
-        </p>
-        <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-          <div className="flex w-max min-w-full justify-center gap-1.5 px-1">
-            {Array.from({ length: steps }, (_, slot) => {
-              const inner = subdivAccentAt(subdivAccents, slot, steps)
-              const now = live && liveSlot === slot
-              return (
                 <button
-                  key={`sub-${slot}`}
                   type="button"
-                  data-accent-row="subdiv"
-                  data-slot={slot}
-                  data-level={inner}
-                  aria-label={`Within beat, step ${slot + 1}, ${LEVEL_NAME[inner]}`}
-                  {...activateOnPointer(() => onCycleSubdiv(slot))}
+                  data-beat-subdiv={beat}
+                  data-subdivision={subdiv}
+                  aria-label={`Beat ${beat + 1} subdivision, ${labelFor(subdiv)}`}
+                  aria-pressed={editing}
+                  {...activateOnPointer(() => onEditBeatSubdiv(beat))}
                   className={cn(
-                    'flex size-8 shrink-0 touch-manipulation items-center justify-center rounded-lg border text-xs font-bold tabular-nums sm:size-9',
-                    accentTone(inner, false),
-                    now && 'omni-beat-pulse',
+                    'flex h-7 w-full touch-manipulation items-center justify-center rounded-md border',
+                    editing
+                      ? 'border-[#A855F7] bg-[#A855F7] text-white'
+                      : 'border-white/10 bg-white/4 text-slate-200',
                   )}
                 >
-                  {slot + 1}
+                  <SubdivIcon steps={subdiv} compact />
                 </button>
-              )
-            })}
-          </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
   )
+}
+
+function labelFor(steps: SubdivisionId): string {
+  if (steps === 1) return 'quarter notes'
+  if (steps === 2) return 'eighth notes'
+  if (steps === 3) return 'triplets'
+  if (steps === 4) return 'sixteenth notes'
+  return `${steps}-note tuplets`
 }

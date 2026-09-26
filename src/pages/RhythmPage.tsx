@@ -27,16 +27,14 @@ import {
   SUBDIVISIONS,
   UNIT_LABELS,
   clampBpm,
+  beatAccentAt,
+  beatSubdivisionAt,
   cloneBar,
   cycleBeatAccent,
-  cycleSubdivAccent,
-  beatAccentAt,
-  nestAccent,
-  subdivAccentAt,
   meterLabel,
   pulseLabel,
   setBarSubdivision,
-  stepsPerBeat,
+  setBeatSubdivision,
   setHit,
   updateBarMeter,
   type BeatUnit,
@@ -78,6 +76,7 @@ export function RhythmPage() {
   const [kitIntensity, setKitIntensity] = useState<KitIntensity>(prefs.kitIntensity)
   const [playing, setPlaying] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [subdivEditBeat, setSubdivEditBeat] = useState<number | null>(null)
   const tapTimes = useRef<number[]>([])
 
   const bars = mode === 'click' ? clickBars : drumBars
@@ -86,6 +85,12 @@ export function RhythmPage() {
   const setBarIndex = mode === 'click' ? setClickBarIndex : setDrumBarIndex
 
   const current = bars[Math.min(barIndex, bars.length - 1)] ?? bars[0]
+
+  useEffect(() => {
+    if (mode !== 'click' || subdivEditBeat === null) return
+    if (!current || subdivEditBeat >= current.beats) setSubdivEditBeat(null)
+  }, [current, mode, subdivEditBeat])
+
   const { playheadStore, preview, previewClick, previewBar, previewClickBar, ensureKit, holdUntilCycle, halt } =
     useRhythmEngine({
     playing,
@@ -150,6 +155,7 @@ export function RhythmPage() {
 
   const chooseMode = (next: RhythmMode) => {
     if (next === mode) return
+    setSubdivEditBeat(null)
     setMode(next)
     const params = new URLSearchParams(searchParams)
     params.set('mode', next)
@@ -171,8 +177,14 @@ export function RhythmPage() {
   }
 
   const setSubdivision = (subdivision: SubdivisionId) => {
+    if (mode === 'click' && subdivEditBeat !== null && current) {
+      patchBar(barIndex, setBeatSubdivision(current, subdivEditBeat, subdivision))
+      setSubdivEditBeat(null)
+      return
+    }
     setBars((currentBars) => currentBars.map((bar) => setBarSubdivision(bar, subdivision)))
     setPresetId(null)
+    setSubdivEditBeat(null)
   }
 
   const loadPreset = (id: string) => {
@@ -385,35 +397,63 @@ export function RhythmPage() {
           </section>
 
           <section className="lg:col-start-1 lg:row-start-3">
-            <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Subdivision
-            </p>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                {mode === 'click' && subdivEditBeat !== null
+                  ? `Subdivision · beat ${subdivEditBeat + 1}`
+                  : mode === 'click'
+                    ? 'Subdivision · all beats'
+                    : 'Subdivision'}
+              </p>
+              {mode === 'click' && subdivEditBeat !== null ? (
+                <button
+                  type="button"
+                  className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[#C084FC]"
+                  {...activateOnPointer(() => setSubdivEditBeat(null))}
+                >
+                  All beats
+                </button>
+              ) : null}
+            </div>
             <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
               <div
                 role="group"
-                aria-label="Subdivision"
+                aria-label={
+                  mode === 'click' && subdivEditBeat !== null
+                    ? `Subdivision for beat ${subdivEditBeat + 1}`
+                    : 'Subdivision'
+                }
                 data-section="subdivision"
+                data-subdiv-target={subdivEditBeat === null ? 'all' : String(subdivEditBeat)}
                 className="flex w-max min-w-full justify-between gap-1 px-1 lg:w-full lg:flex-wrap lg:justify-start"
               >
-                {SUBDIVISIONS.map((steps) => (
-                  <button
-                    key={steps}
-                    type="button"
-                    aria-label={SUBDIVISION_LABELS[steps]}
-                    title={SUBDIVISION_LABELS[steps]}
-                    aria-pressed={current.subdivision === steps}
-                    data-subdivision={steps}
-                    {...activateOnPointer(() => setSubdivision(steps))}
-                    className={cn(
-                      'flex h-12 w-[2.85rem] shrink-0 touch-manipulation items-center justify-center rounded-lg sm:h-14 sm:w-[3.2rem] lg:h-11 lg:w-[2.4rem]',
-                      current.subdivision === steps
-                        ? 'bg-[#A855F7] text-white'
-                        : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
-                    )}
-                  >
-                    <SubdivIcon steps={steps} />
-                  </button>
-                ))}
+                {SUBDIVISIONS.map((steps) => {
+                  const selected =
+                    mode === 'click' && subdivEditBeat !== null && current
+                      ? beatSubdivisionAt(current, subdivEditBeat) === steps
+                      : mode === 'click' && current
+                        ? current.beatSubdivisions.every((item) => item === steps)
+                        : current.subdivision === steps
+                  return (
+                    <button
+                      key={steps}
+                      type="button"
+                      aria-label={SUBDIVISION_LABELS[steps]}
+                      title={SUBDIVISION_LABELS[steps]}
+                      aria-pressed={selected}
+                      data-subdivision={steps}
+                      {...activateOnPointer(() => setSubdivision(steps))}
+                      className={cn(
+                        'flex h-12 w-[2.85rem] shrink-0 touch-manipulation items-center justify-center rounded-lg sm:h-14 sm:w-[3.2rem] lg:h-11 lg:w-[2.4rem]',
+                        selected
+                          ? 'bg-[#A855F7] text-white'
+                          : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
+                      )}
+                    >
+                      <SubdivIcon steps={steps} />
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </section>
@@ -436,26 +476,21 @@ export function RhythmPage() {
                 store={playheadStore}
                 playing={playing}
                 barIndex={barIndex}
-                subdivision={current.subdivision}
               />
               <ClickAccentGrid
-                beats={current.beats}
-                subdivision={current.subdivision}
-                beatAccents={current.beatAccents}
-                subdivAccents={current.subdivAccents}
+                bar={current}
                 playheadStore={playheadStore}
                 barIndex={barIndex}
                 playing={playing}
+                editBeat={subdivEditBeat}
                 onCycleBeat={(beat) => {
                   const next = cycleBeatAccent(current.beatAccents, beat, current.beats)
-                  previewClick(clickSound, nestAccent(beatAccentAt(next, beat), 0), true)
+                  previewClick(clickSound, beatAccentAt(next, beat), true)
                   patchBar(barIndex, { ...current, beatAccents: next })
                 }}
-                onCycleSubdiv={(slot) => {
-                  const steps = stepsPerBeat(current.subdivision)
-                  const next = cycleSubdivAccent(current.subdivAccents, slot, steps)
-                  previewClick(clickSound, nestAccent(0, subdivAccentAt(next, slot, steps)), false)
-                  patchBar(barIndex, { ...current, subdivAccents: next })
+                onEditBeatSubdiv={(beat) => {
+                  setSubdivEditBeat((currentBeat) => (currentBeat === beat ? null : beat))
+                  previewClick(clickSound, 0, false)
                 }}
               />
               <div
@@ -544,8 +579,7 @@ export function RhythmPage() {
                 </a>
                 , samples edited. Ride bell, china, splash and stack from the same
                 CrocellKit stereo mix. Clap: VCSL SoloClap (CC0), level-matched.
-                Medium drum-room send (about 10% wet) sits after the dry clipper;
-                the click stays dry.
+                Light drum-room send after the dry clipper; the click stays dry.
               </p>
             </section>
           )}
@@ -622,12 +656,10 @@ function ClickLiveHeader({
   store,
   playing,
   barIndex,
-  subdivision,
 }: {
   store: PlayheadStore
   playing: boolean
   barIndex: number
-  subdivision: SubdivisionId
 }) {
   const playhead = usePlayhead(store)
   const live = playing && playhead.bar === barIndex
@@ -653,7 +685,7 @@ function ClickLiveHeader({
           {!live || playhead.beat < 0
             ? '—'
             : playhead.subdivision
-              ? `${playhead.beat + 1}·${(playhead.step % Math.max(1, stepsPerBeat(subdivision))) + 1}`
+              ? `${playhead.beat + 1}·${playhead.step + 1}`
               : playhead.beat + 1}
         </span>
       </div>
