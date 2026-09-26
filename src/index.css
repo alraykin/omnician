@@ -489,24 +489,17 @@ body {
   position: absolute;
   inset: 5px;
   border-radius: 50%;
-  background:
-    repeating-conic-gradient(
-      from 0deg,
-      rgba(236, 230, 255, 0.55) 0deg 3.2deg,
-      rgba(18, 24, 38, 0.1) 3.2deg 10deg
-    ),
-    radial-gradient(
-      circle at 50% 50%,
-      transparent 64%,
-      rgba(12, 16, 28, 0.55) 66%,
-      #2c354c 76%,
-      #8d96ab 91%,
-      #e4e8f2 100%
-    );
+  background: radial-gradient(
+    circle at 50% 50%,
+    transparent 64%,
+    rgba(12, 16, 28, 0.55) 66%,
+    #2c354c 76%,
+    #8d96ab 91%,
+    #e4e8f2 100%
+  );
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.14),
     0 0 0 1px rgba(0, 0, 0, 0.35);
-  will-change: transform;
 }
 
 .bpm-dial-ring-smooth {
@@ -534,34 +527,44 @@ body {
   position: absolute;
   left: 50%;
   top: 50%;
-  height: 10px;
-  width: 2px;
-  margin-left: -1px;
-  margin-top: -5px;
   transform-origin: center center;
   border-radius: 999px;
-  background: rgba(244, 238, 255, 0.62);
 }
 
-.bpm-dial-tick-major {
+.bpm-dial-tick-one {
+  height: 7px;
+  width: 1px;
+  margin-left: -0.5px;
+  margin-top: -3.5px;
+  background: #3f4a60;
+}
+
+.bpm-dial-tick-five {
+  height: 10px;
+  width: 1.5px;
+  margin-left: -0.75px;
+  margin-top: -5px;
+  background: #9aa3bb;
+}
+
+.bpm-dial-tick-ten {
   height: 13px;
-  width: 2.5px;
-  margin-left: -1.25px;
+  width: 2.4px;
+  margin-left: -1.2px;
   margin-top: -6.5px;
   background: #f3e8ff;
+  box-shadow: 0 0 6px rgba(243, 232, 255, 0.45);
 }
 
-.bpm-dial-index {
+.bpm-dial-tick-label {
   position: absolute;
   left: 50%;
-  top: 50%;
-  z-index: 2;
-  width: 6px;
-  height: 15px;
-  margin-left: -3px;
-  margin-top: -7.5px;
-  border-radius: 999px;
-  background: #e9d5ff;
-  box-shadow: 0 0 10px rgba(192, 132, 252, 0.95);
-  transform-origin: center center;
+  top: 14px;
+  width: 1.6rem;
+  margin-left: -0.8rem;
+  text-align: center;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(226, 232, 240, 0.72);
 }

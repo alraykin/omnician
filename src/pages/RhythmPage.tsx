@@ -28,7 +28,6 @@ import {
   UNIT_LABELS,
   clampBpm,
   beatAccentAt,
-  beatSubdivisionAt,
   cloneBar,
   cycleBeatAccent,
   meterLabel,
@@ -76,8 +75,8 @@ export function RhythmPage() {
   const [kitIntensity, setKitIntensity] = useState<KitIntensity>(prefs.kitIntensity)
   const [playing, setPlaying] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [subdivEditBeat, setSubdivEditBeat] = useState<number | null>(null)
   const [accentEdit, setAccentEdit] = useState(false)
+  const [pickerBeat, setPickerBeat] = useState<number | null>(null)
   const tapTimes = useRef<number[]>([])
 
   const bars = mode === 'click' ? clickBars : drumBars
@@ -88,9 +87,9 @@ export function RhythmPage() {
   const current = bars[Math.min(barIndex, bars.length - 1)] ?? bars[0]
 
   useEffect(() => {
-    if (mode !== 'click' || subdivEditBeat === null) return
-    if (!current || subdivEditBeat >= current.beats) setSubdivEditBeat(null)
-  }, [current, mode, subdivEditBeat])
+    if (mode !== 'click' || pickerBeat === null) return
+    if (!current || pickerBeat >= current.beats) setPickerBeat(null)
+  }, [current, mode, pickerBeat])
 
   const { playheadStore, preview, previewClick, previewBar, previewClickBar, ensureKit, holdUntilCycle, halt } =
     useRhythmEngine({
@@ -156,8 +155,8 @@ export function RhythmPage() {
 
   const chooseMode = (next: RhythmMode) => {
     if (next === mode) return
-    setSubdivEditBeat(null)
     setAccentEdit(false)
+    setPickerBeat(null)
     setMode(next)
     const params = new URLSearchParams(searchParams)
     params.set('mode', next)
@@ -179,15 +178,9 @@ export function RhythmPage() {
   }
 
   const setSubdivision = (subdivision: SubdivisionId) => {
-    if (mode === 'click' && subdivEditBeat !== null && current) {
-      patchBar(barIndex, setBeatSubdivision(current, subdivEditBeat, subdivision))
-      setSubdivEditBeat(null)
-      return
-    }
     setBars((currentBars) => currentBars.map((bar) => setBarSubdivision(bar, subdivision)))
     setPresetId(null)
-    setSubdivEditBeat(null)
-    setAccentEdit(false)
+    setPickerBeat(null)
   }
 
   const loadPreset = (id: string) => {
@@ -336,28 +329,23 @@ export function RhythmPage() {
             data-rhythm-mode="click"
             className="mt-1.5 flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:items-start lg:gap-4"
           >
-            <section className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5 sm:px-4 sm:py-2 lg:col-start-1 lg:row-start-1">
+            <section className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4 lg:col-start-1 lg:row-start-1">
               <div className="flex flex-col items-center">
-                <BpmWheel compact value={bpm} onChange={(next) => changeBpm(next, true)} />
-                <div className="relative z-20 mt-1 flex items-center gap-1.5">
+                <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
+                <p className="relative z-20 mt-1 text-[0.65rem] text-slate-500">{pulseLabel(current.beatUnit)}</p>
+                <div className="relative z-20 mt-1.5 flex items-center gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     aria-label="Slower by 5"
-                    className="h-8 touch-manipulation px-2.5"
+                    className="touch-manipulation"
                     {...activateOnPointer(() => changeBpm(bpm - 5, true))}
                   >
                     <Minus className="size-3.5" />
                     5
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 touch-manipulation px-3"
-                    {...activateOnPointer(tapTempo)}
-                  >
+                  <Button type="button" variant="outline" size="sm" className="touch-manipulation" {...activateOnPointer(tapTempo)}>
                     Tap
                   </Button>
                   <Button
@@ -365,7 +353,7 @@ export function RhythmPage() {
                     variant="outline"
                     size="sm"
                     aria-label="Faster by 5"
-                    className="h-8 touch-manipulation px-2.5"
+                    className="touch-manipulation"
                     {...activateOnPointer(() => changeBpm(bpm + 5, true))}
                   >
                     <Plus className="size-3.5" />
@@ -377,41 +365,17 @@ export function RhythmPage() {
 
             <section className="lg:col-start-2 lg:row-start-1">
               <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                {subdivEditBeat === null ? 'Subdivision · all beats' : `Subdivision · beat ${subdivEditBeat + 1}`}
+                Subdivision
               </p>
               <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
                 <div
                   role="group"
-                  aria-label={
-                    subdivEditBeat === null ? 'Subdivision for all beats' : `Subdivision for beat ${subdivEditBeat + 1}`
-                  }
+                  aria-label="Subdivision for all beats"
                   data-section="subdivision"
-                  data-subdiv-target={subdivEditBeat === null ? 'all' : String(subdivEditBeat)}
                   className="flex w-max min-w-full items-center justify-between gap-1 px-1"
                 >
-                  <button
-                    type="button"
-                    data-subdivision="all"
-                    aria-label="All beats"
-                    aria-pressed={subdivEditBeat === null}
-                    {...activateOnPointer(() => {
-                      setSubdivEditBeat(null)
-                      setAccentEdit(false)
-                    })}
-                    className={cn(
-                      'flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg text-[0.7rem] font-bold sm:h-11 sm:w-11',
-                      subdivEditBeat === null
-                        ? 'bg-[#A855F7] text-white'
-                        : 'border border-white/10 bg-white/4 text-slate-100',
-                    )}
-                  >
-                    All
-                  </button>
                   {SUBDIVISIONS.map((steps) => {
-                    const selected =
-                      subdivEditBeat !== null
-                        ? beatSubdivisionAt(current, subdivEditBeat) === steps
-                        : current.beatSubdivisions.every((item) => item === steps)
+                    const selected = current.beatSubdivisions.every((item) => item === steps)
                     return (
                       <button
                         key={steps}
@@ -422,7 +386,7 @@ export function RhythmPage() {
                         data-subdivision={steps}
                         {...activateOnPointer(() => setSubdivision(steps))}
                         className={cn(
-                          'flex h-10 w-[2.45rem] shrink-0 touch-manipulation items-center justify-center rounded-lg sm:h-11 sm:w-[2.8rem]',
+                          'flex h-10 w-[2.45rem] shrink-0 touch-manipulation items-center justify-center rounded-lg sm:h-11 sm:w-[2.8rem] lg:h-11 lg:w-[2.4rem]',
                           selected
                             ? 'bg-[#A855F7] text-white'
                             : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
@@ -445,7 +409,7 @@ export function RhythmPage() {
                   aria-pressed={accentEdit}
                   {...activateOnPointer(() => {
                     setAccentEdit((on) => !on)
-                    if (!accentEdit) setSubdivEditBeat(null)
+                    setPickerBeat(null)
                   })}
                   className={cn(
                     'shrink-0 rounded-full px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.12em]',
@@ -455,24 +419,30 @@ export function RhythmPage() {
                   Accents
                 </button>
               </div>
-              <p className="mb-1.5 text-[0.65rem] text-slate-500">
-                {accentEdit ? 'Tap a beat to cycle off → soft → strong.' : 'Tap a beat to set its subdivision.'}
-              </p>
+              {accentEdit ? (
+                <p className="mb-1.5 text-[0.65rem] text-slate-500">
+                  Tap a beat to cycle off → soft → strong.
+                </p>
+              ) : null}
               <ClickAccentGrid
                 bar={current}
                 playheadStore={playheadStore}
                 barIndex={barIndex}
                 playing={playing}
-                selectedBeat={subdivEditBeat}
                 accentEdit={accentEdit}
-                onSelectBeat={(beat) => {
-                  setAccentEdit(false)
-                  setSubdivEditBeat((currentBeat) => (currentBeat === beat ? null : beat))
+                pickerBeat={pickerBeat}
+                onPickerBeat={setPickerBeat}
+                onPreviewBeat={(beat) => {
+                  previewClick(clickSound, beatAccentAt(current.beatAccents, beat), true)
                 }}
                 onCycleAccent={(beat) => {
                   const next = cycleBeatAccent(current.beatAccents, beat, current.beats)
                   previewClick(clickSound, beatAccentAt(next, beat), true)
                   patchBar(barIndex, { ...current, beatAccents: next })
+                }}
+                onSetBeatSubdiv={(beat, subdivision) => {
+                  patchBar(barIndex, setBeatSubdivision(current, beat, subdivision))
+                  setPickerBeat(null)
                 }}
               />
             </section>

@@ -6,10 +6,9 @@ import { cn } from '@/lib/utils'
 type BpmWheelProps = {
   value: number
   onChange: (bpm: number) => void
-  compact?: boolean
 }
 
-const TICKS = 36
+const VISIBLE_TICKS = 36
 const DEG_PER_BPM = 10
 const RAD_PER_BPM = (DEG_PER_BPM * Math.PI) / 180
 const MIN_RADIUS = 28
@@ -71,7 +70,7 @@ function pointAngle(x: number, y: number, cx: number, cy: number): number | null
   return Math.atan2(dy, dx)
 }
 
-export function BpmWheel({ value, onChange, compact = false }: BpmWheelProps) {
+export function BpmWheel({ value, onChange }: BpmWheelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const hitRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<string | null>(null)
@@ -81,7 +80,6 @@ export function BpmWheel({ value, onChange, compact = false }: BpmWheelProps) {
   const [shown, setShown] = useState(value)
   const editing = draft !== null
   const live = dragging || coasting
-  const ringAngle = (visual - MIN_BPM) * DEG_PER_BPM
 
   const visualRef = useRef(value)
   const emittedRef = useRef(value)
@@ -264,12 +262,7 @@ export function BpmWheel({ value, onChange, compact = false }: BpmWheelProps) {
 
   return (
     <div className="flex flex-col items-center">
-      <div
-        className={cn(
-          'relative',
-          compact ? 'size-[118px] sm:size-[168px] lg:size-[216px]' : 'size-[152px] sm:size-[188px] lg:size-[216px]',
-        )}
-      >
+      <div className="relative size-[152px] sm:size-[188px] lg:size-[216px]">
         <div
           aria-hidden
           className="pointer-events-none absolute -bottom-1 left-1/2 h-4 w-28 -translate-x-1/2 rounded-full bg-black/50 blur-md"
@@ -343,38 +336,44 @@ export function BpmWheel({ value, onChange, compact = false }: BpmWheelProps) {
             }
           }}
         >
-          <div
-            className={cn(
-              'bpm-dial pointer-events-none relative select-none rounded-full',
-              compact
-                ? 'size-[118px] sm:size-[168px] lg:size-[216px]'
-                : 'size-[152px] sm:size-[188px] lg:size-[216px]',
-            )}
-          >
+          <div className="bpm-dial pointer-events-none relative size-[152px] select-none rounded-full sm:size-[188px] lg:size-[216px]">
             <span aria-hidden className="bpm-dial-pip" />
             <div
               aria-hidden
-              data-ring-angle={ringAngle}
+              data-visual-bpm={visual.toFixed(2)}
               className={cn('bpm-dial-ring', live ? 'bpm-dial-ring-live' : 'bpm-dial-ring-smooth')}
-              style={{ transform: `rotate(${ringAngle}deg)` }}
             >
-              <span
-                className="bpm-dial-index"
-                style={{
-                  transform: `rotate(0deg) translateY(calc(-1 * var(--ring-radius)))`,
-                }}
-              />
-              {Array.from({ length: TICKS }, (_, index) => {
-                const major = index % 3 === 0
-                const deg = (index / TICKS) * 360
+              {Array.from({ length: VISIBLE_TICKS }, (_, index) => {
+                const bpm = Math.round(visual) + index - Math.floor(VISIBLE_TICKS / 2)
+                const deg = (visual - bpm) * DEG_PER_BPM
+                const kind = bpm % 10 === 0 ? 'ten' : bpm % 5 === 0 ? 'five' : 'one'
+                const inRange = bpm >= MIN_BPM && bpm <= MAX_BPM
+                const label = kind === 'ten' && inRange && Math.abs(deg) <= 70
                 return (
                   <span
-                    key={index}
-                    className={major ? 'bpm-dial-tick bpm-dial-tick-major' : 'bpm-dial-tick'}
+                    key={`${bpm}-${index}`}
+                    data-tick-bpm={bpm}
+                    data-tick-kind={kind}
+                    className={cn(
+                      'bpm-dial-tick',
+                      kind === 'ten' && 'bpm-dial-tick-ten',
+                      kind === 'five' && 'bpm-dial-tick-five',
+                      kind === 'one' && 'bpm-dial-tick-one',
+                      !inRange && 'opacity-20',
+                    )}
                     style={{
                       transform: `rotate(${deg}deg) translateY(calc(-1 * var(--ring-radius)))`,
                     }}
-                  />
+                  >
+                    {label ? (
+                      <span
+                        className="bpm-dial-tick-label"
+                        style={{ transform: `rotate(${-deg}deg)` }}
+                      >
+                        {bpm}
+                      </span>
+                    ) : null}
+                  </span>
                 )
               })}
             </div>

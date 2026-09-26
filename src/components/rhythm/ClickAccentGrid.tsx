@@ -1,9 +1,15 @@
+import { useEffect, useRef } from 'react'
+
+import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { usePlayhead, type PlayheadStore } from '@/hooks/useRhythmEngine'
 import {
+  SUBDIVISION_LABELS,
+  SUBDIVISIONS,
   beatAccentAt,
   beatSubdivisionAt,
   type AccentLevel,
   type RhythmBar,
+  type SubdivisionId,
 } from '@/lib/rhythm'
 import { activateOnPointer, cn } from '@/lib/utils'
 
@@ -12,10 +18,12 @@ type ClickAccentGridProps = {
   playheadStore: PlayheadStore
   barIndex: number
   playing: boolean
-  selectedBeat: number | null
   accentEdit: boolean
-  onSelectBeat: (beat: number) => void
+  pickerBeat: number | null
+  onPickerBeat: (beat: number | null) => void
+  onPreviewBeat: (beat: number) => void
   onCycleAccent: (beat: number) => void
+  onSetBeatSubdiv: (beat: number, subdivision: SubdivisionId) => void
 }
 
 function accentTone(level: AccentLevel) {
@@ -31,61 +39,109 @@ export function ClickAccentGrid({
   playheadStore,
   barIndex,
   playing,
-  selectedBeat,
   accentEdit,
-  onSelectBeat,
+  pickerBeat,
+  onPickerBeat,
+  onPreviewBeat,
   onCycleAccent,
+  onSetBeatSubdiv,
 }: ClickAccentGridProps) {
   const playhead = usePlayhead(playheadStore)
   const live = playing && playhead.bar === barIndex
   const liveBeat = playhead.beat
-  const mixed = bar.beatSubdivisions.some((item) => item !== bar.subdivision)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (pickerBeat === null) return
+    const onPointer = (event: PointerEvent) => {
+      if (rootRef.current?.contains(event.target as Node)) return
+      onPickerBeat(null)
+    }
+    document.addEventListener('pointerdown', onPointer)
+    return () => document.removeEventListener('pointerdown', onPointer)
+  }, [onPickerBeat, pickerBeat])
 
   return (
-    <div data-section="beats" data-accent-edit={accentEdit ? 'true' : 'false'}>
+    <div ref={rootRef} data-section="beats" data-accent-edit={accentEdit ? 'true' : 'false'}>
       <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
         <div className="flex w-max min-w-full justify-center gap-2 px-1">
           {Array.from({ length: bar.beats }, (_, beat) => {
             const level = beatAccentAt(bar.beatAccents, beat)
+            const subdiv = beatSubdivisionAt(bar, beat)
             const now = live && liveBeat === beat
-            const selected = !accentEdit && selectedBeat === beat
-            const custom = mixed && beatSubdivisionAt(bar, beat) !== bar.subdivision
+            const open = pickerBeat === beat
             return (
-              <button
-                key={`beat-${beat}`}
-                type="button"
-                data-accent-row="beat"
-                data-beat={beat}
-                data-level={level}
-                data-selected={selected ? 'true' : 'false'}
-                data-custom-subdiv={custom ? 'true' : 'false'}
-                aria-label={
-                  accentEdit
-                    ? `Beat ${beat + 1}, ${LEVEL_NAME[level]}`
-                    : `Beat ${beat + 1}, select subdivision`
-                }
-                aria-pressed={selected}
-                {...activateOnPointer(() => (accentEdit ? onCycleAccent(beat) : onSelectBeat(beat)))}
-                className={cn(
-                  'relative flex size-10 shrink-0 touch-manipulation items-center justify-center rounded-full border text-sm font-bold tabular-nums sm:size-11',
-                  accentTone(level),
-                  selected && 'ring-2 ring-[#E9D5FF] ring-offset-2 ring-offset-[#0B0F1A]',
-                  accentEdit && 'ring-1 ring-[#A855F7]/50',
-                  now && 'omni-beat-pulse',
-                )}
-              >
-                {beat + 1}
-                {custom ? (
-                  <span
-                    aria-hidden
-                    className="absolute bottom-0.5 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-current opacity-80"
-                  />
-                ) : null}
-              </button>
+              <div key={`beat-${beat}`} className="flex w-10 shrink-0 flex-col items-center sm:w-11">
+                <button
+                  type="button"
+                  data-accent-row="beat"
+                  data-beat={beat}
+                  data-level={level}
+                  aria-label={`Beat ${beat + 1}, ${LEVEL_NAME[level]}`}
+                  {...activateOnPointer(() => (accentEdit ? onCycleAccent(beat) : onPreviewBeat(beat)))}
+                  className={cn(
+                    'flex size-10 shrink-0 touch-manipulation items-center justify-center rounded-full border text-sm font-bold tabular-nums sm:size-11',
+                    accentTone(level),
+                    accentEdit && 'ring-1 ring-[#A855F7]/55',
+                    now && 'omni-beat-pulse',
+                  )}
+                >
+                  {beat + 1}
+                </button>
+                <button
+                  type="button"
+                  data-beat-note={beat}
+                  data-subdivision={subdiv}
+                  aria-label={`Beat ${beat + 1} subdivision, ${SUBDIVISION_LABELS[subdiv]}`}
+                  aria-expanded={open}
+                  {...activateOnPointer(() => onPickerBeat(open ? null : beat))}
+                  className={cn(
+                    'mt-0.5 flex h-6 w-full items-center justify-center rounded-sm text-slate-300',
+                    open && 'text-[#E9D5FF]',
+                  )}
+                >
+                  <SubdivIcon steps={subdiv} tiny />
+                </button>
+              </div>
             )
           })}
         </div>
       </div>
+      {pickerBeat !== null ? (
+        <div
+          role="dialog"
+          aria-label={`Subdivision for beat ${pickerBeat + 1}`}
+          data-section="beat-subdiv-picker"
+          className="mt-1.5 rounded-xl border border-white/12 bg-[#0B0F1A] px-1.5 py-1.5"
+        >
+          <p className="mb-1 text-center text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            Beat {pickerBeat + 1}
+          </p>
+          <div className="flex flex-wrap justify-center gap-1">
+            {SUBDIVISIONS.map((steps) => {
+              const selected = beatSubdivisionAt(bar, pickerBeat) === steps
+              return (
+                <button
+                  key={steps}
+                  type="button"
+                  data-picker-subdivision={steps}
+                  aria-label={SUBDIVISION_LABELS[steps]}
+                  aria-pressed={selected}
+                  {...activateOnPointer(() => onSetBeatSubdiv(pickerBeat, steps))}
+                  className={cn(
+                    'flex h-9 w-9 touch-manipulation items-center justify-center rounded-lg',
+                    selected
+                      ? 'bg-[#A855F7] text-white'
+                      : 'border border-white/10 bg-white/4 text-slate-100',
+                  )}
+                >
+                  <SubdivIcon steps={steps} compact />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

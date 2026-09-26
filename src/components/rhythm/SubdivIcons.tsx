@@ -149,18 +149,20 @@ export function SubdivIcon({
   steps,
   className,
   compact = false,
+  tiny = false,
 }: {
   steps: SubdivisionId
   className?: string
   compact?: boolean
+  tiny?: boolean
 }) {
   const spec = steps === 3 ? null : ICONS[steps]
   return (
     <svg
       viewBox="0 0 56 40"
       className={className}
-      width={compact ? 28 : 48}
-      height={compact ? 20 : 34}
+      width={tiny ? 20 : compact ? 28 : 48}
+      height={tiny ? 14 : compact ? 20 : 34}
       aria-hidden
     >
       {steps === 3 ? (
