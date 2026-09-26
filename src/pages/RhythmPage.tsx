@@ -77,6 +77,7 @@ export function RhythmPage() {
   const [playing, setPlaying] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [subdivEditBeat, setSubdivEditBeat] = useState<number | null>(null)
+  const [accentEdit, setAccentEdit] = useState(false)
   const tapTimes = useRef<number[]>([])
 
   const bars = mode === 'click' ? clickBars : drumBars
@@ -156,6 +157,7 @@ export function RhythmPage() {
   const chooseMode = (next: RhythmMode) => {
     if (next === mode) return
     setSubdivEditBeat(null)
+    setAccentEdit(false)
     setMode(next)
     const params = new URLSearchParams(searchParams)
     params.set('mode', next)
@@ -185,6 +187,7 @@ export function RhythmPage() {
     setBars((currentBars) => currentBars.map((bar) => setBarSubdivision(bar, subdivision)))
     setPresetId(null)
     setSubdivEditBeat(null)
+    setAccentEdit(false)
   }
 
   const loadPreset = (id: string) => {
@@ -327,205 +330,321 @@ export function RhythmPage() {
             </div>
           </div>
 
+          {mode === 'click' ? (
           <div
             data-rhythm-layout
-            className="mt-2 grid grid-cols-1 gap-2.5 lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:gap-4"
+            data-rhythm-mode="click"
+            className="mt-1.5 flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:items-start lg:gap-4"
           >
-          <section className={cn(
-            'relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4 lg:col-start-1 lg:row-start-1',
-            mode === 'click' && 'max-lg:order-3',
-          )}>
-            <div className="flex flex-col items-center">
-              <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
-              <p className="relative z-20 mt-1 text-[0.65rem] text-slate-500">{pulseLabel(current.beatUnit)}</p>
-              <div className="relative z-20 mt-1.5 flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  aria-label="Slower by 5"
-                  className="touch-manipulation"
-                  {...activateOnPointer(() => changeBpm(bpm - 5, true))}
-                >
-                  <Minus className="size-3.5" />
-                  5
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="touch-manipulation" {...activateOnPointer(tapTempo)}>
-                  Tap
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  aria-label="Faster by 5"
-                  className="touch-manipulation"
-                  {...activateOnPointer(() => changeBpm(bpm + 5, true))}
-                >
-                  <Plus className="size-3.5" />
-                  5
-                </Button>
+            <section className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5 sm:px-4 sm:py-2 lg:col-start-1 lg:row-start-1">
+              <div className="flex flex-col items-center">
+                <BpmWheel compact value={bpm} onChange={(next) => changeBpm(next, true)} />
+                <div className="relative z-20 mt-1 flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label="Slower by 5"
+                    className="h-8 touch-manipulation px-2.5"
+                    {...activateOnPointer(() => changeBpm(bpm - 5, true))}
+                  >
+                    <Minus className="size-3.5" />
+                    5
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 touch-manipulation px-3"
+                    {...activateOnPointer(tapTempo)}
+                  >
+                    Tap
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label="Faster by 5"
+                    className="h-8 touch-manipulation px-2.5"
+                    {...activateOnPointer(() => changeBpm(bpm + 5, true))}
+                  >
+                    <Plus className="size-3.5" />
+                    5
+                  </Button>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <section
-            className={cn(
-              'rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4 lg:col-start-1 lg:row-start-2',
-              mode === 'click' && 'max-lg:order-4',
-            )}
-            data-bar-count={bars.length}
-            data-rhythm-mode={mode}
-          >
-            <div className="mb-1.5">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Meter
+            <section className="lg:col-start-2 lg:row-start-1">
+              <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                {subdivEditBeat === null ? 'Subdivision · all beats' : `Subdivision · beat ${subdivEditBeat + 1}`}
               </p>
-            </div>
-            <div className="flex items-center justify-center gap-2 sm:gap-4">
-              <SnapWheel
-                compact
-                label="Beats"
-                values={BEAT_VALUES}
-                value={current.beats}
-                onChange={(beats) => setMeter(beats, current.beatUnit)}
-              />
-              <p className="pt-4 text-2xl font-bold text-slate-500">/</p>
-              <SnapWheel
-                compact
-                label="Beat unit"
-                wide
-                values={BEAT_UNITS}
-                value={current.beatUnit}
-                format={(unit) => `${unit} · ${UNIT_LABELS[unit]}`}
-                onChange={(unit) => setMeter(current.beats, unit)}
-              />
-            </div>
-          </section>
+              <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                <div
+                  role="group"
+                  aria-label={
+                    subdivEditBeat === null ? 'Subdivision for all beats' : `Subdivision for beat ${subdivEditBeat + 1}`
+                  }
+                  data-section="subdivision"
+                  data-subdiv-target={subdivEditBeat === null ? 'all' : String(subdivEditBeat)}
+                  className="flex w-max min-w-full items-center justify-between gap-1 px-1"
+                >
+                  <button
+                    type="button"
+                    data-subdivision="all"
+                    aria-label="All beats"
+                    aria-pressed={subdivEditBeat === null}
+                    {...activateOnPointer(() => {
+                      setSubdivEditBeat(null)
+                      setAccentEdit(false)
+                    })}
+                    className={cn(
+                      'flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg text-[0.7rem] font-bold sm:h-11 sm:w-11',
+                      subdivEditBeat === null
+                        ? 'bg-[#A855F7] text-white'
+                        : 'border border-white/10 bg-white/4 text-slate-100',
+                    )}
+                  >
+                    All
+                  </button>
+                  {SUBDIVISIONS.map((steps) => {
+                    const selected =
+                      subdivEditBeat !== null
+                        ? beatSubdivisionAt(current, subdivEditBeat) === steps
+                        : current.beatSubdivisions.every((item) => item === steps)
+                    return (
+                      <button
+                        key={steps}
+                        type="button"
+                        aria-label={SUBDIVISION_LABELS[steps]}
+                        title={SUBDIVISION_LABELS[steps]}
+                        aria-pressed={selected}
+                        data-subdivision={steps}
+                        {...activateOnPointer(() => setSubdivision(steps))}
+                        className={cn(
+                          'flex h-10 w-[2.45rem] shrink-0 touch-manipulation items-center justify-center rounded-lg sm:h-11 sm:w-[2.8rem]',
+                          selected
+                            ? 'bg-[#A855F7] text-white'
+                            : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
+                        )}
+                      >
+                        <SubdivIcon steps={steps} compact />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </section>
 
-          <section className={cn('lg:col-start-1 lg:row-start-3', mode === 'click' && 'max-lg:order-2')}>
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                {mode === 'click' && subdivEditBeat !== null
-                  ? `Subdivision · beat ${subdivEditBeat + 1}`
-                  : mode === 'click'
-                    ? 'Subdivision · all beats'
-                    : 'Subdivision'}
-              </p>
-              {mode === 'click' && subdivEditBeat !== null ? (
+            <section className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2 sm:px-4 lg:col-start-2">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <ClickLiveHeader store={playheadStore} playing={playing} barIndex={barIndex} />
                 <button
                   type="button"
-                  className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[#C084FC]"
-                  {...activateOnPointer(() => setSubdivEditBeat(null))}
+                  data-accent-mode={accentEdit ? 'on' : 'off'}
+                  aria-pressed={accentEdit}
+                  {...activateOnPointer(() => {
+                    setAccentEdit((on) => !on)
+                    if (!accentEdit) setSubdivEditBeat(null)
+                  })}
+                  className={cn(
+                    'shrink-0 rounded-full px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.12em]',
+                    accentEdit ? 'bg-[#A855F7] text-white' : 'border border-white/12 text-slate-400',
+                  )}
                 >
-                  All beats
+                  Accents
                 </button>
-              ) : null}
+              </div>
+              <p className="mb-1.5 text-[0.65rem] text-slate-500">
+                {accentEdit ? 'Tap a beat to cycle off → soft → strong.' : 'Tap a beat to set its subdivision.'}
+              </p>
+              <ClickAccentGrid
+                bar={current}
+                playheadStore={playheadStore}
+                barIndex={barIndex}
+                playing={playing}
+                selectedBeat={subdivEditBeat}
+                accentEdit={accentEdit}
+                onSelectBeat={(beat) => {
+                  setAccentEdit(false)
+                  setSubdivEditBeat((currentBeat) => (currentBeat === beat ? null : beat))
+                }}
+                onCycleAccent={(beat) => {
+                  const next = cycleBeatAccent(current.beatAccents, beat, current.beats)
+                  previewClick(clickSound, beatAccentAt(next, beat), true)
+                  patchBar(barIndex, { ...current, beatAccents: next })
+                }}
+              />
+            </section>
+
+            <div
+              data-section="click-sound"
+              className="grid w-full grid-cols-4 gap-1 lg:col-start-2"
+            >
+              {CLICK_SOUNDS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  data-click-sound={id}
+                  aria-pressed={clickSound === id}
+                  {...activateOnPointer(() => {
+                    previewClick(id)
+                    setClickSound(id)
+                  })}
+                  className={cn(
+                    'h-8 min-w-0 touch-manipulation rounded-lg px-1 text-[0.7rem] font-semibold sm:text-sm',
+                    clickSound === id
+                      ? 'bg-[#A855F7] text-white'
+                      : 'border border-white/10 bg-white/4 text-slate-200',
+                  )}
+                >
+                  {CLICK_SOUND_LABELS[id]}
+                </button>
+              ))}
             </div>
-            <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-              <div
-                role="group"
-                aria-label={
-                  mode === 'click' && subdivEditBeat !== null
-                    ? `Subdivision for beat ${subdivEditBeat + 1}`
-                    : 'Subdivision'
-                }
-                data-section="subdivision"
-                data-subdiv-target={subdivEditBeat === null ? 'all' : String(subdivEditBeat)}
-                className="flex w-max min-w-full justify-between gap-1 px-1 lg:w-full lg:flex-wrap lg:justify-start"
-              >
-                {SUBDIVISIONS.map((steps) => {
-                  const selected =
-                    mode === 'click' && subdivEditBeat !== null && current
-                      ? beatSubdivisionAt(current, subdivEditBeat) === steps
-                      : mode === 'click' && current
-                        ? current.beatSubdivisions.every((item) => item === steps)
-                        : current.subdivision === steps
-                  return (
+
+            <section className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2 sm:px-3 lg:col-start-2">
+              <BarStrip
+                store={playheadStore}
+                bars={clickBars}
+                barIndex={clickBarIndex}
+                playing={playing}
+                canAdd={clickBars.length < MAX_BARS}
+                onSelect={chooseClickBar}
+                onAdd={addBar}
+                onRemove={() => removeBar(clickBarIndex)}
+              />
+            </section>
+
+            <section
+              className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2 sm:px-4 lg:col-start-1 lg:row-start-2"
+              data-bar-count={bars.length}
+              data-rhythm-mode="click"
+            >
+              <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Meter
+              </p>
+              <div className="flex items-center justify-center gap-2 sm:gap-4">
+                <SnapWheel
+                  compact
+                  label="Beats"
+                  values={BEAT_VALUES}
+                  value={current.beats}
+                  onChange={(beats) => setMeter(beats, current.beatUnit)}
+                />
+                <p className="pt-4 text-2xl font-bold text-slate-500">/</p>
+                <SnapWheel
+                  compact
+                  label="Beat unit"
+                  wide
+                  values={BEAT_UNITS}
+                  value={current.beatUnit}
+                  format={(unit) => `${unit} · ${UNIT_LABELS[unit]}`}
+                  onChange={(unit) => setMeter(current.beats, unit)}
+                />
+              </div>
+            </section>
+          </div>
+          ) : (
+          <div
+            data-rhythm-layout
+            data-rhythm-mode="drums"
+            className="mt-2 grid grid-cols-1 gap-2.5 lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:gap-4"
+          >
+            <section className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4 lg:col-start-1 lg:row-start-1">
+              <div className="flex flex-col items-center">
+                <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
+                <p className="relative z-20 mt-1 text-[0.65rem] text-slate-500">{pulseLabel(current.beatUnit)}</p>
+                <div className="relative z-20 mt-1.5 flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label="Slower by 5"
+                    className="touch-manipulation"
+                    {...activateOnPointer(() => changeBpm(bpm - 5, true))}
+                  >
+                    <Minus className="size-3.5" />
+                    5
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="touch-manipulation" {...activateOnPointer(tapTempo)}>
+                    Tap
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label="Faster by 5"
+                    className="touch-manipulation"
+                    {...activateOnPointer(() => changeBpm(bpm + 5, true))}
+                  >
+                    <Plus className="size-3.5" />
+                    5
+                  </Button>
+                </div>
+              </div>
+            </section>
+            <section
+              className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4 lg:col-start-1 lg:row-start-2"
+              data-bar-count={bars.length}
+              data-rhythm-mode="drums"
+            >
+              <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Meter
+              </p>
+              <div className="flex items-center justify-center gap-2 sm:gap-4">
+                <SnapWheel
+                  compact
+                  label="Beats"
+                  values={BEAT_VALUES}
+                  value={current.beats}
+                  onChange={(beats) => setMeter(beats, current.beatUnit)}
+                />
+                <p className="pt-4 text-2xl font-bold text-slate-500">/</p>
+                <SnapWheel
+                  compact
+                  label="Beat unit"
+                  wide
+                  values={BEAT_UNITS}
+                  value={current.beatUnit}
+                  format={(unit) => `${unit} · ${UNIT_LABELS[unit]}`}
+                  onChange={(unit) => setMeter(current.beats, unit)}
+                />
+              </div>
+            </section>
+            <section className="lg:col-start-1 lg:row-start-3">
+              <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Subdivision
+              </p>
+              <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                <div
+                  role="group"
+                  aria-label="Subdivision"
+                  data-section="subdivision"
+                  className="flex w-max min-w-full justify-between gap-1 px-1 lg:w-full lg:flex-wrap lg:justify-start"
+                >
+                  {SUBDIVISIONS.map((steps) => (
                     <button
                       key={steps}
                       type="button"
                       aria-label={SUBDIVISION_LABELS[steps]}
                       title={SUBDIVISION_LABELS[steps]}
-                      aria-pressed={selected}
+                      aria-pressed={current.subdivision === steps}
                       data-subdivision={steps}
                       {...activateOnPointer(() => setSubdivision(steps))}
                       className={cn(
                         'flex h-12 w-[2.85rem] shrink-0 touch-manipulation items-center justify-center rounded-lg sm:h-14 sm:w-[3.2rem] lg:h-11 lg:w-[2.4rem]',
-                        selected
+                        current.subdivision === steps
                           ? 'bg-[#A855F7] text-white'
                           : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
                       )}
                     >
                       <SubdivIcon steps={steps} />
                     </button>
-                  )
-                })}
-              </div>
-            </div>
-          </section>
-
-          {mode === 'click' ? (
-            <section className="max-lg:order-1 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2.5 sm:px-4 lg:col-start-2 lg:row-span-3 lg:row-start-1">
-              <div className="mb-3">
-                  <BarStrip
-                    store={playheadStore}
-                    bars={clickBars}
-                    barIndex={clickBarIndex}
-                    playing={playing}
-                    canAdd={clickBars.length < MAX_BARS}
-                  onSelect={chooseClickBar}
-                  onAdd={addBar}
-                  onRemove={() => removeBar(clickBarIndex)}
-                />
-              </div>
-              <ClickLiveHeader
-                store={playheadStore}
-                playing={playing}
-                barIndex={barIndex}
-              />
-              <ClickAccentGrid
-                bar={current}
-                playheadStore={playheadStore}
-                barIndex={barIndex}
-                playing={playing}
-                editBeat={subdivEditBeat}
-                onCycleBeat={(beat) => {
-                  const next = cycleBeatAccent(current.beatAccents, beat, current.beats)
-                  previewClick(clickSound, beatAccentAt(next, beat), true)
-                  patchBar(barIndex, { ...current, beatAccents: next })
-                }}
-                onEditBeatSubdiv={(beat) => {
-                  setSubdivEditBeat((currentBeat) => (currentBeat === beat ? null : beat))
-                  previewClick(clickSound, 0, false)
-                }}
-              />
-              <div
-                data-section="click-sound"
-                className="mt-2.5 grid w-full grid-cols-4 gap-1"
-              >
-                {CLICK_SOUNDS.map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    data-click-sound={id}
-                    aria-pressed={clickSound === id}
-                    {...activateOnPointer(() => {
-                      previewClick(id)
-                      setClickSound(id)
-                    })}
-                    className={cn(
-                      'h-8 min-w-0 touch-manipulation rounded-lg px-1 text-[0.7rem] font-semibold sm:text-sm',
-                      clickSound === id
-                        ? 'bg-[#A855F7] text-white'
-                        : 'border border-white/10 bg-white/4 text-slate-200',
-                    )}
-                  >
-                    {CLICK_SOUND_LABELS[id]}
-                  </button>
-                ))}
+                  ))}
+                </div>
               </div>
             </section>
-          ) : (
             <section className="flex min-h-0 flex-col lg:col-start-2 lg:row-span-3 lg:row-start-1">
               <button
                 type="button"
@@ -588,8 +707,8 @@ export function RhythmPage() {
                 Light drum-room send after the dry clipper; the click stays dry.
               </p>
             </section>
-          )}
           </div>
+          )}
         </div>
 
         <PlayheadBarSync store={playheadStore} playing={playing} onBar={setBarIndex} />
@@ -670,10 +789,10 @@ function ClickLiveHeader({
   const playhead = usePlayhead(store)
   const live = playing && playhead.bar === barIndex
   return (
-    <div className="mb-1.5 flex items-center gap-2.5">
+    <div className="flex items-center gap-2">
       <div
         className={cn(
-          'flex size-10 shrink-0 items-center justify-center rounded-full border-[3px] sm:size-12',
+          'flex size-9 shrink-0 items-center justify-center rounded-full border-[3px] sm:size-12',
           live && playhead.beat >= 0
             ? playhead.accent === 2
               ? 'omni-beat-pulse border-[#A855F7] bg-[#A855F7]/25'
@@ -696,7 +815,7 @@ function ClickLiveHeader({
         </span>
       </div>
       <p className="min-w-0 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-        Accents
+        Beats
       </p>
     </div>
   )

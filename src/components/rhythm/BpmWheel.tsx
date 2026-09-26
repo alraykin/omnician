@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 type BpmWheelProps = {
   value: number
   onChange: (bpm: number) => void
+  compact?: boolean
 }
 
 const TICKS = 36
@@ -70,7 +71,7 @@ function pointAngle(x: number, y: number, cx: number, cy: number): number | null
   return Math.atan2(dy, dx)
 }
 
-export function BpmWheel({ value, onChange }: BpmWheelProps) {
+export function BpmWheel({ value, onChange, compact = false }: BpmWheelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const hitRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<string | null>(null)
@@ -263,7 +264,12 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative size-[152px] sm:size-[188px] lg:size-[216px]">
+      <div
+        className={cn(
+          'relative',
+          compact ? 'size-[118px] sm:size-[168px] lg:size-[216px]' : 'size-[152px] sm:size-[188px] lg:size-[216px]',
+        )}
+      >
         <div
           aria-hidden
           className="pointer-events-none absolute -bottom-1 left-1/2 h-4 w-28 -translate-x-1/2 rounded-full bg-black/50 blur-md"
@@ -337,7 +343,14 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
             }
           }}
         >
-          <div className="bpm-dial pointer-events-none relative size-[152px] select-none rounded-full sm:size-[188px] lg:size-[216px]">
+          <div
+            className={cn(
+              'bpm-dial pointer-events-none relative select-none rounded-full',
+              compact
+                ? 'size-[118px] sm:size-[168px] lg:size-[216px]'
+                : 'size-[152px] sm:size-[188px] lg:size-[216px]',
+            )}
+          >
             <span aria-hidden className="bpm-dial-pip" />
             <div
               aria-hidden

@@ -1,11 +1,9 @@
-import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { usePlayhead, type PlayheadStore } from '@/hooks/useRhythmEngine'
 import {
   beatAccentAt,
   beatSubdivisionAt,
   type AccentLevel,
   type RhythmBar,
-  type SubdivisionId,
 } from '@/lib/rhythm'
 import { activateOnPointer, cn } from '@/lib/utils'
 
@@ -14,9 +12,10 @@ type ClickAccentGridProps = {
   playheadStore: PlayheadStore
   barIndex: number
   playing: boolean
-  editBeat: number | null
-  onCycleBeat: (beat: number) => void
-  onEditBeatSubdiv: (beat: number) => void
+  selectedBeat: number | null
+  accentEdit: boolean
+  onSelectBeat: (beat: number) => void
+  onCycleAccent: (beat: number) => void
 }
 
 function accentTone(level: AccentLevel) {
@@ -32,72 +31,61 @@ export function ClickAccentGrid({
   playheadStore,
   barIndex,
   playing,
-  editBeat,
-  onCycleBeat,
-  onEditBeatSubdiv,
+  selectedBeat,
+  accentEdit,
+  onSelectBeat,
+  onCycleAccent,
 }: ClickAccentGridProps) {
   const playhead = usePlayhead(playheadStore)
   const live = playing && playhead.bar === barIndex
   const liveBeat = playhead.beat
+  const mixed = bar.beatSubdivisions.some((item) => item !== bar.subdivision)
 
   return (
-    <div data-section="accents" className="space-y-1.5">
-      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-        Beats
-      </p>
+    <div data-section="beats" data-accent-edit={accentEdit ? 'true' : 'false'}>
       <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-        <div className="flex w-max min-w-full justify-center gap-1.5 px-1">
+        <div className="flex w-max min-w-full justify-center gap-2 px-1">
           {Array.from({ length: bar.beats }, (_, beat) => {
             const level = beatAccentAt(bar.beatAccents, beat)
-            const subdiv = beatSubdivisionAt(bar, beat)
             const now = live && liveBeat === beat
-            const editing = editBeat === beat
+            const selected = !accentEdit && selectedBeat === beat
+            const custom = mixed && beatSubdivisionAt(bar, beat) !== bar.subdivision
             return (
-              <div key={`beat-${beat}`} className="flex w-10 shrink-0 flex-col items-center gap-1 sm:w-11">
-                <button
-                  type="button"
-                  data-accent-row="beat"
-                  data-beat={beat}
-                  data-level={level}
-                  aria-label={`Beat ${beat + 1}, ${LEVEL_NAME[level]}`}
-                  {...activateOnPointer(() => onCycleBeat(beat))}
-                  className={cn(
-                    'flex size-10 shrink-0 touch-manipulation items-center justify-center rounded-full border text-sm font-bold tabular-nums sm:size-11',
-                    accentTone(level),
-                    now && 'omni-beat-pulse',
-                  )}
-                >
-                  {beat + 1}
-                </button>
-                <button
-                  type="button"
-                  data-beat-subdiv={beat}
-                  data-subdivision={subdiv}
-                  aria-label={`Beat ${beat + 1} subdivision, ${labelFor(subdiv)}`}
-                  aria-pressed={editing}
-                  {...activateOnPointer(() => onEditBeatSubdiv(beat))}
-                  className={cn(
-                    'flex h-7 w-full touch-manipulation items-center justify-center rounded-md border',
-                    editing
-                      ? 'border-[#A855F7] bg-[#A855F7] text-white'
-                      : 'border-white/10 bg-white/4 text-slate-200',
-                  )}
-                >
-                  <SubdivIcon steps={subdiv} compact />
-                </button>
-              </div>
+              <button
+                key={`beat-${beat}`}
+                type="button"
+                data-accent-row="beat"
+                data-beat={beat}
+                data-level={level}
+                data-selected={selected ? 'true' : 'false'}
+                data-custom-subdiv={custom ? 'true' : 'false'}
+                aria-label={
+                  accentEdit
+                    ? `Beat ${beat + 1}, ${LEVEL_NAME[level]}`
+                    : `Beat ${beat + 1}, select subdivision`
+                }
+                aria-pressed={selected}
+                {...activateOnPointer(() => (accentEdit ? onCycleAccent(beat) : onSelectBeat(beat)))}
+                className={cn(
+                  'relative flex size-10 shrink-0 touch-manipulation items-center justify-center rounded-full border text-sm font-bold tabular-nums sm:size-11',
+                  accentTone(level),
+                  selected && 'ring-2 ring-[#E9D5FF] ring-offset-2 ring-offset-[#0B0F1A]',
+                  accentEdit && 'ring-1 ring-[#A855F7]/50',
+                  now && 'omni-beat-pulse',
+                )}
+              >
+                {beat + 1}
+                {custom ? (
+                  <span
+                    aria-hidden
+                    className="absolute bottom-0.5 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-current opacity-80"
+                  />
+                ) : null}
+              </button>
             )
           })}
         </div>
       </div>
     </div>
   )
-}
-
-function labelFor(steps: SubdivisionId): string {
-  if (steps === 1) return 'quarter notes'
-  if (steps === 2) return 'eighth notes'
-  if (steps === 3) return 'triplets'
-  if (steps === 4) return 'sixteenth notes'
-  return `${steps}-note tuplets`
 }

@@ -29,14 +29,14 @@ export function BarStrip({
   const current = bars[active] ?? bars[0]
 
   return (
-    <div data-bar-strip className="space-y-2">
+    <div data-bar-strip className="space-y-1.5">
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
             {playing ? 'Now playing' : 'Selected bar'}
           </p>
           <p
-            className="mt-0.5 text-lg font-bold tabular-nums tracking-tight text-white sm:text-xl"
+            className="mt-0.5 text-base font-bold tabular-nums tracking-tight text-white sm:text-xl"
             data-bar-now={active + 1}
             data-bar-total={bars.length}
           >
