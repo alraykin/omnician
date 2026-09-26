@@ -595,7 +595,7 @@ export function RhythmPage() {
                 <span className="text-xs font-semibold text-slate-400">Change</span>
               </button>
               <div className="mb-2 rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5">
-                <BarStrip>
+                <BarStrip
                   store={playheadStore}
                   bars={drumBars}
                   barIndex={drumBarIndex}
