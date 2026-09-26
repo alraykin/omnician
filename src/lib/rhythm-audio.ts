@@ -115,34 +115,34 @@ const SAMPLE_GAIN: Record<VoiceId, number> = {
   china: 1.92,
 }
 
-/** Master input stays unity so fader dB readouts stay honest. Loudness is makeup. */
-const MASTER_GAIN = 1
-/** Makeup into the limiter — tuned to −12…−10 LUFS on Rock 1 @ 4. */
-const MAKEUP_GAIN = Math.pow(10, 19.5 / 20)
-const LIMITER_CEILING = Math.pow(10, -1.5 / 20)
+/** Faders stay honest at 0 dB. Loudness is this fixed dry gain — no glue compressor. */
+const MASTER_GAIN = Math.pow(10, 2.8 / 20)
+const LIMITER_CEILING = Math.pow(10, -1 / 20)
 
-/** Shared drum-room send. Dry path is untouched so grid taps stay at 0 ms. */
-const REVERB_DECAY = 0.6
-const REVERB_IR_SECONDS = 0.7
+/** Medium room after the dry clipper so the tail is never ducked. */
+const REVERB_DECAY = 1.35
+const REVERB_IR_SECONDS = 1.65
+const REVERB_PREDELAY = 0.015
 const REVERB_HP_HZ = 240
-const REVERB_RETURN = 0.17
+/** 10% wet vs dry (−20 dB), after the same static gain as the dry path. */
+const REVERB_RETURN = 0.1
 const REVERB_SEND: Record<VoiceId, number> = {
-  kick: 0.05,
-  snare: 0.18,
-  rim: 0.17,
-  clap: 0.2,
-  highTom: 0.18,
-  midTom: 0.17,
-  lowTom: 0.16,
-  floorTom: 0.16,
-  closedHat: 0.07,
-  openHat: 0.09,
-  ride: 0.11,
-  rideBell: 0.1,
-  crash: 0.13,
-  stack: 0.12,
-  splash: 0.13,
-  china: 0.13,
+  kick: 0.7,
+  snare: 1,
+  rim: 1,
+  clap: 1,
+  highTom: 1,
+  midTom: 1,
+  lowTom: 1,
+  floorTom: 1,
+  closedHat: 1,
+  openHat: 1,
+  ride: 1,
+  rideBell: 1,
+  crash: 1,
+  stack: 1,
+  splash: 1,
+  china: 1,
 }
 
 const CHOKE_HAT_VOICES: ReadonlySet<VoiceId> = new Set([
@@ -643,7 +643,7 @@ function mulberry32(seed: number): () => number {
   }
 }
 
-/** Short drum-room IR: early taps + damped noise tail. No third-party sample. */
+/** Medium room / plate IR: predelay, dense early field, smooth damped tail. */
 function bakeRoomIR(ctx: AudioContext): AudioBuffer {
   const sr = ctx.sampleRate
   const n = Math.max(1, Math.floor(sr * REVERB_IR_SECONDS))
@@ -653,33 +653,31 @@ function bakeRoomIR(ctx: AudioContext): AudioBuffer {
   const rand = mulberry32(0xc0ce11)
   const tau = REVERB_DECAY / Math.log(1000)
   const early: ReadonlyArray<{ t: number; g: number; pan: number }> = [
-    { t: 0.0064, g: 0.62, pan: -0.38 },
-    { t: 0.0118, g: 0.48, pan: 0.42 },
-    { t: 0.0186, g: 0.36, pan: -0.18 },
-    { t: 0.0274, g: 0.26, pan: 0.5 },
-    { t: 0.0385, g: 0.18, pan: -0.46 },
-    { t: 0.051, g: 0.13, pan: 0.22 },
-    { t: 0.067, g: 0.09, pan: -0.28 },
+    { t: 0.015, g: 0.42, pan: -0.32 },
+    { t: 0.0195, g: 0.36, pan: 0.4 },
+    { t: 0.025, g: 0.3, pan: -0.18 },
+    { t: 0.032, g: 0.24, pan: 0.48 },
+    { t: 0.041, g: 0.2, pan: -0.44 },
+    { t: 0.053, g: 0.16, pan: 0.22 },
+    { t: 0.068, g: 0.12, pan: -0.26 },
+    { t: 0.086, g: 0.09, pan: 0.34 },
   ]
   for (const tap of early) {
     const i = Math.min(n - 1, Math.floor(tap.t * sr))
-    const leftG = tap.g * (0.5 - tap.pan * 0.5)
-    const rightG = tap.g * (0.5 + tap.pan * 0.5)
-    left[i] += leftG
-    right[i] += rightG
+    left[i] += tap.g * (0.5 - tap.pan * 0.5)
+    right[i] += tap.g * (0.5 + tap.pan * 0.5)
   }
   let lpL = 0
   let lpR = 0
-  for (let i = 0; i < n; i += 1) {
-    const t = i / sr
+  const start = Math.floor(REVERB_PREDELAY * sr)
+  for (let i = start; i < n; i += 1) {
+    const t = i / sr - REVERB_PREDELAY
     const decay = Math.exp(-t / tau)
-    const bright = Math.exp(-t * 5.2)
-    const coeff = 0.18 + 0.62 * (1 - bright)
-    const noiseL = rand() * 2 - 1
-    const noiseR = rand() * 2 - 1
-    lpL += coeff * (noiseL - lpL)
-    lpR += coeff * (noiseR - lpR)
-    const tail = decay * 0.2
+    const bright = Math.exp(-t * 2.6)
+    const coeff = 0.14 + 0.55 * (1 - bright)
+    lpL += coeff * (rand() * 2 - 1 - lpL)
+    lpR += coeff * (rand() * 2 - 1 - lpR)
+    const tail = decay * 0.18
     left[i] += lpL * tail
     right[i] += lpR * tail
   }
@@ -687,7 +685,7 @@ function bakeRoomIR(ctx: AudioContext): AudioBuffer {
   for (let i = 0; i < n; i += 1) {
     peak = Math.max(peak, Math.abs(left[i]), Math.abs(right[i]))
   }
-  const trim = peak > 0 ? 0.92 / peak : 1
+  const trim = peak > 0 ? 0.9 / peak : 1
   for (let i = 0; i < n; i += 1) {
     left[i] *= trim
     right[i] *= trim
@@ -830,7 +828,6 @@ export class RhythmKit {
   readonly ctx: AudioContext
   intensity: KitIntensity = DEFAULT_KIT_INTENSITY
   private readonly master: GainNode
-  private readonly makeup: GainNode
   private readonly kickBus: AudioNode
   private readonly reverbSend: GainNode
   private readonly reverbWet: GainNode
@@ -848,29 +845,13 @@ export class RhythmKit {
     this.ctx = ctx
     this.master = ctx.createGain()
     this.master.gain.value = MASTER_GAIN
-    const glue = ctx.createDynamicsCompressor()
-    glue.threshold.value = -16
-    glue.knee.value = 8
-    glue.ratio.value = 2.2
-    glue.attack.value = 0.005
-    glue.release.value = 0.18
-    this.makeup = ctx.createGain()
-    this.makeup.gain.value = MAKEUP_GAIN
-    const limiter = ctx.createDynamicsCompressor()
-    limiter.threshold.value = -1.2
-    limiter.knee.value = 0
-    limiter.ratio.value = 20
-    limiter.attack.value = 0.002
-    limiter.release.value = 0.055
     const wall = makeBrickwall(ctx, LIMITER_CEILING)
-    this.master.connect(glue)
-    glue.connect(this.makeup)
-    this.makeup.connect(limiter)
-    limiter.connect(wall)
+    this.master.connect(wall)
     wall.connect(ctx.destination)
     this.kickBus = makeKickBus(ctx, this.master)
-    const room = makeReverbBus(ctx, this.master)
+    const room = makeReverbBus(ctx, ctx.destination)
     this.reverbSend = room.send
+    this.reverbSend.gain.value = MASTER_GAIN
     this.reverbWet = room.wet
     this.drums = bakeSynthDrums(ctx)
     this.clicks = bakeClicks(ctx)
@@ -926,8 +907,8 @@ export class RhythmKit {
     const pair = this.clicks[sound] ?? this.clicks.wood
     // Off/soft share the tick; strong uses the accent one-shot (timbre, not just louder).
     const buffer = level === 2 ? pair.accent : pair.normal
-    // Clicks share the loud master bus; keep them full but not hotter than a snare.
-    const baseGain = level === 2 ? 0.2 : level === 1 ? 0.15 : 0.085
+    // Clicks stay dry (no send) through the static master + clipper.
+    const baseGain = level === 2 ? 0.55 : level === 1 ? 0.4 : 0.22
     const baseRate = level === 1 ? 1.03 : 1
     // Within-beat pulses sit a little higher so they never match a main-beat click.
     const rate = onBeat ? baseRate : baseRate * 1.09

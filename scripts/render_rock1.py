@@ -61,27 +61,30 @@ SAMPLE_GAIN_AFTER = {
 SAMPLE_GAIN = SAMPLE_GAIN_BEFORE
 
 REVERB_SEND = {
-    "kick": 0.05,
-    "snare": 0.18,
-    "rim": 0.17,
-    "clap": 0.2,
-    "highTom": 0.18,
-    "midTom": 0.17,
-    "lowTom": 0.16,
-    "floorTom": 0.16,
-    "closedHat": 0.07,
-    "openHat": 0.09,
-    "ride": 0.11,
-    "rideBell": 0.1,
-    "crash": 0.13,
-    "stack": 0.12,
-    "splash": 0.13,
-    "china": 0.13,
+    "kick": 0.7,
+    "snare": 1.0,
+    "rim": 1.0,
+    "clap": 1.0,
+    "highTom": 1.0,
+    "midTom": 1.0,
+    "lowTom": 1.0,
+    "floorTom": 1.0,
+    "closedHat": 1.0,
+    "openHat": 1.0,
+    "ride": 1.0,
+    "rideBell": 1.0,
+    "crash": 1.0,
+    "stack": 1.0,
+    "splash": 1.0,
+    "china": 1.0,
 }
-REVERB_RETURN = 0.17
-REVERB_DECAY = 0.6
-REVERB_IR_SECONDS = 0.7
+REVERB_RETURN = 0.1
+REVERB_DECAY = 1.35
+REVERB_IR_SECONDS = 1.65
+REVERB_PREDELAY = 0.015
 REVERB_HP_HZ = 240
+STATIC_GAIN_DB = 2.8
+LIMITER_CEILING = 10 ** (-1.0 / 20)
 
 CYMBALS = {
     "closedHat",
@@ -348,7 +351,7 @@ def render(
     kick_eq: bool,
     phone_hp: float | None,
     use_reverb: bool = False,
-) -> np.ndarray:
+) -> tuple[np.ndarray, float]:
     bank = parse_manifest()
     cache = load_cache(bank, extra_map)
     total = int((BAR * BARS + TAIL) * SR)
@@ -386,13 +389,38 @@ def render(
                 if use_reverb:
                     send[t0:end] += audio[: end - t0] * REVERB_SEND.get(voice, 0.0)
 
+    scale = master_gain * db_to_gain(makeup_db)
+    mix *= scale
+    send *= scale
+    unclipped = float(np.max(np.abs(mix)))
+    clipped = np.clip(mix, -LIMITER_CEILING, LIMITER_CEILING)
+    wet = None
     if use_reverb:
         wet = fft_convolve(biquad_highpass(send, REVERB_HP_HZ), bake_room_ir())
         wet = wet[:total] * REVERB_RETURN
-        mix += wet
+        clipped = clipped + wet
+    return clipped.astype(np.float32), unclipped, inspect_tail(wet)
 
-    mix *= master_gain * db_to_gain(makeup_db)
-    return mix.astype(np.float32)
+
+def inspect_tail(wet: np.ndarray | None) -> dict:
+    """Flag compressor-style pump: a sudden extra drop on the wet tail, then a rise."""
+    if wet is None:
+        return {"pumping": False, "gr_mod_db": 0.0}
+    hop = int(0.025 * SR)
+    hops = []
+    for i in range(0, wet.shape[0] - hop, hop):
+        hops.append(float(np.sqrt(np.mean(wet[i : i + hop] ** 2))))
+    db = 20 * np.log10(np.maximum(np.array(hops), 1e-12))
+    diffs = np.diff(db)
+    expected = -60.0 / REVERB_DECAY * (hop / SR)
+    pumping = False
+    worst = 0.0
+    for i in range(len(diffs) - 1):
+        extra = diffs[i] - expected
+        if extra < -3.0 and diffs[i + 1] > 1.5:
+            pumping = True
+            worst = min(worst, extra)
+    return {"pumping": pumping, "gr_mod_db": round(abs(worst), 2)}
 
 
 def bake_room_ir() -> np.ndarray:
@@ -408,31 +436,33 @@ def bake_room_ir() -> np.ndarray:
         return ((t ^ (t >> 14)) & 0xFFFFFFFF) / 4294967296
     tau = REVERB_DECAY / math.log(1000)
     early = (
-        (0.0064, 0.62, -0.38),
-        (0.0118, 0.48, 0.42),
-        (0.0186, 0.36, -0.18),
-        (0.0274, 0.26, 0.5),
-        (0.0385, 0.18, -0.46),
-        (0.051, 0.13, 0.22),
-        (0.067, 0.09, -0.28),
+        (0.015, 0.42, -0.32),
+        (0.0195, 0.36, 0.4),
+        (0.025, 0.3, -0.18),
+        (0.032, 0.24, 0.48),
+        (0.041, 0.2, -0.44),
+        (0.053, 0.16, 0.22),
+        (0.068, 0.12, -0.26),
+        (0.086, 0.09, 0.34),
     )
     for t, g, pan in early:
         i = min(n - 1, int(t * SR))
         ir[i, 0] += g * (0.5 - pan * 0.5)
         ir[i, 1] += g * (0.5 + pan * 0.5)
     lp = [0.0, 0.0]
-    for i in range(n):
-        t = i / SR
+    start = int(REVERB_PREDELAY * SR)
+    for i in range(start, n):
+        t = i / SR - REVERB_PREDELAY
         decay = math.exp(-t / tau)
-        bright = math.exp(-t * 5.2)
-        coeff = 0.18 + 0.62 * (1 - bright)
+        bright = math.exp(-t * 2.6)
+        coeff = 0.14 + 0.55 * (1 - bright)
         for ch in range(2):
             noise = rand() * 2 - 1
             lp[ch] += coeff * (noise - lp[ch])
-            ir[i, ch] += lp[ch] * decay * 0.2
+            ir[i, ch] += lp[ch] * decay * 0.18
     peak = float(np.max(np.abs(ir)))
     if peak > 0:
-        ir *= 0.92 / peak
+        ir *= 0.9 / peak
     return ir
 
 
@@ -544,18 +574,18 @@ def main() -> None:
     extra = parse_extra(args.extra_map)
     if args.after:
         args.master = 1.0
-        args.makeup_db = 19.5
+        args.makeup_db = STATIC_GAIN_DB
         args.cymbal_offset = -1.0
-        args.limit = True
         args.kick_eq = True
+        args.no_glue = True
         if not args.gains:
             args.gains = ",".join(f"{k}={v}" for k, v in SAMPLE_GAIN_AFTER.items())
-    mix = render(
+    mix, unclipped, tail = render(
         intensity=args.intensity,
         sample_gain=parse_gains(args.gains),
         cymbal_offset_db=args.cymbal_offset,
         master_gain=args.master,
-        makeup_db=0.0,
+        makeup_db=args.makeup_db,
         use_glue=False,
         use_limit=False,
         extra_map=extra,
@@ -564,29 +594,13 @@ def main() -> None:
         use_reverb=args.after,
     )
     out = args.out or Path(f"/tmp/rock1_{args.label}_i{args.intensity}.wav")
-    dry = out.with_name(out.stem + "_dry.wav")
-    write_wav(dry, mix)
-    filters = []
-    if not args.no_glue:
-        thresh = -16
-        ratio = 2.2 if args.after else 3.2
-        release = 180 if args.after else 140
-        filters.append(
-            f"acompressor=threshold={thresh}dB:ratio={ratio}:attack=5:release={release}:knee=8:makeup=1"
-        )
-    if args.makeup_db:
-        filters.append(f"volume={db_to_gain(args.makeup_db)}")
-    if args.limit:
-        filters.append("acompressor=threshold=-1.2dB:ratio=20:attack=2:release=55:knee=1:makeup=1")
-        filters.append("alimiter=limit=0.8414:level=false")
     if args.phone_hp:
-        filters.append(f"highpass=f={args.phone_hp}:poles=2")
-    if filters:
-        ffmpeg_chain(dry, out, ",".join(filters))
-    else:
-        write_wav(out, mix)
+        mix = biquad_highpass(mix.astype(np.float64), args.phone_hp).astype(np.float32)
+    write_wav(out, mix)
     stats = measure(out)
-    peak = float(20 * math.log10(max(1e-9, np.max(np.abs(load_audio(out))))))
+    peak = float(20 * math.log10(max(1e-9, np.max(np.abs(mix)))))
+    unclipped_db = 20 * math.log10(max(1e-9, unclipped))
+    ceiling_db = 20 * math.log10(LIMITER_CEILING)
     result = {
         "label": args.label,
         "intensity": args.intensity,
@@ -594,6 +608,13 @@ def main() -> None:
         "lra": stats["lra"],
         "true_peak": stats["true_peak"],
         "sample_peak_db": round(peak, 2),
+        "unclipped_peak_db": round(unclipped_db, 2),
+        "limiter_gr_db": round(max(0.0, unclipped_db - ceiling_db), 2),
+        "reverb_decay_s": REVERB_DECAY,
+        "reverb_predelay_ms": round(REVERB_PREDELAY * 1000),
+        "reverb_return": REVERB_RETURN,
+        "tail_pumping": tail.get("pumping"),
+        "tail_gr_mod_db": tail.get("gr_mod_db"),
         "wav": str(out),
     }
     print(json.dumps(result, indent=2))

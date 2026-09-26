@@ -20,16 +20,9 @@ export function playReferenceTone(frequency: number, family: FamilyId): void {
 
   const master = audio.createGain()
   master.gain.setValueAtTime(0.0001, now)
-  master.gain.exponentialRampToValueAtTime(tone === 'bass' ? 0.55 : 0.42, now + 0.02)
+  master.gain.exponentialRampToValueAtTime(tone === 'bass' ? 0.48 : 0.36, now + 0.02)
   master.gain.exponentialRampToValueAtTime(0.0001, now + duration)
-  const limiter = audio.createDynamicsCompressor()
-  limiter.threshold.value = -1.2
-  limiter.knee.value = 0
-  limiter.ratio.value = 20
-  limiter.attack.value = 0.002
-  limiter.release.value = 0.08
-  master.connect(limiter)
-  limiter.connect(audio.destination)
+  master.connect(audio.destination)
 
   const filter = audio.createBiquadFilter()
   filter.type = 'lowpass'

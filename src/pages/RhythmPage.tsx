@@ -544,7 +544,8 @@ export function RhythmPage() {
                 </a>
                 , samples edited. Ride bell, china, splash and stack from the same
                 CrocellKit stereo mix. Clap: VCSL SoloClap (CC0), level-matched.
-                Shared drum-room send is generated in-app; the click stays dry.
+                Medium drum-room send (about 10% wet) sits after the dry clipper;
+                the click stays dry.
               </p>
             </section>
           )}
