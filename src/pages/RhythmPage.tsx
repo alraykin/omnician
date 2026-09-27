@@ -303,7 +303,7 @@ export function RhythmPage() {
         >
           <div
             data-rhythm-header
-            className="rhythm-glass sticky top-0 z-30 flex items-center justify-between gap-3 rounded-full px-3 py-1"
+            className="rhythm-glass sticky top-0 z-30 flex items-center justify-between gap-3 rounded-full py-1 pl-3 pr-1"
           >
             <h1 className="text-lg font-bold tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] sm:text-xl">
               Rhythm
