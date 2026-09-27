@@ -24,23 +24,27 @@ export function BarStrip({
   onRemove: () => void
 }) {
   const playhead = usePlayhead(store)
-  const active = playing && playhead.bar >= 0 ? playhead.bar : barIndex
+  const counting = playing && playhead.precount
+  const active = counting ? barIndex : playing && playhead.bar >= 0 ? playhead.bar : barIndex
 
   return (
     <div data-bar-strip className="flex items-center gap-1">
       <p
         className="shrink-0 text-xs font-bold tabular-nums tracking-tight text-white sm:text-sm"
-        data-bar-now={active + 1}
+        data-bar-now={counting ? playhead.beat + 1 : active + 1}
         data-bar-total={bars.length}
+        data-precount={counting ? 'true' : 'false'}
       >
-        Bar {active + 1} of {bars.length}
+        {counting && playhead.beat >= 0
+          ? `Count ${playhead.beat + 1}`
+          : `Bar ${active + 1} of ${bars.length}`}
       </p>
       <div
         data-bar-chips
         className="grid min-w-0 flex-1 grid-cols-8 gap-0.5"
       >
         {bars.map((_, index) => {
-          const live = playing && playhead.bar === index
+          const live = playing && !playhead.precount && playhead.bar === index
           const selected = index === active
           return (
             <button

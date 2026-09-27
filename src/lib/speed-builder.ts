@@ -1,4 +1,4 @@
-import { clampBpm } from '@/lib/rhythm'
+import { clampBpm, type RhythmMode } from '@/lib/rhythm'
 
 export const MIN_SB_PCT = 10
 export const MAX_SB_PCT = 200
@@ -61,6 +61,15 @@ export function parseSpeedBuilder(raw: unknown): SpeedBuilder {
     precount: row.precount !== false,
     announce: row.announce === true,
   }
+}
+
+/** One shared Precount: Speed Builder starts/steps, or a normal Drums start. Never both. */
+export function shouldStartPrecount(
+  mode: RhythmMode,
+  sb: Pick<SpeedBuilder, 'enabled' | 'precount'>,
+): boolean {
+  if (!sb.precount) return false
+  return sb.enabled || mode === 'drums'
 }
 
 /** True after the current tempo has been played `repeats` full cycles, unless already at the goal. */

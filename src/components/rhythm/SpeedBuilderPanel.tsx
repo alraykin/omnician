@@ -100,10 +100,14 @@ function Toggle({
   label,
   on,
   onChange,
+  dimmed = false,
+  testId,
 }: {
   label: string
   on: boolean
   onChange: (next: boolean) => void
+  dimmed?: boolean
+  testId?: string
 }) {
   return (
     <button
@@ -111,12 +115,15 @@ function Toggle({
       role="switch"
       aria-checked={on}
       aria-label={label}
+      data-toggle={testId}
+      data-on={on ? 'true' : 'false'}
       {...activateOnPointer(() => onChange(!on))}
       className={cn(
         'flex h-6 items-center gap-1 rounded-full border px-1.5 text-[0.58rem] font-semibold uppercase tracking-[0.08em]',
         on
           ? 'border-[#A855F7]/60 bg-[#A855F7] text-white'
           : 'border-white/12 bg-white/4 text-slate-400',
+        dimmed && 'opacity-45',
       )}
     >
       {label}
@@ -213,16 +220,33 @@ export function SpeedBuilderToggles({
   value,
   onChange,
   className,
+  precountAlways = false,
 }: {
   value: SpeedBuilder
   onChange: (next: SpeedBuilder) => void
   className?: string
+  precountAlways?: boolean
 }) {
   const patch = (partial: Partial<SpeedBuilder>) => onChange({ ...value, ...partial })
   return (
-    <div className={cn('flex flex-wrap items-center gap-1 self-center', !value.enabled && 'opacity-45', className)}>
-      <Toggle label="Precount" on={value.precount} onChange={(precount) => patch({ precount })} />
-      <Toggle label="Announce" on={value.announce} onChange={(announce) => patch({ announce })} />
+    <div
+      className={cn('flex flex-wrap items-center gap-1 self-center', className)}
+      data-precount-always={precountAlways ? 'true' : 'false'}
+    >
+      <Toggle
+        label="Precount"
+        on={value.precount}
+        onChange={(precount) => patch({ precount })}
+        dimmed={!value.enabled && !precountAlways}
+        testId="precount"
+      />
+      <Toggle
+        label="Announce"
+        on={value.announce}
+        onChange={(announce) => patch({ announce })}
+        dimmed={!value.enabled}
+        testId="announce"
+      />
     </div>
   )
 }

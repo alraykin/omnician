@@ -541,6 +541,7 @@ export function RhythmPage() {
                 onSpeedBuilder={setSpeedBuilder}
                 onBpm={changeBpm}
                 onTap={tapTempo}
+                precountAlways
               />
               <section
                 className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5"
@@ -757,7 +758,7 @@ function PlayheadBarSync({
   const playhead = usePlayhead(store)
   const wasPlaying = useRef(false)
   useEffect(() => {
-    if (wasPlaying.current && !playing && playhead.bar >= 0) onBar(playhead.bar)
+    if (wasPlaying.current && !playing && playhead.bar >= 0 && !playhead.precount) onBar(playhead.bar)
     wasPlaying.current = playing
   }, [onBar, playhead.bar, playing])
   return null
@@ -833,10 +834,15 @@ function TransportReadout({
       data-playhead-bar={playhead.bar}
       data-playhead-step={playhead.step}
       data-playhead-beat={playhead.beat}
+      data-precount={playhead.precount ? 'true' : 'false'}
     >
       {bpm} BPM · {liveMeter}
       {mode === 'click' ? ` · ${CLICK_SOUND_LABELS[clickSound]}` : ''}
-      {playing && bars > 1 ? ` · bar ${playhead.bar + 1}` : ''}
+      {playing && playhead.precount && playhead.beat >= 0
+        ? ` · count ${playhead.beat + 1}`
+        : playing && bars > 1
+          ? ` · bar ${playhead.bar + 1}`
+          : ''}
       {holdUntilCycle ? ' · next cycle' : ''}
     </p>
   )

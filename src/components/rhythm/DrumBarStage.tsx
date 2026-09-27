@@ -1,7 +1,7 @@
 import { memo } from 'react'
 
 import { DrumGrid } from '@/components/rhythm/DrumGrid'
-import { usePlayheadBar, type PlayheadStore } from '@/hooks/useRhythmEngine'
+import { usePlayhead, type PlayheadStore } from '@/hooks/useRhythmEngine'
 import { patternToGrid, stepsPerBeat, type RhythmBar, type VoiceId } from '@/lib/rhythm'
 
 export const DrumBarStage = memo(function DrumBarStage({
@@ -19,8 +19,8 @@ export const DrumBarStage = memo(function DrumBarStage({
   onPaint: (barIndex: number, voice: VoiceId, step: number, on: boolean, preview: boolean) => void
   onPreviewVoice: (voice: VoiceId) => void
 }) {
-  const playheadBar = usePlayheadBar(playheadStore)
-  const active = playing && playheadBar >= 0 ? playheadBar : barIndex
+  const playhead = usePlayhead(playheadStore)
+  const active = playing && !playhead.precount && playhead.bar >= 0 ? playhead.bar : barIndex
   const bar = bars[active] ?? bars[0]
   if (!bar) return null
 

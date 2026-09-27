@@ -26,6 +26,7 @@ import {
   DEFAULT_SPEED_BUILDER,
   nextSbPct,
   sbBpm,
+  shouldStartPrecount,
   shouldStepAfterRepeats,
   type SpeedBuilder,
   type SpeedBuilderCue,
@@ -37,6 +38,7 @@ export type Playhead = {
   beat: number
   accent: AccentLevel
   subdivision: boolean
+  precount: boolean
 }
 
 const LOOKAHEAD_MS = 25
@@ -46,7 +48,7 @@ const VISUAL_LEAD = 0.02
 /** Voices closer than this stay; we only cancel/reschedule what's still in the future. */
 const COMMIT_SEC = LIVE_COMMIT_SEC
 
-const IDLE_PLAYHEAD: Playhead = { bar: 0, step: -1, beat: -1, accent: 0, subdivision: false }
+const IDLE_PLAYHEAD: Playhead = { bar: 0, step: -1, beat: -1, accent: 0, subdivision: false, precount: false }
 
 export type PlayheadStore = {
   getSnapshot: () => Playhead
@@ -72,7 +74,8 @@ function createPlayheadStore(): PlayheadWriter {
         snapshot.step === next.step &&
         snapshot.beat === next.beat &&
         snapshot.accent === next.accent &&
-        snapshot.subdivision === next.subdivision
+        snapshot.subdivision === next.subdivision &&
+        snapshot.precount === next.precount
       ) {
         return
       }
@@ -341,12 +344,10 @@ export function useRhythmEngine({
           bpm: playbackBpmRef.current,
           reason: sb.fromPct === sb.toPct ? 'goal' : 'start',
         })
-        sbPhaseRef.current = sb.precount ? 'precount' : 'pattern'
-        precountBeatRef.current = 0
         if (sb.announce) kit.announce(nextTimeRef.current, sb.fromPct)
-      } else {
-        sbPhaseRef.current = 'pattern'
       }
+      sbPhaseRef.current = shouldStartPrecount(liveModeRef.current, sb) ? 'precount' : 'pattern'
+      precountBeatRef.current = 0
 
       const commitPendingCycle = () => {
         liveModeRef.current = pendingModeRef.current
@@ -407,6 +408,7 @@ export function useRhythmEngine({
           beat,
           accent: 0,
           subdivision: !onBeat,
+          precount: false,
         })
       }
 
@@ -428,6 +430,7 @@ export function useRhythmEngine({
           beat: pulse.beat,
           accent,
           subdivision: !pulse.onBeat,
+          precount: false,
         })
       }
 
@@ -580,6 +583,7 @@ export function useRhythmEngine({
               beat,
               accent: strong ? 2 : 0,
               subdivision: false,
+              precount: true,
             })
             nextTimeRef.current = time + beatDurationSec(tempo, first.beatUnit)
             precountBeatRef.current = beat + 1
@@ -663,6 +667,7 @@ export function useRhythmEngine({
             beat: latest.beat,
             accent: latest.accent,
             subdivision: latest.subdivision,
+            precount: latest.precount,
           })
         }
         rafRef.current = window.requestAnimationFrame(pumpVisuals)

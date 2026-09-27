@@ -14,6 +14,7 @@ export function RhythmTempoCard({
   onSpeedBuilder,
   onBpm,
   onTap,
+  precountAlways = false,
 }: {
   bpm: number
   liveBpm: number
@@ -22,6 +23,7 @@ export function RhythmTempoCard({
   onSpeedBuilder: (next: SpeedBuilder) => void
   onBpm: (next: number, tick?: boolean) => void
   onTap: () => void
+  precountAlways?: boolean
 }) {
   const showLive = playing && speedBuilder.enabled
 
@@ -40,7 +42,11 @@ export function RhythmTempoCard({
             onChange={(next) => onBpm(next, true)}
           />
         </div>
-        <SpeedBuilderToggles value={speedBuilder} onChange={onSpeedBuilder} />
+        <SpeedBuilderToggles
+          value={speedBuilder}
+          onChange={onSpeedBuilder}
+          precountAlways={precountAlways}
+        />
         <div
           data-tempo-taps
           className="relative z-20 grid w-[9.25rem] max-w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-0.5 justify-self-end self-center"
