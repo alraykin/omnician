@@ -305,7 +305,7 @@ export function RhythmPage() {
             data-rhythm-header
             className="rhythm-glass sticky top-0 z-30 flex items-center justify-between gap-3 rounded-full py-1 pl-3 pr-1"
           >
-            <h1 className="text-lg font-bold tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] sm:text-xl">
+            <h1 className="text-lg font-bold tracking-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] sm:text-xl">
               Rhythm
             </h1>
             <div
@@ -743,7 +743,7 @@ function TransportReadout({
   const playhead = usePlayhead(store)
   return (
     <p
-      className="min-w-0 truncate tabular-nums drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
+      className="min-w-0 truncate tabular-nums drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
       data-playhead-bar={playhead.bar}
       data-playhead-step={playhead.step}
       data-playhead-beat={playhead.beat}
