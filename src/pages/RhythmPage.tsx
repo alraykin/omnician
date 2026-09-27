@@ -609,16 +609,16 @@ export function RhythmPage() {
               <KitIntensityControl value={kitIntensity} onChange={setKitIntensity} />
               <KitFaders mix={kitMix} onChange={setGroupMix} />
               <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-500">
-                Drums: CrocellKit by{' '}
+                Drums:{' '}
                 <a
                   className="underline decoration-white/20 underline-offset-2 hover:text-slate-300"
                   href="https://drumgizmo.org/wiki/doku.php?id=kits:crocellkit"
                   target="_blank"
                   rel="noreferrer"
                 >
-                  DrumGizmo.org
+                  CrocellKit
                 </a>{' '}
-                (Lars Muldjord / Crocell / JBOSound), stereo mix by Henry Järvinen —{' '}
+                by Lars Muldjord &amp; Henry Järvinen,{' '}
                 <a
                   className="underline decoration-white/20 underline-offset-2 hover:text-slate-300"
                   href="https://creativecommons.org/licenses/by/4.0/"
@@ -626,10 +626,8 @@ export function RhythmPage() {
                   rel="noreferrer"
                 >
                   CC BY 4.0
-                </a>
-                , samples edited. Ride bell, china, splash and stack from the same
-                CrocellKit stereo mix. Clap: VCSL SoloClap (CC0), level-matched.
-                Light drum-room send after the dry clipper; the click stays dry.
+                </a>{' '}
+                (edited).
               </p>
             </section>
           </div>
