@@ -462,11 +462,26 @@ body {
 }
 
 .bpm-dial-compact {
-  --ring-radius: 46px;
+  --ring-radius: 59px;
 }
 
 .bpm-dial-compact .bpm-dial-face {
-  inset: 14px;
+  inset: 18px;
+}
+
+.bpm-dial-compact .bpm-dial-tick-one {
+  height: 9px;
+  margin-top: -4.5px;
+}
+
+.bpm-dial-compact .bpm-dial-tick-five {
+  height: 13px;
+  margin-top: -6.5px;
+}
+
+.bpm-dial-compact .bpm-dial-tick-ten {
+  height: 16px;
+  margin-top: -8px;
 }
 
 .bpm-dial-compact .bpm-dial-tick-label {

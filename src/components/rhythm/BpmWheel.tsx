@@ -42,12 +42,12 @@ function boostFlick(rawBpmPerSec: number): number {
   return sign * Math.min(FLICK_MAX_BPM_S, speed * gain)
 }
 
-function angularSpeed(samples: Sample[], cx: number, cy: number): number {
+function angularSpeed(samples: Sample[], cx: number, cy: number, minRadius = MIN_RADIUS): number {
   if (samples.length < 2) return 0
   let total = 0
-  let prev = pointAngle(samples[0].x, samples[0].y, cx, cy)
+  let prev = pointAngle(samples[0].x, samples[0].y, cx, cy, minRadius)
   for (let i = 1; i < samples.length; i += 1) {
-    const next = pointAngle(samples[i].x, samples[i].y, cx, cy)
+    const next = pointAngle(samples[i].x, samples[i].y, cx, cy, minRadius)
     if (prev == null || next == null) {
       prev = next
       continue
@@ -66,10 +66,16 @@ function unwrapDelta(from: number, to: number): number {
   return delta
 }
 
-function pointAngle(x: number, y: number, cx: number, cy: number): number | null {
+function pointAngle(
+  x: number,
+  y: number,
+  cx: number,
+  cy: number,
+  minRadius = MIN_RADIUS,
+): number | null {
   const dx = x - cx
   const dy = y - cy
-  if (Math.hypot(dx, dy) < MIN_RADIUS) return null
+  if (Math.hypot(dx, dy) < minRadius) return null
   return Math.atan2(dy, dx)
 }
 
@@ -220,9 +226,13 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm, baseHint }
 
   const hitCenter = () => {
     const node = hitRef.current
-    if (!node) return { x: 0, y: 0 }
+    if (!node) return { x: 0, y: 0, minRadius: MIN_RADIUS }
     const rect = node.getBoundingClientRect()
-    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      minRadius: Math.max(24, rect.width * 0.24),
+    }
   }
 
   useEffect(() => {
@@ -258,9 +268,9 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm, baseHint }
     const windowed = samples.filter((sample) => sample.t >= latest.t - FLICK_WINDOW_MS)
     const used = windowed.length >= 2 ? windowed : samples
     const peak = used.filter((sample) => sample.t >= latest.t - FLICK_PEAK_MS)
-    const { x: cx, y: cy } = hitCenter()
-    const sustained = angularSpeed(used, cx, cy)
-    const burst = peak.length >= 2 ? angularSpeed(peak, cx, cy) : sustained
+    const { x: cx, y: cy, minRadius } = hitCenter()
+    const sustained = angularSpeed(used, cx, cy, minRadius)
+    const burst = peak.length >= 2 ? angularSpeed(peak, cx, cy, minRadius) : sustained
     return Math.abs(burst) > Math.abs(sustained) ? burst : sustained
   }
 
@@ -288,7 +298,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm, baseHint }
       <div
         className={
           compact
-            ? 'relative size-[7.25rem] sm:size-[152px] lg:size-[188px]'
+            ? 'relative size-[9.25rem] sm:size-[152px] lg:size-[188px]'
             : 'relative size-[152px] sm:size-[188px] lg:size-[216px]'
         }
       >
@@ -332,8 +342,8 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm, baseHint }
           onPointerMove={(event) => {
             const drag = dragRef.current
             if (drag && !editing) {
-              const { x: cx, y: cy } = hitCenter()
-              const nextAngle = pointAngle(event.clientX, event.clientY, cx, cy)
+              const { x: cx, y: cy, minRadius } = hitCenter()
+              const nextAngle = pointAngle(event.clientX, event.clientY, cx, cy, minRadius)
               samplesRef.current.push({ t: event.timeStamp, x: event.clientX, y: event.clientY })
               if (samplesRef.current.length > 24) samplesRef.current.shift()
               const dist = Math.hypot(event.clientX - drag.x, event.clientY - drag.y)
@@ -361,8 +371,8 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm, baseHint }
             }
             stopCoast()
             snapToEmitted()
-            const { x: cx, y: cy } = hitCenter()
-            const angle = pointAngle(event.clientX, event.clientY, cx, cy)
+            const { x: cx, y: cy, minRadius } = hitCenter()
+            const angle = pointAngle(event.clientX, event.clientY, cx, cy, minRadius)
             dragRef.current = {
               x: event.clientX,
               y: event.clientY,
@@ -416,7 +426,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm, baseHint }
           <div
             className={
               compact
-                ? 'bpm-dial bpm-dial-compact pointer-events-none relative size-[7.25rem] select-none rounded-full sm:size-[152px] lg:size-[188px]'
+                ? 'bpm-dial bpm-dial-compact pointer-events-none relative size-[9.25rem] select-none rounded-full sm:size-[152px] lg:size-[188px]'
                 : 'bpm-dial pointer-events-none relative size-[152px] select-none rounded-full sm:size-[188px] lg:size-[216px]'
             }
           >
@@ -486,7 +496,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm, baseHint }
                       }}
                       className={
                         compact
-                          ? 'pointer-events-auto w-[4.2rem] bg-transparent text-center text-2xl font-bold tabular-nums leading-none tracking-tight text-white outline-none caret-[#C084FC] sm:text-4xl'
+                          ? 'pointer-events-auto w-[5rem] bg-transparent text-center text-[1.85rem] font-bold tabular-nums leading-none tracking-tight text-white outline-none caret-[#C084FC] sm:text-4xl'
                           : 'pointer-events-auto w-[5.2rem] bg-transparent text-center text-4xl font-bold tabular-nums leading-none tracking-tight text-white outline-none caret-[#C084FC] sm:text-5xl'
                       }
                     />
@@ -499,7 +509,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm, baseHint }
                       }}
                       className={
                         compact
-                          ? 'pointer-events-auto rounded-xl px-1 text-2xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-4xl'
+                          ? 'pointer-events-auto rounded-xl px-1 text-[1.85rem] font-bold tabular-nums leading-none tracking-tight text-white sm:text-4xl'
                           : 'pointer-events-auto rounded-xl px-2 text-4xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-5xl'
                       }
                     >
@@ -509,7 +519,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm, baseHint }
                   <span
                     className={
                       compact
-                        ? 'pointer-events-none absolute left-1/2 top-full -translate-x-1/2 text-[0.5rem] font-semibold uppercase tracking-[0.16em] text-slate-500'
+                        ? 'pointer-events-none absolute left-1/2 top-full -translate-x-1/2 text-[0.58rem] font-semibold uppercase tracking-[0.16em] text-slate-500'
                         : 'pointer-events-none absolute left-1/2 top-full -translate-x-1/2 text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-slate-500'
                     }
                   >
