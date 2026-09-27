@@ -63,6 +63,7 @@ let leaveTimer = 0
 let orphanTimer = 0
 let lastStartHadGesture = false
 let lastError = ''
+let engine: 'worklet' | 'analyser' | 'none' = 'none'
 
 let audio: AudioContext | null = null
 let stream: MediaStream | null = null
@@ -74,6 +75,13 @@ let smooth: SmoothState = createSmoothState()
 let lastPublish = 0
 let lastTick = 0
 let agc = 2.4
+
+function pitchWorkletUrl(): string {
+  const base = import.meta.env.BASE_URL.endsWith('/')
+    ? import.meta.env.BASE_URL
+    : `${import.meta.env.BASE_URL}/`
+  return `${base}worklets/pitch-processor.js`
+}
 
 function emit(partial: Partial<TunerSnapshot>): void {
   snapshot = { ...snapshot, ...partial }
@@ -92,6 +100,9 @@ function exposeDebug(): void {
         context: audio?.state ?? 'none',
         pages: pageCount,
         lastError,
+        engine,
+        sampleRate: audio?.sampleRate ?? null,
+        workletUrl: pitchWorkletUrl(),
       }
     },
   })
@@ -100,11 +111,16 @@ function exposeDebug(): void {
 exposeDebug()
 
 async function loadPitchWorklet(ctx: AudioContext): Promise<boolean> {
-  if (!ctx.audioWorklet) return false
+  if (!ctx.audioWorklet) {
+    lastError = 'NO_AUDIO_WORKLET'
+    return false
+  }
+  const url = pitchWorkletUrl()
   try {
-    await ctx.audioWorklet.addModule(`${import.meta.env.BASE_URL}tuner/pitch-processor.js`)
+    await ctx.audioWorklet.addModule(url)
     return true
-  } catch {
+  } catch (error) {
+    lastError = `WORKLET: ${error instanceof Error ? error.message : String(error)} @ ${url}`
     return false
   }
 }
@@ -162,6 +178,7 @@ function teardown(nextStatus: TunerStatus | null): void {
   smooth = createSmoothState()
   makeup = null
   agc = 2.4
+  engine = 'none'
 
   const node = worklet
   worklet = null
@@ -345,7 +362,17 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
         outputLatency: 'outputLatency' in ctx ? ctx.outputLatency : null,
       })
     }
-    source = ctx.createMediaStreamSource(nextStream)
+    try {
+      source = ctx.createMediaStreamSource(nextStream)
+    } catch (error) {
+      lastError = `SOURCE: ${error instanceof Error ? error.message : String(error)}`
+      nextStream.getTracks().forEach((track) => track.stop())
+      if (audio === ctx) audio = null
+      await closeContext(ctx)
+      if (sessionId !== session) return
+      emit({ status: 'error', needsGesture: true, reading: null })
+      return
+    }
   }
 
   if (sessionId !== session) return
@@ -358,7 +385,13 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     }
   }
 
-  const workletOk = await loadPitchWorklet(ctx)
+  let workletOk = false
+  try {
+    workletOk = await loadPitchWorklet(ctx)
+  } catch (error) {
+    lastError = `WORKLET: ${error instanceof Error ? error.message : String(error)}`
+    workletOk = false
+  }
   if (sessionId !== session) {
     stream?.getTracks().forEach((item) => item.stop())
     if (stream && !tracksAreLive()) stream = null
@@ -382,19 +415,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     applyEstimate(hz, clarity, signal * agc, performance.now())
   }
 
-  if (workletOk) {
-    const node = new AudioWorkletNode(ctx, 'omnician-pitch', {
-      numberOfInputs: 1,
-      numberOfOutputs: 1,
-      outputChannelCount: [1],
-    })
-    node.port.onmessage = (event: MessageEvent<EstimateMsg>) => {
-      if (event.data?.type !== 'estimate') return
-      onEstimate(event.data.hz, event.data.clarity, event.data.rms)
-    }
-    makeup = connectRawInput(ctx, source, node)
-    worklet = node
-  } else {
+  const attachAnalyser = () => {
     const analyser = ctx.createAnalyser()
     analyser.fftSize = 4096
     analyser.smoothingTimeConstant = 0
@@ -412,10 +433,40 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
+    engine = 'analyser'
   }
 
-  const needsGesture = ctx.state === 'suspended'
-  emit({ status: 'listening', needsGesture, reading: null })
+  try {
+    if (workletOk) {
+      try {
+        const node = new AudioWorkletNode(ctx, 'omnician-pitch', {
+          numberOfInputs: 1,
+          numberOfOutputs: 1,
+          outputChannelCount: [1],
+        })
+        node.port.onmessage = (event: MessageEvent<EstimateMsg>) => {
+          if (event.data?.type !== 'estimate') return
+          onEstimate(event.data.hz, event.data.clarity, event.data.rms)
+        }
+        makeup = connectRawInput(ctx, source, node)
+        worklet = node
+        engine = 'worklet'
+      } catch (error) {
+        lastError = `WORKLET_NODE: ${error instanceof Error ? error.message : String(error)}`
+        attachAnalyser()
+      }
+    } else {
+      attachAnalyser()
+    }
+
+    const needsGesture = ctx.state === 'suspended'
+    emit({ status: 'listening', needsGesture, reading: null })
+  } catch (error) {
+    lastError = `${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error)}`
+    if (sessionId !== session) return
+    teardown(null)
+    emit({ status: 'error', needsGesture: true, reading: null })
+  }
 }
 
 export async function resumeTuner(): Promise<void> {
@@ -459,7 +510,7 @@ export function enterTunerPage(): void {
     window.clearTimeout(orphanTimer)
     orphanTimer = 0
   }
-  void startTuner()
+  void startTuner({ fromGesture: lastStartHadGesture })
 }
 
 export function leaveTunerPage(): void {

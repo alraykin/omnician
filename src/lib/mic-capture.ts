@@ -12,7 +12,6 @@ const RAW_AUDIO = {
   noiseSuppression: false,
   autoGainControl: false,
   channelCount: 1,
-  sampleRate: 48000,
   latency: 0.01,
   googEchoCancellation: false,
   googNoiseSuppression: false,
@@ -108,10 +107,12 @@ export function createTunerContextSync(): AudioContext {
     (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!Ctor) throw Object.assign(new Error('NO_AUDIO'), { code: 'unavailable' })
 
+  // Use the hardware rate. Forcing 48 kHz leaves Safari/iOS MediaStream
+  // sources silent, so the tuner looks "on" but never hears a note.
   try {
-    return new Ctor({ latencyHint: 'interactive', sampleRate: 48000 })
-  } catch {
     return new Ctor({ latencyHint: 'interactive' })
+  } catch {
+    return new Ctor()
   }
 }
 
@@ -144,5 +145,13 @@ export function connectRawInput(audio: AudioContext, source: AudioNode, dest: Au
   highpass.connect(compressor)
   compressor.connect(makeup)
   makeup.connect(dest)
+
+  // Chrome will process a worklet/analyser that is only an input sink.
+  // Safari and iOS WebKit skip those nodes unless the graph reaches destination.
+  // Keep the tap silent so the mic is never routed to the speakers.
+  const silent = audio.createGain()
+  silent.gain.value = 0
+  dest.connect(silent)
+  silent.connect(audio.destination)
   return makeup
 }
