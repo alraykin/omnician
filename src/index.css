@@ -458,6 +458,32 @@ body {
   }
 }
 
+.bpm-dial-compact {
+  --ring-radius: 46px;
+}
+
+.bpm-dial-compact .bpm-dial-face {
+  inset: 14px;
+}
+
+.bpm-dial-compact .bpm-dial-tick-label {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .bpm-dial-compact {
+    --ring-radius: 62px;
+  }
+
+  .bpm-dial-compact .bpm-dial-tick-label {
+    display: block;
+  }
+
+  .bpm-dial-compact .bpm-dial-face {
+    inset: 19px;
+  }
+}
+
 .bpm-dial {
   --ring-radius: 62px;
   touch-action: none;

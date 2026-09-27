@@ -506,6 +506,23 @@ function bakeClick(
   }
 }
 
+/** Count-in pip — not one of the playable click samples. */
+function bakePrecount(ctx: AudioContext): ClickPair {
+  return bakeClick(ctx, (data, sr, accent) => {
+    const f0 = accent ? 1860 : 1180
+    let p = 0
+    let p2 = 0
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sr
+      p += (Math.PI * 2 * (f0 - t * 420)) / sr
+      p2 += (Math.PI * 2 * f0 * 2.15) / sr
+      const tone = Math.sin(p) * env(t, 0.0002, accent ? 0.028 : 0.018)
+      const air = Math.sin(p2) * env(t, 0.00016, 0.01) * 0.18
+      data[i] = tanh(tone * 1.35 + air) * (accent ? 0.7 : 0.48)
+    }
+  })
+}
+
 function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
   const clicks: Record<ClickSoundId, ClickPair> = {
     wood: bakeClick(ctx, (data, sr, accent) => {
@@ -833,6 +850,7 @@ export class RhythmKit {
   private readonly reverbWet: GainNode
   private drums: Record<VoiceId, AudioBuffer>
   private clicks: Record<ClickSoundId, ClickPair>
+  private precountPair: ClickPair
   private readonly layers: LayerBank = {}
   private readonly rr = new Map<string, number>()
   private mix: KitMix = { ...DEFAULT_KIT_MIX }
@@ -855,6 +873,7 @@ export class RhythmKit {
     this.reverbWet = room.wet
     this.drums = bakeSynthDrums(ctx)
     this.clicks = bakeClicks(ctx)
+    this.precountPair = bakePrecount(ctx)
     this.ready = Promise.all([
       loadClicks(ctx, this.clicks).then((clicks) => {
         this.clicks = clicks
@@ -914,6 +933,12 @@ export class RhythmKit {
     const rate = onBeat ? baseRate : baseRate * 1.09
     const gain = onBeat ? baseGain : baseGain * 0.86
     this.fire(buffer, time, gain, rate)
+  }
+
+  /** One-bar count-in: dry synth pip, not the selected click sample. */
+  precount(time: number, strong: boolean): void {
+    const buffer = strong ? this.precountPair.accent : this.precountPair.normal
+    this.fire(buffer, time, strong ? 0.58 : 0.36, 1)
   }
 
   setMix(mix: KitMix): void {

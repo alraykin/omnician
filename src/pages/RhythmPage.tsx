@@ -1,4 +1,4 @@
-import { ChevronDown, Lock, Minus, Play, Plus, Square } from 'lucide-react'
+import { ChevronDown, Minus, Play, Plus, Square } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
@@ -10,6 +10,8 @@ import { CompactMeter } from '@/components/rhythm/CompactMeter'
 import { DrumBarStage } from '@/components/rhythm/DrumBarStage'
 import { KitFaders } from '@/components/rhythm/KitFaders'
 import { KitIntensityControl } from '@/components/rhythm/KitIntensity'
+import { SpeedBuilderPanel } from '@/components/rhythm/SpeedBuilderPanel'
+import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { usePlayhead, useRhythmEngine, type PlayheadStore } from '@/hooks/useRhythmEngine'
@@ -43,6 +45,7 @@ import {
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
+import { speakPercent, unlockSpeech, type SpeedBuilder, type SpeedBuilderCue } from '@/lib/speed-builder'
 import {
   RHYTHM_STYLES,
   barsForPreset,
@@ -72,6 +75,8 @@ export function RhythmPage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [accentEdit, setAccentEdit] = useState(false)
   const [pickerBeat, setPickerBeat] = useState<number | null>(null)
+  const [speedBuilder, setSpeedBuilder] = useState<SpeedBuilder>(prefs.speedBuilder)
+  const [tempoCue, setTempoCue] = useState<SpeedBuilderCue | null>(null)
   const tapTimes = useRef<number[]>([])
 
   const bars = mode === 'click' ? clickBars : drumBars
@@ -86,7 +91,7 @@ export function RhythmPage() {
     if (!current || pickerBeat >= current.beats) setPickerBeat(null)
   }, [current, mode, pickerBeat])
 
-  const { playheadStore, preview, previewClick, previewBar, previewClickBar, ensureKit, holdUntilCycle, halt } =
+  const { playheadStore, preview, previewClick, previewBar, previewClickBar, ensureKit, holdUntilCycle, liveBpm, halt } =
     useRhythmEngine({
     playing,
     bpm,
@@ -95,6 +100,14 @@ export function RhythmPage() {
     clickSound,
     kitMix,
     kitIntensity,
+    speedBuilder,
+    onTempoCue: (cue) => {
+      setTempoCue(cue)
+      if (!speedBuilder.announce) return
+      if (cue.reason === 'start') return
+      if (cue.reason === 'goal' && cue.pct === speedBuilder.fromPct) return
+      speakPercent(cue.pct)
+    },
   })
 
   const matched = current ? matchPreset(current) : null
@@ -131,6 +144,7 @@ export function RhythmPage() {
         presetId: matched?.id ?? presetId,
         kitMix,
         kitIntensity,
+        speedBuilder,
       })
     }, 220)
     return () => window.clearTimeout(id)
@@ -146,6 +160,7 @@ export function RhythmPage() {
     matched?.id,
     mode,
     presetId,
+    speedBuilder,
   ])
 
   const chooseMode = (next: RhythmMode) => {
@@ -266,6 +281,10 @@ export function RhythmPage() {
       setPlaying(false)
       return
     }
+    unlockSpeech()
+    if (mode === 'click' && speedBuilder.enabled && speedBuilder.announce) {
+      speakPercent(speedBuilder.fromPct)
+    }
     await ensureKit()
     setPlaying(true)
   }
@@ -276,7 +295,8 @@ export function RhythmPage() {
 
   return (
     <AppChrome align="fill" wide compact>
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {mode === 'click' ? <SpeedBuilderPopup cue={tempoCue} /> : null}
         <div
           data-rhythm-scroll
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:thin]"
@@ -318,36 +338,55 @@ export function RhythmPage() {
             data-rhythm-mode="click"
             className="mt-1.5 flex flex-col gap-1.5 lg:grid lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:items-start lg:gap-4"
           >
-            <section className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4 lg:col-start-1 lg:row-start-1">
-              <div className="flex flex-col items-center">
-                <BpmWheel value={bpm} onChange={(next) => changeBpm(next, true)} />
-                <p className="relative z-20 mt-1 text-[0.65rem] text-slate-500">{pulseLabel(current.beatUnit)}</p>
-                <div className="relative z-20 mt-1.5 flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    aria-label="Slower by 5"
-                    className="touch-manipulation"
-                    {...activateOnPointer(() => changeBpm(bpm - 5, true))}
-                  >
-                    <Minus className="size-3.5" />
-                    5
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" className="touch-manipulation" {...activateOnPointer(tapTempo)}>
-                    Tap
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    aria-label="Faster by 5"
-                    className="touch-manipulation"
-                    {...activateOnPointer(() => changeBpm(bpm + 5, true))}
-                  >
-                    <Plus className="size-3.5" />
-                    5
-                  </Button>
+            <section className="relative isolate z-0 rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 py-2 sm:px-4 lg:col-start-1 lg:row-start-1">
+              <div className="flex items-start gap-2">
+                <SpeedBuilderPanel value={speedBuilder} baseBpm={bpm} onChange={setSpeedBuilder} />
+                <div className="flex w-[7.6rem] shrink-0 flex-col items-center sm:w-[10.5rem] lg:w-[13.5rem]">
+                  <BpmWheel
+                    compact
+                    value={bpm}
+                    faceBpm={playing && speedBuilder.enabled ? liveBpm : undefined}
+                    onChange={(next) => changeBpm(next, true)}
+                  />
+                  <p className="relative z-20 mt-0.5 text-center text-[0.58rem] leading-4 text-slate-500">
+                    {pulseLabel(current.beatUnit)}
+                    {playing && speedBuilder.enabled && liveBpm !== bpm ? (
+                      <span className="block tabular-nums text-slate-600">base {bpm}</span>
+                    ) : null}
+                  </p>
+                  <div className="relative z-20 mt-1 flex items-center gap-0.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-label="Slower by 5"
+                      className="h-7 px-1.5 text-[0.7rem] touch-manipulation"
+                      {...activateOnPointer(() => changeBpm(bpm - 5, true))}
+                    >
+                      <Minus className="size-3" />
+                      5
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-[0.7rem] touch-manipulation"
+                      {...activateOnPointer(tapTempo)}
+                    >
+                      Tap
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-label="Faster by 5"
+                      className="h-7 px-1.5 text-[0.7rem] touch-manipulation"
+                      {...activateOnPointer(() => changeBpm(bpm + 5, true))}
+                    >
+                      <Plus className="size-3" />
+                      5
+                    </Button>
+                  </div>
                 </div>
               </div>
             </section>
@@ -645,16 +684,12 @@ export function RhythmPage() {
               store={playheadStore}
               playing={playing}
               bars={bars.length}
-              bpm={bpm}
+              bpm={mode === 'click' && speedBuilder.enabled && playing ? liveBpm : bpm}
               liveMeter={liveMeter}
               mode={mode}
               clickSound={clickSound}
               holdUntilCycle={holdUntilCycle}
             />
-            <span className="inline-flex shrink-0 items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-wider text-slate-500">
-              <Lock className="size-3" />
-              Speed Builder
-            </span>
           </div>
           <Button
             type="button"
