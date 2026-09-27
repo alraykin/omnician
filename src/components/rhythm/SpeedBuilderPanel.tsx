@@ -205,10 +205,24 @@ export function SpeedBuilderPanel({
           </p>
         </div>
       </div>
-      <div className={cn('mt-1 flex flex-wrap gap-1 pt-0.5', !value.enabled && 'opacity-45')}>
-        <Toggle label="Precount" on={value.precount} onChange={(precount) => patch({ precount })} />
-        <Toggle label="Announce" on={value.announce} onChange={(announce) => patch({ announce })} />
-      </div>
+    </div>
+  )
+}
+
+export function SpeedBuilderToggles({
+  value,
+  onChange,
+  className,
+}: {
+  value: SpeedBuilder
+  onChange: (next: SpeedBuilder) => void
+  className?: string
+}) {
+  const patch = (partial: Partial<SpeedBuilder>) => onChange({ ...value, ...partial })
+  return (
+    <div className={cn('flex flex-wrap items-center gap-1 self-center', !value.enabled && 'opacity-45', className)}>
+      <Toggle label="Precount" on={value.precount} onChange={(precount) => patch({ precount })} />
+      <Toggle label="Announce" on={value.announce} onChange={(announce) => patch({ announce })} />
     </div>
   )
 }
