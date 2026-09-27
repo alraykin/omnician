@@ -44,7 +44,7 @@ import {
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
-import { speakPercent, unlockSpeech, type SpeedBuilder, type SpeedBuilderCue } from '@/lib/speed-builder'
+import { unlockSpeech, type SpeedBuilder, type SpeedBuilderCue } from '@/lib/speed-builder'
 import {
   RHYTHM_STYLES,
   barsForPreset,
@@ -102,10 +102,6 @@ export function RhythmPage() {
     speedBuilder,
     onTempoCue: (cue) => {
       setTempoCue(cue)
-      if (!speedBuilder.announce) return
-      if (cue.reason === 'start') return
-      if (cue.reason === 'goal' && cue.pct === speedBuilder.fromPct) return
-      speakPercent(cue.pct)
     },
   })
 
@@ -129,6 +125,11 @@ export function RhythmPage() {
       document.removeEventListener('visibilitychange', resume)
     }
   }, [ensureKit])
+
+  useEffect(() => {
+    if (!speedBuilder.announce) return
+    void ensureKit().then((kit) => kit?.preloadAnnounce())
+  }, [ensureKit, speedBuilder.announce])
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -281,10 +282,11 @@ export function RhythmPage() {
       return
     }
     unlockSpeech()
+    const kit = await ensureKit()
     if (speedBuilder.enabled && speedBuilder.announce) {
-      speakPercent(speedBuilder.fromPct)
+      kit?.preloadAnnounce()
+      await kit?.ensureAnnounce(speedBuilder.fromPct)
     }
-    await ensureKit()
     setPlaying(true)
   }
 

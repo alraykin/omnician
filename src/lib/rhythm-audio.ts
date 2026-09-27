@@ -7,6 +7,7 @@ import {
 } from '@/lib/kit-intensity'
 import { DEFAULT_KIT_MIX, KIT_VOICE_GROUP, mixFaderToGain, type KitMix } from '@/lib/kit-mix'
 import { CLICK_SOUNDS, type ClickSoundId, type VoiceId } from '@/lib/rhythm'
+import { clampSbPct, MAX_SB_PCT, MIN_SB_PCT, speakPercent } from '@/lib/speed-builder'
 
 type AudioContextCtor = typeof AudioContext
 
@@ -440,6 +441,10 @@ function crocellUrl(file: string): string {
   return `${import.meta.env.BASE_URL}rhythm/drums/crocell/${file}`
 }
 
+function announceUrl(pct: number): string {
+  return `${import.meta.env.BASE_URL}rhythm/announce/kristin/${String(clampSbPct(pct)).padStart(3, '0')}.mp3`
+}
+
 async function loadCrocellManifest(): Promise<CrocellFile[]> {
   const response = await fetch(crocellUrl('manifest.json'), { cache: 'force-cache' })
   if (!response.ok) throw new Error('crocell manifest')
@@ -857,6 +862,9 @@ export class RhythmKit {
   private openHat: { gain: GainNode; start: number } | null = null
   private closedHat: { gain: GainNode; start: number } | null = null
   private sources: AudioBufferSourceNode[] = []
+  private readonly announceBuffers = new Map<number, AudioBuffer>()
+  private readonly announceLoads = new Map<number, Promise<AudioBuffer | null>>()
+  private announceWarmed = false
   private readonly ready: Promise<void>
 
   constructor(ctx: AudioContext) {
@@ -939,6 +947,47 @@ export class RhythmKit {
   precount(time: number, strong: boolean): void {
     const buffer = strong ? this.precountPair.accent : this.precountPair.normal
     this.fire(buffer, time, strong ? 0.58 : 0.36, 1)
+  }
+
+  /** Spoken percent through the dry master. Does not move the beat clock. */
+  announce(time: number, pct: number): void {
+    const n = clampSbPct(pct)
+    const buffer = this.announceBuffers.get(n)
+    if (buffer) {
+      this.fire(buffer, time, 0.46, 1)
+      return
+    }
+    void this.ensureAnnounce(n).then((ready) => {
+      if (ready && time > this.ctx.currentTime + 0.012) {
+        this.fire(ready, time, 0.46, 1)
+        return
+      }
+      speakPercent(n)
+    })
+  }
+
+  preloadAnnounce(): void {
+    if (this.announceWarmed) return
+    this.announceWarmed = true
+    for (let n = MIN_SB_PCT; n <= MAX_SB_PCT; n += 1) {
+      void this.ensureAnnounce(n)
+    }
+  }
+
+  async ensureAnnounce(pct: number): Promise<AudioBuffer | null> {
+    const n = clampSbPct(pct)
+    const hit = this.announceBuffers.get(n)
+    if (hit) return hit
+    const pending = this.announceLoads.get(n)
+    if (pending) return pending
+    const load = loadSample(this.ctx, announceUrl(n))
+      .then((buffer) => {
+        this.announceBuffers.set(n, buffer)
+        return buffer
+      })
+      .catch(() => null)
+    this.announceLoads.set(n, load)
+    return load
   }
 
   setMix(mix: KitMix): void {

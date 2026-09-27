@@ -326,6 +326,7 @@ export function useRhythmEngine({
         })
         sbPhaseRef.current = sb.precount ? 'precount' : 'pattern'
         precountBeatRef.current = 0
+        if (sb.announce) kit.announce(nextTimeRef.current, sb.fromPct)
       } else {
         sbPhaseRef.current = 'pattern'
       }
@@ -424,7 +425,7 @@ export function useRhythmEngine({
         barRef.current = 0
       }
 
-      const advanceSpeedBuilder = () => {
+      const advanceSpeedBuilder = (atTime: number) => {
         if (!sbSessionRef.current) return false
         const cfg = speedBuilderRef.current
         if (!cfg.enabled) {
@@ -445,6 +446,7 @@ export function useRhythmEngine({
           bpm: playbackBpmRef.current,
           reason: next === cfg.toPct ? 'goal' : 'step',
         })
+        if (cfg.announce) kit.announce(atTime, next)
         if (cfg.precount) {
           beginPrecount()
           return true
@@ -506,7 +508,7 @@ export function useRhythmEngine({
             if (wrapped === 0) {
               commitPendingCycle()
               barRef.current = 0
-              if (advanceSpeedBuilder()) {
+              if (advanceSpeedBuilder(barEnd)) {
                 nextTimeRef.current = barEnd
                 continue
               }

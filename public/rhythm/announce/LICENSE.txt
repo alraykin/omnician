@@ -1,0 +1,62 @@
+Speed Builder Announce voice clips
+=================================
+
+These short spoken-percent files (10–200) are used when Announce is on.
+They play through Omnician’s Web Audio engine so timing stays with the
+click or drums and no network call is needed.
+
+Voice
+-----
+Piper voice **en_US-kristin-medium**
+https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/kristin/medium
+
+- Language: US English, single female speaker
+- Quality: medium, 22,050 Hz
+- Trained from scratch (not fine-tuned from another commercial voice)
+
+Licenses (commercial use allowed)
+---------------------------------
+1. **Voice model weights** — MIT License
+   rhasspy/piper-voices
+   https://huggingface.co/rhasspy/piper-voices
+   https://github.com/rhasspy/piper-voices
+
+2. **Training recordings** — public domain (LibriVox)
+   Dataset assembled by Bryce Beattie from LibriVox.org
+   https://librivox.org
+   Training notes: https://brycebeattie.com/files/tts/
+   Upstream MODEL_CARD: all source recordings are public domain.
+
+3. **Piper synthesizer** (used only to render these clips; not shipped)
+   https://github.com/rhasspy/piper
+   The 2023.11.14-2 Linux binary used for rendering is from the
+   original Piper project. The shipped product contains only the
+   rendered MP3s, not the synthesizer or ONNX weights.
+
+Rendered clips
+--------------
+Each file is `NNN.mp3` for integer percent NNN (010–200), spoken as
+“{words} percent” (for example 085 = “eighty-five percent”).
+Clips were silence-trimmed, loudness-normalized (about −17 LUFS,
+true peak −1.5 dB), and encoded mono MP3 at 32 kbps.
+
+MIT License text (voice model)
+------------------------------
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the
+“Software”), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
