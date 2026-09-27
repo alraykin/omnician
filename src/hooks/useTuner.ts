@@ -7,12 +7,13 @@ import {
   startTuner,
   stopTuner,
   subscribeTuner,
+  type TunerDebugInfo,
   type TunerReading,
   type TunerSnapshot,
   type TunerStatus,
 } from '@/lib/tuner-session'
 
-export type { TunerReading, TunerStatus }
+export type { TunerDebugInfo, TunerReading, TunerStatus }
 
 export function useTuner(a4Hz = A4_HZ) {
   const [state, setState] = useState<TunerSnapshot>(getTunerSnapshot)
@@ -27,6 +28,7 @@ export function useTuner(a4Hz = A4_HZ) {
     status: state.status,
     reading: state.reading,
     needsGesture: state.needsGesture,
+    debug: state.debug,
     start: () => startTuner({ fromGesture: true }),
     stop: stopTuner,
   }

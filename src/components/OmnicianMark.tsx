@@ -18,6 +18,7 @@ export function OmnicianMark({ className, title = 'Omnician' }: OmnicianMarkProp
 export function OmnicianWordmark({ className }: { className?: string }) {
   return (
     <img
+      data-brand-logo
       src="/brand/omnician-wordmark.png"
       alt="Omnician"
       className={cn('block h-auto w-auto max-w-full select-none bg-transparent', className)}

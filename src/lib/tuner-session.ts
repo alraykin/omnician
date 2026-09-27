@@ -1,15 +1,20 @@
 import { analyzeFrequency, A4_HZ, rms } from '@/lib/notes'
 import {
+  captureChannelCount,
+  captureDeviceLabel,
   captureSampleRate,
   connectRawInput,
   createTunerContextSync,
   isPermissionError,
   isUnavailableError,
+  loadInputDeviceId,
   logCapture,
   requestRawMic,
+  saveInputDeviceId,
 } from '@/lib/mic-capture'
+import { createPitchScratch, estimateFromFilled } from '@/lib/mpm'
+import { filterBuffer } from '@/lib/pitch-filter'
 import { createSmoothState, pushEstimate, type SmoothState } from '@/lib/pitch-smooth'
-import { createPitchScratch, estimateFromFilled } from '@/lib/yin'
 
 const UI_PERIOD_MS = 16
 const LEAVE_STOP_MS = 80
@@ -27,10 +32,24 @@ export type TunerReading = ReturnType<typeof analyzeFrequency> & {
   clarity: number
 }
 
+export type TunerDebugInfo = {
+  sampleRate: number | null
+  captureRate: number | null
+  channelCount: number | null
+  deviceLabel: string
+  rms: number
+  rawHz: number
+  clarity: number
+  note: string
+  cents: number | null
+  engine: 'worklet' | 'analyser' | 'none'
+}
+
 export type TunerSnapshot = {
   status: TunerStatus
   reading: TunerReading | null
   needsGesture: boolean
+  debug: TunerDebugInfo
 }
 
 type EstimateMsg = {
@@ -48,10 +67,24 @@ type StartOptions = {
 
 const listeners = new Set<(snapshot: TunerSnapshot) => void>()
 
+const emptyDebug = (): TunerDebugInfo => ({
+  sampleRate: null,
+  captureRate: null,
+  channelCount: null,
+  deviceLabel: '—',
+  rms: 0,
+  rawHz: 0,
+  clarity: 0,
+  note: '—',
+  cents: null,
+  engine: 'none',
+})
+
 let snapshot: TunerSnapshot = {
   status: 'idle',
   reading: null,
   needsGesture: false,
+  debug: emptyDebug(),
 }
 
 let a4Hz = A4_HZ
@@ -62,6 +95,9 @@ let orphanTimer = 0
 let lastStartHadGesture = false
 let lastError = ''
 let lastCaptureRate: number | null = null
+let lastChannelCount: number | null = null
+let lastDeviceLabel = '—'
+let preferredDeviceId: string | null = loadInputDeviceId()
 let engine: 'worklet' | 'analyser' | 'none' = 'none'
 
 let audio: AudioContext | null = null
@@ -85,6 +121,18 @@ function emit(partial: Partial<TunerSnapshot>): void {
   for (const listener of listeners) listener(snapshot)
 }
 
+function currentDebug(partial: Partial<TunerDebugInfo> = {}): TunerDebugInfo {
+  return {
+    ...snapshot.debug,
+    sampleRate: audio?.sampleRate ?? snapshot.debug.sampleRate,
+    captureRate: lastCaptureRate,
+    channelCount: lastChannelCount,
+    deviceLabel: lastDeviceLabel,
+    engine,
+    ...partial,
+  }
+}
+
 function exposeDebug(): void {
   if (typeof window === 'undefined') return
   Object.defineProperty(window, '__OMNICIAN_TUNER__', {
@@ -100,7 +148,10 @@ function exposeDebug(): void {
         engine,
         sampleRate: audio?.sampleRate ?? null,
         captureRate: lastCaptureRate,
+        channelCount: lastChannelCount,
+        deviceLabel: lastDeviceLabel,
         workletUrl: pitchWorkletUrl(),
+        debug: snapshot.debug,
       }
     },
   })
@@ -142,20 +193,39 @@ function applyEstimate(hz: number, clarity: number, signal: number, now: number)
   lastTick = now
   const dt = Math.min(0.05, Math.max(0.003, (now - prev) / 1000))
   const next = pushEstimate(smooth, hz, clarity, signal, now, dt)
+  const rawNote = hz > 0 ? analyzeFrequency(hz, a4Hz) : null
+  const debug = currentDebug({
+    rms: signal,
+    rawHz: hz,
+    clarity,
+    note: rawNote ? `${rawNote.sharpName}${rawNote.octave}` : '—',
+    cents: rawNote ? rawNote.cents : null,
+  })
 
   if (next.hz === null) {
     if (snapshot.reading !== null && now - lastPublish > 32) {
       lastPublish = now
-      emit({ reading: null })
+      emit({ reading: null, debug })
+      return
+    }
+    if (now - lastPublish > 80) {
+      lastPublish = now
+      emit({ debug })
     }
     return
   }
 
   const due = next.snapped || now - lastPublish >= UI_PERIOD_MS
-  if (!due) return
+  if (!due) {
+    if (now - lastPublish > 50) {
+      lastPublish = now
+      emit({ debug })
+    }
+    return
+  }
   lastPublish = now
   const note = analyzeFrequency(next.hz, a4Hz)
-  emit({ reading: { ...note, clarity } })
+  emit({ reading: { ...note, clarity }, debug })
 }
 
 async function closeContext(ctx: AudioContext | null): Promise<void> {
@@ -175,6 +245,7 @@ function teardown(nextStatus: TunerStatus | null): void {
   lastTick = 0
   smooth = createSmoothState()
   engine = 'none'
+  lastDeviceLabel = stream ? lastDeviceLabel : '—'
 
   const node = worklet
   worklet = null
@@ -250,6 +321,18 @@ export function setTunerA4(next: number): void {
   a4Hz = next
 }
 
+export function getTunerInputDeviceId(): string | null {
+  return preferredDeviceId
+}
+
+export async function setTunerInputDevice(id: string | null): Promise<void> {
+  preferredDeviceId = id
+  saveInputDeviceId(id)
+  if (pageCount > 0) {
+    await startTuner({ force: true, fromGesture: lastStartHadGesture })
+  }
+}
+
 export function stopTuner(): void {
   if (leaveTimer) {
     window.clearTimeout(leaveTimer)
@@ -315,7 +398,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
   } else {
     let nextStream: MediaStream
     try {
-      const streamPromise = requestRawMic()
+      const streamPromise = requestRawMic(preferredDeviceId)
       const [resolved] = await Promise.all([streamPromise, resumePromise])
       nextStream = resolved
     } catch (error) {
@@ -350,6 +433,8 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     stream = nextStream
     const track = nextStream.getAudioTracks()[0]
     const trackRate = captureSampleRate(nextStream)
+    lastChannelCount = captureChannelCount(nextStream)
+    lastDeviceLabel = captureDeviceLabel(nextStream)
     if (trackRate) lastCaptureRate = trackRate
     if (trackRate && Math.abs(trackRate - ctx.sampleRate) > 50) {
       const replacement = createTunerContextSync(trackRate)
@@ -422,13 +507,16 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     connectRawInput(ctx, source, analyser)
     const scratch = createPitchScratch()
     const buffer = new Float32Array(8192)
+    const filtered = new Float32Array(8192)
     let prevHz: number | null = null
     const tick = () => {
       if (sessionId !== session) return
       analyser.getFloatTimeDomainData(buffer)
-      const signal = rms(buffer.subarray(buffer.length - 512))
-      const estimate = estimateFromFilled(buffer, buffer.length, ctx.sampleRate, scratch, prevHz)
-      if (estimate.frequency > 0 && estimate.clarity >= 0.55) prevHz = estimate.frequency
+      filterBuffer(buffer, ctx.sampleRate, filtered)
+      const signal = rms(filtered.subarray(filtered.length - 512))
+      const estimate = estimateFromFilled(filtered, filtered.length, ctx.sampleRate, scratch, prevHz)
+      if (estimate.frequency > 0) prevHz = estimate.frequency
+      else if (signal < 0.002) prevHz = null
       onEstimate(estimate.frequency, estimate.clarity, signal)
       raf = requestAnimationFrame(tick)
     }
@@ -447,8 +535,9 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
           channelCountMode: 'explicit',
           channelInterpretation: 'speakers',
         })
-        node.port.onmessage = (event: MessageEvent<EstimateMsg>) => {
+        node.port.onmessage = (event: MessageEvent<EstimateMsg & { channelCount?: number }>) => {
           if (event.data?.type !== 'estimate') return
+          if (typeof event.data.channelCount === 'number') lastChannelCount = event.data.channelCount
           onEstimate(event.data.hz, event.data.clarity, event.data.rms)
         }
         connectRawInput(ctx, source, node)
@@ -463,7 +552,12 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     }
 
     const needsGesture = ctx.state === 'suspended'
-    emit({ status: 'listening', needsGesture, reading: null })
+    emit({
+      status: 'listening',
+      needsGesture,
+      reading: null,
+      debug: currentDebug(),
+    })
   } catch (error) {
     lastError = `${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error)}`
     if (sessionId !== session) return

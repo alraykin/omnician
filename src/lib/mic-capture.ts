@@ -7,18 +7,26 @@ type ChromeAudioTrack = MediaTrackConstraints & {
   latency?: number
 }
 
-const RAW_AUDIO = {
-  echoCancellation: false,
-  noiseSuppression: false,
-  autoGainControl: false,
-  channelCount: 1,
-  latency: 0.01,
-  googEchoCancellation: false,
-  googNoiseSuppression: false,
-  googAutoGainControl: false,
-  googHighpassFilter: false,
-  googTypingNoiseDetection: false,
-} as ChromeAudioTrack
+const INPUT_KEY = 'omnician.tuner-input.v1'
+
+function rawAudio(deviceId?: string | null): ChromeAudioTrack {
+  const constraints: ChromeAudioTrack = {
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+    channelCount: { ideal: 2, max: 2 },
+    latency: 0.01,
+    googEchoCancellation: false,
+    googNoiseSuppression: false,
+    googAutoGainControl: false,
+    googHighpassFilter: false,
+    googTypingNoiseDetection: false,
+  }
+  if (deviceId) {
+    ;(constraints as MediaTrackConstraints).deviceId = { exact: deviceId }
+  }
+  return constraints
+}
 
 export type CaptureReport = {
   settings: MediaTrackSettings
@@ -40,19 +48,55 @@ export function logCapture(report: CaptureReport): void {
   })
 }
 
-export async function requestRawMic(): Promise<MediaStream> {
+export function loadInputDeviceId(): string | null {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(INPUT_KEY)
+    return raw && raw.length > 0 ? raw : null
+  } catch {
+    return null
+  }
+}
+
+export function saveInputDeviceId(id: string | null): void {
+  if (typeof localStorage === 'undefined') return
+  if (!id) localStorage.removeItem(INPUT_KEY)
+  else localStorage.setItem(INPUT_KEY, id)
+}
+
+export async function listAudioInputs(): Promise<MediaDeviceInfo[]> {
+  if (!navigator.mediaDevices?.enumerateDevices) return []
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    return devices.filter((item) => item.kind === 'audioinput')
+  } catch {
+    return []
+  }
+}
+
+export async function requestRawMic(deviceId?: string | null): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw Object.assign(new Error('NO_MIC_API'), { code: 'unavailable' })
   }
 
+  const preferred = deviceId ?? loadInputDeviceId()
   const attempts: MediaStreamConstraints[] = [
-    { audio: RAW_AUDIO, video: false },
+    { audio: rawAudio(preferred), video: false },
     {
       audio: {
         echoCancellation: false,
         noiseSuppression: false,
         autoGainControl: false,
-        channelCount: 1,
+        channelCount: 2,
+        ...(preferred ? { deviceId: { exact: preferred } } : {}),
+      },
+      video: false,
+    },
+    {
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
       },
       video: false,
     },
@@ -106,14 +150,22 @@ export function captureSampleRate(stream: MediaStream): number | null {
   return typeof rate === 'number' && rate >= 8000 && rate <= 192000 ? rate : null
 }
 
+export function captureChannelCount(stream: MediaStream): number | null {
+  const count = stream.getAudioTracks()[0]?.getSettings()?.channelCount
+  return typeof count === 'number' && count > 0 ? count : null
+}
+
+export function captureDeviceLabel(stream: MediaStream): string {
+  const track = stream.getAudioTracks()[0]
+  return track?.label || 'Default input'
+}
+
 export function createTunerContextSync(sampleRate?: number | null): AudioContext {
   const Ctor =
     window.AudioContext ??
     (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!Ctor) throw Object.assign(new Error('NO_AUDIO'), { code: 'unavailable' })
 
-  // Match the interface/mic rate when we know it. A 44.1 kHz context reading
-  // a 48/96 kHz stream (or the reverse) makes every note land far away.
   if (sampleRate) {
     try {
       return new Ctor({ latencyHint: 'interactive', sampleRate })
@@ -136,7 +188,7 @@ export async function createTunerContext(): Promise<AudioContext> {
   return audio
 }
 
-/** Mono downmix + high-pass. No compressor — it added harmonics that threw the detector. */
+/** Mono downmix + 25 Hz high-pass + 1.5 kHz low-pass. No compressor or AGC. */
 export function connectRawInput(audio: AudioContext, source: AudioNode, dest: AudioNode): GainNode {
   const mono = audio.createGain()
   mono.channelCount = 1
@@ -145,28 +197,23 @@ export function connectRawInput(audio: AudioContext, source: AudioNode, dest: Au
 
   const highpass = audio.createBiquadFilter()
   highpass.type = 'highpass'
-  highpass.frequency.value = 40
-  highpass.Q.value = 0.7
-  highpass.channelCount = 1
-  highpass.channelCountMode = 'explicit'
-  highpass.channelInterpretation = 'speakers'
+  highpass.frequency.value = 25
+  highpass.Q.value = 0.707
 
-  const makeup = audio.createGain()
-  makeup.gain.value = 1.8
-  makeup.channelCount = 1
-  makeup.channelCountMode = 'explicit'
+  const lowpass = audio.createBiquadFilter()
+  lowpass.type = 'lowpass'
+  lowpass.frequency.value = 1500
+  lowpass.Q.value = 0.707
 
   source.connect(mono)
   mono.connect(highpass)
-  highpass.connect(makeup)
-  makeup.connect(dest)
+  highpass.connect(lowpass)
+  lowpass.connect(dest)
 
-  // Chrome will process a worklet/analyser that is only an input sink.
-  // Safari and iOS WebKit skip those nodes unless the graph reaches destination.
-  // Keep the tap silent so the mic is never routed to the speakers.
+  // Safari/WebKit skip worklets that never reach destination.
   const silent = audio.createGain()
   silent.gain.value = 0
   dest.connect(silent)
   silent.connect(audio.destination)
-  return makeup
+  return mono
 }

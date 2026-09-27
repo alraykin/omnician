@@ -5,6 +5,8 @@ import { AppChrome } from '@/components/AppChrome'
 import { ChromaticCalibration } from '@/components/tuner/ChromaticCalibration'
 import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
 import { Headstock } from '@/components/tuner/Headstock'
+import { InputPicker } from '@/components/tuner/InputPicker'
+import { TunerDebugOverlay } from '@/components/tuner/TunerDebugOverlay'
 import { TunerGauge } from '@/components/tuner/TunerGauge'
 import { TuningSheet } from '@/components/tuner/TuningSheet'
 import { useCustomTunings } from '@/hooks/useCustomTunings'
@@ -30,6 +32,7 @@ import {
   type InstrumentId,
 } from '@/lib/presets'
 import { playReferenceTone } from '@/lib/reference-tone'
+import { armLogoDebugToggle, subscribeTunerDebug } from '@/lib/tuner-debug'
 import {
   enterTunerPage,
   leaveTunerPage,
@@ -51,10 +54,14 @@ export function TunerPage() {
   const [autoId, setAutoId] = useState<string | null>(null)
   const [tunedIds, setTunedIds] = useState<Set<string>>(() => new Set())
   const [inTune, setInTune] = useState(false)
+  const [showDebug, setShowDebug] = useState(false)
   const inTuneRef = useRef(false)
   const autoPendingRef = useRef<{ id: string; hits: number } | null>(null)
 
-  const { status, reading, needsGesture } = useTuner(a4Hz)
+  const { status, reading, needsGesture, debug } = useTuner(a4Hz)
+
+  useEffect(() => subscribeTunerDebug(setShowDebug), [])
+  useEffect(() => armLogoDebugToggle(), [])
 
   useEffect(() => {
     enterTunerPage()
@@ -360,6 +367,10 @@ export function TunerPage() {
           >
             {statusMessage(status, live, instrumentMode, autoString, needsGesture)}
           </p>
+          <div className="w-full lg:col-span-2">
+            <InputPicker />
+            {showDebug ? <TunerDebugOverlay debug={debug} /> : null}
+          </div>
         </section>
       </div>
 
