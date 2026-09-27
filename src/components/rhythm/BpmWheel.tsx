@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { clampBpm, MAX_BPM, MIN_BPM } from '@/lib/rhythm'
-import { cn } from '@/lib/utils'
+import { DRAG_DEADZONE_PX, HOLD_TO_DRAG_MS, accumulatedScroll, cn } from '@/lib/utils'
 
 type BpmWheelProps = {
   value: number
@@ -85,6 +85,16 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
   const emittedRef = useRef(value)
   const onChangeRef = useRef(onChange)
   const dragRef = useRef<{ x: number; y: number; angle: number } | null>(null)
+  const pendingRef = useRef<{
+    pointerId: number
+    x: number
+    y: number
+    scroll: number
+    armed: boolean
+    ignored: boolean
+    inner: boolean
+  } | null>(null)
+  const holdTimerRef = useRef(0)
   const samplesRef = useRef<Sample[]>([])
   const movedRef = useRef(false)
   const velRef = useRef(0)
@@ -201,7 +211,13 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
     setShown(value)
   }, [value])
 
-  useEffect(() => () => stopCoast(), [])
+  useEffect(
+    () => () => {
+      window.clearTimeout(holdTimerRef.current)
+      stopCoast()
+    },
+    [],
+  )
 
   const hitCenter = () => {
     const node = hitRef.current
@@ -278,16 +294,72 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
           tabIndex={editing ? -1 : 0}
           data-visual-bpm={visual.toFixed(2)}
           data-coasting={coasting ? 'true' : 'false'}
+          data-spinning={dragging ? 'true' : 'false'}
           data-tempo-hit="true"
           className="bpm-dial-hit absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none focus-visible:[&_.bpm-dial]:ring-2 focus-visible:[&_.bpm-dial]:ring-[#A855F7]/70"
           onPointerDown={(event) => {
             movedRef.current = false
-            stopCoast()
-            snapToEmitted()
             if (editing) return
             if ((event.target as HTMLElement).closest('button, input')) return
+            if (event.button !== 0) return
+            const { x: cx, y: cy } = hitCenter()
+            const radius = Math.hypot(event.clientX - cx, event.clientY - cy)
+            pendingRef.current = {
+              pointerId: event.pointerId,
+              x: event.clientX,
+              y: event.clientY,
+              scroll: accumulatedScroll(event.currentTarget),
+              armed: false,
+              ignored: false,
+              inner: radius < MIN_RADIUS,
+            }
+            window.clearTimeout(holdTimerRef.current)
+            holdTimerRef.current = window.setTimeout(() => {
+              const pending = pendingRef.current
+              if (!pending || pending.ignored || pending.inner) return
+              pending.armed = true
+            }, HOLD_TO_DRAG_MS)
+          }}
+          onPointerMove={(event) => {
+            const drag = dragRef.current
+            if (drag && !editing) {
+              const { x: cx, y: cy } = hitCenter()
+              const nextAngle = pointAngle(event.clientX, event.clientY, cx, cy)
+              samplesRef.current.push({ t: event.timeStamp, x: event.clientX, y: event.clientY })
+              if (samplesRef.current.length > 24) samplesRef.current.shift()
+              const dist = Math.hypot(event.clientX - drag.x, event.clientY - drag.y)
+              if (dist > 2) movedRef.current = true
+              drag.x = event.clientX
+              drag.y = event.clientY
+              if (nextAngle == null) return
+              const delta = unwrapDelta(drag.angle, nextAngle)
+              drag.angle = nextAngle
+              emitIfNeeded(visualRef.current + delta / RAD_PER_BPM)
+              return
+            }
+
+            const pending = pendingRef.current
+            if (!pending || pending.pointerId !== event.pointerId || editing) return
+            if (pending.ignored || pending.inner) return
+            if (Math.abs(accumulatedScroll(event.currentTarget) - pending.scroll) > 1) {
+              pending.ignored = true
+              window.clearTimeout(holdTimerRef.current)
+              return
+            }
+            const dx = event.clientX - pending.x
+            const dy = event.clientY - pending.y
+            const dist = Math.hypot(dx, dy)
+            if (dist < DRAG_DEADZONE_PX) return
+            const vertical = Math.abs(dy) > Math.abs(dx) * 1.2
+            if (!pending.armed && vertical) {
+              pending.ignored = true
+              window.clearTimeout(holdTimerRef.current)
+              return
+            }
             event.preventDefault()
             event.currentTarget.setPointerCapture(event.pointerId)
+            stopCoast()
+            snapToEmitted()
             const { x: cx, y: cy } = hitCenter()
             const angle = pointAngle(event.clientX, event.clientY, cx, cy)
             dragRef.current = {
@@ -298,25 +370,19 @@ export function BpmWheel({ value, onChange }: BpmWheelProps) {
             samplesRef.current = [{ t: event.timeStamp, x: event.clientX, y: event.clientY }]
             draggingRef.current = true
             setDragging(true)
+            pendingRef.current = null
+            window.clearTimeout(holdTimerRef.current)
           }}
-          onPointerMove={(event) => {
-            const drag = dragRef.current
-            if (!drag || editing) return
-            const { x: cx, y: cy } = hitCenter()
-            const nextAngle = pointAngle(event.clientX, event.clientY, cx, cy)
-            samplesRef.current.push({ t: event.timeStamp, x: event.clientX, y: event.clientY })
-            if (samplesRef.current.length > 24) samplesRef.current.shift()
-            const dist = Math.hypot(event.clientX - drag.x, event.clientY - drag.y)
-            if (dist > 2) movedRef.current = true
-            drag.x = event.clientX
-            drag.y = event.clientY
-            if (nextAngle == null) return
-            const delta = unwrapDelta(drag.angle, nextAngle)
-            drag.angle = nextAngle
-            emitIfNeeded(visualRef.current + delta / RAD_PER_BPM)
+          onPointerUp={(event) => {
+            window.clearTimeout(holdTimerRef.current)
+            pendingRef.current = null
+            if (dragRef.current) endDrag(true, event)
           }}
-          onPointerUp={(event) => endDrag(true, event)}
-          onPointerCancel={() => endDrag(false)}
+          onPointerCancel={() => {
+            window.clearTimeout(holdTimerRef.current)
+            pendingRef.current = null
+            if (dragRef.current) endDrag(false)
+          }}
           onKeyDown={(event) => {
             if (editing) return
             if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {

@@ -1,5 +1,8 @@
+import { useRef } from 'react'
+
 import { A4_RANGE } from '@/lib/custom-presets'
 import { A4_HZ } from '@/lib/notes'
+import { DRAG_DEADZONE_PX, accumulatedScroll } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 type ChromaticCalibrationProps = {
@@ -13,6 +16,9 @@ export function ChromaticCalibration({
   onChange,
   compact = false,
 }: ChromaticCalibrationProps) {
+  const liveRef = useRef(false)
+  const startRef = useRef<{ x: number; y: number; scroll: number; value: number } | null>(null)
+
   return (
     <div
       className={
@@ -42,7 +48,42 @@ export function ChromaticCalibration({
         max={A4_RANGE.max}
         step={1}
         value={a4Hz}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onPointerDown={(event) => {
+          liveRef.current = false
+          startRef.current = {
+            x: event.clientX,
+            y: event.clientY,
+            scroll: accumulatedScroll(event.currentTarget),
+            value: a4Hz,
+          }
+        }}
+        onPointerMove={(event) => {
+          const start = startRef.current
+          if (!start) return
+          if (Math.abs(accumulatedScroll(event.currentTarget) - start.scroll) > 1) {
+            liveRef.current = false
+            return
+          }
+          const dx = event.clientX - start.x
+          const dy = event.clientY - start.y
+          if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
+          liveRef.current = Math.abs(dx) >= Math.abs(dy)
+        }}
+        onPointerUp={() => {
+          liveRef.current = false
+          startRef.current = null
+        }}
+        onPointerCancel={() => {
+          liveRef.current = false
+          startRef.current = null
+        }}
+        onChange={(event) => {
+          if (!liveRef.current && startRef.current) {
+            event.currentTarget.value = String(startRef.current.value)
+            return
+          }
+          onChange(Number(event.target.value))
+        }}
         aria-label="A4 reference frequency"
         className="omni-slider mt-4 w-full"
       />

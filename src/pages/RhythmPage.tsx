@@ -281,7 +281,10 @@ export function RhythmPage() {
           data-rhythm-scroll
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:thin]"
         >
-          <div className="sticky top-0 z-30 flex items-center justify-between gap-3 bg-[#0B0F1A]/95 py-1 backdrop-blur-sm">
+          <div
+            data-rhythm-header
+            className="sticky top-0 z-30 flex items-center justify-between gap-3 rounded-full bg-[#0B0F1A]/95 px-3 py-1 backdrop-blur-sm"
+          >
             <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">Rhythm</h1>
             <div
               role="radiogroup"
@@ -297,18 +300,7 @@ export function RhythmPage() {
                   aria-checked={mode === item}
                   aria-pressed={mode === item}
                   data-mode={item}
-                  onPointerDown={(event) => {
-                    if (event.button !== 0) return
-                    event.preventDefault()
-                    event.stopPropagation()
-                    chooseMode(item)
-                  }}
-                  onClick={(event) => event.preventDefault()}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' && event.key !== ' ') return
-                    event.preventDefault()
-                    chooseMode(item)
-                  }}
+                  {...activateOnPointer(() => chooseMode(item))}
                   className={cn(
                     'relative z-30 h-11 min-h-11 flex-1 touch-manipulation rounded-full text-sm font-semibold capitalize transition',
                     mode === item ? 'bg-[#A855F7] text-white' : 'text-slate-300 hover:text-white',

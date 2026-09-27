@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useRef, type PointerEvent } from 'react'
 
 import { type PlayheadStore } from '@/hooks/useRhythmEngine'
 import { VOICE_LABELS, VOICES, type VoiceId } from '@/lib/rhythm'
-import { cn } from '@/lib/utils'
+import { HOLD_TO_DRAG_MS, TAP_SLOP_PX, accumulatedScroll, activateOnPointer, cn } from '@/lib/utils'
 
 type DrumGridPattern = Record<VoiceId, boolean[]>
 
@@ -21,6 +21,16 @@ type PaintStroke = {
   voice: VoiceId
   on: boolean
   lastKey: string
+}
+
+type PendingPaint = {
+  pointerId: number
+  x: number
+  y: number
+  scroll: number
+  cell: { voice: VoiceId; step: number; on: boolean }
+  engaged: boolean
+  ignored: boolean
 }
 
 function readCell(node: Element | null): { voice: VoiceId; step: number; on: boolean } | null {
@@ -54,7 +64,8 @@ export const DrumGrid = memo(function DrumGrid({
         ? 'clamp(1.3rem, 2.8vw, 2rem)'
         : 'clamp(1.45rem, 3.2vw, 2.25rem)'
   const paintRef = useRef<PaintStroke | null>(null)
-  const pointerPaintedRef = useRef(false)
+  const pendingRef = useRef<PendingPaint | null>(null)
+  const holdTimerRef = useRef(0)
   const rootRef = useRef<HTMLDivElement>(null)
 
   const paintAt = useCallback(
@@ -70,8 +81,22 @@ export const DrumGrid = memo(function DrumGrid({
   )
 
   const endPaint = useCallback(() => {
+    window.clearTimeout(holdTimerRef.current)
     paintRef.current = null
+    pendingRef.current = null
   }, [])
+
+  const engagePaint = useCallback(
+    (preview: boolean) => {
+      const pending = pendingRef.current
+      if (!pending || pending.engaged || pending.ignored) return
+      pending.engaged = true
+      rootRef.current?.setPointerCapture(pending.pointerId)
+      paintRef.current = { voice: pending.cell.voice, on: !pending.cell.on, lastKey: '' }
+      paintAt(pending.cell.voice, pending.cell.step, preview)
+    },
+    [paintAt],
+  )
 
   useEffect(() => {
     const root = rootRef.current
@@ -103,13 +128,19 @@ export const DrumGrid = memo(function DrumGrid({
       if (event.button !== 0) return
       const cell = readCell(event.target instanceof Element ? event.target : null)
       if (!cell) return
-      event.preventDefault()
-      pointerPaintedRef.current = true
-      rootRef.current?.setPointerCapture(event.pointerId)
-      paintRef.current = { voice: cell.voice, on: !cell.on, lastKey: '' }
-      paintAt(cell.voice, cell.step, true)
+      pendingRef.current = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        scroll: accumulatedScroll(rootRef.current),
+        cell,
+        engaged: false,
+        ignored: false,
+      }
+      window.clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = window.setTimeout(() => engagePaint(true), HOLD_TO_DRAG_MS)
     },
-    [paintAt],
+    [engagePaint],
   )
 
   return (
@@ -119,23 +150,50 @@ export const DrumGrid = memo(function DrumGrid({
       data-bar-index={barIndex}
       className="max-h-[min(46vh,28rem)] touch-manipulation overflow-x-auto overflow-y-auto pb-1 md:max-h-[min(50vh,32rem)] lg:max-h-[min(54vh,36rem)]"
       onPointerDown={startPaint}
-      onClick={(event) => {
-        if (pointerPaintedRef.current) {
-          pointerPaintedRef.current = false
-          event.preventDefault()
+      onClick={(event) => event.preventDefault()}
+      onPointerMove={(event) => {
+        const pending = pendingRef.current
+        if (paintRef.current && pending?.engaged) {
+          const cell = cellFromPoint(event.clientX, event.clientY)
+          if (cell) paintAt(cell.voice, cell.step, false)
           return
         }
-        const cell = readCell(event.target instanceof Element ? event.target : null)
-        if (!cell) return
-        onPaint(cell.voice, cell.step, !cell.on, true)
-      }}
-      onPointerMove={(event) => {
-        if (!paintRef.current || event.buttons === 0) return
-        const cell = cellFromPoint(event.clientX, event.clientY)
-        if (cell) paintAt(cell.voice, cell.step, false)
+        if (!pending || pending.pointerId !== event.pointerId || pending.ignored || pending.engaged) return
+        if (Math.abs(accumulatedScroll(rootRef.current) - pending.scroll) > 1) {
+          pending.ignored = true
+          window.clearTimeout(holdTimerRef.current)
+          return
+        }
+        const dx = event.clientX - pending.x
+        const dy = event.clientY - pending.y
+        const dist = Math.hypot(dx, dy)
+        if (dist < TAP_SLOP_PX) return
+        if (Math.abs(dy) > Math.abs(dx) * 1.15) {
+          pending.ignored = true
+          window.clearTimeout(holdTimerRef.current)
+          return
+        }
+        engagePaint(true)
       }}
       onPointerCancel={endPaint}
-      onPointerUp={endPaint}
+      onPointerUp={(event) => {
+        const pending = pendingRef.current
+        window.clearTimeout(holdTimerRef.current)
+        if (
+          pending &&
+          pending.pointerId === event.pointerId &&
+          !pending.engaged &&
+          !pending.ignored
+        ) {
+          const dist = Math.hypot(event.clientX - pending.x, event.clientY - pending.y)
+          const scrolled = Math.abs(accumulatedScroll(rootRef.current) - pending.scroll) > 1
+          if (dist <= TAP_SLOP_PX && !scrolled) {
+            paintRef.current = { voice: pending.cell.voice, on: !pending.cell.on, lastKey: '' }
+            paintAt(pending.cell.voice, pending.cell.step, true)
+          }
+        }
+        endPaint()
+      }}
     >
       <div
         className="min-w-full"
@@ -159,16 +217,16 @@ export const DrumGrid = memo(function DrumGrid({
               <button
                 type="button"
                 data-voice={voice}
-                onPointerDown={(event) => {
-                  if (event.button !== 0) return
-                  event.preventDefault()
-                  event.stopPropagation()
-                  onPreview(voice)
-                }}
-                onClick={(event) => {
-                  event.preventDefault()
-                  event.stopPropagation()
-                }}
+                {...(() => {
+                  const tap = activateOnPointer(() => onPreview(voice))
+                  return {
+                    ...tap,
+                    onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
+                      event.stopPropagation()
+                      tap.onPointerDown(event)
+                    },
+                  }
+                })()}
                 className="w-[4.95rem] shrink-0 touch-manipulation truncate rounded-lg px-0.5 py-1 text-left text-[0.62rem] font-semibold leading-tight text-slate-300 hover:bg-white/6 hover:text-white md:w-[5.35rem] md:text-[0.68rem] lg:w-[5.6rem] lg:text-xs"
               >
                 {VOICE_LABELS[voice]}

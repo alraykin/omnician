@@ -13,6 +13,7 @@ import {
   type KitGroupId,
   type KitMix,
 } from '@/lib/kit-mix'
+import { DRAG_DEADZONE_PX, HOLD_TO_DRAG_MS, accumulatedScroll } from '@/lib/utils'
 
 type KitFadersProps = {
   mix: KitMix
@@ -78,7 +79,19 @@ function KitFader({
   onHoldEnd: () => void
 }) {
   const dragRef = useRef<{ pointerId: number; startY: number; startPos: number; travel: number } | null>(null)
+  const pendingRef = useRef<{
+    pointerId: number
+    x: number
+    y: number
+    scroll: number
+    startPos: number
+    travel: number
+    armed: boolean
+    ignored: boolean
+  } | null>(null)
+  const holdTimerRef = useRef(0)
   const wellRef = useRef<HTMLDivElement>(null)
+  const channelRef = useRef<HTMLDivElement>(null)
 
   const moveTo = useCallback(
     (clientY: number) => {
@@ -93,10 +106,32 @@ function KitFader({
   const endHold = useCallback(
     (pointerId?: number) => {
       if (pointerId != null && dragRef.current && dragRef.current.pointerId !== pointerId) return
+      window.clearTimeout(holdTimerRef.current)
+      pendingRef.current = null
       dragRef.current = null
       onHoldEnd()
     },
     [onHoldEnd],
+  )
+
+  const engage = useCallback(
+    (clientY: number, pointerId: number) => {
+      const pending = pendingRef.current
+      if (!pending || pending.ignored || dragRef.current) return
+      dragRef.current = {
+        pointerId,
+        startY: pending.y,
+        startPos: pending.startPos,
+        travel: pending.travel,
+      }
+      pendingRef.current = null
+      window.clearTimeout(holdTimerRef.current)
+      channelRef.current?.setPointerCapture(pointerId)
+      onHoldStart()
+      const nextPos = Math.min(1, Math.max(0, dragRef.current.startPos + (dragRef.current.startY - clientY) / dragRef.current.travel))
+      onChange(group, mixPosToDb(nextPos))
+    },
+    [group, onChange, onHoldStart],
   )
 
   useEffect(() => {
@@ -108,6 +143,7 @@ function KitFader({
 
   return (
     <div
+      ref={channelRef}
       className="kit-fader-channel"
       data-kit-fader={group}
       data-held={held ? 'true' : 'false'}
@@ -121,22 +157,54 @@ function KitFader({
       aria-orientation="vertical"
       onPointerDown={(event) => {
         if (event.button !== 0) return
-        event.preventDefault()
-        event.stopPropagation()
-        event.currentTarget.setPointerCapture(event.pointerId)
         const wellH = wellRef.current?.getBoundingClientRect().height ?? FINE_TRAVEL_PX
-        dragRef.current = {
+        pendingRef.current = {
           pointerId: event.pointerId,
-          startY: event.clientY,
+          x: event.clientX,
+          y: event.clientY,
+          scroll: accumulatedScroll(event.currentTarget),
           startPos: mixDbToPos(db),
           travel: wideUi ? Math.max(wellH, 80) : FINE_TRAVEL_PX,
+          armed: false,
+          ignored: false,
         }
-        onHoldStart()
+        window.clearTimeout(holdTimerRef.current)
+        holdTimerRef.current = window.setTimeout(() => {
+          const pending = pendingRef.current
+          if (!pending || pending.ignored) return
+          pending.armed = true
+        }, HOLD_TO_DRAG_MS)
       }}
       onPointerMove={(event) => {
-        if (!dragRef.current || event.pointerId !== dragRef.current.pointerId) return
+        if (dragRef.current && event.pointerId === dragRef.current.pointerId) {
+          event.preventDefault()
+          moveTo(event.clientY)
+          return
+        }
+        const pending = pendingRef.current
+        if (!pending || pending.pointerId !== event.pointerId || pending.ignored) return
+        if (Math.abs(accumulatedScroll(event.currentTarget) - pending.scroll) > 1) {
+          pending.ignored = true
+          window.clearTimeout(holdTimerRef.current)
+          return
+        }
+        const dx = event.clientX - pending.x
+        const dy = event.clientY - pending.y
+        const dist = Math.hypot(dx, dy)
+        if (dist < DRAG_DEADZONE_PX) return
+        if (Math.abs(dx) > Math.abs(dy)) {
+          pending.ignored = true
+          window.clearTimeout(holdTimerRef.current)
+          return
+        }
+        if (!pending.armed && Math.abs(dy) > Math.abs(dx) * 1.2) {
+          pending.ignored = true
+          window.clearTimeout(holdTimerRef.current)
+          return
+        }
+        if (!pending.armed) return
         event.preventDefault()
-        moveTo(event.clientY)
+        engage(event.clientY, event.pointerId)
       }}
       onPointerUp={(event) => endHold(event.pointerId)}
       onPointerCancel={() => endHold()}

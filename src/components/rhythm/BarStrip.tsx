@@ -27,15 +27,18 @@ export function BarStrip({
   const active = playing && playhead.bar >= 0 ? playhead.bar : barIndex
 
   return (
-    <div data-bar-strip className="flex items-center gap-1.5">
+    <div data-bar-strip className="flex items-center gap-1">
       <p
-        className="shrink-0 text-sm font-bold tabular-nums tracking-tight text-white"
+        className="shrink-0 text-xs font-bold tabular-nums tracking-tight text-white sm:text-sm"
         data-bar-now={active + 1}
         data-bar-total={bars.length}
       >
         Bar {active + 1} of {bars.length}
       </p>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+      <div
+        data-bar-chips
+        className="grid min-w-0 flex-1 grid-cols-8 gap-0.5"
+      >
         {bars.map((_, index) => {
           const live = playing && playhead.bar === index
           const selected = index === active
@@ -50,7 +53,7 @@ export function BarStrip({
               aria-pressed={selected}
               {...activateOnPointer(() => onSelect(index))}
               className={cn(
-                'flex size-7 touch-manipulation items-center justify-center rounded-md text-xs font-semibold tabular-nums',
+                'flex aspect-square min-h-6 w-full touch-manipulation items-center justify-center rounded-md text-[0.65rem] font-semibold tabular-nums sm:text-xs',
                 selected ? 'bg-[#A855F7] text-white' : 'border border-white/10 bg-white/4 text-slate-200',
                 live && 'omni-beat-pulse',
               )}
@@ -65,8 +68,8 @@ export function BarStrip({
           type="button"
           aria-label="Add bar"
           disabled={!canAdd}
-          onClick={onAdd}
-          className="flex size-7 touch-manipulation items-center justify-center rounded-md border border-white/12 text-slate-200 disabled:opacity-40"
+          {...activateOnPointer(onAdd)}
+          className="flex size-6 touch-manipulation items-center justify-center rounded-md border border-white/12 text-slate-200 disabled:opacity-40 sm:size-7"
         >
           <Plus className="size-3.5" />
         </button>
@@ -74,8 +77,8 @@ export function BarStrip({
           <button
             type="button"
             aria-label="Remove this bar"
-            onClick={onRemove}
-            className="flex size-7 touch-manipulation items-center justify-center rounded-md text-slate-300 hover:bg-white/8 hover:text-white"
+            {...activateOnPointer(onRemove)}
+            className="flex size-6 touch-manipulation items-center justify-center rounded-md text-slate-300 hover:bg-white/8 hover:text-white sm:size-7"
           >
             <Trash2 className="size-3.5" />
           </button>
