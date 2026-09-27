@@ -39,7 +39,7 @@ function IntStepper({
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex w-full items-center gap-1">
       <p className="w-[3.15rem] shrink-0 text-[0.55rem] font-semibold uppercase tracking-[0.06em] text-slate-500">
         {label}
       </p>
@@ -57,7 +57,7 @@ function IntStepper({
           type="button"
           aria-label={`${label} ${value}${suffix}, tap to type`}
           {...activateOnPointer(() => setDraft(String(value)))}
-          className="min-w-[2.1rem] text-center text-sm font-bold tabular-nums text-white"
+          className="min-w-[2.1rem] flex-1 text-center text-sm font-bold tabular-nums text-white"
         >
           {value}
           {suffix ? <span className="text-[0.6rem] font-semibold text-slate-500">{suffix}</span> : null}
@@ -80,7 +80,7 @@ function IntStepper({
               setDraft(null)
             }
           }}
-          className="min-w-[2.1rem] max-w-[2.4rem] bg-transparent text-center text-sm font-bold tabular-nums text-white outline-none caret-[#C084FC]"
+          className="min-w-[2.1rem] max-w-[2.4rem] flex-1 bg-transparent text-center text-sm font-bold tabular-nums text-white outline-none caret-[#C084FC]"
         />
       )}
       <button
@@ -139,73 +139,75 @@ export function SpeedBuilderPanel({
 
   return (
     <div data-speed-builder className="min-w-0 flex-1" data-enabled={value.enabled ? 'true' : 'false'}>
-      <div className="flex items-center gap-1.5">
-        <p className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
-          Speed Builder
-        </p>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={value.enabled}
-          aria-label="Speed Builder on"
-          data-sb-power={value.enabled ? 'on' : 'off'}
-          {...activateOnPointer(() => patch({ enabled: !value.enabled }))}
-          className={cn(
-            'relative h-5 w-9 shrink-0 rounded-full transition-colors',
-            value.enabled ? 'bg-[#A855F7]' : 'bg-white/15',
-          )}
-        >
-          <span
+      <div className="w-max max-w-full">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
+            Speed Builder
+          </p>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={value.enabled}
+            aria-label="Speed Builder on"
+            data-sb-power={value.enabled ? 'on' : 'off'}
+            {...activateOnPointer(() => patch({ enabled: !value.enabled }))}
             className={cn(
-              'absolute top-0.5 size-4 rounded-full bg-white shadow transition-[left]',
-              value.enabled ? 'left-4' : 'left-0.5',
+              'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+              value.enabled ? 'bg-[#A855F7]' : 'bg-white/15',
             )}
-          />
-        </button>
-      </div>
-
-      <div className={cn('mt-1.5 space-y-1', !value.enabled && 'opacity-45')}>
-        <IntStepper
-          label="From"
-          value={value.fromPct}
-          min={MIN_SB_PCT}
-          max={MAX_SB_PCT}
-          suffix="%"
-          onChange={(fromPct) => patch({ fromPct: Math.min(MAX_SB_PCT, Math.max(MIN_SB_PCT, fromPct)) })}
-        />
-        <IntStepper
-          label="To"
-          value={value.toPct}
-          min={MIN_SB_PCT}
-          max={MAX_SB_PCT}
-          suffix="%"
-          onChange={(toPct) => patch({ toPct: Math.min(MAX_SB_PCT, Math.max(MIN_SB_PCT, toPct)) })}
-        />
-        <IntStepper
-          label="Step"
-          value={value.stepPct}
-          min={MIN_SB_STEP}
-          max={MAX_SB_STEP}
-          suffix="%"
-          onChange={(stepPct) => patch({ stepPct: Math.min(MAX_SB_STEP, Math.max(MIN_SB_STEP, stepPct)) })}
-        />
-        <IntStepper
-          label="Repeats"
-          value={value.repeats}
-          min={MIN_SB_REPEATS}
-          max={MAX_SB_REPEATS}
-          suffix=""
-          onChange={(repeats) =>
-            patch({ repeats: Math.min(MAX_SB_REPEATS, Math.max(MIN_SB_REPEATS, repeats)) })
-          }
-        />
-        <p className="pl-[3.15rem] text-[0.62rem] tabular-nums text-slate-500" data-sb-range data-sb-repeats={value.repeats}>
-          {fromBpm} → {toBpm} BPM
-        </p>
-        <div className="flex flex-wrap gap-1 pt-0.5">
-          <Toggle label="Precount" on={value.precount} onChange={(precount) => patch({ precount })} />
-          <Toggle label="Announce" on={value.announce} onChange={(announce) => patch({ announce })} />
+          >
+            <span
+              className={cn(
+                'absolute top-0.5 size-4 rounded-full bg-white shadow transition-[left]',
+                value.enabled ? 'left-4' : 'left-0.5',
+              )}
+            />
+          </button>
         </div>
+
+        <div className={cn('mt-1.5 space-y-1', !value.enabled && 'opacity-45')}>
+          <IntStepper
+            label="From"
+            value={value.fromPct}
+            min={MIN_SB_PCT}
+            max={MAX_SB_PCT}
+            suffix="%"
+            onChange={(fromPct) => patch({ fromPct: Math.min(MAX_SB_PCT, Math.max(MIN_SB_PCT, fromPct)) })}
+          />
+          <IntStepper
+            label="To"
+            value={value.toPct}
+            min={MIN_SB_PCT}
+            max={MAX_SB_PCT}
+            suffix="%"
+            onChange={(toPct) => patch({ toPct: Math.min(MAX_SB_PCT, Math.max(MIN_SB_PCT, toPct)) })}
+          />
+          <IntStepper
+            label="Step"
+            value={value.stepPct}
+            min={MIN_SB_STEP}
+            max={MAX_SB_STEP}
+            suffix="%"
+            onChange={(stepPct) => patch({ stepPct: Math.min(MAX_SB_STEP, Math.max(MIN_SB_STEP, stepPct)) })}
+          />
+          <IntStepper
+            label="Repeats"
+            value={value.repeats}
+            min={MIN_SB_REPEATS}
+            max={MAX_SB_REPEATS}
+            suffix=""
+            onChange={(repeats) =>
+              patch({ repeats: Math.min(MAX_SB_REPEATS, Math.max(MIN_SB_REPEATS, repeats)) })
+            }
+          />
+          <p className="pl-[3.15rem] text-[0.62rem] tabular-nums text-slate-500" data-sb-range data-sb-repeats={value.repeats}>
+            {fromBpm} → {toBpm} BPM
+          </p>
+        </div>
+      </div>
+      <div className={cn('mt-1 flex flex-wrap gap-1 pt-0.5', !value.enabled && 'opacity-45')}>
+        <Toggle label="Precount" on={value.precount} onChange={(precount) => patch({ precount })} />
+        <Toggle label="Announce" on={value.announce} onChange={(announce) => patch({ announce })} />
       </div>
     </div>
   )

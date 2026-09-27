@@ -8,6 +8,7 @@ type BpmWheelProps = {
   onChange: (bpm: number) => void
   compact?: boolean
   faceBpm?: number
+  baseHint?: number
 }
 
 const VISIBLE_TICKS = 36
@@ -72,7 +73,7 @@ function pointAngle(x: number, y: number, cx: number, cy: number): number | null
   return Math.atan2(dy, dx)
 }
 
-export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheelProps) {
+export function BpmWheel({ value, onChange, compact = false, faceBpm, baseHint }: BpmWheelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const hitRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<string | null>(null)
@@ -461,58 +462,65 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
             </div>
             <div className="bpm-dial-face">
               <div className="pointer-events-none absolute inset-x-8 top-[14px] z-20 h-5 rounded-full bg-white/16 blur-[3px]" />
-              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center">
-                <span
-                  className={
-                    compact
-                      ? 'text-[0.5rem] font-semibold uppercase tracking-[0.16em] text-slate-500'
-                      : 'text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-slate-500'
-                  }
-                >
-                  BPM
-                </span>
-                {editing ? (
-                  <input
-                    ref={inputRef}
-                    aria-label="Custom tempo"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={draft}
-                    onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, '').slice(0, 3))}
-                    onBlur={commitDraft}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault()
-                        commitDraft()
+              <div className="absolute inset-0 z-30 flex items-center justify-center">
+                <div className="relative flex items-center justify-center">
+                  {editing ? (
+                    <input
+                      ref={inputRef}
+                      aria-label="Custom tempo"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={draft}
+                      onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, '').slice(0, 3))}
+                      onBlur={commitDraft}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          commitDraft()
+                        }
+                        if (event.key === 'Escape') {
+                          event.preventDefault()
+                          setDraft(null)
+                        }
+                        event.stopPropagation()
+                      }}
+                      className={
+                        compact
+                          ? 'pointer-events-auto w-[4.2rem] bg-transparent text-center text-2xl font-bold tabular-nums leading-none tracking-tight text-white outline-none caret-[#C084FC] sm:text-4xl'
+                          : 'pointer-events-auto w-[5.2rem] bg-transparent text-center text-4xl font-bold tabular-nums leading-none tracking-tight text-white outline-none caret-[#C084FC] sm:text-5xl'
                       }
-                      if (event.key === 'Escape') {
-                        event.preventDefault()
-                        setDraft(null)
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (movedRef.current) return
+                        setDraft(String(shown))
+                      }}
+                      className={
+                        compact
+                          ? 'pointer-events-auto rounded-xl px-1 text-2xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-4xl'
+                          : 'pointer-events-auto rounded-xl px-2 text-4xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-5xl'
                       }
-                      event.stopPropagation()
-                    }}
+                    >
+                      {face}
+                    </button>
+                  )}
+                  <span
                     className={
                       compact
-                        ? 'pointer-events-auto mt-0.5 w-[4.2rem] bg-transparent text-center text-2xl font-bold tabular-nums tracking-tight text-white outline-none caret-[#C084FC] sm:text-4xl'
-                        : 'pointer-events-auto mt-0.5 w-[5.2rem] bg-transparent text-center text-4xl font-bold tabular-nums tracking-tight text-white outline-none caret-[#C084FC] sm:text-5xl'
-                    }
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (movedRef.current) return
-                      setDraft(String(shown))
-                    }}
-                    className={
-                      compact
-                        ? 'pointer-events-auto mt-0.5 rounded-xl px-1 text-2xl font-bold tabular-nums tracking-tight text-white sm:text-4xl'
-                        : 'pointer-events-auto mt-0.5 rounded-xl px-2 text-4xl font-bold tabular-nums tracking-tight text-white sm:text-5xl'
+                        ? 'pointer-events-none absolute left-1/2 top-full -translate-x-1/2 text-[0.5rem] font-semibold uppercase tracking-[0.16em] text-slate-500'
+                        : 'pointer-events-none absolute left-1/2 top-full -translate-x-1/2 text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-slate-500'
                     }
                   >
-                    {face}
-                  </button>
-                )}
+                    BPM
+                  </span>
+                  {baseHint != null ? (
+                    <span className="pointer-events-none absolute left-1/2 top-[calc(100%+0.7rem)] -translate-x-1/2 text-[0.5rem] tabular-nums text-slate-600">
+                      base {baseHint}
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>

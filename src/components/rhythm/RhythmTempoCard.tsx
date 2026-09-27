@@ -10,7 +10,6 @@ export function RhythmTempoCard({
   bpm,
   liveBpm,
   playing,
-  pulse,
   speedBuilder,
   onSpeedBuilder,
   onBpm,
@@ -19,7 +18,6 @@ export function RhythmTempoCard({
   bpm: number
   liveBpm: number
   playing: boolean
-  pulse: string
   speedBuilder: SpeedBuilder
   onSpeedBuilder: (next: SpeedBuilder) => void
   onBpm: (next: number, tick?: boolean) => void
@@ -30,24 +28,21 @@ export function RhythmTempoCard({
   return (
     <section
       data-tempo-card
-      className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-2 pb-2 pt-3 sm:px-4"
+      className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 pb-2 pl-2 sm:pl-4"
     >
-      <div className="flex items-start gap-2">
-        <SpeedBuilderPanel value={speedBuilder} baseBpm={bpm} onChange={onSpeedBuilder} />
-        <div className="flex w-[7.6rem] shrink-0 flex-col items-center pt-0.5 sm:w-[10.5rem] lg:w-[13.5rem]">
+      <div className="flex items-stretch gap-2">
+        <div className="min-w-0 flex-1 pt-3.5">
+          <SpeedBuilderPanel value={speedBuilder} baseBpm={bpm} onChange={onSpeedBuilder} />
+        </div>
+        <div className="flex w-[7.25rem] shrink-0 flex-col items-center pt-3.5 pr-3.5 sm:w-[152px] sm:pt-4 sm:pr-4 lg:w-[188px]">
           <BpmWheel
             compact
             value={bpm}
             faceBpm={showLive ? liveBpm : undefined}
+            baseHint={showLive && liveBpm !== bpm ? bpm : undefined}
             onChange={(next) => onBpm(next, true)}
           />
-          <p className="relative z-20 mt-0.5 text-center text-[0.58rem] leading-4 text-slate-500">
-            {pulse}
-            {showLive && liveBpm !== bpm ? (
-              <span className="block tabular-nums text-slate-600">base {bpm}</span>
-            ) : null}
-          </p>
-          <div className="relative z-20 mt-1 flex items-center gap-0.5">
+          <div className="relative z-20 mt-auto flex items-center gap-0.5 pb-0.5">
             <Button
               type="button"
               variant="outline"

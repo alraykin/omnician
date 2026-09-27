@@ -29,7 +29,6 @@ import {
   cycleBeatAccent,
   defaultBeatAccents,
   meterLabel,
-  pulseLabel,
   setBarSubdivision,
   setBeatSubdivision,
   setHit,
@@ -344,7 +343,6 @@ export function RhythmPage() {
                 bpm={bpm}
                 liveBpm={liveBpm}
                 playing={playing}
-                pulse={pulseLabel(current.beatUnit)}
                 speedBuilder={speedBuilder}
                 onSpeedBuilder={setSpeedBuilder}
                 onBpm={changeBpm}
@@ -498,7 +496,6 @@ export function RhythmPage() {
                 bpm={bpm}
                 liveBpm={liveBpm}
                 playing={playing}
-                pulse={pulseLabel(current.beatUnit)}
                 speedBuilder={speedBuilder}
                 onSpeedBuilder={setSpeedBuilder}
                 onBpm={changeBpm}
