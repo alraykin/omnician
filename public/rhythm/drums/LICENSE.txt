@@ -16,14 +16,6 @@ Ride bell, china, splash, and stack were added from the same stereo mix:
 
 ---
 
-Clap (CC0, no attribution required)
-Versilian Community Sample Library / sgossner
-https://github.com/sgossner/VCSL
-- SoloClap_vl1 … vl4, tone- and level-matched to the kit
-License: CC0 1.0
-
----
-
 Drum-room send
 A medium stereo impulse response is generated in the app (1.35 s decay,
 15 ms predelay, damped highs). The return sits after the dry clipper at

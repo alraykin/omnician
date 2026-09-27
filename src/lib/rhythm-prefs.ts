@@ -15,6 +15,7 @@ import {
   parseBeatAccents,
   parseVoiceHits,
   absorbCrashRHits,
+  absorbRetiredKitHits,
   type BeatUnit,
   type ClickSoundId,
   type Pattern,
@@ -28,8 +29,9 @@ import { DEFAULT_KIT_MIX, parseKitMix, type KitMix } from '@/lib/kit-mix'
 import { barsForPreset, findPreset, makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 import { DEFAULT_SPEED_BUILDER, parseSpeedBuilder, type SpeedBuilder } from '@/lib/speed-builder'
 
-const STORAGE_KEY = 'omnician.rhythm.v20'
+const STORAGE_KEY = 'omnician.rhythm.v21'
 const PREVIOUS_KEYS = [
+  'omnician.rhythm.v20',
   'omnician.rhythm.v19',
   'omnician.rhythm.v18',
   'omnician.rhythm.v17',
@@ -87,7 +89,7 @@ function parsePattern(raw: unknown, beats: number, subdivision: SubdivisionId): 
   for (const voice of VOICES) {
     empty[voice] = parseVoiceHits(row[voice], beats, subdivision)
   }
-  return absorbCrashRHits(raw, empty, beats, subdivision)
+  return absorbRetiredKitHits(raw, absorbCrashRHits(raw, empty, beats, subdivision), beats, subdivision)
 }
 
 function parseBar(raw: unknown, fallbackSub: SubdivisionId): RhythmBar | null {

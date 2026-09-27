@@ -27,7 +27,32 @@ export type RhythmStyleId =
   | 'waltz'
   | 'odd'
 
-type HitMap = Partial<Record<VoiceId, number[]>>
+type LiveVoice = VoiceId
+type LegacyVoice = LiveVoice | 'clap' | 'lowTom'
+type HitMap = Partial<Record<LegacyVoice, number[]>>
+
+function retireVoices(hits: HitMap): Partial<Record<VoiceId, number[]>> {
+  const next: HitMap = { ...hits }
+  if (next.clap) {
+    next.snare = [...new Set([...(next.snare ?? []), ...next.clap])].sort((a, b) => a - b)
+    delete next.clap
+  }
+  if (next.lowTom) {
+    const high = new Set(next.highTom ?? [])
+    const mid = new Set(next.midTom ?? [])
+    const floor = new Set(next.floorTom ?? [])
+    const floorMin = floor.size ? Math.min(...floor) : Number.POSITIVE_INFINITY
+    for (const step of next.lowTom) {
+      if (high.has(step) || mid.has(step) || floor.has(step)) continue
+      if (step >= floorMin) floor.add(step)
+      else mid.add(step)
+    }
+    if (mid.size) next.midTom = [...mid].sort((a, b) => a - b)
+    if (floor.size) next.floorTom = [...floor].sort((a, b) => a - b)
+    delete next.lowTom
+  }
+  return next as Partial<Record<VoiceId, number[]>>
+}
 
 export type RhythmPreset = {
   id: string
@@ -77,10 +102,10 @@ function preset(
     beatUnit,
     subdivision,
     accents,
-    hits,
-    fill,
-    mid,
-    pattern: patternFromHits(beats, subdivision, hits),
+    hits: retireVoices(hits),
+    fill: fill ? retireVoices(fill) : undefined,
+    mid: mid ? retireVoices(mid) : undefined,
+    pattern: patternFromHits(beats, subdivision, retireVoices(hits)),
   }
 }
 

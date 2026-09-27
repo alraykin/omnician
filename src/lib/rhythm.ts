@@ -2,10 +2,8 @@ export const VOICES = [
   'kick',
   'snare',
   'rim',
-  'clap',
   'highTom',
   'midTom',
-  'lowTom',
   'floorTom',
   'closedHat',
   'openHat',
@@ -23,10 +21,8 @@ export const VOICE_LABELS: Record<VoiceId, string> = {
   kick: 'Kick',
   snare: 'Snare',
   rim: 'Rimshot',
-  clap: 'Clap',
   highTom: 'Tom 1',
   midTom: 'Tom 2',
-  lowTom: 'Tom 3',
   floorTom: 'Fl Tom',
   closedHat: 'HH Closed',
   openHat: 'HH Open',
@@ -267,6 +263,48 @@ export function absorbCrashRHits(raw: unknown, pattern: Pattern, beats: number, 
   if (extra.length === 0) return pattern
   const next = clonePattern(pattern)
   next.crash = dedupeHits([...(next.crash ?? []), ...extra])
+  return next
+}
+
+/** Fold retired Clap → Snare and Tom 3 → remaining toms so old saves keep sounding. */
+export function absorbRetiredKitHits(
+  raw: unknown,
+  pattern: Pattern,
+  beats: number,
+  subdivision: SubdivisionId,
+): Pattern {
+  if (!raw || typeof raw !== 'object') return pattern
+  const row = raw as { clap?: unknown; lowTom?: unknown }
+  const clap = parseVoiceHits(row.clap, beats, subdivision)
+  const lowTom = parseVoiceHits(row.lowTom, beats, subdivision)
+  if (clap.length === 0 && lowTom.length === 0) return pattern
+  const next = clonePattern(pattern)
+  if (clap.length > 0) next.snare = dedupeHits([...(next.snare ?? []), ...clap])
+  if (lowTom.length > 0) {
+    const steps = stepsPerBeat(subdivision)
+    const stepOf = (hit: HitPos) => {
+      const slot = hitSlot(hit, steps)
+      return slot == null ? hit.beat * steps : hit.beat * steps + slot
+    }
+    const occupied = new Set(
+      [...(next.highTom ?? []), ...(next.midTom ?? []), ...(next.floorTom ?? [])].map(stepOf),
+    )
+    const floorMin = (next.floorTom ?? []).reduce(
+      (min, hit) => Math.min(min, stepOf(hit)),
+      Number.POSITIVE_INFINITY,
+    )
+    const mid: HitPos[] = []
+    const floor: HitPos[] = []
+    for (const hit of lowTom) {
+      const step = stepOf(hit)
+      if (occupied.has(step)) continue
+      occupied.add(step)
+      if (step >= floorMin) floor.push(hit)
+      else mid.push(hit)
+    }
+    if (mid.length > 0) next.midTom = dedupeHits([...(next.midTom ?? []), ...mid])
+    if (floor.length > 0) next.floorTom = dedupeHits([...(next.floorTom ?? []), ...floor])
+  }
   return next
 }
 

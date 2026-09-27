@@ -47,16 +47,13 @@ type CrocellPiece =
   | 'china'
   | 'splash'
   | 'stack'
-  | 'clap'
 
 const VOICE_PIECE: Record<VoiceId, CrocellPiece> = {
   kick: 'kick',
   snare: 'snare_snappy_p2',
   rim: 'sidestick',
-  clap: 'clap',
   highTom: 'tom_high',
   midTom: 'tom_mid',
-  lowTom: 'tom_mid',
   floorTom: 'tom_low',
   closedHat: 'hihat_closed',
   openHat: 'hihat_open',
@@ -101,10 +98,8 @@ const SAMPLE_GAIN: Record<VoiceId, number> = {
   kick: 1.2,
   snare: 1.28,
   rim: 1.22,
-  clap: 1.32,
   highTom: 1.22,
   midTom: 1.2,
-  lowTom: 1.2,
   floorTom: 1.18,
   closedHat: 2.15,
   openHat: 1.58,
@@ -131,10 +126,8 @@ const REVERB_SEND: Record<VoiceId, number> = {
   kick: 0.7,
   snare: 1,
   rim: 1,
-  clap: 1,
   highTom: 1,
   midTom: 1,
-  lowTom: 1,
   floorTom: 1,
   closedHat: 1,
   openHat: 1,
@@ -368,31 +361,13 @@ function bakeRim(ctx: AudioContext): AudioBuffer {
   })
 }
 
-function bakeClap(ctx: AudioContext): AudioBuffer {
-  return renderBuffer(ctx, 0.11, (data, sr) => {
-    const bursts = [0, 0.009, 0.018]
-    for (let i = 0; i < data.length; i += 1) {
-      const t = i / sr
-      let noise = 0
-      for (const offset of bursts) {
-        const local = t - offset
-        if (local < 0) continue
-        noise += (Math.random() * 2 - 1) * env(local, 0.0004, 0.014)
-      }
-      data[i] = tanh(noise * 1.45) * 0.68
-    }
-  })
-}
-
 function bakeSynthDrums(ctx: AudioContext): Record<VoiceId, AudioBuffer> {
   return {
     kick: bakeKick(ctx),
     snare: bakeSnare(ctx),
     rim: bakeRim(ctx),
-    clap: bakeClap(ctx),
     highTom: bakeTom(ctx, 196, 0.55),
     midTom: bakeTom(ctx, 147, 0.62),
-    lowTom: bakeTom(ctx, 120, 0.66),
     floorTom: bakeTom(ctx, 98, 0.72),
     closedHat: bakeHat(ctx, false),
     openHat: bakeHat(ctx, true),
@@ -480,7 +455,8 @@ async function loadCrocellLayers(
   bank: LayerBank,
   focus: KitIntensity,
 ): Promise<void> {
-  const files = await loadCrocellManifest()
+  const used = new Set(Object.values(VOICE_PIECE))
+  const files = (await loadCrocellManifest()).filter((row) => used.has(row.piece))
   const ordered = [...files].sort((a, b) => filePriority(a.tier, focus) - filePriority(b.tier, focus))
   const queue = [...ordered]
   const workers = Array.from({ length: 6 }, async () => {
