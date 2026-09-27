@@ -141,7 +141,7 @@ export function TuningSheet({
             {submenu ? `${family.label} · ${config.label}` : family.label}
           </h2>
 
-          <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-3 flex max-w-full flex-wrap gap-2">
             {FAMILIES.map((item) => {
               const selected = item.id === draftFamily
               return (

@@ -299,7 +299,7 @@ export function RhythmPage() {
         <SpeedBuilderPopup cue={tempoCue} />
         <div
           data-rhythm-scroll
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:thin]"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain pb-2 [scrollbar-width:thin] [touch-action:pan-y]"
         >
           <div
             data-rhythm-header
@@ -354,12 +354,12 @@ export function RhythmPage() {
               <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Subdivision
               </p>
-              <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+              <div className="max-w-full overflow-x-hidden pb-0.5">
                 <div
                   role="group"
                   aria-label="Subdivision for all beats"
                   data-section="subdivision"
-                  className="flex w-max min-w-full items-center justify-between gap-1 px-1"
+                  className="flex w-full min-w-0 items-center justify-between gap-1"
                 >
                   {SUBDIVISIONS.map((steps) => {
                     const selected = current.beatSubdivisions.every((item) => item === steps)
@@ -373,7 +373,7 @@ export function RhythmPage() {
                         data-subdivision={steps}
                         {...activateOnPointer(() => setSubdivision(steps))}
                         className={cn(
-                          'flex h-10 w-[2.45rem] shrink-0 touch-manipulation items-center justify-center rounded-lg sm:h-11 sm:w-[2.8rem] lg:h-11 lg:w-[2.4rem]',
+                          'flex h-10 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-11',
                           selected
                             ? 'bg-[#A855F7] text-white'
                             : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
@@ -517,12 +517,12 @@ export function RhythmPage() {
               <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Subdivision
               </p>
-              <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+              <div className="max-w-full overflow-x-hidden pb-0.5">
                 <div
                   role="group"
                   aria-label="Subdivision"
                   data-section="subdivision"
-                  className="flex w-max min-w-full justify-between gap-1 px-1 lg:w-full lg:flex-wrap lg:justify-start"
+                  className="flex w-full min-w-0 justify-between gap-1 lg:flex-wrap lg:justify-start"
                 >
                   {SUBDIVISIONS.map((steps) => (
                     <button
@@ -534,7 +534,7 @@ export function RhythmPage() {
                       data-subdivision={steps}
                       {...activateOnPointer(() => setSubdivision(steps))}
                       className={cn(
-                        'flex h-12 w-[2.85rem] shrink-0 touch-manipulation items-center justify-center rounded-lg sm:h-14 sm:w-[3.2rem] lg:h-11 lg:w-[2.4rem]',
+                        'flex h-12 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-14 lg:h-11 lg:max-w-[2.8rem] lg:flex-none',
                         current.subdivision === steps
                           ? 'bg-[#A855F7] text-white'
                           : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',

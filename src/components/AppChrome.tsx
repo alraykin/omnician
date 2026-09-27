@@ -27,10 +27,11 @@ export function AppChrome({
   const shell = wide ? SHELL.wide : SHELL.default
   return (
     <div
+      data-app-frame
       className={cn(
-        'relative flex flex-col',
+        'relative flex w-full max-w-full flex-col overscroll-x-none [touch-action:pan-y]',
         compact
-          ? 'h-svh max-h-svh overflow-hidden px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-5 lg:px-10'
+          ? 'h-svh max-h-svh overflow-x-hidden overflow-y-hidden px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-5 lg:px-10'
           : 'min-h-svh overflow-x-hidden px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-9',
       )}
     >

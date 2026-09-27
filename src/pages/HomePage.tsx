@@ -4,7 +4,10 @@ import { practiceTools } from '@/data/tools'
 
 export function HomePage() {
   return (
-    <div className="relative flex min-h-svh flex-col overflow-hidden px-5 py-8 sm:px-8 sm:py-12 lg:px-12 lg:py-16">
+    <div
+      data-app-frame
+      className="relative flex min-h-svh w-full max-w-full flex-col overflow-x-hidden overflow-y-auto overscroll-x-none px-5 py-8 [touch-action:pan-y] sm:px-8 sm:py-12 lg:px-12 lg:py-16"
+    >
       <div className="stage-glow" aria-hidden />
       <div className="sound-rings" aria-hidden />
 
