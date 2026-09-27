@@ -7,31 +7,26 @@ click or drums and no network call is needed.
 
 Voice
 -----
-Piper voice **en_US-kristin-medium**
-https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/kristin/medium
+**Kokoro-82M** voice **af_heart** (American English, female)
+https://huggingface.co/hexgrad/Kokoro-82M
+https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md
 
-- Language: US English, single female speaker
-- Quality: medium, 22,050 Hz
-- Trained from scratch (not fine-tuned from another commercial voice)
+- Model: Kokoro-82M v1.0 (82 million parameters)
+- Voice pack: af_heart
+- Sample rate of source render: 24,000 Hz
 
-Licenses (commercial use allowed)
----------------------------------
-1. **Voice model weights** — MIT License
-   rhasspy/piper-voices
-   https://huggingface.co/rhasspy/piper-voices
-   https://github.com/rhasspy/piper-voices
+License (commercial use allowed)
+--------------------------------
+**Apache License 2.0** — model weights and bundled voice packs
+https://huggingface.co/hexgrad/Kokoro-82M
+https://www.apache.org/licenses/LICENSE-2.0
 
-2. **Training recordings** — public domain (LibriVox)
-   Dataset assembled by Bryce Beattie from LibriVox.org
-   https://librivox.org
-   Training notes: https://brycebeattie.com/files/tts/
-   Upstream MODEL_CARD: all source recordings are public domain.
+Kokoro’s card states the model was trained on permissive / non-copyrighted
+audio (public domain, Apache/MIT, or licensed synthetic audio). The
+inference library used only to render these clips is not shipped.
 
-3. **Piper synthesizer** (used only to render these clips; not shipped)
-   https://github.com/rhasspy/piper
-   The 2023.11.14-2 Linux binary used for rendering is from the
-   original Piper project. The shipped product contains only the
-   rendered MP3s, not the synthesizer or ONNX weights.
+Apache 2.0 requires including this license with the work. It does **not**
+require an in-app user-facing credit line.
 
 Rendered clips
 --------------
@@ -40,23 +35,18 @@ Each file is `NNN.mp3` for integer percent NNN (010–200), spoken as
 Clips were silence-trimmed, loudness-normalized (about −17 LUFS,
 true peak −1.5 dB), and encoded mono MP3 at 32 kbps.
 
-MIT License text (voice model)
-------------------------------
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-“Software”), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
+Apache License 2.0
+------------------
+Copyright 2025 hexgrad (Kokoro-82M)
 
-The above copyright notice and this permission notice shall be included
-in all copies or substantial portions of the Software.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

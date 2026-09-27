@@ -442,7 +442,7 @@ function crocellUrl(file: string): string {
 }
 
 function announceUrl(pct: number): string {
-  return `${import.meta.env.BASE_URL}rhythm/announce/kristin/${String(clampSbPct(pct)).padStart(3, '0')}.mp3`
+  return `${import.meta.env.BASE_URL}rhythm/announce/af_heart/${String(clampSbPct(pct)).padStart(3, '0')}.mp3`
 }
 
 async function loadCrocellManifest(): Promise<CrocellFile[]> {
