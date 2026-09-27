@@ -355,9 +355,12 @@ export function RhythmPage() {
           <div
             data-rhythm-layout
             data-rhythm-mode="click"
-            className="mt-1.5 flex flex-col gap-1.5 lg:grid lg:grid-cols-[minmax(24rem,26rem)_minmax(0,1fr)] lg:items-start lg:gap-4"
+            className="mt-1.5 flex flex-col gap-1.5 lg:flex-row lg:items-start lg:gap-4"
           >
-            <div className="flex flex-col gap-1.5" data-rhythm-stack="controls">
+            <div
+              className="flex h-fit w-full shrink-0 flex-col gap-1.5 lg:w-[26rem] lg:max-w-[26rem]"
+              data-rhythm-stack="controls"
+            >
               <RhythmTempoCard
                 bpm={bpm}
                 liveBpm={liveBpm}
@@ -382,7 +385,7 @@ export function RhythmPage() {
 
               <TransportDock
                 place="inline"
-                className="hidden lg:block"
+                className="hidden shrink-0 lg:flex lg:flex-col"
                 playing={playing}
                 onToggle={() => void startStop()}
                 holdUntilCycle={holdUntilCycle}
@@ -400,7 +403,10 @@ export function RhythmPage() {
               </TransportDock>
             </div>
 
-            <div className="flex flex-col gap-1.5" data-rhythm-stack="stage">
+            <div
+              className="flex h-fit min-w-0 flex-1 flex-col gap-1.5"
+              data-rhythm-stack="stage"
+            >
             <section>
               <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Subdivision
@@ -530,9 +536,12 @@ export function RhythmPage() {
           <div
             data-rhythm-layout
             data-rhythm-mode="drums"
-            className="mt-1.5 grid grid-cols-1 gap-1.5 lg:grid-cols-[minmax(24rem,26rem)_minmax(0,1fr)] lg:items-start lg:gap-4"
+            className="mt-1.5 flex flex-col gap-1.5 lg:flex-row lg:items-start lg:gap-4"
           >
-            <div className="flex flex-col gap-1.5" data-rhythm-stack="controls">
+            <div
+              className="flex h-fit w-full shrink-0 flex-col gap-1.5 lg:w-[26rem] lg:max-w-[26rem]"
+              data-rhythm-stack="controls"
+            >
               <RhythmTempoCard
                 bpm={bpm}
                 liveBpm={liveBpm}
@@ -591,7 +600,7 @@ export function RhythmPage() {
               </section>
               <TransportDock
                 place="inline"
-                className="hidden lg:block"
+                className="hidden shrink-0 lg:flex lg:flex-col"
                 playing={playing}
                 onToggle={() => void startStop()}
                 holdUntilCycle={holdUntilCycle}
@@ -608,7 +617,7 @@ export function RhythmPage() {
                 />
               </TransportDock>
             </div>
-            <section className="flex min-h-0 flex-col" data-rhythm-stack="stage">
+            <section className="flex h-fit min-h-0 min-w-0 flex-1 flex-col" data-rhythm-stack="stage">
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}

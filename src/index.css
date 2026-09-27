@@ -65,6 +65,17 @@ body {
   -webkit-backdrop-filter: blur(6px);
 }
 
+@media (min-width: 1024px) {
+  [data-rhythm-layout] {
+    align-items: flex-start;
+  }
+
+  [data-rhythm-stack] {
+    align-self: flex-start;
+    height: fit-content;
+  }
+}
+
 .stage-glow {
   pointer-events: none;
   position: absolute;
