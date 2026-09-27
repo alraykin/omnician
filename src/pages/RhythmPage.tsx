@@ -448,6 +448,19 @@ export function RhythmPage() {
               />
             </section>
 
+            <section className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5 lg:col-start-2">
+              <BarStrip
+                store={playheadStore}
+                bars={clickBars}
+                barIndex={clickBarIndex}
+                playing={playing}
+                canAdd={clickBars.length < MAX_BARS}
+                onSelect={chooseClickBar}
+                onAdd={addBar}
+                onRemove={() => removeBar(clickBarIndex)}
+              />
+            </section>
+
             <div
               data-section="click-sound"
               className="grid w-full grid-cols-4 gap-1 lg:col-start-2"
@@ -473,19 +486,6 @@ export function RhythmPage() {
                 </button>
               ))}
             </div>
-
-            <section className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5 lg:col-start-2">
-              <BarStrip
-                store={playheadStore}
-                bars={clickBars}
-                barIndex={clickBarIndex}
-                playing={playing}
-                canAdd={clickBars.length < MAX_BARS}
-                onSelect={chooseClickBar}
-                onAdd={addBar}
-                onRemove={() => removeBar(clickBarIndex)}
-              />
-            </section>
           </div>
           ) : (
           <div
