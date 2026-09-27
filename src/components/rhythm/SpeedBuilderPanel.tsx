@@ -96,6 +96,45 @@ function IntStepper({
   )
 }
 
+function PowerSwitch({
+  on,
+  onChange,
+  label,
+  testId,
+  dimmed = false,
+}: {
+  on: boolean
+  onChange: (next: boolean) => void
+  label: string
+  testId?: string
+  dimmed?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      data-toggle={testId}
+      data-on={on ? 'true' : 'false'}
+      data-sb-power={testId === 'speed-builder' ? (on ? 'on' : 'off') : undefined}
+      {...activateOnPointer(() => onChange(!on))}
+      className={cn(
+        'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+        on ? 'bg-[#A855F7]' : 'bg-white/15',
+        dimmed && 'opacity-45',
+      )}
+    >
+      <span
+        className={cn(
+          'absolute top-0.5 size-4 rounded-full bg-white shadow transition-[left]',
+          on ? 'left-4' : 'left-0.5',
+        )}
+      />
+    </button>
+  )
+}
+
 function Toggle({
   label,
   on,
@@ -151,25 +190,12 @@ export function SpeedBuilderPanel({
           <p className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
             Speed Builder
           </p>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={value.enabled}
-            aria-label="Speed Builder on"
-            data-sb-power={value.enabled ? 'on' : 'off'}
-            {...activateOnPointer(() => patch({ enabled: !value.enabled }))}
-            className={cn(
-              'relative h-5 w-9 shrink-0 rounded-full transition-colors',
-              value.enabled ? 'bg-[#A855F7]' : 'bg-white/15',
-            )}
-          >
-            <span
-              className={cn(
-                'absolute top-0.5 size-4 rounded-full bg-white shadow transition-[left]',
-                value.enabled ? 'left-4' : 'left-0.5',
-              )}
-            />
-          </button>
+          <PowerSwitch
+            on={value.enabled}
+            onChange={(enabled) => patch({ enabled })}
+            label="Speed Builder on"
+            testId="speed-builder"
+          />
         </div>
 
         <div className={cn('mt-1.5 space-y-1', !value.enabled && 'opacity-45')}>
@@ -233,13 +259,22 @@ export function SpeedBuilderToggles({
       className={cn('flex flex-wrap items-center gap-1 self-center', className)}
       data-precount-always={precountAlways ? 'true' : 'false'}
     >
-      <Toggle
-        label="Precount"
-        on={value.precount}
-        onChange={(precount) => patch({ precount })}
-        dimmed={!value.enabled && !precountAlways}
-        testId="precount"
-      />
+      <div
+        className={cn(
+          'flex items-center gap-1.5',
+          !value.enabled && !precountAlways && 'opacity-45',
+        )}
+      >
+        <p className="text-[0.58rem] font-semibold uppercase tracking-[0.08em] text-slate-400">
+          Precount
+        </p>
+        <PowerSwitch
+          on={value.precount}
+          onChange={(precount) => patch({ precount })}
+          label="Precount"
+          testId="precount"
+        />
+      </div>
       <Toggle
         label="Announce"
         on={value.announce}
