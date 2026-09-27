@@ -32,7 +32,7 @@ export function RhythmTempoCard({
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1.5 pt-6 pr-6 pb-2 sm:pt-5 sm:pr-5">
         <SpeedBuilderPanel value={speedBuilder} baseBpm={bpm} onChange={onSpeedBuilder} />
-        <div className="justify-self-end">
+        <div className="w-[9.25rem] justify-self-end sm:w-[152px] lg:w-[188px]">
           <BpmWheel
             compact
             value={bpm}
@@ -41,38 +41,46 @@ export function RhythmTempoCard({
           />
         </div>
         <SpeedBuilderToggles value={speedBuilder} onChange={onSpeedBuilder} />
-        <div className="relative z-20 flex items-center justify-center gap-0.5 justify-self-end self-center">
+        <div
+          data-tempo-taps
+          className="relative z-20 grid w-[9.25rem] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-0.5 justify-self-end self-center sm:w-[152px] lg:w-[188px]"
+        >
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="Slower by 5"
+              className="h-7 min-w-0 px-1.5 text-[0.7rem] touch-manipulation"
+              {...activateOnPointer(() => onBpm(bpm - 5, true))}
+            >
+              <Minus className="size-3" />
+              5
+            </Button>
+          </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            aria-label="Slower by 5"
-            className="h-7 px-1.5 text-[0.7rem] touch-manipulation"
-            {...activateOnPointer(() => onBpm(bpm - 5, true))}
-          >
-            <Minus className="size-3" />
-            5
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2 text-[0.7rem] touch-manipulation"
+            data-tap
+            className="h-7 min-w-0 px-1.5 text-[0.7rem] touch-manipulation"
             {...activateOnPointer(onTap)}
           >
             Tap
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-label="Faster by 5"
-            className="h-7 px-1.5 text-[0.7rem] touch-manipulation"
-            {...activateOnPointer(() => onBpm(bpm + 5, true))}
-          >
-            <Plus className="size-3" />
-            5
-          </Button>
+          <div className="flex justify-start">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="Faster by 5"
+              className="h-7 min-w-0 px-1.5 text-[0.7rem] touch-manipulation"
+              {...activateOnPointer(() => onBpm(bpm + 5, true))}
+            >
+              <Plus className="size-3" />
+              5
+            </Button>
+          </div>
         </div>
       </div>
     </section>
