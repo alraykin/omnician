@@ -63,11 +63,11 @@ body {
   pointer-events: none;
   position: absolute;
   inset: auto;
-  left: 50%;
+  left: 0;
   top: -8rem;
   height: 22rem;
-  width: 42rem;
-  transform: translateX(-50%);
+  width: 100%;
+  max-width: 100%;
   border-radius: 999px;
   background: radial-gradient(
     circle,
@@ -83,8 +83,9 @@ body {
   position: absolute;
   left: 50%;
   top: 5.5rem;
-  height: 28rem;
-  width: 28rem;
+  height: min(28rem, 80vw);
+  width: min(28rem, 100%);
+  max-width: 100%;
   transform: translateX(-50%);
   border-radius: 999px;
   background:
@@ -97,8 +98,8 @@ body {
 @media (min-width: 640px) {
   .sound-rings {
     top: 4rem;
-    height: 36rem;
-    width: 36rem;
+    height: min(36rem, 80vw);
+    width: min(36rem, 100%);
   }
 }
 
