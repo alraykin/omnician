@@ -338,7 +338,7 @@ export function RhythmPage() {
           <div
             data-rhythm-layout
             data-rhythm-mode="click"
-            className="mt-1.5 flex flex-col gap-1.5 lg:grid lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:items-start lg:gap-4"
+            className="mt-1.5 flex flex-col gap-1.5 lg:grid lg:grid-cols-[minmax(24rem,26rem)_minmax(0,1fr)] lg:items-start lg:gap-4"
           >
             <div className="lg:col-start-1 lg:row-start-1">
               <RhythmTempoCard
@@ -373,7 +373,7 @@ export function RhythmPage() {
                   role="group"
                   aria-label="Subdivision for all beats"
                   data-section="subdivision"
-                  className="flex w-full min-w-0 items-center justify-between gap-1"
+                  className="flex w-full min-w-0 flex-nowrap items-center gap-0.5 sm:gap-1"
                 >
                   {SUBDIVISIONS.map((steps) => {
                     const selected = current.beatSubdivisions.every((item) => item === steps)
@@ -491,7 +491,7 @@ export function RhythmPage() {
           <div
             data-rhythm-layout
             data-rhythm-mode="drums"
-            className="mt-1.5 grid grid-cols-1 gap-1.5 lg:grid-cols-[minmax(17.5rem,20rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:gap-4"
+            className="mt-1.5 grid grid-cols-1 gap-1.5 lg:grid-cols-[minmax(24rem,26rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:gap-4"
           >
             <div className="lg:col-start-1 lg:row-start-1">
               <RhythmTempoCard
@@ -524,7 +524,7 @@ export function RhythmPage() {
                   role="group"
                   aria-label="Subdivision"
                   data-section="subdivision"
-                  className="flex w-full min-w-0 justify-between gap-1 lg:flex-wrap lg:justify-start"
+                  className="flex w-full min-w-0 flex-nowrap items-center gap-0.5 sm:gap-1"
                 >
                   {SUBDIVISIONS.map((steps) => (
                     <button
@@ -536,13 +536,14 @@ export function RhythmPage() {
                       data-subdivision={steps}
                       {...activateOnPointer(() => setSubdivision(steps))}
                       className={cn(
-                        'flex h-12 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-14 lg:h-11 lg:max-w-[2.8rem] lg:flex-none',
+                        'flex h-12 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-14 lg:h-10',
                         current.subdivision === steps
                           ? 'bg-[#A855F7] text-white'
                           : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
                       )}
                     >
-                      <SubdivIcon steps={steps} />
+                      <SubdivIcon steps={steps} className="lg:hidden" />
+                      <SubdivIcon steps={steps} compact className="hidden lg:block" />
                     </button>
                   ))}
                 </div>

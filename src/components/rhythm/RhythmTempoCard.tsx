@@ -30,9 +30,9 @@ export function RhythmTempoCard({
       data-tempo-card
       className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 pl-2 sm:pl-4"
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1.5 pt-6 pr-6 pb-2 sm:pt-5 sm:pr-5">
+      <div className="grid grid-cols-[minmax(0,1fr)_9.25rem] items-start gap-x-2 gap-y-1.5 pt-6 pr-6 pb-2 sm:pt-5 sm:pr-5">
         <SpeedBuilderPanel value={speedBuilder} baseBpm={bpm} onChange={onSpeedBuilder} />
-        <div className="w-[9.25rem] justify-self-end sm:w-[152px] lg:w-[188px]">
+        <div className="w-[9.25rem] max-w-full justify-self-end">
           <BpmWheel
             compact
             value={bpm}
@@ -43,7 +43,7 @@ export function RhythmTempoCard({
         <SpeedBuilderToggles value={speedBuilder} onChange={onSpeedBuilder} />
         <div
           data-tempo-taps
-          className="relative z-20 grid w-[9.25rem] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-0.5 justify-self-end self-center sm:w-[152px] lg:w-[188px]"
+          className="relative z-20 grid w-[9.25rem] max-w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-0.5 justify-self-end self-center"
         >
           <div className="flex justify-end">
             <Button

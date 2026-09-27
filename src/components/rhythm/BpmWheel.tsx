@@ -297,7 +297,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
       <div
         className={
           compact
-            ? 'relative size-[9.25rem] sm:size-[152px] lg:size-[188px]'
+            ? 'relative size-[9.25rem]'
             : 'relative size-[152px] sm:size-[188px] lg:size-[216px]'
         }
       >
@@ -425,7 +425,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
           <div
             className={
               compact
-                ? 'bpm-dial bpm-dial-compact pointer-events-none relative size-[9.25rem] select-none rounded-full sm:size-[152px] lg:size-[188px]'
+                ? 'bpm-dial bpm-dial-compact pointer-events-none relative size-[9.25rem] select-none rounded-full'
                 : 'bpm-dial pointer-events-none relative size-[152px] select-none rounded-full sm:size-[188px] lg:size-[216px]'
             }
           >

@@ -39,7 +39,7 @@ function IntStepper({
   }
 
   return (
-    <div className="flex w-full items-center gap-1">
+    <div className="flex w-full min-w-0 items-center gap-1">
       <p className="w-[3.15rem] shrink-0 text-[0.55rem] font-semibold uppercase tracking-[0.06em] text-slate-500">
         {label}
       </p>
@@ -57,7 +57,7 @@ function IntStepper({
           type="button"
           aria-label={`${label} ${value}${suffix}, tap to type`}
           {...activateOnPointer(() => setDraft(String(value)))}
-          className="min-w-[2.1rem] flex-1 text-center text-sm font-bold tabular-nums text-white"
+          className="min-w-[2.1rem] flex-1 whitespace-nowrap text-center text-sm font-bold tabular-nums text-white"
         >
           {value}
           {suffix ? <span className="text-[0.6rem] font-semibold text-slate-500">{suffix}</span> : null}
@@ -200,7 +200,7 @@ export function SpeedBuilderPanel({
               patch({ repeats: Math.min(MAX_SB_REPEATS, Math.max(MIN_SB_REPEATS, repeats)) })
             }
           />
-          <p className="pl-[3.15rem] text-[0.62rem] tabular-nums text-slate-500" data-sb-range data-sb-repeats={value.repeats}>
+          <p className="pl-[3.15rem] whitespace-nowrap text-[0.62rem] tabular-nums text-slate-500" data-sb-range data-sb-repeats={value.repeats}>
             {fromBpm} → {toBpm} BPM
           </p>
         </div>

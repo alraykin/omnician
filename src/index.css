@@ -543,7 +543,7 @@ body {
 }
 
 @media (min-width: 640px) {
-  .bpm-dial {
+  .bpm-dial:not(.bpm-dial-compact) {
     --ring-radius: 79px;
   }
 
