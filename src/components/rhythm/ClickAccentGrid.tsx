@@ -3,8 +3,8 @@ import { useEffect, useRef } from 'react'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { usePlayhead, type PlayheadStore } from '@/hooks/useRhythmEngine'
 import {
-  SUBDIVISION_LABELS,
   SUBDIVISIONS,
+  subdivisionLabel,
   beatAccentAt,
   beatSubdivisionAt,
   type AccentLevel,
@@ -104,7 +104,7 @@ export function ClickAccentGrid({
                     type="button"
                     data-beat-note={beat}
                     data-subdivision={subdiv}
-                    aria-label={`Beat ${beat + 1} subdivision, ${SUBDIVISION_LABELS[subdiv]}`}
+                    aria-label={`Beat ${beat + 1} subdivision, ${subdivisionLabel(subdiv, bar.beatUnit)}`}
                     aria-expanded={open}
                     {...activateOnPointer(() => onPickerBeat(open ? null : beat))}
                     className={cn(
@@ -112,7 +112,7 @@ export function ClickAccentGrid({
                       open && 'text-[#E9D5FF]',
                     )}
                   >
-                    <SubdivIcon steps={subdiv} tiny />
+                    <SubdivIcon steps={subdiv} beatUnit={bar.beatUnit} tiny />
                   </button>
                 </div>
               )
@@ -138,7 +138,7 @@ export function ClickAccentGrid({
                   key={steps}
                   type="button"
                   data-picker-subdivision={steps}
-                  aria-label={SUBDIVISION_LABELS[steps]}
+                  aria-label={subdivisionLabel(steps, bar.beatUnit)}
                   aria-pressed={selected}
                   {...activateOnPointer(() => onSetBeatSubdiv(pickerBeat, steps))}
                   className={cn(
@@ -148,7 +148,7 @@ export function ClickAccentGrid({
                       : 'border border-white/10 bg-white/4 text-slate-100',
                   )}
                 >
-                  <SubdivIcon steps={steps} compact />
+                  <SubdivIcon steps={steps} beatUnit={bar.beatUnit} compact />
                 </button>
               )
             })}

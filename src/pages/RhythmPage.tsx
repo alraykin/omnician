@@ -21,8 +21,8 @@ import {
   CLICK_SOUNDS,
   DEFAULT_BPM,
   MAX_BARS,
-  SUBDIVISION_LABELS,
   SUBDIVISIONS,
+  subdivisionLabel,
   clampBpm,
   beatAccentAt,
   cloneBar,
@@ -418,10 +418,11 @@ export function RhythmPage() {
                       <button
                         key={steps}
                         type="button"
-                        aria-label={SUBDIVISION_LABELS[steps]}
-                        title={SUBDIVISION_LABELS[steps]}
+                        aria-label={subdivisionLabel(steps, current.beatUnit)}
+                        title={subdivisionLabel(steps, current.beatUnit)}
                         aria-pressed={selected}
                         data-subdivision={steps}
+                        data-subdivision-label={subdivisionLabel(steps, current.beatUnit)}
                         {...activateOnPointer(() => setSubdivision(steps))}
                         className={cn(
                           'flex h-10 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-11',
@@ -430,7 +431,7 @@ export function RhythmPage() {
                             : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
                         )}
                       >
-                        <SubdivIcon steps={steps} compact />
+                        <SubdivIcon steps={steps} beatUnit={current.beatUnit} compact />
                       </button>
                     )
                   })}
@@ -567,10 +568,11 @@ export function RhythmPage() {
                       <button
                         key={steps}
                         type="button"
-                        aria-label={SUBDIVISION_LABELS[steps]}
-                        title={SUBDIVISION_LABELS[steps]}
+                        aria-label={subdivisionLabel(steps, current.beatUnit)}
+                        title={subdivisionLabel(steps, current.beatUnit)}
                         aria-pressed={current.subdivision === steps}
                         data-subdivision={steps}
+                        data-subdivision-label={subdivisionLabel(steps, current.beatUnit)}
                         {...activateOnPointer(() => setSubdivision(steps))}
                         className={cn(
                           'flex h-12 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-14 lg:h-10',
@@ -579,8 +581,8 @@ export function RhythmPage() {
                             : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
                         )}
                       >
-                        <SubdivIcon steps={steps} className="lg:hidden" />
-                        <SubdivIcon steps={steps} compact className="hidden lg:block" />
+                        <SubdivIcon steps={steps} beatUnit={current.beatUnit} className="lg:hidden" />
+                        <SubdivIcon steps={steps} beatUnit={current.beatUnit} compact className="hidden lg:block" />
                       </button>
                     ))}
                   </div>

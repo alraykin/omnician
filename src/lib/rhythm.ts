@@ -61,6 +61,37 @@ export const SUBDIVISION_LABELS: Record<SubdivisionId, string> = {
   7: 'Septuplets',
 }
 
+const NOTE_VALUE_NAMES = ['half', 'quarter', 'eighth', 'sixteenth', '32nd', '64th', '128th'] as const
+
+/** How many beams the beat-unit note has vs a quarter. Half = −1 (hollow). */
+export function beatUnitBeams(beatUnit: BeatUnit): number {
+  return Math.log2(beatUnit) - 2
+}
+
+export function noteValueName(beams: number, plural = false): string {
+  const index = Math.min(NOTE_VALUE_NAMES.length - 1, Math.max(0, beams + 1))
+  const name = NOTE_VALUE_NAMES[index]
+  if (name === 'half' || name === 'quarter' || name === 'eighth' || name === 'sixteenth') {
+    return plural ? `${name} notes` : `${name} note`
+  }
+  return plural ? `${name} notes` : `${name} note`
+}
+
+/** Spoken label for a subdivision chip, relative to the meter denominator. */
+export function subdivisionLabel(steps: SubdivisionId, beatUnit: BeatUnit = 4): string {
+  const beatBeams = beatUnitBeams(beatUnit)
+  if (steps === 1) return noteValueName(beatBeams, false)
+  if (steps === 2) return noteValueName(beatBeams + 1, true)
+  if (steps === 4) return noteValueName(beatBeams + 2, true)
+  if (steps === 3) {
+    const base = noteValueName(beatBeams + 1, false).replace(/ note$/, '')
+    return `${base}-note triplets`
+  }
+  const tuplet = steps === 5 ? 'Quintuplets' : steps === 6 ? 'Sextuplets' : 'Septuplets'
+  const under = noteValueName(beatBeams + 1, true)
+  return `${tuplet} (${under})`
+}
+
 const LEGACY_SUBDIVISION: Record<string, SubdivisionId> = {
   quarters: 1,
   quarter: 1,
@@ -447,8 +478,11 @@ export function setBeatSubdivision(bar: RhythmBar, beat: number, subdivision: Su
   return next
 }
 
-export function clickPulsesInBar(bar: Pick<RhythmBar, 'beats' | 'subdivision' | 'beatSubdivisions'>, bpm: number): ClickPulse[] {
-  const beatSec = beatDurationSec(bpm)
+export function clickPulsesInBar(
+  bar: Pick<RhythmBar, 'beats' | 'beatUnit' | 'subdivision' | 'beatSubdivisions'>,
+  bpm: number,
+): ClickPulse[] {
+  const beatSec = beatDurationSec(bpm, bar.beatUnit)
   const pulses: ClickPulse[] = []
   for (let beat = 0; beat < bar.beats; beat += 1) {
     const steps = Math.max(1, stepsPerBeat(beatSubdivisionAt(bar, beat)))
@@ -465,8 +499,8 @@ export function clickPulsesInBar(bar: Pick<RhythmBar, 'beats' | 'subdivision' | 
   return pulses
 }
 
-export function barDurationSec(beats: number, bpm: number): number {
-  return clampBeats(beats) * beatDurationSec(bpm)
+export function barDurationSec(beats: number, bpm: number, beatUnit: BeatUnit = 4): number {
+  return clampBeats(beats) * beatDurationSec(bpm, beatUnit)
 }
 
 /** Strong on beat 1 only. Every other beat is unaccented, for every meter. */
@@ -689,17 +723,25 @@ export function pulseLabel(beatUnit: BeatUnit): string {
   return `${UNIT_LABELS[beatUnit]} notes`
 }
 
-export function stepDurationSec(bpm: number, subdivision: SubdivisionId): number {
-  const tempo = Math.max(MIN_BPM, bpm)
-  return 60 / tempo / stepsPerBeat(subdivision)
-}
-
-export function beatDurationSec(bpm: number): number {
+/** Quarter-note length. BPM always means quarter notes, in every meter. */
+export function quarterNoteSec(bpm: number): number {
   return 60 / Math.max(MIN_BPM, bpm)
 }
 
-export function hitTimeInBar(hit: HitPos, bpm: number): number {
-  return (hit.beat + hit.num / hit.den) * beatDurationSec(bpm)
+export function beatDurationSec(bpm: number, beatUnit: BeatUnit = 4): number {
+  return quarterNoteSec(bpm) * (4 / beatUnit)
+}
+
+export function stepDurationSec(
+  bpm: number,
+  subdivision: SubdivisionId,
+  beatUnit: BeatUnit = 4,
+): number {
+  return beatDurationSec(bpm, beatUnit) / stepsPerBeat(subdivision)
+}
+
+export function hitTimeInBar(hit: HitPos, bpm: number, beatUnit: BeatUnit = 4): number {
+  return (hit.beat + hit.num / hit.den) * beatDurationSec(bpm, beatUnit)
 }
 
 /** Voices closer than this stay; only later notes are cancelled and re-picked. */
@@ -736,6 +778,7 @@ export function planLiveTempoRetarget(
   offsetsAtNewTempo: readonly number[],
   beats: number,
   commitLead = LIVE_COMMIT_SEC,
+  beatUnit: BeatUnit = 4,
 ): {
   newBarStart: number
   commit: number
@@ -746,7 +789,7 @@ export function planLiveTempoRetarget(
   const newBarStart = remapBarStart(now, oldBarStart, oldBpm, newBpm)
   const commit = now + commitLead
   const times = offsetsAtNewTempo.map((offset) => newBarStart + offset)
-  const barEnd = newBarStart + barDurationSec(beats, newBpm)
+  const barEnd = newBarStart + barDurationSec(beats, newBpm, beatUnit)
   return {
     newBarStart,
     commit,

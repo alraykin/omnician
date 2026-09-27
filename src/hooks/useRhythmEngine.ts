@@ -229,7 +229,7 @@ export function useRhythmEngine({
       for (const voice of VOICES) {
         for (const hit of bar.pattern[voice] ?? []) {
           if (hit.beat < 0 || hit.beat >= bar.beats) continue
-          kit.hit(voice, start + hitTimeInBar(hit, tempo), voice === 'snare' ? snareHitRole(hit) : 'normal')
+          kit.hit(voice, start + hitTimeInBar(hit, tempo, bar.beatUnit), voice === 'snare' ? snareHitRole(hit) : 'normal')
         }
       }
     },
@@ -380,7 +380,7 @@ export function useRhythmEngine({
         for (const voice of VOICES) {
           for (const hit of bar.pattern[voice] ?? []) {
             if (hit.beat < 0 || hit.beat >= bar.beats) continue
-            const when = barStart + hitTimeInBar(hit, tempo)
+            const when = barStart + hitTimeInBar(hit, tempo, bar.beatUnit)
             if (when <= afterTime) continue
             kit.hit(voice, when, voice === 'snare' ? snareHitRole(hit) : 'normal')
           }
@@ -488,9 +488,18 @@ export function useRhythmEngine({
         const offsets = clickMode
           ? clickPulsesInBar(bar, newBpm).map((pulse) => pulse.offsetSec)
           : Array.from({ length: Math.max(1, stepsInBar(bar)) }, (_, step) => {
-              return step * stepDurationSec(newBpm, bar.subdivision)
+              return step * stepDurationSec(newBpm, bar.subdivision, bar.beatUnit)
             })
-        const plan = planLiveTempoRetarget(now, barStartRef.current, oldBpm, newBpm, offsets, bar.beats, COMMIT_SEC)
+        const plan = planLiveTempoRetarget(
+          now,
+          barStartRef.current,
+          oldBpm,
+          newBpm,
+          offsets,
+          bar.beats,
+          COMMIT_SEC,
+          bar.beatUnit,
+        )
         barStartRef.current = plan.newBarStart
 
         if (liveModeRef.current === 'drums') {
@@ -572,7 +581,7 @@ export function useRhythmEngine({
               accent: strong ? 2 : 0,
               subdivision: false,
             })
-            nextTimeRef.current = time + beatDurationSec(tempo)
+            nextTimeRef.current = time + beatDurationSec(tempo, first.beatUnit)
             precountBeatRef.current = beat + 1
             if (precountBeatRef.current >= first.beats) {
               sbPhaseRef.current = 'pattern'
@@ -602,8 +611,8 @@ export function useRhythmEngine({
           if (nextStep >= length) {
             const wrapped = (barIndex + 1) % sequence.length
             const barEnd = clickMode
-              ? time - (pulse?.offsetSec ?? 0) + barDurationSec(bar.beats, tempo)
-              : time + stepDurationSec(tempo, bar.subdivision)
+              ? time - (pulse?.offsetSec ?? 0) + barDurationSec(bar.beats, tempo, bar.beatUnit)
+              : time + stepDurationSec(tempo, bar.subdivision, bar.beatUnit)
             stepRef.current = 0
             if (wrapped === 0) {
               commitPendingCycle()
@@ -628,7 +637,7 @@ export function useRhythmEngine({
             nextTimeRef.current = time + (pulses[nextStep].offsetSec - pulse.offsetSec)
           } else {
             stepRef.current = nextStep
-            nextTimeRef.current = time + stepDurationSec(tempo, bar.subdivision)
+            nextTimeRef.current = time + stepDurationSec(tempo, bar.subdivision, bar.beatUnit)
           }
         }
       }
