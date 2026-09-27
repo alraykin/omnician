@@ -438,12 +438,15 @@ body {
 .bpm-dial-hit {
   width: 100%;
   height: 100%;
-  touch-action: pan-y;
+  touch-action: none;
   overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
   cursor: grab;
 }
 
-.bpm-dial-hit[data-spinning='true'] {
+.bpm-dial-hit button,
+.bpm-dial-hit input {
   touch-action: none;
 }
 

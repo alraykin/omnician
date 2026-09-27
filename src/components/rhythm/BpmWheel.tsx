@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { clampBpm, MAX_BPM, MIN_BPM } from '@/lib/rhythm'
-import { DRAG_DEADZONE_PX, HOLD_TO_DRAG_MS, accumulatedScroll, cn } from '@/lib/utils'
+import { DRAG_DEADZONE_PX, cn } from '@/lib/utils'
 
 type BpmWheelProps = {
   value: number
@@ -92,12 +92,8 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
     pointerId: number
     x: number
     y: number
-    scroll: number
-    armed: boolean
-    ignored: boolean
-    inner: boolean
+    tapEdit: boolean
   } | null>(null)
-  const holdTimerRef = useRef(0)
   const samplesRef = useRef<Sample[]>([])
   const movedRef = useRef(false)
   const velRef = useRef(0)
@@ -216,7 +212,6 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
 
   useEffect(
     () => () => {
-      window.clearTimeout(holdTimerRef.current)
       stopCoast()
     },
     [],
@@ -243,8 +238,16 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
       const steps = Math.max(1, Math.round(Math.abs(event.deltaY) / 48))
       emitIfNeeded(emittedRef.current + (clockwise ? 1 : -1) * steps)
     }
+    const onTouchMove = (event: TouchEvent) => {
+      if (editingRef.current) return
+      event.preventDefault()
+    }
     node.addEventListener('wheel', onWheel, { passive: false })
-    return () => node.removeEventListener('wheel', onWheel)
+    node.addEventListener('touchmove', onTouchMove, { passive: false })
+    return () => {
+      node.removeEventListener('wheel', onWheel)
+      node.removeEventListener('touchmove', onTouchMove)
+    }
   }, [])
 
   const flickVelocity = (): number => {
@@ -309,25 +312,21 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
           onPointerDown={(event) => {
             movedRef.current = false
             if (editing) return
-            if ((event.target as HTMLElement).closest('button, input')) return
+            if ((event.target as HTMLElement).closest('input')) return
             if (event.button !== 0) return
-            const { x: cx, y: cy } = hitCenter()
-            const radius = Math.hypot(event.clientX - cx, event.clientY - cy)
+            event.preventDefault()
+            try {
+              event.currentTarget.setPointerCapture(event.pointerId)
+            } catch {
+              // Capture is best-effort; touch-action + non-passive touchmove still hold the page.
+            }
+            stopCoast()
             pendingRef.current = {
               pointerId: event.pointerId,
               x: event.clientX,
               y: event.clientY,
-              scroll: accumulatedScroll(event.currentTarget),
-              armed: false,
-              ignored: false,
-              inner: radius < MIN_RADIUS,
+              tapEdit: Boolean((event.target as HTMLElement).closest('button')),
             }
-            window.clearTimeout(holdTimerRef.current)
-            holdTimerRef.current = window.setTimeout(() => {
-              const pending = pendingRef.current
-              if (!pending || pending.ignored || pending.inner) return
-              pending.armed = true
-            }, HOLD_TO_DRAG_MS)
           }}
           onPointerMove={(event) => {
             const drag = dragRef.current
@@ -349,24 +348,16 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
 
             const pending = pendingRef.current
             if (!pending || pending.pointerId !== event.pointerId || editing) return
-            if (pending.ignored || pending.inner) return
-            if (Math.abs(accumulatedScroll(event.currentTarget) - pending.scroll) > 1) {
-              pending.ignored = true
-              window.clearTimeout(holdTimerRef.current)
-              return
-            }
             const dx = event.clientX - pending.x
             const dy = event.clientY - pending.y
             const dist = Math.hypot(dx, dy)
             if (dist < DRAG_DEADZONE_PX) return
-            const vertical = Math.abs(dy) > Math.abs(dx) * 1.2
-            if (!pending.armed && vertical) {
-              pending.ignored = true
-              window.clearTimeout(holdTimerRef.current)
-              return
-            }
             event.preventDefault()
-            event.currentTarget.setPointerCapture(event.pointerId)
+            try {
+              event.currentTarget.setPointerCapture(event.pointerId)
+            } catch {
+              // Already captured on pointerdown when the browser allows it.
+            }
             stopCoast()
             snapToEmitted()
             const { x: cx, y: cy } = hitCenter()
@@ -380,16 +371,26 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
             draggingRef.current = true
             setDragging(true)
             pendingRef.current = null
-            window.clearTimeout(holdTimerRef.current)
           }}
           onPointerUp={(event) => {
-            window.clearTimeout(holdTimerRef.current)
+            const pending = pendingRef.current
             pendingRef.current = null
-            if (dragRef.current) endDrag(true, event)
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId)
+            }
+            if (dragRef.current) {
+              endDrag(true, event)
+              return
+            }
+            if (pending?.tapEdit && !movedRef.current && !editing) {
+              setDraft(String(shown))
+            }
           }}
-          onPointerCancel={() => {
-            window.clearTimeout(holdTimerRef.current)
+          onPointerCancel={(event) => {
             pendingRef.current = null
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId)
+            }
             if (dragRef.current) endDrag(false)
           }}
           onKeyDown={(event) => {
