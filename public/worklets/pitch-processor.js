@@ -1,8 +1,8 @@
-/* Self-contained AudioWorklet: MPM + YIN, 256-sample hops. */
+/* Self-contained AudioWorklet: MPM + YIN. Uses the context sampleRate. */
 const MIN_HZ = 30
 const MAX_HZ = 1400
-const HOP = 256
-const MAX_WINDOW = 4096
+const MAX_WINDOW = 8192
+const MIN_WINDOW = 2048
 
 function createScratch(maxWindow) {
   return {
@@ -13,12 +13,15 @@ function createScratch(maxWindow) {
 }
 
 function windowForHz(hz, sampleRate) {
-  if (hz === null || hz <= 0) return 3072
-  const needed = Math.ceil((sampleRate / hz) * 2.5)
-  if (needed <= 1536) return 1536
-  if (needed <= 2048) return 2048
-  if (needed <= 3072) return 3072
-  return 4096
+  const f = hz && hz > 0 ? hz : 70
+  const periods = f < 90 ? 4 : f < 180 ? 3.2 : 2.6
+  const needed = Math.ceil((sampleRate / f) * periods)
+  const capped = Math.min(MAX_WINDOW, Math.max(MIN_WINDOW, needed))
+  if (capped <= 2048) return 2048
+  if (capped <= 3072) return 3072
+  if (capped <= 4096) return 4096
+  if (capped <= 6144) return 6144
+  return MAX_WINDOW
 }
 
 function parabolicTau(values, tau) {
@@ -138,20 +141,25 @@ function yinPitch(buffer, sampleRate, scratch) {
   return { frequency, clarity }
 }
 
+function preferFundamental(left, right) {
+  if (left.frequency <= 0) return right
+  if (right.frequency <= 0) return left
+  const pair = left.clarity >= right.clarity ? [left, right] : [right, left]
+  const best = pair[0]
+  const other = pair[1]
+  const ratio = best.frequency / other.frequency
+  if (other.clarity >= 0.5 && ratio > 1.87 && ratio < 2.14) return other
+  if (other.clarity >= 0.5 && ratio > 0.47 && ratio < 0.535) return best
+  if (other.clarity >= 0.58 && ratio > 2.85 && ratio < 3.2 && other.frequency < 220) return other
+  if (best.clarity < 0.55 && other.clarity > best.clarity) return other
+  return best
+}
+
 function estimatePitchAdaptive(buffer, sampleRate, scratch, prevHz) {
   if (localRms(buffer, 0, buffer.length) < 0.001) return { frequency: 0, clarity: 0 }
   const mpm = mpmPitch(buffer, sampleRate, scratch)
   const yin = yinPitch(buffer, sampleRate, scratch)
-  let pick = mpm
-  if (mpm.clarity < 0.55 && yin.clarity > mpm.clarity) pick = yin
-  if (mpm.frequency > 0 && yin.frequency > 0) {
-    const ratio = mpm.frequency / yin.frequency
-    if (ratio > 1.85 && ratio < 2.15 && yin.clarity >= 0.62) {
-      pick = prevHz && nearer(mpm.frequency, prevHz) + 0.04 < nearer(yin.frequency, prevHz) ? mpm : yin
-    } else if (ratio > 0.46 && ratio < 0.54 && mpm.clarity >= 0.62) {
-      pick = prevHz && nearer(yin.frequency, prevHz) + 0.04 < nearer(mpm.frequency, prevHz) ? yin : mpm
-    }
-  }
+  let pick = preferFundamental(mpm, yin)
   if (prevHz && pick.frequency > 0) {
     let hz = pick.frequency
     while (hz > prevHz * Math.SQRT2 && hz / 2 >= MIN_HZ) hz /= 2
@@ -168,17 +176,30 @@ function estimateFromFilled(buffer, filled, sampleRate, scratch, prevHz) {
     estimatePitchAdaptive(buffer.subarray(filled - window, filled), sampleRate, scratch, prevHz)
   if (prevHz) {
     const window = Math.min(filled, windowForHz(prevHz, sampleRate))
-    if (window < 1536) return { frequency: 0, clarity: 0 }
+    if (window < MIN_WINDOW) return { frequency: 0, clarity: 0 }
     return take(window)
   }
-  if (filled < 2048) return { frequency: 0, clarity: 0 }
-  const quick = take(2048)
-  if (quick.frequency >= 90 && quick.clarity >= 0.74) return quick
-  if (filled < 3072) return { frequency: 0, clarity: 0 }
-  const mid = take(3072)
-  if (mid.frequency >= 48 && mid.clarity >= 0.7) return mid
-  if (filled < 4096) return { frequency: 0, clarity: 0 }
-  return take(4096)
+  const first = Math.min(filled, windowForHz(90, sampleRate))
+  if (first < MIN_WINDOW) return { frequency: 0, clarity: 0 }
+  const quick = take(first)
+  if (quick.frequency >= 82 && quick.clarity >= 0.74) return quick
+  const full = Math.min(filled, windowForHz(55, sampleRate))
+  if (full <= first) return quick
+  return take(full)
+}
+
+function mixFrame(channels, index) {
+  let sum = 0
+  let live = 0
+  for (let c = 0; c < channels.length; c += 1) {
+    const channel = channels[c]
+    if (!channel) continue
+    const sample = channel[index]
+    if (sample !== 0) live += 1
+    sum += sample
+  }
+  if (live <= 1) return sum
+  return sum / channels.length
 }
 
 class PitchProcessor extends AudioWorkletProcessor {
@@ -190,18 +211,21 @@ class PitchProcessor extends AudioWorkletProcessor {
     this.write = 0
     this.filled = 0
     this.hop = 0
+    this.hopSize = Math.max(256, Math.round(sampleRate / 188))
     this.prevHz = null
   }
 
   process(inputs) {
-    const channel = inputs[0] && inputs[0][0]
-    if (!channel || channel.length === 0) return true
-    for (let i = 0; i < channel.length; i += 1) {
-      this.ring[this.write] = channel[i]
+    const channels = inputs[0]
+    if (!channels || channels.length === 0) return true
+    const lead = channels[0]
+    if (!lead || lead.length === 0) return true
+    for (let i = 0; i < lead.length; i += 1) {
+      this.ring[this.write] = mixFrame(channels, i)
       this.write = (this.write + 1) % MAX_WINDOW
       if (this.filled < MAX_WINDOW) this.filled += 1
       this.hop += 1
-      if (this.hop >= HOP && this.filled >= 2048) {
+      if (this.hop >= this.hopSize && this.filled >= MIN_WINDOW) {
         this.hop = 0
         this.emit()
       }
@@ -226,6 +250,7 @@ class PitchProcessor extends AudioWorkletProcessor {
       clarity: estimate.clarity,
       rms,
       time: currentTime,
+      sampleRate,
     })
   }
 }

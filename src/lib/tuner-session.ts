@@ -1,5 +1,6 @@
 import { analyzeFrequency, A4_HZ, rms } from '@/lib/notes'
 import {
+  captureSampleRate,
   connectRawInput,
   createTunerContextSync,
   isPermissionError,
@@ -10,9 +11,6 @@ import {
 import { createSmoothState, pushEstimate, type SmoothState } from '@/lib/pitch-smooth'
 import { createPitchScratch, estimateFromFilled } from '@/lib/yin'
 
-const AGC_TARGET = 0.055
-const AGC_MIN = 1.05
-const AGC_MAX = 8
 const UI_PERIOD_MS = 16
 const LEAVE_STOP_MS = 80
 const ORPHAN_PRIME_MS = 1600
@@ -63,18 +61,17 @@ let leaveTimer = 0
 let orphanTimer = 0
 let lastStartHadGesture = false
 let lastError = ''
+let lastCaptureRate: number | null = null
 let engine: 'worklet' | 'analyser' | 'none' = 'none'
 
 let audio: AudioContext | null = null
 let stream: MediaStream | null = null
 let oscillator: OscillatorNode | null = null
 let worklet: AudioWorkletNode | null = null
-let makeup: GainNode | null = null
 let raf = 0
 let smooth: SmoothState = createSmoothState()
 let lastPublish = 0
 let lastTick = 0
-let agc = 2.4
 
 function pitchWorkletUrl(): string {
   const base = import.meta.env.BASE_URL.endsWith('/')
@@ -102,6 +99,7 @@ function exposeDebug(): void {
         lastError,
         engine,
         sampleRate: audio?.sampleRate ?? null,
+        captureRate: lastCaptureRate,
         workletUrl: pitchWorkletUrl(),
       }
     },
@@ -176,8 +174,6 @@ function teardown(nextStatus: TunerStatus | null): void {
   lastPublish = 0
   lastTick = 0
   smooth = createSmoothState()
-  makeup = null
-  agc = 2.4
   engine = 'none'
 
   const node = worklet
@@ -292,7 +288,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
 
   let ctx: AudioContext
   try {
-    ctx = audio && audio.state !== 'closed' ? audio : createTunerContextSync()
+    ctx = audio && audio.state !== 'closed' ? audio : createTunerContextSync(lastCaptureRate)
   } catch {
     if (sessionId === session) emit({ status: 'unavailable', needsGesture: false })
     return
@@ -353,6 +349,20 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
 
     stream = nextStream
     const track = nextStream.getAudioTracks()[0]
+    const trackRate = captureSampleRate(nextStream)
+    if (trackRate) lastCaptureRate = trackRate
+    if (trackRate && Math.abs(trackRate - ctx.sampleRate) > 50) {
+      const replacement = createTunerContextSync(trackRate)
+      if (audio === ctx) audio = null
+      await closeContext(ctx)
+      ctx = replacement
+      audio = ctx
+      try {
+        await ctx.resume()
+      } catch {
+        // tap-anywhere will unlock if this late resume is rejected
+      }
+    }
     if (track) {
       logCapture({
         settings: track.getSettings(),
@@ -402,26 +412,16 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
 
   const onEstimate = (hz: number, clarity: number, signal: number) => {
     if (sessionId !== session) return
-    if (signal > 0.0012) {
-      const desired = Math.min(AGC_MAX, Math.max(AGC_MIN, AGC_TARGET / signal))
-      agc = agc * 0.88 + desired * 0.12
-    } else {
-      agc = agc * 0.96 + AGC_MIN * 0.04
-    }
-    if (makeup) {
-      const nextGain = Math.min(6.2, 1.15 + agc * 0.32)
-      makeup.gain.setTargetAtTime(nextGain, ctx.currentTime, 0.03)
-    }
-    applyEstimate(hz, clarity, signal * agc, performance.now())
+    applyEstimate(hz, clarity, signal, performance.now())
   }
 
   const attachAnalyser = () => {
     const analyser = ctx.createAnalyser()
-    analyser.fftSize = 4096
+    analyser.fftSize = 8192
     analyser.smoothingTimeConstant = 0
-    makeup = connectRawInput(ctx, source, analyser)
-    const scratch = createPitchScratch(4096)
-    const buffer = new Float32Array(4096)
+    connectRawInput(ctx, source, analyser)
+    const scratch = createPitchScratch()
+    const buffer = new Float32Array(8192)
     let prevHz: number | null = null
     const tick = () => {
       if (sessionId !== session) return
@@ -443,12 +443,15 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
           numberOfInputs: 1,
           numberOfOutputs: 1,
           outputChannelCount: [1],
+          channelCount: 1,
+          channelCountMode: 'explicit',
+          channelInterpretation: 'speakers',
         })
         node.port.onmessage = (event: MessageEvent<EstimateMsg>) => {
           if (event.data?.type !== 'estimate') return
           onEstimate(event.data.hz, event.data.clarity, event.data.rms)
         }
-        makeup = connectRawInput(ctx, source, node)
+        connectRawInput(ctx, source, node)
         worklet = node
         engine = 'worklet'
       } catch (error) {

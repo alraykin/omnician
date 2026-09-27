@@ -101,14 +101,26 @@ export function isUnavailableError(error: unknown): boolean {
   )
 }
 
-export function createTunerContextSync(): AudioContext {
+export function captureSampleRate(stream: MediaStream): number | null {
+  const rate = stream.getAudioTracks()[0]?.getSettings()?.sampleRate
+  return typeof rate === 'number' && rate >= 8000 && rate <= 192000 ? rate : null
+}
+
+export function createTunerContextSync(sampleRate?: number | null): AudioContext {
   const Ctor =
     window.AudioContext ??
     (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!Ctor) throw Object.assign(new Error('NO_AUDIO'), { code: 'unavailable' })
 
-  // Use the hardware rate. Forcing 48 kHz leaves Safari/iOS MediaStream
-  // sources silent, so the tuner looks "on" but never hears a note.
+  // Match the interface/mic rate when we know it. A 44.1 kHz context reading
+  // a 48/96 kHz stream (or the reverse) makes every note land far away.
+  if (sampleRate) {
+    try {
+      return new Ctor({ latencyHint: 'interactive', sampleRate })
+    } catch {
+      // Safari sometimes rejects an explicit rate; fall through.
+    }
+  }
   try {
     return new Ctor({ latencyHint: 'interactive' })
   } catch {
@@ -124,26 +136,29 @@ export async function createTunerContext(): Promise<AudioContext> {
   return audio
 }
 
-/** High-pass + mild compression after raw capture so AGC never lives in the OS. */
+/** Mono downmix + high-pass. No compressor — it added harmonics that threw the detector. */
 export function connectRawInput(audio: AudioContext, source: AudioNode, dest: AudioNode): GainNode {
+  const mono = audio.createGain()
+  mono.channelCount = 1
+  mono.channelCountMode = 'explicit'
+  mono.channelInterpretation = 'speakers'
+
   const highpass = audio.createBiquadFilter()
   highpass.type = 'highpass'
-  highpass.frequency.value = 28
-  highpass.Q.value = 0.55
-
-  const compressor = audio.createDynamicsCompressor()
-  compressor.threshold.value = -32
-  compressor.knee.value = 18
-  compressor.ratio.value = 4
-  compressor.attack.value = 0.001
-  compressor.release.value = 0.12
+  highpass.frequency.value = 40
+  highpass.Q.value = 0.7
+  highpass.channelCount = 1
+  highpass.channelCountMode = 'explicit'
+  highpass.channelInterpretation = 'speakers'
 
   const makeup = audio.createGain()
-  makeup.gain.value = 2.1
+  makeup.gain.value = 1.8
+  makeup.channelCount = 1
+  makeup.channelCountMode = 'explicit'
 
-  source.connect(highpass)
-  highpass.connect(compressor)
-  compressor.connect(makeup)
+  source.connect(mono)
+  mono.connect(highpass)
+  highpass.connect(makeup)
   makeup.connect(dest)
 
   // Chrome will process a worklet/analyser that is only an input sink.

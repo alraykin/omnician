@@ -119,15 +119,15 @@ function runOld(samples: Float32Array, targetHz: number) {
 
 function runNew(samples: Float32Array, targetHz: number) {
   const hop = 256
-  const scratch = createPitchScratch(4096)
+  const scratch = createPitchScratch()
   const state = createSmoothState()
   let prevHz: number | null = null
   let firstStable = -1
   const sustain: number[] = []
-  const view = new Float32Array(4096)
+  const view = new Float32Array(8192)
 
   for (let pos = 2048; pos + hop < samples.length; pos += hop) {
-    const win = Math.min(4096, pos)
+    const win = Math.min(8192, pos)
     view.set(samples.subarray(pos - win, pos))
     const slice = view.subarray(0, win)
     const estimate = estimateFromFilled(slice, win, SR, scratch, prevHz)

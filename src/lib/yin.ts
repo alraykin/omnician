@@ -1,5 +1,7 @@
 export const MIN_HZ = 30
 export const MAX_HZ = 1400
+export const MAX_WINDOW = 8192
+export const MIN_WINDOW = 2048
 
 export type PitchEstimate = {
   frequency: number
@@ -12,7 +14,7 @@ export type PitchScratch = {
   cmnd: Float32Array
 }
 
-export function createPitchScratch(maxWindow = 4096): PitchScratch {
+export function createPitchScratch(maxWindow = MAX_WINDOW): PitchScratch {
   return {
     nsdf: new Float32Array(maxWindow),
     diff: new Float32Array(maxWindow),
@@ -21,12 +23,15 @@ export function createPitchScratch(maxWindow = 4096): PitchScratch {
 }
 
 export function windowForHz(hz: number | null, sampleRate: number): number {
-  if (hz === null || hz <= 0) return 3072
-  const needed = Math.ceil((sampleRate / hz) * 2.5)
-  if (needed <= 1536) return 1536
-  if (needed <= 2048) return 2048
-  if (needed <= 3072) return 3072
-  return 4096
+  const f = hz && hz > 0 ? hz : 70
+  const periods = f < 90 ? 4 : f < 180 ? 3.2 : 2.6
+  const needed = Math.ceil((sampleRate / f) * periods)
+  const capped = Math.min(MAX_WINDOW, Math.max(MIN_WINDOW, needed))
+  if (capped <= 2048) return 2048
+  if (capped <= 3072) return 3072
+  if (capped <= 4096) return 4096
+  if (capped <= 6144) return 6144
+  return MAX_WINDOW
 }
 
 function parabolicTau(values: ArrayLike<number>, tau: number): number {
@@ -188,16 +193,7 @@ export function estimatePitchAdaptive(
   const mpm = mpmPitch(buffer, sampleRate, scratch)
   const yin = yinPitch(buffer, sampleRate, scratch)
 
-  let pick = mpm
-  if (mpm.clarity < 0.55 && yin.clarity > mpm.clarity) pick = yin
-  if (mpm.frequency > 0 && yin.frequency > 0) {
-    const ratio = mpm.frequency / yin.frequency
-    if (ratio > 1.85 && ratio < 2.15 && yin.clarity >= 0.62) {
-      pick = prevHz && nearer(mpm.frequency, prevHz) + 0.04 < nearer(yin.frequency, prevHz) ? mpm : yin
-    } else if (ratio > 0.46 && ratio < 0.54 && mpm.clarity >= 0.62) {
-      pick = prevHz && nearer(yin.frequency, prevHz) + 0.04 < nearer(mpm.frequency, prevHz) ? yin : mpm
-    }
-  }
+  let pick = preferFundamental(mpm, yin)
 
   if (prevHz && pick.frequency > 0) {
     let hz = pick.frequency
@@ -209,6 +205,22 @@ export function estimatePitchAdaptive(
   }
 
   return pick
+}
+
+/** When MPM and YIN disagree by an octave (or a 3rd harmonic), keep the fundamental. */
+function preferFundamental(left: PitchEstimate, right: PitchEstimate): PitchEstimate {
+  if (left.frequency <= 0) return right
+  if (right.frequency <= 0) return left
+
+  const pair = left.clarity >= right.clarity ? [left, right] : [right, left]
+  const [best, other] = pair
+  const ratio = best.frequency / other.frequency
+
+  if (other.clarity >= 0.5 && ratio > 1.87 && ratio < 2.14) return other
+  if (other.clarity >= 0.5 && ratio > 0.47 && ratio < 0.535) return best
+  if (other.clarity >= 0.58 && ratio > 2.85 && ratio < 3.2 && other.frequency < 220) return other
+  if (best.clarity < 0.55 && other.clarity > best.clarity) return other
+  return best
 }
 
 const EMPTY: PitchEstimate = { frequency: 0, clarity: 0 }
@@ -236,15 +248,14 @@ export function estimateFromFilled(
 
   if (prevHz) {
     const window = Math.min(filled, windowForHz(prevHz, sampleRate))
-    if (window < 1536) return EMPTY
+    if (window < MIN_WINDOW) return EMPTY
     return take(window)
   }
-  if (filled < 2048) return EMPTY
-  const quick = take(2048)
-  if (quick.frequency >= 90 && quick.clarity >= 0.74) return quick
-  if (filled < 3072) return EMPTY
-  const mid = take(3072)
-  if (mid.frequency >= 48 && mid.clarity >= 0.7) return mid
-  if (filled < 4096) return EMPTY
-  return take(4096)
+  const first = Math.min(filled, windowForHz(90, sampleRate))
+  if (first < MIN_WINDOW) return EMPTY
+  const quick = take(first)
+  if (quick.frequency >= 82 && quick.clarity >= 0.74) return quick
+  const full = Math.min(filled, windowForHz(55, sampleRate))
+  if (full <= first) return quick
+  return take(full)
 }
