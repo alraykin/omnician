@@ -1,5 +1,5 @@
 import { ChevronDown, Play, Square } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
@@ -274,7 +274,7 @@ export function RhythmPage() {
     if (bar && !playing) void previewClickBar(bar)
   }
 
-  const startStop = async () => {
+  const startStop = useCallback(async () => {
     if (playing) {
       halt()
       setPlaying(false)
@@ -287,7 +287,24 @@ export function RhythmPage() {
       await kit?.ensureAnnounce(speedBuilder.fromPct)
     }
     setPlaying(true)
-  }
+  }, [ensureKit, halt, playing, speedBuilder.announce, speedBuilder.enabled, speedBuilder.fromPct])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' && event.key !== ' ') return
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        target.closest('input, textarea, select, [contenteditable="true"]')
+      ) {
+        return
+      }
+      event.preventDefault()
+      void startStop()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [startStop])
 
   if (!current) return null
 
@@ -299,7 +316,7 @@ export function RhythmPage() {
         <SpeedBuilderPopup cue={tempoCue} />
         <div
           data-rhythm-scroll
-          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] [scrollbar-width:thin] [touch-action:pan-y]"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] [scrollbar-width:thin] [touch-action:pan-y] lg:pb-6"
         >
           <div
             data-rhythm-header
@@ -340,7 +357,7 @@ export function RhythmPage() {
             data-rhythm-mode="click"
             className="mt-1.5 flex flex-col gap-1.5 lg:grid lg:grid-cols-[minmax(24rem,26rem)_minmax(0,1fr)] lg:items-start lg:gap-4"
           >
-            <div className="lg:col-start-1 lg:row-start-1">
+            <div className="flex flex-col gap-1.5" data-rhythm-stack="controls">
               <RhythmTempoCard
                 bpm={bpm}
                 liveBpm={liveBpm}
@@ -350,21 +367,41 @@ export function RhythmPage() {
                 onBpm={changeBpm}
                 onTap={tapTempo}
               />
+
+              <section
+                className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5"
+                data-bar-count={bars.length}
+                data-rhythm-mode="click"
+              >
+                <CompactMeter
+                  beats={current.beats}
+                  beatUnit={current.beatUnit}
+                  onChange={setMeter}
+                />
+              </section>
+
+              <TransportDock
+                place="inline"
+                className="hidden lg:block"
+                playing={playing}
+                onToggle={() => void startStop()}
+                holdUntilCycle={holdUntilCycle}
+              >
+                <TransportReadout
+                  store={playheadStore}
+                  playing={playing}
+                  bars={bars.length}
+                  bpm={speedBuilder.enabled && playing ? liveBpm : bpm}
+                  liveMeter={liveMeter}
+                  mode={mode}
+                  clickSound={clickSound}
+                  holdUntilCycle={holdUntilCycle}
+                />
+              </TransportDock>
             </div>
 
-            <section
-              className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5 lg:col-start-1 lg:row-start-2"
-              data-bar-count={bars.length}
-              data-rhythm-mode="click"
-            >
-              <CompactMeter
-                beats={current.beats}
-                beatUnit={current.beatUnit}
-                onChange={setMeter}
-              />
-            </section>
-
-            <section className="lg:col-start-2 lg:row-start-1">
+            <div className="flex flex-col gap-1.5" data-rhythm-stack="stage">
+            <section>
               <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Subdivision
               </p>
@@ -401,7 +438,7 @@ export function RhythmPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2 sm:px-4 lg:col-start-2">
+            <section className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2 sm:px-4">
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <ClickLiveHeader store={playheadStore} playing={playing} barIndex={barIndex} />
                 <button
@@ -448,7 +485,7 @@ export function RhythmPage() {
               />
             </section>
 
-            <section className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5 lg:col-start-2">
+            <section className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5">
               <BarStrip
                 store={playheadStore}
                 bars={clickBars}
@@ -463,7 +500,7 @@ export function RhythmPage() {
 
             <div
               data-section="click-sound"
-              className="grid w-full grid-cols-4 gap-1 lg:col-start-2"
+              className="grid w-full grid-cols-4 gap-1"
             >
               {CLICK_SOUNDS.map((id) => (
                 <button
@@ -486,14 +523,15 @@ export function RhythmPage() {
                 </button>
               ))}
             </div>
+            </div>
           </div>
           ) : (
           <div
             data-rhythm-layout
             data-rhythm-mode="drums"
-            className="mt-1.5 grid grid-cols-1 gap-1.5 lg:grid-cols-[minmax(24rem,26rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:gap-4"
+            className="mt-1.5 grid grid-cols-1 gap-1.5 lg:grid-cols-[minmax(24rem,26rem)_minmax(0,1fr)] lg:items-start lg:gap-4"
           >
-            <div className="lg:col-start-1 lg:row-start-1">
+            <div className="flex flex-col gap-1.5" data-rhythm-stack="controls">
               <RhythmTempoCard
                 bpm={bpm}
                 liveBpm={liveBpm}
@@ -503,53 +541,71 @@ export function RhythmPage() {
                 onBpm={changeBpm}
                 onTap={tapTempo}
               />
-            </div>
-            <section
-              className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5 lg:col-start-1 lg:row-start-2"
-              data-bar-count={bars.length}
-              data-rhythm-mode="drums"
-            >
-              <CompactMeter
-                beats={current.beats}
-                beatUnit={current.beatUnit}
-                onChange={setMeter}
-              />
-            </section>
-            <section className="lg:col-start-1 lg:row-start-3">
-              <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Subdivision
-              </p>
-              <div className="max-w-full overflow-x-hidden pb-0.5">
-                <div
-                  role="group"
-                  aria-label="Subdivision"
-                  data-section="subdivision"
-                  className="flex w-full min-w-0 flex-nowrap items-center gap-0.5 sm:gap-1"
-                >
-                  {SUBDIVISIONS.map((steps) => (
-                    <button
-                      key={steps}
-                      type="button"
-                      aria-label={SUBDIVISION_LABELS[steps]}
-                      title={SUBDIVISION_LABELS[steps]}
-                      aria-pressed={current.subdivision === steps}
-                      data-subdivision={steps}
-                      {...activateOnPointer(() => setSubdivision(steps))}
-                      className={cn(
-                        'flex h-12 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-14 lg:h-10',
-                        current.subdivision === steps
-                          ? 'bg-[#A855F7] text-white'
-                          : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
-                      )}
-                    >
-                      <SubdivIcon steps={steps} className="lg:hidden" />
-                      <SubdivIcon steps={steps} compact className="hidden lg:block" />
-                    </button>
-                  ))}
+              <section
+                className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5"
+                data-bar-count={bars.length}
+                data-rhythm-mode="drums"
+              >
+                <CompactMeter
+                  beats={current.beats}
+                  beatUnit={current.beatUnit}
+                  onChange={setMeter}
+                />
+              </section>
+              <section>
+                <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Subdivision
+                </p>
+                <div className="max-w-full overflow-x-hidden pb-0.5">
+                  <div
+                    role="group"
+                    aria-label="Subdivision"
+                    data-section="subdivision"
+                    className="flex w-full min-w-0 flex-nowrap items-center gap-0.5 sm:gap-1"
+                  >
+                    {SUBDIVISIONS.map((steps) => (
+                      <button
+                        key={steps}
+                        type="button"
+                        aria-label={SUBDIVISION_LABELS[steps]}
+                        title={SUBDIVISION_LABELS[steps]}
+                        aria-pressed={current.subdivision === steps}
+                        data-subdivision={steps}
+                        {...activateOnPointer(() => setSubdivision(steps))}
+                        className={cn(
+                          'flex h-12 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-14 lg:h-10',
+                          current.subdivision === steps
+                            ? 'bg-[#A855F7] text-white'
+                            : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
+                        )}
+                      >
+                        <SubdivIcon steps={steps} className="lg:hidden" />
+                        <SubdivIcon steps={steps} compact className="hidden lg:block" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </section>
-            <section className="flex min-h-0 flex-col lg:col-start-2 lg:row-span-3 lg:row-start-1">
+              </section>
+              <TransportDock
+                place="inline"
+                className="hidden lg:block"
+                playing={playing}
+                onToggle={() => void startStop()}
+                holdUntilCycle={holdUntilCycle}
+              >
+                <TransportReadout
+                  store={playheadStore}
+                  playing={playing}
+                  bars={bars.length}
+                  bpm={speedBuilder.enabled && playing ? liveBpm : bpm}
+                  liveMeter={liveMeter}
+                  mode={mode}
+                  clickSound={clickSound}
+                  holdUntilCycle={holdUntilCycle}
+                />
+              </TransportDock>
+            </div>
+            <section className="flex min-h-0 flex-col" data-rhythm-stack="stage">
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}
@@ -614,38 +670,24 @@ export function RhythmPage() {
         </div>
 
         <PlayheadBarSync store={playheadStore} playing={playing} onBar={setBarIndex} />
-        <div
-          data-section="transport"
-          data-hold-until-cycle={holdUntilCycle ? 'true' : 'false'}
-          className="rhythm-glass absolute inset-x-0 bottom-0 z-40 border-t border-white/10 pt-2 pb-[max(0.55rem,env(safe-area-inset-bottom))]"
+        <TransportDock
+          place="sticky"
+          className="rhythm-glass absolute inset-x-0 bottom-0 z-40 border-t border-white/10 pt-2 pb-[max(0.55rem,env(safe-area-inset-bottom))] lg:hidden"
+          playing={playing}
+          onToggle={() => void startStop()}
+          holdUntilCycle={holdUntilCycle}
         >
-          <div className="mb-1.5 flex items-center justify-between gap-2 text-[0.7rem] text-slate-200">
-            <TransportReadout
-              store={playheadStore}
-              playing={playing}
-              bars={bars.length}
-              bpm={speedBuilder.enabled && playing ? liveBpm : bpm}
-              liveMeter={liveMeter}
-              mode={mode}
-              clickSound={clickSound}
-              holdUntilCycle={holdUntilCycle}
-            />
-          </div>
-          <Button
-            type="button"
-            size="lg"
-            variant={playing ? 'outline' : 'default'}
-            className={cn(
-              'h-14 w-full touch-manipulation text-base lg:mx-auto lg:max-w-md',
-              playing && 'border-white/15 bg-[#141A28] text-white hover:bg-[#1A2033]',
-            )}
-            data-transport="play"
-            {...activateOnPointer(() => void startStop())}
-          >
-            {playing ? <Square className="size-4 fill-current" /> : <Play className="size-4 fill-current" />}
-            {playing ? 'Stop' : 'Play'}
-          </Button>
-        </div>
+          <TransportReadout
+            store={playheadStore}
+            playing={playing}
+            bars={bars.length}
+            bpm={speedBuilder.enabled && playing ? liveBpm : bpm}
+            liveMeter={liveMeter}
+            mode={mode}
+            clickSound={clickSound}
+            holdUntilCycle={holdUntilCycle}
+          />
+        </TransportDock>
       </div>
 
       {pickerOpen ? (
@@ -657,6 +699,47 @@ export function RhythmPage() {
         />
       ) : null}
     </AppChrome>
+  )
+}
+
+function TransportDock({
+  playing,
+  onToggle,
+  className,
+  holdUntilCycle,
+  place,
+  children,
+}: {
+  playing: boolean
+  onToggle: () => void
+  className?: string
+  holdUntilCycle: boolean
+  place: 'inline' | 'sticky'
+  children: ReactNode
+}) {
+  return (
+    <div
+      data-section="transport"
+      data-transport-place={place}
+      data-hold-until-cycle={holdUntilCycle ? 'true' : 'false'}
+      className={className}
+    >
+      <div className="mb-1.5 text-[0.7rem] text-slate-200">{children}</div>
+      <Button
+        type="button"
+        size="lg"
+        variant={playing ? 'outline' : 'default'}
+        className={cn(
+          'h-14 w-full touch-manipulation text-base',
+          playing && 'border-white/15 bg-[#141A28] text-white hover:bg-[#1A2033]',
+        )}
+        data-transport="play"
+        {...activateOnPointer(onToggle)}
+      >
+        {playing ? <Square className="size-4 fill-current" /> : <Play className="size-4 fill-current" />}
+        {playing ? 'Stop' : 'Play'}
+      </Button>
+    </div>
   )
 }
 
