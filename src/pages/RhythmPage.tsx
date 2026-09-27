@@ -352,6 +352,18 @@ export function RhythmPage() {
               />
             </div>
 
+            <section
+              className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5 lg:col-start-1 lg:row-start-2"
+              data-bar-count={bars.length}
+              data-rhythm-mode="click"
+            >
+              <CompactMeter
+                beats={current.beats}
+                beatUnit={current.beatUnit}
+                onChange={setMeter}
+              />
+            </section>
+
             <section className="lg:col-start-2 lg:row-start-1">
               <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Subdivision
@@ -472,18 +484,6 @@ export function RhythmPage() {
                 onSelect={chooseClickBar}
                 onAdd={addBar}
                 onRemove={() => removeBar(clickBarIndex)}
-              />
-            </section>
-
-            <section
-              className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5 lg:col-start-1 lg:row-start-2"
-              data-bar-count={bars.length}
-              data-rhythm-mode="click"
-            >
-              <CompactMeter
-                beats={current.beats}
-                beatUnit={current.beatUnit}
-                onChange={setMeter}
               />
             </section>
           </div>
