@@ -506,7 +506,7 @@ export function useRhythmEngine({
             if (wrapped === 0) {
               commitPendingCycle()
               barRef.current = 0
-              if (advanceSpeedBuilder() && sbPhaseRef.current === 'precount') {
+              if (advanceSpeedBuilder()) {
                 nextTimeRef.current = barEnd
                 continue
               }
