@@ -811,8 +811,10 @@ function exposeDrumDebug(): void {
       return {
         previewPathMs: lastPreviewPathMs,
         context: kit?.ctx.state ?? 'none',
+        now: kit?.ctx.currentTime ?? 0,
         intensity: kit?.intensity ?? null,
         loadedLayers: kit?.loadedLayerCount() ?? 0,
+        scheduled: kit?.scheduledVoices() ?? [],
         baseLatencyMs: kit ? Math.round(kit.ctx.baseLatency * 1000) : null,
         outputLatencyMs:
           kit && 'outputLatency' in kit.ctx ? Math.round((kit.ctx.outputLatency as number) * 1000) : null,
@@ -996,6 +998,10 @@ export class RhythmKit {
     if (this.ctx.state === 'suspended') void this.ctx.resume()
     this.click(0, level, sound, onBeat)
     lastPreviewPathMs = performance.now() - started
+  }
+
+  scheduledVoices(): Array<{ when: number; kind: 'drum' | 'click' | 'other' }> {
+    return this.sources.map(({ when, kind }) => ({ when, kind }))
   }
 
   /** Drop not-yet-started voices so intensity or tempo can re-pick them. Announce stays. */

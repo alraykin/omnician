@@ -87,6 +87,7 @@ export function ClickAccentGrid({
                     type="button"
                     data-accent-row="beat"
                     data-beat={beat}
+                    data-live={now ? 'true' : 'false'}
                     data-level={level}
                     aria-label={`Beat ${beat + 1}, ${LEVEL_NAME[level]}`}
                     {...activateOnPointer(() => (accentEdit ? onCycleAccent(beat) : onPreviewBeat(beat)))}

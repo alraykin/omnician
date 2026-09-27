@@ -741,6 +741,7 @@ function TransportReadout({
       className="min-w-0 truncate tabular-nums"
       data-playhead-bar={playhead.bar}
       data-playhead-step={playhead.step}
+      data-playhead-beat={playhead.beat}
     >
       {bpm} BPM · {liveMeter}
       {mode === 'click' ? ` · ${CLICK_SOUND_LABELS[clickSound]}` : ''}
