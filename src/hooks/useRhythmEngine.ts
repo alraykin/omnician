@@ -312,13 +312,13 @@ export function useRhythmEngine({
       nextTimeRef.current = kit.ctx.currentTime + 0.05
 
       const sb = speedBuilderRef.current
-      const clickStart = liveModeRef.current === 'click' && sb.enabled
-      sbSessionRef.current = clickStart
+      const sbStart = sb.enabled
+      sbSessionRef.current = sbStart
       sbPctRef.current = sb.fromPct
       sbRepeatRef.current = 0
-      playbackBpmRef.current = clickStart ? sbBpm(bpmRef.current, sb.fromPct) : bpmRef.current
+      playbackBpmRef.current = sbStart ? sbBpm(bpmRef.current, sb.fromPct) : bpmRef.current
       setLiveBpm(playbackBpmRef.current)
-      if (clickStart) {
+      if (sbStart) {
         onTempoCueRef.current?.({
           pct: sb.fromPct,
           bpm: playbackBpmRef.current,
@@ -406,7 +406,7 @@ export function useRhythmEngine({
       }
 
       const applyPlaybackBpm = () => {
-        if (sbSessionRef.current && speedBuilderRef.current.enabled && liveModeRef.current === 'click') {
+        if (sbSessionRef.current && speedBuilderRef.current.enabled) {
           playbackBpmRef.current = sbBpm(bpmRef.current, sbPctRef.current)
         } else {
           playbackBpmRef.current = bpmRef.current
@@ -425,7 +425,7 @@ export function useRhythmEngine({
       }
 
       const advanceSpeedBuilder = () => {
-        if (!sbSessionRef.current || liveModeRef.current !== 'click') return false
+        if (!sbSessionRef.current) return false
         const cfg = speedBuilderRef.current
         if (!cfg.enabled) {
           sbSessionRef.current = false
@@ -460,7 +460,7 @@ export function useRhythmEngine({
           if (sequence.length === 0) return
           const time = nextTimeRef.current
 
-          if (sbPhaseRef.current === 'precount' && liveModeRef.current === 'click') {
+          if (sbPhaseRef.current === 'precount') {
             const first = playbackBar(0) ?? sequence[0]
             if (!first) return
             const beat = precountBeatRef.current
