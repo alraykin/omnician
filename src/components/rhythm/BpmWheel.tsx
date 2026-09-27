@@ -8,7 +8,6 @@ type BpmWheelProps = {
   onChange: (bpm: number) => void
   compact?: boolean
   faceBpm?: number
-  baseHint?: number
 }
 
 const VISIBLE_TICKS = 36
@@ -79,7 +78,7 @@ function pointAngle(
   return Math.atan2(dy, dx)
 }
 
-export function BpmWheel({ value, onChange, compact = false, faceBpm, baseHint }: BpmWheelProps) {
+export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const hitRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<string | null>(null)
@@ -525,11 +524,6 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm, baseHint }
                   >
                     BPM
                   </span>
-                  {baseHint != null ? (
-                    <span className="pointer-events-none absolute left-1/2 top-[calc(100%+0.7rem)] -translate-x-1/2 text-[0.5rem] tabular-nums text-slate-600">
-                      base {baseHint}
-                    </span>
-                  ) : null}
                 </div>
               </div>
             </div>

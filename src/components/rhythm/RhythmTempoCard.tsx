@@ -37,7 +37,6 @@ export function RhythmTempoCard({
             compact
             value={bpm}
             faceBpm={showLive ? liveBpm : undefined}
-            baseHint={showLive && liveBpm !== bpm ? bpm : undefined}
             onChange={(next) => onBpm(next, true)}
           />
         </div>
