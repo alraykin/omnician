@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { DEFAULT_KIT_INTENSITY, snareHitRole, type HitRole, type KitIntensity } from '@/lib/kit-intensity'
 import { DEFAULT_KIT_MIX, type KitMix } from '@/lib/kit-mix'
@@ -12,6 +12,8 @@ import {
   clickPulsesInBar,
   hitTimeInBar,
   isBeatStep,
+  LIVE_COMMIT_SEC,
+  planLiveTempoRetarget,
   stepDurationSec,
   stepsInBar,
   type AccentLevel,
@@ -41,6 +43,8 @@ const LOOKAHEAD_MS = 25
 const SCHEDULE_AHEAD = 0.12
 /** Paint the step a frame early so React/DOM land with the audible hit. */
 const VISUAL_LEAD = 0.02
+/** Voices closer than this stay; we only cancel/reschedule what's still in the future. */
+const COMMIT_SEC = LIVE_COMMIT_SEC
 
 const IDLE_PLAYHEAD: Playhead = { bar: 0, step: -1, beat: -1, accent: 0, subdivision: false }
 
@@ -153,6 +157,9 @@ export function useRhythmEngine({
   const precountBeatRef = useRef(0)
   const sbSessionRef = useRef(false)
   const sbRepeatRef = useRef(0)
+  const barStartRef = useRef(0)
+  const barTempoRef = useRef(bpm)
+  const retargetRef = useRef<(reason: 'tempo' | 'intensity') => void>(() => undefined)
 
   playingRef.current = playing
   bpmRef.current = bpm
@@ -262,6 +269,9 @@ export function useRhythmEngine({
     stepRef.current = 0
     barRef.current = 0
     armedBarRef.current = null
+    barStartRef.current = 0
+    barTempoRef.current = bpmRef.current
+    retargetRef.current = () => undefined
   }, [clearVisuals])
 
   useEffect(() => {
@@ -272,12 +282,17 @@ export function useRhythmEngine({
     kitRef.current?.setMix(kitMix)
   }, [kitMix])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     kitRef.current?.setIntensity(kitIntensity)
-  }, [kitIntensity])
+    if (playing) retargetRef.current('intensity')
+  }, [kitIntensity, playing])
 
-  useEffect(() => {
-    if (!playing) setLiveBpm(bpm)
+  useLayoutEffect(() => {
+    if (!playing) {
+      setLiveBpm(bpm)
+      return
+    }
+    retargetRef.current('tempo')
   }, [bpm, playing])
 
   useEffect(() => {
@@ -317,6 +332,8 @@ export function useRhythmEngine({
       sbPctRef.current = sb.fromPct
       sbRepeatRef.current = 0
       playbackBpmRef.current = sbStart ? sbBpm(bpmRef.current, sb.fromPct) : bpmRef.current
+      barStartRef.current = nextTimeRef.current
+      barTempoRef.current = playbackBpmRef.current
       setLiveBpm(playbackBpmRef.current)
       if (sbStart) {
         onTempoCueRef.current?.({
@@ -355,18 +372,26 @@ export function useRhythmEngine({
         return live
       }
 
-      const armDrumBar = (barIndex: number, barStart: number) => {
+      const armDrumHitsFrom = (barIndex: number, barStart: number, afterTime: number) => {
         if (liveModeRef.current !== 'drums') return
-        if (armedBarRef.current === barIndex && stepRef.current !== 0) return
-        armedBarRef.current = barIndex
         const bar = playbackBar(barIndex)
         if (!bar) return
+        const tempo = playbackBpmRef.current
         for (const voice of VOICES) {
           for (const hit of bar.pattern[voice] ?? []) {
             if (hit.beat < 0 || hit.beat >= bar.beats) continue
-            kit.hit(voice, barStart + hitTimeInBar(hit, playbackBpmRef.current), voice === 'snare' ? snareHitRole(hit) : 'normal')
+            const when = barStart + hitTimeInBar(hit, tempo)
+            if (when <= afterTime) continue
+            kit.hit(voice, when, voice === 'snare' ? snareHitRole(hit) : 'normal')
           }
         }
+        armedBarRef.current = barIndex
+      }
+
+      const armDrumBar = (barIndex: number, barStart: number) => {
+        if (liveModeRef.current !== 'drums') return
+        if (armedBarRef.current === barIndex) return
+        armDrumHitsFrom(barIndex, barStart, barStart - 0.001)
       }
 
       const scheduleDrumStep = (barIndex: number, step: number, time: number) => {
@@ -418,6 +443,77 @@ export function useRhythmEngine({
         return next
       }
 
+      const currentBarIndex = () => {
+        const sequence = liveBarsRef.current
+        if (sequence.length === 0) return 0
+        return ((barRef.current % sequence.length) + sequence.length) % sequence.length
+      }
+
+      let tick: () => void = () => undefined
+
+      const retarget = (reason: 'tempo' | 'intensity') => {
+        if (!playingRef.current) return
+        const now = kit.ctx.currentTime
+        const commit = now + COMMIT_SEC
+
+        if (reason === 'intensity') {
+          kit.cancelFuture(commit, 'drum')
+          if (liveModeRef.current === 'drums' && sbPhaseRef.current === 'pattern') {
+            armDrumHitsFrom(currentBarIndex(), barStartRef.current, commit)
+          }
+          return
+        }
+
+        const oldBpm = barTempoRef.current
+        const newBpm = applyPlaybackBpm()
+        if (Math.abs(oldBpm - newBpm) < 1e-6) return
+        barTempoRef.current = newBpm
+        kit.cancelFuture(commit)
+        cuesRef.current = cuesRef.current.filter((cue) => cue.time <= now + VISUAL_LEAD)
+
+        if (sbPhaseRef.current === 'precount') {
+          const remaining = Math.max(0, nextTimeRef.current - now)
+          nextTimeRef.current = now + remaining * (oldBpm / newBpm)
+          tick()
+          return
+        }
+
+        const sequence = liveBarsRef.current
+        if (sequence.length === 0) return
+        const barIndex = currentBarIndex()
+        const bar = playbackBar(barIndex)
+        if (!bar) return
+
+        const clickMode = liveModeRef.current === 'click'
+        const offsets = clickMode
+          ? clickPulsesInBar(bar, newBpm).map((pulse) => pulse.offsetSec)
+          : Array.from({ length: Math.max(1, stepsInBar(bar)) }, (_, step) => {
+              return step * stepDurationSec(newBpm, bar.subdivision)
+            })
+        const plan = planLiveTempoRetarget(now, barStartRef.current, oldBpm, newBpm, offsets, bar.beats, COMMIT_SEC)
+        barStartRef.current = plan.newBarStart
+
+        if (liveModeRef.current === 'drums') {
+          armDrumHitsFrom(barIndex, plan.newBarStart, plan.commit)
+        }
+
+        if (plan.next.wrap) {
+          const wrapped = (barIndex + 1) % sequence.length
+          if (wrapped === 0) commitPendingCycle()
+          barRef.current = wrapped
+          stepRef.current = 0
+          armedBarRef.current = null
+          nextTimeRef.current = plan.next.time
+          tick()
+          return
+        }
+
+        stepRef.current = plan.next.index
+        nextTimeRef.current = plan.next.time
+        if (clickMode) armedBarRef.current = null
+        tick()
+      }
+
       const beginPrecount = () => {
         sbPhaseRef.current = 'precount'
         precountBeatRef.current = 0
@@ -454,7 +550,7 @@ export function useRhythmEngine({
         return false
       }
 
-      const tick = () => {
+      tick = () => {
         if (!playingRef.current) return
         while (nextTimeRef.current < kit.ctx.currentTime + SCHEDULE_AHEAD) {
           const tempo = applyPlaybackBpm()
@@ -494,6 +590,10 @@ export function useRhythmEngine({
           const length = clickMode ? Math.max(1, pulses.length) : Math.max(1, stepsInBar(bar))
           const step = stepRef.current
           const pulse = pulses[step]
+          if (step === 0) {
+            barStartRef.current = time
+            barTempoRef.current = tempo
+          }
 
           if (clickMode) scheduleClickPulse(barIndex, bar, step, time)
           else scheduleDrumStep(barIndex, step, time)
@@ -533,6 +633,8 @@ export function useRhythmEngine({
         }
       }
 
+      retargetRef.current = retarget
+
       const pumpVisuals = () => {
         if (!playingRef.current) return
         const due = kit.ctx.currentTime + VISUAL_LEAD
@@ -566,6 +668,7 @@ export function useRhythmEngine({
 
     return () => {
       cancelled = true
+      retargetRef.current = () => undefined
       if (timerRef.current !== null) {
         window.clearInterval(timerRef.current)
         timerRef.current = null

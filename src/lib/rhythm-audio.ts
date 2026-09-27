@@ -837,7 +837,7 @@ export class RhythmKit {
   private mix: KitMix = { ...DEFAULT_KIT_MIX }
   private openHat: { gain: GainNode; start: number } | null = null
   private closedHat: { gain: GainNode; start: number } | null = null
-  private sources: AudioBufferSourceNode[] = []
+  private sources: Array<{ node: AudioBufferSourceNode; when: number; kind: 'drum' | 'click' | 'other' }> = []
   private readonly announceBuffers = new Map<number, AudioBuffer>()
   private readonly announceLoads = new Map<number, Promise<AudioBuffer | null>>()
   private announceWarmed = false
@@ -916,13 +916,13 @@ export class RhythmKit {
     // Within-beat pulses sit a little higher so they never match a main-beat click.
     const rate = onBeat ? baseRate : baseRate * 1.09
     const gain = onBeat ? baseGain : baseGain * 0.86
-    this.fire(buffer, time, gain, rate)
+    this.fire(buffer, time, gain, rate, undefined, 'click')
   }
 
   /** One-bar count-in: dry synth pip, not the selected click sample. */
   precount(time: number, strong: boolean): void {
     const buffer = strong ? this.precountPair.accent : this.precountPair.normal
-    this.fire(buffer, time, strong ? 0.58 : 0.36, 1)
+    this.fire(buffer, time, strong ? 0.58 : 0.36, 1, undefined, 'click')
   }
 
   /** Spoken percent through the dry master. Does not move the beat clock. */
@@ -979,7 +979,7 @@ export class RhythmKit {
     const groupGain = mixFaderToGain(group, this.mix[group] ?? 0)
     const mix = (SAMPLE_GAIN[voice] ?? 1) * groupGain
     const buffer = this.bufferFor(voice, role) ?? this.drums[voice]
-    const source = this.fire(buffer, time, mix, 1, voice)
+    const source = this.fire(buffer, time, mix, 1, voice, 'drum')
     if (voice === 'openHat' && source) this.openHat = { gain: source, start: time }
     if (voice === 'closedHat' && source) this.closedHat = { gain: source, start: time }
   }
@@ -998,18 +998,42 @@ export class RhythmKit {
     lastPreviewPathMs = performance.now() - started
   }
 
+  /** Drop not-yet-started voices so intensity or tempo can re-pick them. Announce stays. */
+  cancelFuture(after: number, kind?: 'drum' | 'click'): void {
+    const keep: typeof this.sources = []
+    for (const item of this.sources) {
+      const match = kind ? item.kind === kind : item.kind === 'drum' || item.kind === 'click'
+      if (match && item.when > after) {
+        try {
+          item.node.onended = null
+          item.node.stop()
+        } catch {
+          // Already finished or cancelled.
+        }
+        try {
+          item.node.disconnect()
+        } catch {
+          // Already disconnected.
+        }
+      } else {
+        keep.push(item)
+      }
+    }
+    this.sources = keep
+  }
+
   /** Cut every scheduled click and drum the instant Stop is pressed. */
   stopAll(): void {
     const now = this.ctx.currentTime
-    for (const source of this.sources) {
+    for (const item of this.sources) {
       try {
-        source.onended = null
-        source.stop(now)
+        item.node.onended = null
+        item.node.stop(now)
       } catch {
         // Already finished or cancelled.
       }
       try {
-        source.disconnect()
+        item.node.disconnect()
       } catch {
         // Already disconnected.
       }
@@ -1061,7 +1085,14 @@ export class RhythmKit {
     return available[index % available.length] ?? available[0]
   }
 
-  private fire(buffer: AudioBuffer, time: number, gain: number, rate = 1, voice?: VoiceId): GainNode {
+  private fire(
+    buffer: AudioBuffer,
+    time: number,
+    gain: number,
+    rate = 1,
+    voice?: VoiceId,
+    kind: 'drum' | 'click' | 'other' = 'other',
+  ): GainNode {
     const source = this.ctx.createBufferSource()
     source.buffer = buffer
     const when = time <= 0 ? 0 : time
@@ -1079,9 +1110,10 @@ export class RhythmKit {
       send.connect(this.reverbSend)
     }
     source.start(when)
-    this.sources.push(source)
+    const startAt = when === 0 ? this.ctx.currentTime : when
+    this.sources.push({ node: source, when: startAt, kind })
     source.onended = () => {
-      this.sources = this.sources.filter((item) => item !== source)
+      this.sources = this.sources.filter((item) => item.node !== source)
     }
     return amp
   }

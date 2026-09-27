@@ -702,6 +702,60 @@ export function hitTimeInBar(hit: HitPos, bpm: number): number {
   return (hit.beat + hit.num / hit.den) * beatDurationSec(bpm)
 }
 
+/** Voices closer than this stay; only later notes are cancelled and re-picked. */
+export const LIVE_COMMIT_SEC = 0.01
+
+/** Keep the same place in the bar when tempo jumps: stretch elapsed time by old/new. */
+export function remapBarStart(now: number, oldBarStart: number, oldBpm: number, newBpm: number): number {
+  const elapsed = now - oldBarStart
+  return now - elapsed * (oldBpm / newBpm)
+}
+
+/** First step (or pulse) whose time is still after `commit`; wrap if the bar is already past. */
+export function nextEventAfter(
+  times: readonly number[],
+  commit: number,
+  barEnd: number,
+): { index: number; time: number; wrap: boolean } {
+  for (let index = 0; index < times.length; index += 1) {
+    if (times[index] > commit) return { index, time: times[index], wrap: false }
+  }
+  return { index: 0, time: barEnd, wrap: true }
+}
+
+export function timesAfter(times: readonly number[], after: number): number[] {
+  return times.filter((time) => time > after)
+}
+
+/** Recompute the current bar from the playhead so a manual tempo change stays in phase. */
+export function planLiveTempoRetarget(
+  now: number,
+  oldBarStart: number,
+  oldBpm: number,
+  newBpm: number,
+  offsetsAtNewTempo: readonly number[],
+  beats: number,
+  commitLead = LIVE_COMMIT_SEC,
+): {
+  newBarStart: number
+  commit: number
+  barEnd: number
+  next: { index: number; time: number; wrap: boolean }
+  remaining: number[]
+} {
+  const newBarStart = remapBarStart(now, oldBarStart, oldBpm, newBpm)
+  const commit = now + commitLead
+  const times = offsetsAtNewTempo.map((offset) => newBarStart + offset)
+  const barEnd = newBarStart + barDurationSec(beats, newBpm)
+  return {
+    newBarStart,
+    commit,
+    barEnd,
+    next: nextEventAfter(times, commit, barEnd),
+    remaining: timesAfter(times, commit),
+  }
+}
+
 export function beatIndexForStep(step: number, beats: number, subdivision: SubdivisionId): number {
   const per = stepsPerBeat(subdivision)
   return Math.floor(step / per) % Math.max(1, beats)
