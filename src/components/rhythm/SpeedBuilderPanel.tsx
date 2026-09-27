@@ -3,8 +3,10 @@ import { useState } from 'react'
 
 import {
   MAX_SB_PCT,
+  MAX_SB_REPEATS,
   MAX_SB_STEP,
   MIN_SB_PCT,
+  MIN_SB_REPEATS,
   MIN_SB_STEP,
   sbBpm,
   type SpeedBuilder,
@@ -38,7 +40,7 @@ function IntStepper({
 
   return (
     <div className="flex items-center gap-1">
-      <p className="w-[2.7rem] shrink-0 text-[0.58rem] font-semibold uppercase tracking-[0.08em] text-slate-500">
+      <p className="w-[3.15rem] shrink-0 text-[0.55rem] font-semibold uppercase tracking-[0.06em] text-slate-500">
         {label}
       </p>
       <button
@@ -58,7 +60,7 @@ function IntStepper({
           className="min-w-[2.1rem] text-center text-sm font-bold tabular-nums text-white"
         >
           {value}
-          <span className="text-[0.6rem] font-semibold text-slate-500">{suffix}</span>
+          {suffix ? <span className="text-[0.6rem] font-semibold text-slate-500">{suffix}</span> : null}
         </button>
       ) : (
         <input
@@ -187,7 +189,17 @@ export function SpeedBuilderPanel({
           suffix="%"
           onChange={(stepPct) => patch({ stepPct: Math.min(MAX_SB_STEP, Math.max(MIN_SB_STEP, stepPct)) })}
         />
-        <p className="pl-[2.7rem] text-[0.62rem] tabular-nums text-slate-500" data-sb-range>
+        <IntStepper
+          label="Repeats"
+          value={value.repeats}
+          min={MIN_SB_REPEATS}
+          max={MAX_SB_REPEATS}
+          suffix=""
+          onChange={(repeats) =>
+            patch({ repeats: Math.min(MAX_SB_REPEATS, Math.max(MIN_SB_REPEATS, repeats)) })
+          }
+        />
+        <p className="pl-[3.15rem] text-[0.62rem] tabular-nums text-slate-500" data-sb-range data-sb-repeats={value.repeats}>
           {fromBpm} → {toBpm} BPM
         </p>
         <div className="flex flex-wrap gap-1 pt-0.5">

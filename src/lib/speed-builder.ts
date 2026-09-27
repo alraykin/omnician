@@ -4,12 +4,15 @@ export const MIN_SB_PCT = 10
 export const MAX_SB_PCT = 200
 export const MIN_SB_STEP = 1
 export const MAX_SB_STEP = 100
+export const MIN_SB_REPEATS = 1
+export const MAX_SB_REPEATS = 32
 
 export type SpeedBuilder = {
   enabled: boolean
   fromPct: number
   toPct: number
   stepPct: number
+  repeats: number
   precount: boolean
   announce: boolean
 }
@@ -25,6 +28,7 @@ export const DEFAULT_SPEED_BUILDER: SpeedBuilder = {
   fromPct: 70,
   toPct: 100,
   stepPct: 5,
+  repeats: 1,
   precount: true,
   announce: false,
 }
@@ -39,6 +43,11 @@ export function clampSbStep(value: number): number {
   return Math.min(MAX_SB_STEP, Math.max(MIN_SB_STEP, Math.round(value)))
 }
 
+export function clampSbRepeats(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_SPEED_BUILDER.repeats
+  return Math.min(MAX_SB_REPEATS, Math.max(MIN_SB_REPEATS, Math.round(value)))
+}
+
 export function parseSpeedBuilder(raw: unknown): SpeedBuilder {
   const base = { ...DEFAULT_SPEED_BUILDER }
   if (!raw || typeof raw !== 'object') return base
@@ -48,9 +57,16 @@ export function parseSpeedBuilder(raw: unknown): SpeedBuilder {
     fromPct: clampSbPct(typeof row.fromPct === 'number' ? row.fromPct : base.fromPct),
     toPct: clampSbPct(typeof row.toPct === 'number' ? row.toPct : base.toPct),
     stepPct: clampSbStep(typeof row.stepPct === 'number' ? row.stepPct : base.stepPct),
+    repeats: clampSbRepeats(typeof row.repeats === 'number' ? row.repeats : base.repeats),
     precount: row.precount !== false,
     announce: row.announce === true,
   }
+}
+
+/** True after the current tempo has been played `repeats` full cycles, unless already at the goal. */
+export function shouldStepAfterRepeats(completedAtTempo: number, repeats: number, atGoal: boolean): boolean {
+  if (atGoal) return false
+  return completedAtTempo >= clampSbRepeats(repeats)
 }
 
 export function sbBpm(baseBpm: number, pct: number): number {

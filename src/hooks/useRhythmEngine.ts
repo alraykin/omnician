@@ -24,6 +24,7 @@ import {
   DEFAULT_SPEED_BUILDER,
   nextSbPct,
   sbBpm,
+  shouldStepAfterRepeats,
   type SpeedBuilder,
   type SpeedBuilderCue,
 } from '@/lib/speed-builder'
@@ -151,6 +152,7 @@ export function useRhythmEngine({
   const sbPhaseRef = useRef<'pattern' | 'precount'>('pattern')
   const precountBeatRef = useRef(0)
   const sbSessionRef = useRef(false)
+  const sbRepeatRef = useRef(0)
 
   playingRef.current = playing
   bpmRef.current = bpm
@@ -256,6 +258,7 @@ export function useRhythmEngine({
     sbPhaseRef.current = 'pattern'
     precountBeatRef.current = 0
     sbSessionRef.current = false
+    sbRepeatRef.current = 0
     stepRef.current = 0
     barRef.current = 0
     armedBarRef.current = null
@@ -312,6 +315,7 @@ export function useRhythmEngine({
       const clickStart = liveModeRef.current === 'click' && sb.enabled
       sbSessionRef.current = clickStart
       sbPctRef.current = sb.fromPct
+      sbRepeatRef.current = 0
       playbackBpmRef.current = clickStart ? sbBpm(bpmRef.current, sb.fromPct) : bpmRef.current
       setLiveBpm(playbackBpmRef.current)
       if (clickStart) {
@@ -429,7 +433,10 @@ export function useRhythmEngine({
           return false
         }
         const prev = sbPctRef.current
-        if (prev === cfg.toPct) return false
+        const atGoal = prev === cfg.toPct
+        sbRepeatRef.current += 1
+        if (!shouldStepAfterRepeats(sbRepeatRef.current, cfg.repeats, atGoal)) return false
+        sbRepeatRef.current = 0
         const next = nextSbPct(prev, cfg.fromPct, cfg.toPct, cfg.stepPct)
         sbPctRef.current = next
         applyPlaybackBpm()
