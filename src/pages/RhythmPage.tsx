@@ -299,13 +299,15 @@ export function RhythmPage() {
         <SpeedBuilderPopup cue={tempoCue} />
         <div
           data-rhythm-scroll
-          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain pb-2 [scrollbar-width:thin] [touch-action:pan-y]"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] [scrollbar-width:thin] [touch-action:pan-y]"
         >
           <div
             data-rhythm-header
-            className="sticky top-0 z-30 flex items-center justify-between gap-3 rounded-full bg-[#0B0F1A]/95 px-3 py-1 backdrop-blur-sm"
+            className="rhythm-glass sticky top-0 z-30 flex items-center justify-between gap-3 rounded-full px-3 py-1"
           >
-            <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">Rhythm</h1>
+            <h1 className="text-lg font-bold tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] sm:text-xl">
+              Rhythm
+            </h1>
             <div
               role="radiogroup"
               aria-label="Rhythm mode"
@@ -614,9 +616,9 @@ export function RhythmPage() {
         <div
           data-section="transport"
           data-hold-until-cycle={holdUntilCycle ? 'true' : 'false'}
-          className="relative z-40 shrink-0 border-t border-white/10 bg-[#0B0F1A]/95 pt-2 pb-[max(0.55rem,env(safe-area-inset-bottom))]"
+          className="rhythm-glass absolute inset-x-0 bottom-0 z-40 border-t border-white/10 pt-2 pb-[max(0.55rem,env(safe-area-inset-bottom))]"
         >
-          <div className="mb-1.5 flex items-center justify-between gap-2 text-[0.7rem] text-slate-400">
+          <div className="mb-1.5 flex items-center justify-between gap-2 text-[0.7rem] text-slate-200">
             <TransportReadout
               store={playheadStore}
               playing={playing}
@@ -632,7 +634,10 @@ export function RhythmPage() {
             type="button"
             size="lg"
             variant={playing ? 'outline' : 'default'}
-            className="h-14 w-full touch-manipulation text-base lg:mx-auto lg:max-w-md"
+            className={cn(
+              'h-14 w-full touch-manipulation text-base lg:mx-auto lg:max-w-md',
+              playing && 'border-white/15 bg-[#141A28] text-white hover:bg-[#1A2033]',
+            )}
             data-transport="play"
             {...activateOnPointer(() => void startStop())}
           >
@@ -738,7 +743,7 @@ function TransportReadout({
   const playhead = usePlayhead(store)
   return (
     <p
-      className="min-w-0 truncate tabular-nums"
+      className="min-w-0 truncate tabular-nums drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
       data-playhead-bar={playhead.bar}
       data-playhead-step={playhead.step}
       data-playhead-beat={playhead.beat}

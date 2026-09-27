@@ -59,6 +59,12 @@ body {
   }
 }
 
+.rhythm-glass {
+  background: rgb(11 15 26 / 0.58);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
 .stage-glow {
   pointer-events: none;
   position: absolute;
