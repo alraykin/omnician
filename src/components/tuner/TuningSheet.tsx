@@ -74,9 +74,14 @@ export function TuningSheet({
   const grouped = useMemo(() => groupTunings(visible), [visible])
   const family = findFamily(draftFamily)
   const config = findConfig(draftConfig)
-  const canSelect =
-    draftFamily === 'chromatic' ||
-    (lookingAtTunings && visible.some((item) => item.id === draftPresetId))
+
+  const applyTuning = (presetId: string, nextInstrument?: InstrumentId) => {
+    onConfirm({
+      instrumentId: draftFamily === 'chromatic' ? 'chromatic' : (nextInstrument ?? draftConfig),
+      presetId: draftFamily === 'chromatic' ? 'chromatic' : presetId,
+    })
+    onOpenChange(false)
+  }
 
   const chooseFamily = (id: FamilyId) => {
     setDraftFamily(id)
@@ -112,23 +117,19 @@ export function TuningSheet({
     setDraftPresetId(defaultTuningId(id, customs))
   }
 
-  const confirm = () => {
-    if (!canSelect) return
-    onConfirm({
-      instrumentId: draftFamily === 'chromatic' ? 'chromatic' : draftConfig,
-      presetId: draftFamily === 'chromatic' ? 'chromatic' : draftPresetId,
-    })
-    onOpenChange(false)
-  }
-
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 px-0 pb-[var(--tabbar-clearance)] pt-2 sm:items-center sm:p-4"
+      data-tuning-sheet
+      onClick={() => onOpenChange(false)}
+    >
       <div
         role="dialog"
         aria-labelledby="tuning-sheet-title"
-        className="flex h-[92svh] w-full max-w-lg flex-col rounded-t-3xl border border-white/10 bg-[#0F1422] sm:h-[min(40rem,90svh)] sm:rounded-3xl md:max-w-2xl lg:max-w-3xl"
+        className="flex h-[calc(100svh-var(--tabbar-clearance)-0.5rem)] max-h-[40rem] w-full max-w-lg flex-col rounded-t-3xl border border-white/10 bg-[#0F1422] sm:h-[min(40rem,calc(90svh-var(--tabbar-clearance)))] sm:rounded-3xl md:max-w-2xl lg:max-w-3xl"
+        onClick={(event) => event.stopPropagation()}
       >
         <div className="shrink-0 px-4 pb-3 pt-4">
           <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
@@ -206,7 +207,7 @@ export function TuningSheet({
                 <CustomList
                   items={visible}
                   selectedId={draftPresetId}
-                  onSelect={setDraftPresetId}
+                  onSelect={(id) => applyTuning(id, 'custom')}
                   onEdit={onEdit}
                   onDelete={onDelete}
                   onCreate={onCreate}
@@ -227,7 +228,7 @@ export function TuningSheet({
                           key={preset.id}
                           preset={preset}
                           selected={preset.id === draftPresetId}
-                          onSelect={() => setDraftPresetId(preset.id)}
+                          onSelect={() => applyTuning(preset.id)}
                         />
                       ))}
                     </div>
@@ -238,22 +239,15 @@ export function TuningSheet({
           )}
         </div>
 
-        <div className="sticky bottom-0 flex shrink-0 gap-2 border-t border-white/10 bg-[#0F1422] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="flex shrink-0 border-t border-white/10 bg-[#0F1422] px-4 py-3">
           <Button
             type="button"
             variant="outline"
-            className="flex-1"
+            className="w-full"
+            data-tuning-cancel
             onClick={() => onOpenChange(false)}
           >
             Cancel
-          </Button>
-          <Button
-            type="button"
-            className="flex-1"
-            onClick={confirm}
-            disabled={!canSelect}
-          >
-            Select
           </Button>
         </div>
       </div>
@@ -274,6 +268,7 @@ function TuningRow({
 }) {
   return (
     <div
+      data-tuning-row={preset.id}
       className={cn(
         'flex items-center gap-2 rounded-2xl px-2',
         selected && 'bg-[#A855F7]/18 ring-1 ring-[#A855F7]/50',

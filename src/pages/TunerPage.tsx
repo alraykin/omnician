@@ -48,7 +48,10 @@ export function TunerPage() {
   const [instrumentId, setInstrumentId] = useState<InstrumentId>(prefs.instrumentId)
   const [a4Hz, setA4Hz] = useState(prefs.a4Hz)
   const [autoString, setAutoString] = useState(prefs.autoString)
-  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return new URLSearchParams(window.location.search).get('picker') === '1'
+  })
   const [editor, setEditor] = useState<null | { id?: string }>(null)
   const [focusIndex, setFocusIndex] = useState(0)
   const [autoId, setAutoId] = useState<string | null>(null)
@@ -254,6 +257,7 @@ export function TunerPage() {
         <div className="mt-4">
           <button
             type="button"
+            data-tuning-change
             onClick={() => setPickerOpen(true)}
             className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-[#141A28] px-4 py-3 text-left"
           >
