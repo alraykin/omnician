@@ -24,11 +24,13 @@ type HeadstockProps = {
 
 const VIEW_W = 480
 const CX = VIEW_W / 2
-const GUITAR_TOP = 10
+const GUITAR_TOP = 14
 const WHITE = '#F4F7FB'
+const LAVENDER = '#EDE8F8'
 const RED = '#EF4444'
 const GREEN = '#22C55E'
 const INK = '#070B16'
+const BODY_STROKE = 3.5
 
 type Tone = 'idle' | 'selected' | 'red' | 'green' | 'sticky'
 
@@ -82,12 +84,12 @@ function toneFor(
 }
 
 function colors(tone: Tone): { fill: string; stroke: string; text: string } {
-  if (tone === 'red') return { fill: RED, stroke: RED, text: '#fff' }
+  if (tone === 'red') return { fill: RED, stroke: RED, text: WHITE }
   if (tone === 'green' || tone === 'sticky') {
-    return { fill: GREEN, stroke: GREEN, text: '#fff' }
+    return { fill: GREEN, stroke: GREEN, text: WHITE }
   }
   if (tone === 'selected') return { fill: WHITE, stroke: WHITE, text: INK }
-  return { fill: INK, stroke: WHITE, text: WHITE }
+  return { fill: INK, stroke: LAVENDER, text: WHITE }
 }
 
 function activeColor(tone: Tone): string | null {
@@ -194,57 +196,69 @@ function layout(
 }
 
 function guitarMetrics(rows: number, pairedNut: boolean, bass = false) {
-  const extraNut = bass ? (rows <= 2 ? 12 : rows === 3 ? 10 : 8) : 0
-  const extraPeg = bass && rows <= 3 ? 1 : 0
-  if (rows <= 3) {
+  const extraNut = bass ? (rows <= 2 ? 10 : rows === 3 ? 8 : 6) : 0
+  if (rows <= 2) {
     return {
-      hexR: 22 + extraPeg,
-      barrel: bass ? 14 : 16,
-      rowGap: bass && rows <= 2 ? 68 : 60,
-      firstY: 68,
-      tail: 80,
-      nutWidth: 84 + extraNut,
-      postInset: 10,
-      bodyHalf: 69,
-      neckH: 100,
+      hexR: bass ? 17 : 16,
+      barrel: 18,
+      rowGap: bass ? 70 : 66,
+      firstY: 86,
+      tail: 92,
+      nutWidth: 76 + extraNut,
+      postInset: 14,
+      bodyHalf: 96,
+      neckH: 124,
+    }
+  }
+  if (rows === 3) {
+    return {
+      hexR: 15.5,
+      barrel: 17,
+      rowGap: 56,
+      firstY: 84,
+      tail: 90,
+      nutWidth: 80 + extraNut,
+      postInset: 13,
+      bodyHalf: 94,
+      neckH: 120,
     }
   }
   if (rows === 4) {
     return {
-      hexR: 19,
-      barrel: bass ? 13 : 14,
+      hexR: 14,
+      barrel: 15,
       rowGap: 48,
-      firstY: 56,
-      tail: 68,
-      nutWidth: 90 + extraNut,
-      postInset: 9,
-      bodyHalf: 72,
-      neckH: 96,
+      firstY: 80,
+      tail: 82,
+      nutWidth: 88 + extraNut,
+      postInset: 12,
+      bodyHalf: 92,
+      neckH: 116,
     }
   }
   if (rows === 5) {
     return {
-      hexR: 16,
-      barrel: 13,
+      hexR: 13,
+      barrel: 14,
       rowGap: 42,
-      firstY: 50,
-      tail: 60,
-      nutWidth: 104,
-      postInset: 8,
-      bodyHalf: 74,
-      neckH: 92,
+      firstY: 76,
+      tail: 72,
+      nutWidth: 100,
+      postInset: 11,
+      bodyHalf: 90,
+      neckH: 110,
     }
   }
   return {
-    hexR: 15,
-    barrel: 12,
+    hexR: 12.5,
+    barrel: 13,
     rowGap: 38,
-    firstY: 46,
-    tail: 54,
-    nutWidth: pairedNut ? 112 : 100,
-    postInset: 8,
-    bodyHalf: pairedNut ? 78 : 76,
-    neckH: pairedNut ? 108 : 90,
+    firstY: 72,
+    tail: 64,
+    nutWidth: pairedNut ? 112 : 104,
+    postInset: 10,
+    bodyHalf: pairedNut ? 88 : 86,
+    neckH: pairedNut ? 118 : 108,
   }
 }
 
@@ -258,8 +272,6 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
   const bass = usesCloverPegs(config)
   const banjo = config === 'banjo'
   const m = guitarMetrics(rows, pairedNut, bass)
-  const leftCount = left.length
-  const rightCount = right.length
   const nutY = m.firstY + (rows - 1) * m.rowGap + m.tail
   const neckH = banjo ? 184 : m.neckH
   const height = nutY + neckH
@@ -285,10 +297,7 @@ function layoutGuitarShape(slots: PegSlot[], config: InstrumentId): Drawn {
 
   const pegs: PegGeom[] = bodySlots.map((slot) => {
     const nutX = nutXs.get(slot.string.id) ?? cx
-    const count = slot.side === 'left' ? leftCount : rightCount
-    const other = slot.side === 'left' ? rightCount : leftCount
-    const stagger = count < other ? m.rowGap * 0.5 : 0
-    const postY = m.firstY + stagger + slot.row * m.rowGap
+    const postY = m.firstY + slot.row * m.rowGap
     const dir = slot.side === 'left' ? 1 : -1
     const edgeX = guitarEdgeX(postY, slot.side, nutY, cx, m.nutWidth / 2, m.bodyHalf)
     const postX = edgeX + dir * m.postInset
@@ -422,6 +431,19 @@ function isOctaveOfCourse(
   return string.midi > mate.midi
 }
 
+function guitarStations(
+  _nutY: number,
+  nutHalf: number,
+  bodyHalf: number,
+  inset: number,
+) {
+  const top = GUITAR_TOP + inset * 0.2
+  const scoopY = top + 21
+  const hx = bodyHalf - inset * 0.34
+  const nut = Math.max(8, nutHalf + 1.1 - inset * 0.28)
+  return { top, scoopY, hx, nut }
+}
+
 function guitarHalf(
   y: number,
   nutY: number,
@@ -429,33 +451,24 @@ function guitarHalf(
   bodyHalf: number,
   inset = 0,
 ): number {
-  const t = Math.max(
-    0,
-    Math.min(1, (y - GUITAR_TOP) / Math.max(1, nutY - GUITAR_TOP)),
-  )
-  const horn = bodyHalf * (73 / 69)
-  const keys: Array<[number, number]> = [
-    [0.0, horn],
-    [0.1, horn * 0.986],
-    [0.22, bodyHalf * 1.014],
-    [0.45, bodyHalf],
-    [0.7, bodyHalf],
-    [0.84, bodyHalf],
-    [0.89, bodyHalf * 0.9],
-    [0.94, bodyHalf * 0.75],
-    [1.0, nutHalf + 1.4],
-  ]
-  let half = keys[keys.length - 1][1]
-  for (let i = 0; i < keys.length - 1; i++) {
-    const [t0, h0] = keys[i]
-    const [t1, h1] = keys[i + 1]
-    if (t >= t0 && t <= t1) {
-      const u = (t - t0) / Math.max(0.0001, t1 - t0)
-      half = h0 + (h1 - h0) * u
-      break
-    }
+  const { top, hx, nut } = guitarStations(nutY, nutHalf, bodyHalf, inset)
+  const t = Math.max(0, Math.min(1, (y - top) / Math.max(1, nutY - top)))
+  const maxW = hx
+  const midW = hx * 0.9
+  let half: number
+  if (t < 0.08) {
+    const u = t / 0.08
+    const s = u * (2 - u)
+    half = maxW * (0.72 + 0.28 * s)
+  } else if (t < 0.64) {
+    const u = (t - 0.08) / 0.56
+    half = maxW + (midW - maxW) * u
+  } else {
+    const u = (t - 0.64) / 0.36
+    const s = u * u * (3 - 2 * u)
+    half = midW + (nut - midW) * s
   }
-  return Math.max(8, half - inset)
+  return Math.max(8, half)
 }
 
 function guitarEdgeX(
@@ -477,38 +490,31 @@ function guitarBatwing(
   bodyHalf: number,
   inset: number,
 ): string {
-  const horn = guitarHalf(GUITAR_TOP + 24, nutY, nutHalf, bodyHalf, inset)
-  const peakY = 8 + inset * 0.2
-  const valleyY = 28 + inset * 0.4
-  const sideY = 38 + inset * 0.1
-  const nut = nutHalf + 1.2 - inset
-  const valleyW = Math.max(16, horn * 0.3)
-
-  const right: string[] = []
-  for (let y = sideY + 6; y < nutY - 1; y += 6) {
-    right.push(
-      `L ${(cx + guitarHalf(y, nutY, nutHalf, bodyHalf, inset)).toFixed(1)} ${y.toFixed(1)}`,
-    )
-  }
-  right.push(`L ${(cx + nut).toFixed(1)} ${nutY}`)
-
-  const left: string[] = []
-  for (let y = nutY - 6; y > sideY; y -= 6) {
-    left.push(
-      `L ${(cx - guitarHalf(y, nutY, nutHalf, bodyHalf, inset)).toFixed(1)} ${y.toFixed(1)}`,
-    )
-  }
+  const { top, scoopY, hx, nut } = guitarStations(
+    nutY,
+    nutHalf,
+    bodyHalf,
+    inset,
+  )
+  const sideY = top + 54
+  const midY = top + (nutY - top) * 0.52
+  const lowY = nutY - 42
+  const sideH = guitarHalf(sideY, nutY, nutHalf, bodyHalf, inset)
+  const midH = guitarHalf(midY, nutY, nutHalf, bodyHalf, inset)
 
   return [
-    `M ${cx - horn} ${sideY}`,
-    `L ${cx - horn} ${18 + inset * 0.15}`,
-    `C ${cx - horn} ${peakY}, ${cx - horn + 10} ${peakY}, ${cx - valleyW} ${valleyY}`,
-    `C ${cx - 8} ${valleyY + 1}, ${cx + 8} ${valleyY + 1}, ${cx + valleyW} ${valleyY}`,
-    `C ${cx + horn - 10} ${peakY}, ${cx + horn} ${peakY}, ${cx + horn} ${18 + inset * 0.15}`,
-    `L ${cx + horn} ${sideY}`,
-    ...right,
+    `M ${cx} ${scoopY}`,
+    `C ${cx + hx * 0.18} ${scoopY - 3}, ${cx + hx * 0.48} ${top - 6}, ${cx + hx * 0.78} ${top + 7}`,
+    `C ${cx + hx * 1.04} ${top + 16}, ${cx + sideH + 2} ${top + 34}, ${cx + sideH} ${sideY}`,
+    `C ${cx + sideH} ${sideY + 32}, ${cx + midH + 3} ${midY - 12}, ${cx + midH} ${midY}`,
+    `C ${cx + midH - 3} ${lowY - 8}, ${cx + nut + 16} ${lowY + 8}, ${cx + nut + 4} ${nutY - 7}`,
+    `C ${cx + nut + 1} ${nutY - 2}, ${cx + nut} ${nutY}, ${cx + nut} ${nutY}`,
     `L ${cx - nut} ${nutY}`,
-    ...left,
+    `C ${cx - nut} ${nutY}, ${cx - nut - 1} ${nutY - 2}, ${cx - nut - 4} ${nutY - 7}`,
+    `C ${cx - nut - 16} ${lowY + 8}, ${cx - midH + 3} ${lowY - 8}, ${cx - midH} ${midY}`,
+    `C ${cx - midH - 3} ${midY - 12}, ${cx - sideH} ${sideY + 32}, ${cx - sideH} ${sideY}`,
+    `C ${cx - sideH - 2} ${top + 34}, ${cx - hx * 1.04} ${top + 16}, ${cx - hx * 0.78} ${top + 7}`,
+    `C ${cx - hx * 0.48} ${top - 6}, ${cx - hx * 0.18} ${scoopY - 3}, ${cx} ${scoopY}`,
     'Z',
   ].join(' ')
 }
@@ -528,36 +534,6 @@ function bodyEdgeX(
       ? topHalf + (midHalf - topHalf) * (t / 0.72)
       : midHalf + (botHalf - midHalf) * ((t - 0.72) / 0.28)
   return side === 'right' ? CX + half : CX - half
-}
-
-function batwing(
-  nutY: number,
-  nutHalf: number,
-  inset: number,
-  topHalf: number,
-): string {
-  const top = 10 + inset
-  const dip = 28 + inset * 0.4
-  const horn = topHalf - inset * 0.5
-  const mid = topHalf * 0.94 - inset * 0.4
-  const bot = nutHalf + 12 - inset
-  const nut = nutHalf + 3 - inset
-  const yMid = top + (nutY - top) * 0.48
-  const yLow = nutY - 28 + inset * 0.1
-
-  return [
-    `M ${CX - horn} ${top + 16}`,
-    `C ${CX - horn + 10} ${top - 4}, ${CX - 34} ${dip}, ${CX} ${dip}`,
-    `C ${CX + 34} ${dip}, ${CX + horn - 10} ${top - 4}, ${CX + horn} ${top + 16}`,
-    `C ${CX + horn + 5} ${top + 48}, ${CX + mid + 6} ${yMid}, ${CX + mid} ${yMid + 10}`,
-    `C ${CX + mid - 2} ${yLow - 4}, ${CX + bot + 10} ${yLow}, ${CX + bot} ${nutY - 14}`,
-    `C ${CX + bot - 2} ${nutY - 4}, ${CX + nut + 4} ${nutY}, ${CX + nut} ${nutY}`,
-    `L ${CX - nut} ${nutY}`,
-    `C ${CX - nut - 4} ${nutY}, ${CX - bot + 2} ${nutY - 4}, ${CX - bot} ${nutY - 14}`,
-    `C ${CX - bot - 10} ${yLow}, ${CX - mid + 2} ${yLow - 4}, ${CX - mid} ${yMid + 10}`,
-    `C ${CX - mid - 6} ${yMid}, ${CX - horn - 5} ${top + 48}, ${CX - horn} ${top + 16}`,
-    'Z',
-  ].join(' ')
 }
 
 export function Headstock({
@@ -608,40 +584,90 @@ export function Headstock({
           <defs>
             <filter
               id="omnician-peg-glow"
-              x="-40%"
-              y="-40%"
-              width="180%"
-              height="180%"
+              x="-50%"
+              y="-50%"
+              width="200%"
+              height="200%"
             >
-              <feGaussianBlur stdDeviation="2.4" result="blur" />
+              <feGaussianBlur stdDeviation="2.6" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
+            <filter
+              id="omnician-body-glow"
+              x="-12%"
+              y="-8%"
+              width="124%"
+              height="120%"
+            >
+              <feGaussianBlur stdDeviation="3.2" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+              </feMerge>
+            </filter>
+            <linearGradient
+              id="omnician-neck-fade"
+              x1="0"
+              y1={drawn.nutY}
+              x2="0"
+              y2={drawn.nutY + drawn.neckH}
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor={LAVENDER} stopOpacity="0.95" />
+              <stop offset="55%" stopColor={LAVENDER} stopOpacity="0.45" />
+              <stop offset="100%" stopColor={LAVENDER} stopOpacity="0" />
+            </linearGradient>
+            <linearGradient
+              id="omnician-string-fade"
+              x1="0"
+              y1={drawn.nutY}
+              x2="0"
+              y2={drawn.nutY + drawn.neckH}
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor="white" stopOpacity="1" />
+              <stop offset="70%" stopColor="white" stopOpacity="0.55" />
+              <stop offset="100%" stopColor="white" stopOpacity="0" />
+            </linearGradient>
           </defs>
 
-          <rect
-            x={neckLeft}
-            y={drawn.nutY}
-            width={neckWidth}
-            height={drawn.neckH}
-            fill={INK}
-            stroke={WHITE}
-            strokeWidth="2.2"
+          <path
+            d={guitarBatwing(
+              drawn.cx,
+              drawn.nutY,
+              drawn.nutWidth / 2,
+              drawn.bodyHalf,
+              0,
+            )}
+            fill="none"
+            stroke="#A855F7"
+            strokeWidth="10"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            opacity="0.22"
+            filter="url(#omnician-body-glow)"
           />
-          {drawn.guitarShape ? null : (
-            <rect
-              x={neckLeft + 4}
-              y={drawn.nutY}
-              width={neckWidth - 8}
-              height={drawn.neckH}
-              fill="none"
-              stroke={WHITE}
-              strokeWidth="1.1"
-              opacity="0.9"
-            />
-          )}
+
+          <line
+            x1={neckLeft}
+            y1={drawn.nutY}
+            x2={neckLeft}
+            y2={drawn.nutY + drawn.neckH}
+            stroke="url(#omnician-neck-fade)"
+            strokeWidth={BODY_STROKE}
+            strokeLinecap="round"
+          />
+          <line
+            x1={neckLeft + neckWidth}
+            y1={drawn.nutY}
+            x2={neckLeft + neckWidth}
+            y2={drawn.nutY + drawn.neckH}
+            stroke="url(#omnician-neck-fade)"
+            strokeWidth={BODY_STROKE}
+            strokeLinecap="round"
+          />
           {Array.from({ length: fretCount }, (_, index) => {
             const t = (index + 1) / (fretCount + 1)
             return (
@@ -651,53 +677,51 @@ export function Headstock({
                 y1={drawn.nutY + drawn.neckH * t}
                 x2={neckLeft + neckWidth}
                 y2={drawn.nutY + drawn.neckH * t}
-                stroke={WHITE}
-                strokeWidth="1.1"
+                stroke={LAVENDER}
+                strokeWidth="1.15"
+                opacity={0.42 - index * 0.1}
               />
             )
           })}
 
-          {drawn.guitarShape ? (
-            <path
-              d={guitarBatwing(
-                drawn.cx,
-                drawn.nutY,
-                drawn.nutWidth / 2,
-                drawn.bodyHalf,
-                0,
-              )}
-              fill={INK}
-              stroke={WHITE}
-              strokeWidth="2.2"
-              strokeLinejoin="round"
-            />
-          ) : (
-            <>
-              <path
-                d={batwing(drawn.nutY, drawn.nutWidth / 2, 0, drawn.topHalf)}
-                fill={INK}
-                stroke={WHITE}
-                strokeWidth="2.35"
-                strokeLinejoin="round"
-              />
-              <path
-                d={batwing(drawn.nutY, drawn.nutWidth / 2, 7, drawn.topHalf)}
-                fill="none"
-                stroke={WHITE}
-                strokeWidth="1.15"
-                strokeLinejoin="round"
-              />
-            </>
-          )}
-
-          <rect
-            x={drawn.nutLeft}
-            y={drawn.nutY - 3.5}
-            width={drawn.nutWidth}
-            height="7"
+          <path
+            d={guitarBatwing(
+              drawn.cx,
+              drawn.nutY,
+              drawn.nutWidth / 2,
+              drawn.bodyHalf,
+              0,
+            )}
             fill={INK}
-            stroke={WHITE}
-            strokeWidth="1.6"
+            stroke={LAVENDER}
+            strokeWidth={BODY_STROKE}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+          <path
+            d={guitarBatwing(
+              drawn.cx,
+              drawn.nutY,
+              drawn.nutWidth / 2,
+              drawn.bodyHalf,
+              7.2,
+            )}
+            fill="none"
+            stroke={LAVENDER}
+            strokeWidth="1.15"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            opacity="0.38"
+          />
+
+          <line
+            x1={drawn.nutLeft}
+            y1={drawn.nutY}
+            x2={drawn.nutLeft + drawn.nutWidth}
+            y2={drawn.nutY}
+            stroke={LAVENDER}
+            strokeWidth="2.4"
+            strokeLinecap="round"
           />
           {drawn.pegs
             .filter((peg) => peg.side === 'fifth')
@@ -709,7 +733,7 @@ export function Headstock({
                 width="10"
                 height="4.4"
                 fill={INK}
-                stroke={WHITE}
+                stroke={LAVENDER}
                 strokeWidth="1.25"
               />
             ))}
@@ -744,16 +768,13 @@ export function Headstock({
                 color={tone === 'sticky' ? GREEN : WHITE}
                 width={
                   clover
-                    ? 2.55
-                    : drawn.guitarShape
-                      ? octave
-                        ? 1.15
-                        : paired
-                          ? 1.7
-                          : 1.45
-                      : 1.35
+                    ? 2.4
+                    : octave
+                      ? 1.15
+                      : paired
+                        ? 1.55
+                        : 1.45
                 }
-                wound={clover}
                 toNeck={drawn.height}
               />
             )
@@ -762,7 +783,6 @@ export function Headstock({
             <Peg
               key={peg.string.id}
               peg={peg}
-              clover={clover}
               letter={
                 peg.side === 'fifth'
                   ? peg.string.pegLabel ?? peg.string.label.toLowerCase()
@@ -784,21 +804,17 @@ export function Headstock({
                 }
                 width={
                   clover
-                    ? 3.45
-                    : drawn.guitarShape
-                      ? drawn.courses.length > 0
-                        ? isOctaveOfCourse(active.string, strings)
-                          ? 1.7
-                          : 2.15
-                        : 2.2
-                      : 2.35
+                    ? 3.1
+                    : drawn.courses.length > 0
+                      ? isOctaveOfCourse(active.string, strings)
+                        ? 1.7
+                        : 2.05
+                      : 2.15
                 }
-                wound={clover}
                 toNeck={drawn.height}
               />
               <Peg
                 peg={active}
-                clover={clover}
                 letter={
                   active.side === 'fifth'
                     ? active.string.pegLabel ?? active.string.label.toLowerCase()
@@ -823,75 +839,54 @@ function StringRun({
   peg,
   color,
   width,
-  wound,
   toNeck,
 }: {
   peg: PegGeom
   color: string
   width: number
-  wound: boolean
   toNeck: number
 }) {
-  const neckEnd = peg.side === 'fifth' ? peg.postY : peg.nutY
-  const headPath =
-    peg.side === 'fifth'
-      ? `M ${peg.postX} ${peg.postY} L ${peg.buttonX} ${peg.buttonY}`
-      : peg.nub
-        ? `M ${peg.nutX} ${peg.nutY} L ${peg.postX} ${peg.postY}`
-        : `M ${peg.nutX} ${peg.nutY} Q ${peg.nutX + (peg.side === 'right' ? -5 : 5)} ${(peg.nutY + peg.postY) / 2} ${peg.postX} ${peg.postY}`
-
+  const lit = color === GREEN || color === RED
   return (
     <g stroke={color} fill="none" strokeLinecap="round" strokeLinejoin="round">
-      {wound ? (
+      {peg.side === 'fifth' ? (
+        <line
+          x1={peg.postX}
+          y1={peg.postY}
+          x2={peg.buttonX}
+          y2={peg.buttonY}
+          strokeWidth={width}
+        />
+      ) : (
         <>
           <line
-            x1={peg.nutX - 0.7}
-            y1={toNeck - 2}
-            x2={peg.nutX - 0.7}
-            y2={neckEnd}
+            x1={peg.nutX}
+            y1={peg.nutY}
+            x2={peg.postX}
+            y2={peg.postY}
             strokeWidth={width}
           />
           <line
-            x1={peg.nutX + 0.7}
-            y1={toNeck - 2}
-            x2={peg.nutX + 0.7}
-            y2={neckEnd}
-            strokeWidth={width * 0.55}
-            opacity="0.7"
+            x1={peg.nutX}
+            y1={peg.nutY}
+            x2={peg.nutX}
+            y2={toNeck - 4}
+            stroke={lit ? color : 'url(#omnician-string-fade)'}
+            strokeWidth={width}
           />
         </>
-      ) : (
-        <line
-          x1={peg.nutX}
-          y1={toNeck - 2}
-          x2={peg.nutX}
-          y2={neckEnd}
-          strokeWidth={width}
-        />
       )}
-      {headPath ? (
-        wound ? (
-          <>
-            <path d={headPath} strokeWidth={width} />
-            <path d={headPath} strokeWidth={width * 0.45} opacity="0.55" />
-          </>
-        ) : (
-          <path d={headPath} strokeWidth={width} />
-        )
-      ) : null}
     </g>
   )
 }
 
 function Peg({
   peg,
-  clover,
   letter,
   tone,
   onClick,
 }: {
   peg: PegGeom
-  clover: boolean
   letter: string
   tone: Tone
   onClick: () => void
@@ -899,12 +894,14 @@ function Peg({
   const { fill, stroke, text } = colors(tone)
   const glow = tone === 'red' || tone === 'green' || tone === 'selected'
   const dir = peg.side === 'right' ? -1 : 1
-  const hexR = peg.hexR
-  const shaftInner = hexR * (clover ? 0.38 : 0.72)
-  const shaftEnd = peg.edgeX - dir * 1.5
-  const shaftY = clover ? 5.4 : 4.8
-  const shaftX = peg.buttonX + dir * shaftInner
-  const shaftW = (shaftEnd - shaftX) * dir
+  const r = peg.hexR
+  const shaftInner = peg.buttonX + dir * r * 0.72
+  const shaftEnd = peg.edgeX - dir * 1.2
+  const shaftW = Math.max(8, (shaftEnd - shaftInner) * dir)
+  const shaftX = Math.min(shaftInner, shaftEnd)
+  const shaftH = Math.max(5.2, r * 0.34)
+  const washerW = Math.max(3.4, r * 0.22)
+  const washerH = Math.max(6.2, r * 0.42)
 
   return (
     <g
@@ -925,132 +922,45 @@ function Peg({
         x={peg.postX}
         y={peg.postY}
         stroke={stroke}
-        wound={clover}
         lit={tone !== 'idle'}
-        compact={peg.nub || peg.side === 'fifth'}
+        compact={peg.side === 'fifth'}
       />
-
-      {peg.nub ? (
-        clover ? (
-          <>
-            <path
-              d={nubPolePath(peg.buttonX, peg.buttonY, hexR, dir, peg.edgeX, 0.38)}
-              fill={fill}
-              stroke={stroke}
-              strokeWidth="2.05"
-              strokeLinejoin="round"
-            />
-            <path
-              d={cloverPath(peg.buttonX, peg.buttonY, dir, hexR)}
-              fill={fill}
-              stroke={stroke}
-              strokeWidth="2.15"
-              strokeLinejoin="round"
-            />
-            <rect
-              x={dir === 1 ? peg.edgeX - Math.max(3.6, hexR * 0.22) : peg.edgeX}
-              y={peg.buttonY - hexR * 0.13}
-              width={Math.max(3.6, hexR * 0.22)}
-              height={hexR * 0.26}
-              rx="0.7"
-              fill={INK}
-              stroke={stroke}
-              strokeWidth="1.45"
-            />
-          </>
-        ) : (
-          <>
-            <path
-              d={nubHexPath(peg.buttonX, peg.buttonY, hexR, dir, peg.edgeX)}
-              fill={fill}
-              stroke={stroke}
-              strokeWidth="2.15"
-              strokeLinejoin="round"
-            />
-            <rect
-              x={dir === 1 ? peg.edgeX - Math.max(3.6, hexR * 0.22) : peg.edgeX}
-              y={peg.buttonY - hexR * 0.13}
-              width={Math.max(3.6, hexR * 0.22)}
-              height={hexR * 0.26}
-              rx="0.7"
-              fill={INK}
-              stroke={stroke}
-              strokeWidth="1.45"
-            />
-          </>
-        )
-      ) : (
-        <>
-          <rect
-            x={dir === 1 ? shaftX : shaftX + (shaftEnd - shaftX)}
-            y={peg.buttonY - shaftY}
-            width={Math.max(10, shaftW)}
-            height={shaftY * 2}
-            rx={clover ? 2.2 : 2}
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="2"
-          />
-          {clover || peg.side === 'fifth' ? (
-            <>
-              <circle
-                cx={shaftEnd - dir * 11}
-                cy={peg.buttonY}
-                r="3.1"
-                fill={INK}
-                stroke={stroke}
-                strokeWidth="1.5"
-              />
-              <circle
-                cx={shaftEnd - dir * 5}
-                cy={peg.buttonY}
-                r="3.1"
-                fill={INK}
-                stroke={stroke}
-                strokeWidth="1.5"
-              />
-            </>
-          ) : (
-            <rect
-              x={dir === 1 ? shaftEnd - 6 : shaftEnd}
-              y={peg.buttonY - 4}
-              width="6"
-              height="8"
-              rx="1.6"
-              fill={fill}
-              stroke={stroke}
-              strokeWidth="1.6"
-            />
-          )}
-          {clover ? (
-            <path
-              d={cloverPath(peg.buttonX, peg.buttonY, dir, hexR)}
-              fill={fill}
-              stroke={stroke}
-              strokeWidth="2.15"
-              strokeLinejoin="round"
-            />
-          ) : (
-            <path
-              d={hexPath(peg.buttonX, peg.buttonY, hexR)}
-              fill={fill}
-              stroke={stroke}
-              strokeWidth="2.15"
-              strokeLinejoin="round"
-            />
-          )}
-        </>
-      )}
+      <rect
+        x={shaftX}
+        y={peg.buttonY - shaftH / 2}
+        width={shaftW}
+        height={shaftH}
+        rx={1.8}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth="2.1"
+      />
+      <rect
+        x={dir === 1 ? peg.edgeX - washerW : peg.edgeX}
+        y={peg.buttonY - washerH / 2}
+        width={washerW}
+        height={washerH}
+        rx="1.2"
+        fill={INK}
+        stroke={stroke}
+        strokeWidth="1.6"
+      />
+      <circle
+        cx={peg.buttonX}
+        cy={peg.buttonY}
+        r={r}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth="2.35"
+      />
       <text
-        x={peg.buttonX - (clover ? dir * 2.5 : 0)}
-        y={peg.buttonY + (peg.nub ? 7 : 6)}
+        x={peg.buttonX}
+        y={peg.buttonY + (letter.length > 1 ? 4.2 : 5.2)}
         textAnchor="middle"
         fill={text}
-        fontSize={
-          letter.length > 1 ? (hexR < 17 ? 10 : 12) : peg.nub ? (hexR < 17 ? 15 : 18) : 16
-        }
+        fontSize={letter.length > 1 ? (r < 14 ? 10 : 11.5) : r < 14 ? 13.5 : 15.5}
         fontWeight="700"
-        fontFamily="Outfit, sans-serif"
+        fontFamily="Outfit, ui-sans-serif, system-ui, sans-serif"
       >
         {letter}
       </text>
@@ -1062,23 +972,21 @@ function Post({
   x,
   y,
   stroke,
-  wound,
   lit,
   compact = false,
 }: {
   x: number
   y: number
   stroke: string
-  wound: boolean
   lit: boolean
   compact?: boolean
 }) {
-  const outer = compact ? 6.4 : 7.4
-  const inner = compact ? 2.8 : 3.2
+  const outer = compact ? 5.8 : 6.6
+  const inner = compact ? 2.5 : 2.9
   return (
     <g>
       {lit ? (
-        <circle cx={x} cy={y} r={compact ? 9 : 11} fill={stroke} opacity="0.2" />
+        <circle cx={x} cy={y} r={compact ? 9 : 10.5} fill={stroke} opacity="0.22" />
       ) : null}
       <circle
         cx={x}
@@ -1086,7 +994,7 @@ function Post({
         r={outer}
         fill={INK}
         stroke={stroke}
-        strokeWidth={lit ? 2.6 : 2.05}
+        strokeWidth={lit ? 2.5 : 2.05}
       />
       <circle
         cx={x}
@@ -1094,131 +1002,10 @@ function Post({
         r={inner}
         fill="none"
         stroke={stroke}
-        strokeWidth="1.45"
+        strokeWidth="1.5"
       />
-      {wound ? (
-        <line
-          x1={x - 4.2}
-          y1={y - 4.2}
-          x2={x + 4.2}
-          y2={y + 4.2}
-          stroke={stroke}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      ) : null}
     </g>
   )
-}
-
-function hexPath(cx: number, cy: number, r: number, flat = 0.9): string {
-  const rx = r
-  const ry = r * flat
-  const pts = Array.from({ length: 6 }, (_, index) => {
-    const angle = (Math.PI / 180) * (60 * index)
-    return `${cx + rx * Math.cos(angle)},${cy + ry * Math.sin(angle)}`
-  })
-  return `M ${pts.join(' L ')} Z`
-}
-
-function nubPolePath(
-  cx: number,
-  cy: number,
-  r: number,
-  dir: number,
-  edgeX: number,
-  reach = 0.5,
-): string {
-  const innerX = cx + dir * r * reach
-  const barrelH = r * 0.24
-  const collarH = r * 0.15
-  const collarW = Math.max(4, r * 0.22)
-  const collarX = edgeX - dir * collarW
-  return [
-    `M ${edgeX.toFixed(1)},${(cy - collarH).toFixed(1)}`,
-    `L ${collarX.toFixed(1)},${(cy - collarH).toFixed(1)}`,
-    `L ${collarX.toFixed(1)},${(cy - barrelH).toFixed(1)}`,
-    `L ${innerX.toFixed(1)},${(cy - barrelH).toFixed(1)}`,
-    `L ${innerX.toFixed(1)},${(cy + barrelH).toFixed(1)}`,
-    `L ${collarX.toFixed(1)},${(cy + barrelH).toFixed(1)}`,
-    `L ${collarX.toFixed(1)},${(cy + collarH).toFixed(1)}`,
-    `L ${edgeX.toFixed(1)},${(cy + collarH).toFixed(1)}`,
-    'Z',
-  ].join(' ')
-}
-
-function nubHexPath(
-  cx: number,
-  cy: number,
-  r: number,
-  dir: number,
-  edgeX: number,
-): string {
-  const rx = r
-  const ry = r * 0.84
-  const barrelH = ry * 0.32
-  const collarH = ry * 0.2
-  const collarW = Math.max(4.2, r * 0.24)
-  const innerX = cx + dir * rx * 0.5
-  const hex = (deg: number) => {
-    const angle = (Math.PI / 180) * deg
-    return `${(cx + rx * Math.cos(angle)).toFixed(1)},${(cy + ry * Math.sin(angle)).toFixed(1)}`
-  }
-  const collarX = (edgeX - dir * collarW).toFixed(1)
-  const shaftX = innerX.toFixed(1)
-  const edge = edgeX.toFixed(1)
-  const topC = (cy - collarH).toFixed(1)
-  const botC = (cy + collarH).toFixed(1)
-  const topB = (cy - barrelH).toFixed(1)
-  const botB = (cy + barrelH).toFixed(1)
-  if (dir === 1) {
-    return [
-      `M ${edge},${topC}`,
-      `L ${collarX},${topC}`,
-      `L ${collarX},${topB}`,
-      `L ${shaftX},${topB}`,
-      `L ${hex(300)}`,
-      `L ${hex(240)}`,
-      `L ${hex(180)}`,
-      `L ${hex(120)}`,
-      `L ${hex(60)}`,
-      `L ${shaftX},${botB}`,
-      `L ${collarX},${botB}`,
-      `L ${collarX},${botC}`,
-      `L ${edge},${botC}`,
-      'Z',
-    ].join(' ')
-  }
-  return [
-    `M ${edge},${topC}`,
-    `L ${collarX},${topC}`,
-    `L ${collarX},${topB}`,
-    `L ${shaftX},${topB}`,
-    `L ${hex(240)}`,
-    `L ${hex(300)}`,
-    `L ${hex(0)}`,
-    `L ${hex(60)}`,
-    `L ${hex(120)}`,
-    `L ${shaftX},${botB}`,
-    `L ${collarX},${botB}`,
-    `L ${collarX},${botC}`,
-    `L ${edge},${botC}`,
-    'Z',
-  ].join(' ')
-}
-
-function cloverPath(cx: number, cy: number, dir: number, size: number): string {
-  const a = size * 1.08
-  const steps = 72
-  const pts: string[] = []
-  for (let i = 0; i <= steps; i++) {
-    const t = (i / steps) * Math.PI * 2
-    const r = a * (0.84 + 0.16 * -Math.cos(3 * t))
-    const x = cx + dir * r * Math.cos(t)
-    const y = cy + r * Math.sin(t)
-    pts.push(`${x.toFixed(2)},${y.toFixed(2)}`)
-  }
-  return `M ${pts.join(' L ')} Z`
 }
 
 function AutoSwitch({
