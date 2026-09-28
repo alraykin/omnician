@@ -8,11 +8,17 @@ import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
 import { Headstock } from '@/components/tuner/Headstock'
 import { InputPicker } from '@/components/tuner/InputPicker'
 import { TunerDebugOverlay } from '@/components/tuner/TunerDebugOverlay'
+import { TunerDisplayToggle } from '@/components/tuner/TunerDisplayToggle'
 import { TunerGauge } from '@/components/tuner/TunerGauge'
+import { TunerTarget } from '@/components/tuner/TunerTarget'
 import { TuningSheet } from '@/components/tuner/TuningSheet'
 import { useCustomTunings } from '@/hooks/useCustomTunings'
 import { useTuner, type TunerStatus } from '@/hooks/useTuner'
-import { loadTunerPrefs, saveTunerPrefs } from '@/lib/custom-presets'
+import {
+  loadTunerPrefs,
+  saveTunerPrefs,
+  type TunerDisplayMode,
+} from '@/lib/custom-presets'
 import {
   GREEN_CLEAR_CENTS,
   IN_TUNE_CENTS,
@@ -49,6 +55,14 @@ export function TunerPage() {
   const [instrumentId, setInstrumentId] = useState<InstrumentId>(prefs.instrumentId)
   const [a4Hz, setA4Hz] = useState(prefs.a4Hz)
   const [autoString, setAutoString] = useState(prefs.autoString)
+  const [displayMode, setDisplayMode] = useState<TunerDisplayMode>(() => {
+    if (typeof window !== 'undefined') {
+      const query = new URLSearchParams(window.location.search).get('display')
+      if (query === 'strobe' || query === 'target') return query
+    }
+    return prefs.displayMode
+  })
+  const demo = useMemo(() => readTunerDemo(), [])
   const [pickerOpen, setPickerOpen] = useState(() => {
     if (typeof window === 'undefined') return false
     return new URLSearchParams(window.location.search).get('picker') === '1'
@@ -108,8 +122,9 @@ export function TunerPage() {
       instrumentId: activeInstrument,
       a4Hz,
       autoString,
+      displayMode,
     })
-  }, [activeInstrument, a4Hz, autoString, current.id])
+  }, [activeInstrument, a4Hz, autoString, current.id, displayMode])
 
   useEffect(() => {
     setFocusIndex(0)
@@ -123,7 +138,7 @@ export function TunerPage() {
   const instrumentMode = strings.length > 0
   const safeFocus = Math.min(focusIndex, Math.max(0, strings.length - 1))
   const lockedString = instrumentMode ? strings[safeFocus] ?? null : null
-  const live = status === 'listening' && reading !== null
+  const live = demo !== null || (status === 'listening' && reading !== null)
 
   const tracked = useMemo(() => {
     if (!reading || !instrumentMode) return null
@@ -169,9 +184,9 @@ export function TunerPage() {
           : lockedString))
     : null
 
-  const rawCents = instrumentMode
-    ? (tracked?.cents ?? null)
-    : (reading?.cents ?? null)
+  const rawCents =
+    demo?.cents ??
+    (instrumentMode ? (tracked?.cents ?? null) : (reading?.cents ?? null))
 
   useEffect(() => {
     inTuneRef.current = false
@@ -290,10 +305,10 @@ export function TunerPage() {
           <NoteDisplay
             live={live}
             inTune={inTune}
-            sharpName={reading?.sharpName}
-            flatName={reading?.flatName}
-            isNatural={reading?.isNatural}
-            octave={reading?.octave}
+            sharpName={reading?.sharpName ?? demo?.sharpName}
+            flatName={reading?.flatName ?? demo?.flatName}
+            isNatural={reading?.isNatural ?? demo?.isNatural}
+            octave={reading?.octave ?? demo?.octave}
             target={
               instrumentMode && activeString
                 ? `${activeString.label}${activeString.octave} · ${activeString.stringNo}${ordinal(activeString.stringNo)}`
@@ -317,13 +332,25 @@ export function TunerPage() {
               : '— cents'}
           </p>
 
+          <div className="mt-3 w-full max-w-md">
+            <TunerDisplayToggle mode={displayMode} onChange={setDisplayMode} />
+          </div>
+
           <div className="mt-2 flex min-h-0 w-full flex-1 flex-col">
-            <TunerGauge
-              cents={displayCents}
-              readout={live && rawCents !== null ? rawCents : null}
-              inTune={inTune}
-              active={live}
-            />
+            {displayMode === 'target' ? (
+              <TunerTarget
+                cents={displayCents}
+                inTune={inTune}
+                active={live}
+              />
+            ) : (
+              <TunerGauge
+                cents={displayCents}
+                readout={live && rawCents !== null ? rawCents : null}
+                inTune={inTune}
+                active={live}
+              />
+            )}
           </div>
           </div>
 
@@ -514,4 +541,28 @@ function ordinal(value: number): string {
   if (value === 2) return 'nd'
   if (value === 3) return 'rd'
   return 'th'
+}
+
+function readTunerDemo(): {
+  cents: number
+  sharpName: string
+  flatName: string
+  isNatural: boolean
+  octave: number
+} | null {
+  if (typeof window === 'undefined') return null
+  const query = new URLSearchParams(window.location.search)
+  const raw = query.get('cents')
+  if (raw == null || raw === '') return null
+  const cents = Number(raw)
+  if (!Number.isFinite(cents)) return null
+  const sharpName = (query.get('note') || 'A').slice(0, 2)
+  const octaveRaw = Number(query.get('oct') || 4)
+  return {
+    cents,
+    sharpName,
+    flatName: sharpName,
+    isNatural: !/[♯#♭b]/.test(sharpName),
+    octave: Number.isFinite(octaveRaw) ? octaveRaw : 4,
+  }
 }

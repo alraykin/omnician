@@ -13,11 +13,18 @@ export type CustomTuning = {
   midis: number[]
 }
 
+export type TunerDisplayMode = 'strobe' | 'target'
+
 export type TunerPrefs = {
   presetId: string
   instrumentId: InstrumentId
   a4Hz: number
   autoString: boolean
+  displayMode: TunerDisplayMode
+}
+
+export function parseDisplayMode(value: unknown): TunerDisplayMode {
+  return value === 'target' ? 'target' : 'strobe'
 }
 
 const MIN_MIDI = 12
@@ -95,6 +102,7 @@ export function loadTunerPrefs(): TunerPrefs {
     instrumentId: 'guitar-6',
     a4Hz: A4_HZ,
     autoString: true,
+    displayMode: 'strobe',
   }
   if (typeof localStorage === 'undefined') return fallback
   try {
@@ -107,6 +115,7 @@ export function loadTunerPrefs(): TunerPrefs {
       instrumentId?: unknown
       a4Hz?: unknown
       autoString?: unknown
+      displayMode?: unknown
     }
     const instrumentId =
       typeof row.instrumentId === 'string'
@@ -120,6 +129,7 @@ export function loadTunerPrefs(): TunerPrefs {
       instrumentId,
       a4Hz: clampA4(row.a4Hz),
       autoString: typeof row.autoString === 'boolean' ? row.autoString : fallback.autoString,
+      displayMode: parseDisplayMode(row.displayMode),
     }
   } catch {
     return fallback

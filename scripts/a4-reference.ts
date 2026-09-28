@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict'
 
-import { A4_PRESETS, A4_RANGE, clampA4, stepA4 } from '../src/lib/custom-presets.ts'
+import {
+  A4_PRESETS,
+  A4_RANGE,
+  clampA4,
+  parseDisplayMode,
+  stepA4,
+} from '../src/lib/custom-presets.ts'
 import { A4_HZ, centsBetween, midiToFreq } from '../src/lib/notes.ts'
 
 assert.equal(A4_RANGE.min, 415)
@@ -31,4 +37,8 @@ const baroqueA = midiToFreq(69, 415)
 assert.equal(baroqueA, 415)
 assert.ok(Math.abs(centsBetween(440, 69, 415)) > 90)
 
-console.log('a4-reference: 13 checks ok')
+assert.equal(parseDisplayMode('target'), 'target')
+assert.equal(parseDisplayMode('strobe'), 'strobe')
+assert.equal(parseDisplayMode('nope'), 'strobe')
+
+console.log('a4-reference: 16 checks ok')
