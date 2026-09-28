@@ -24,6 +24,7 @@ export type RhythmStyleId =
   | 'house'
   | 'latin'
   | 'shuffle'
+  | 'jazz'
   | 'waltz'
   | 'odd'
 
@@ -854,6 +855,89 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
           midTom: [14],
           lowTom: [16],
           floorTom: [18, 20, 22],
+        },
+      ),
+    ],
+  },
+  {
+    id: 'jazz',
+    name: 'Jazz',
+    grooves: [
+      preset(
+        'jazz-44',
+        'jazz',
+        'Jazz',
+        1,
+        'Ride swing ding-ding-a-ding',
+        4,
+        4,
+        3,
+        {
+          kick: [0],
+          snare: [3, 9],
+          rim: [2, 5, 8, 11],
+          ride: [0, 2, 3, 5, 6, 8, 9, 11],
+          rideBell: [0, 6],
+        },
+        {
+          kick: [0],
+          snare: [3],
+          ride: [0, 2, 3, 5],
+          rideBell: [0],
+          highTom: [6],
+          midTom: [7, 8],
+          floorTom: [9, 10, 11],
+        },
+      ),
+      preset(
+        'jazz-2feel',
+        'jazz',
+        'Jazz',
+        2,
+        'Two-feel, feathered bass',
+        4,
+        4,
+        3,
+        {
+          kick: [0],
+          snare: [9],
+          rim: [3, 5, 11],
+          ride: [0, 2, 3, 5, 6, 8, 9, 11],
+        },
+        {
+          kick: [0],
+          snare: [9],
+          ride: [0, 2, 3],
+          highTom: [5, 6],
+          midTom: [7],
+          floorTom: [8, 9, 10, 11],
+        },
+      ),
+      preset(
+        'jazz-bop',
+        'jazz',
+        'Jazz',
+        3,
+        'Uptempo comps + crash lift',
+        4,
+        4,
+        3,
+        {
+          kick: [0, 8],
+          snare: [3, 9],
+          rim: [1, 2, 5, 7, 8, 11],
+          ride: [0, 2, 3, 5, 6, 8, 9, 11],
+          rideBell: [3, 9],
+          crash: [0],
+        },
+        {
+          kick: [0, 8],
+          snare: [3, 9],
+          ride: [0, 2, 3, 5],
+          crash: [0],
+          highTom: [6],
+          midTom: [7, 8],
+          floorTom: [9, 10, 11],
         },
       ),
     ],

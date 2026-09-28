@@ -1,5 +1,8 @@
 import {
+  DEFAULT_INTENSITY_STYLE,
   DEFAULT_KIT_INTENSITY,
+  characterFor,
+  playOptsForRole,
   resolveTier,
   useRimshotBackbeat,
   type HitRole,
@@ -7,7 +10,14 @@ import {
 } from '@/lib/kit-intensity'
 import { DEFAULT_KIT_MIX, KIT_VOICE_GROUP, mixFaderToGain, type KitMix } from '@/lib/kit-mix'
 import { CLICK_SOUNDS, type ClickSoundId, type VoiceId } from '@/lib/rhythm'
+import type { RhythmStyleId } from '@/lib/rhythm-presets'
 import { clampSbPct, MAX_SB_PCT, MIN_SB_PCT, speakPercent } from '@/lib/speed-builder'
+
+export type DrumPlayOpts = {
+  tier?: KitIntensity
+  vel?: number
+  rimshot?: boolean
+}
 
 type AudioContextCtor = typeof AudioContext
 
@@ -813,6 +823,8 @@ function exposeDrumDebug(): void {
         context: kit?.ctx.state ?? 'none',
         now: kit?.ctx.currentTime ?? 0,
         intensity: kit?.intensity ?? null,
+        style: kit?.styleId ?? null,
+        brightnessDb: kit?.brightnessDb ?? null,
         loadedLayers: kit?.loadedLayerCount() ?? 0,
         scheduled: kit?.scheduledVoices() ?? [],
         baseLatencyMs: kit ? Math.round(kit.ctx.baseLatency * 1000) : null,
@@ -827,7 +839,10 @@ function exposeDrumDebug(): void {
 export class RhythmKit {
   readonly ctx: AudioContext
   intensity: KitIntensity = DEFAULT_KIT_INTENSITY
+  styleId: RhythmStyleId = DEFAULT_INTENSITY_STYLE
+  brightnessDb = 0
   private readonly master: GainNode
+  private readonly color: BiquadFilterNode
   private readonly kickBus: AudioNode
   private readonly reverbSend: GainNode
   private readonly reverbWet: GainNode
@@ -852,7 +867,13 @@ export class RhythmKit {
     const wall = makeBrickwall(ctx, LIMITER_CEILING)
     this.master.connect(wall)
     wall.connect(ctx.destination)
-    this.kickBus = makeKickBus(ctx, this.master)
+    this.color = ctx.createBiquadFilter()
+    this.color.type = 'highshelf'
+    this.color.frequency.value = 3800
+    this.color.Q.value = 0.65
+    this.color.gain.value = 0
+    this.color.connect(this.master)
+    this.kickBus = makeKickBus(ctx, this.color)
     const room = makeReverbBus(ctx, ctx.destination)
     this.reverbSend = room.send
     this.reverbSend.gain.value = MASTER_GAIN
@@ -890,7 +911,25 @@ export class RhythmKit {
   }
 
   setIntensity(next: KitIntensity): void {
-    this.intensity = next
+    this.setPerformance(this.styleId, next)
+  }
+
+  setPerformance(styleId: RhythmStyleId, intensity: KitIntensity): void {
+    this.styleId = styleId
+    this.intensity = intensity
+    this.setBrightness(characterFor(styleId, intensity).brightnessDb)
+  }
+
+  setBrightness(db: number): void {
+    this.brightnessDb = db
+    const now = this.ctx.currentTime
+    try {
+      this.color.gain.cancelScheduledValues(now)
+      this.color.gain.setValueAtTime(this.color.gain.value, now)
+      this.color.gain.linearRampToValueAtTime(db, now + 0.04)
+    } catch {
+      this.color.gain.value = db
+    }
   }
 
   async unlock(): Promise<void> {
@@ -972,15 +1011,17 @@ export class RhythmKit {
     this.mix = { ...mix }
   }
 
-  hit(voice: VoiceId, time: number, role: HitRole = 'normal'): void {
+  hit(voice: VoiceId, time: number, role: HitRole = 'normal', play: DrumPlayOpts = {}): void {
     if (CHOKE_HAT_VOICES.has(voice)) {
       this.chokeHats(time)
     }
     if (voice === 'openHat') this.chokeClosed(time)
+    const derived = playOptsForRole(this.styleId, this.intensity, role)
+    const vel = play.vel ?? derived.vel
     const group = KIT_VOICE_GROUP[voice]
     const groupGain = mixFaderToGain(group, this.mix[group] ?? 0)
-    const mix = (SAMPLE_GAIN[voice] ?? 1) * groupGain
-    const buffer = this.bufferFor(voice, role) ?? this.drums[voice]
+    const mix = (SAMPLE_GAIN[voice] ?? 1) * groupGain * Math.max(0.05, vel)
+    const buffer = this.bufferFor(voice, role, play) ?? this.drums[voice]
     const source = this.fire(buffer, time, mix, 1, voice, 'drum')
     if (voice === 'openHat' && source) this.openHat = { gain: source, start: time }
     if (voice === 'closedHat' && source) this.closedHat = { gain: source, start: time }
@@ -1065,11 +1106,12 @@ export class RhythmKit {
     }
   }
 
-  private bufferFor(voice: VoiceId, role: HitRole): AudioBuffer | null {
-    const intensity = this.intensity
-    const tier = resolveTier(intensity, voice === 'snare' ? role : 'normal')
+  private bufferFor(voice: VoiceId, role: HitRole, play: DrumPlayOpts = {}): AudioBuffer | null {
+    const derived = playOptsForRole(this.styleId, this.intensity, role)
+    const tier = play.tier ?? derived.tier ?? resolveTier(this.intensity, voice === 'snare' ? role : 'normal')
     let piece = VOICE_PIECE[voice]
-    if (voice === 'snare' && useRimshotBackbeat(intensity, role)) {
+    const rimshot = play.rimshot ?? derived.rimshot ?? useRimshotBackbeat(this.intensity, role)
+    if (voice === 'snare' && rimshot) {
       piece = 'rimshot_snappy_p2'
     }
     return (
@@ -1107,7 +1149,7 @@ export class RhythmKit {
     const amp = this.ctx.createGain()
     amp.gain.setValueAtTime(Math.max(0.0001, gain), gainTime)
     source.connect(amp)
-    amp.connect(voice === 'kick' ? this.kickBus : this.master)
+    amp.connect(voice === 'kick' ? this.kickBus : voice ? this.color : this.master)
     const sendAmt = voice ? REVERB_SEND[voice] : 0
     if (sendAmt > 0) {
       const send = this.ctx.createGain()

@@ -24,7 +24,7 @@ import {
   type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
-import { DEFAULT_KIT_INTENSITY, clampKitIntensity, type KitIntensity } from '@/lib/kit-intensity'
+import { DEFAULT_KIT_INTENSITY, clampStyleIntensity, type KitIntensity } from '@/lib/kit-intensity'
 import { DEFAULT_KIT_MIX, parseKitMix, type KitMix } from '@/lib/kit-mix'
 import { barsForPreset, findPreset, makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 import { DEFAULT_SPEED_BUILDER, parseSpeedBuilder, type SpeedBuilder } from '@/lib/speed-builder'
@@ -193,6 +193,8 @@ export function loadRhythmPrefs(): RhythmPrefs {
       ? clampIndex(row.drumBarIndex, drumBars.length)
       : clampIndex(row.barIndex, drumBars.length)
 
+    const libraryStyle = (libraryPreset ?? (presetId ? findPreset(presetId) : undefined))?.styleId ?? 'rock'
+
     return {
       bpm: clampBpm(typeof row.bpm === 'number' ? row.bpm : base.bpm),
       mode: row.mode === 'drums' ? 'drums' : row.mode === 'click' ? 'click' : base.mode,
@@ -203,7 +205,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
       drumBarIndex,
       presetId,
       kitMix: parseKitMix(row.kitMix, migrateCymbals),
-      kitIntensity: clampKitIntensity(row.kitIntensity),
+      kitIntensity: clampStyleIntensity(libraryStyle, row.kitIntensity),
       speedBuilder: parseSpeedBuilder(row.speedBuilder),
     }
   } catch {
@@ -224,7 +226,10 @@ export function saveRhythmPrefs(prefs: RhythmPrefs): void {
       drumBarIndex: prefs.drumBarIndex,
       presetId: prefs.presetId,
       kitMix: parseKitMix(prefs.kitMix),
-      kitIntensity: clampKitIntensity(prefs.kitIntensity),
+      kitIntensity: clampStyleIntensity(
+        (prefs.presetId ? findPreset(prefs.presetId) : undefined)?.styleId ?? 'rock',
+        prefs.kitIntensity,
+      ),
       speedBuilder: parseSpeedBuilder(prefs.speedBuilder),
     }),
   )

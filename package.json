@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "test:pitch": "npx --yes tsx scripts/pitch-accuracy.ts",
     "test:tempo": "npx --yes tsx scripts/tempo-accuracy.ts",
+    "test:intensity": "npx --yes tsx scripts/intensity-loudness.ts",
     "preview": "vite preview"
   },
   "dependencies": {

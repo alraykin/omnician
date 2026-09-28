@@ -15,7 +15,7 @@ import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { usePlayhead, useRhythmEngine, type PlayheadStore } from '@/hooks/useRhythmEngine'
-import { snareRoleFromStep, type KitIntensity } from '@/lib/kit-intensity'
+import { clampStyleIntensity, snareRoleFromStep, type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
 import {
   CLICK_SOUND_LABELS,
@@ -54,6 +54,7 @@ import {
   matchPreset,
   type RhythmPreset,
   type RhythmStyle,
+  type RhythmStyleId,
 } from '@/lib/rhythm-presets'
 
 export function RhythmPage() {
@@ -89,6 +90,15 @@ export function RhythmPage() {
   const setBarIndex = mode === 'click' ? setClickBarIndex : setDrumBarIndex
 
   const current = bars[Math.min(barIndex, bars.length - 1)] ?? bars[0]
+  const matched = current ? matchPreset(current) : null
+  const edited = Boolean(matched === null && presetId)
+  const savedPreset = presetId ? findPreset(presetId) : undefined
+  const kitStyleId: RhythmStyleId = matched?.styleId ?? savedPreset?.styleId ?? 'rock'
+  const beatName = matched
+    ? matched.name
+    : savedPreset
+      ? `${savedPreset.name} · edited`
+      : 'Custom beat'
 
   useEffect(() => {
     if (mode !== 'click' || pickerBeat === null) return
@@ -104,20 +114,16 @@ export function RhythmPage() {
     clickSound,
     kitMix,
     kitIntensity,
+    kitStyle: kitStyleId,
     speedBuilder,
     onTempoCue: (cue) => {
       setTempoCue(cue)
     },
   })
 
-  const matched = current ? matchPreset(current) : null
-  const edited = Boolean(matched === null && presetId)
-  const savedPreset = presetId ? findPreset(presetId) : undefined
-  const beatName = matched
-    ? matched.name
-    : savedPreset
-      ? `${savedPreset.name} · edited`
-      : 'Custom beat'
+  useEffect(() => {
+    setKitIntensity((currentIntensity) => clampStyleIntensity(kitStyleId, currentIntensity))
+  }, [kitStyleId])
 
   useEffect(() => {
     const resume = () => {
@@ -209,6 +215,7 @@ export function RhythmPage() {
     setDrumBarIndex(0)
     if (id === 'rock-44') setBpm(DEFAULT_BPM)
     setPresetId(preset.id)
+    setKitIntensity((current) => clampStyleIntensity(preset.styleId, current))
     setPickerOpen(false)
   }
 
@@ -703,7 +710,7 @@ export function RhythmPage() {
                 onPaint={onPaintCell}
                 onPreviewVoice={preview}
               />
-              <KitIntensityControl value={kitIntensity} onChange={setKitIntensity} />
+              <KitIntensityControl styleId={kitStyleId} value={kitIntensity} onChange={setKitIntensity} />
               <KitFaders mix={kitMix} onChange={setGroupMix} />
               <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-500">
                 Drums:{' '}

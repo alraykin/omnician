@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 
-import { DEFAULT_KIT_INTENSITY, snareHitRole, type HitRole, type KitIntensity } from '@/lib/kit-intensity'
+import { DEFAULT_INTENSITY_STYLE, DEFAULT_KIT_INTENSITY, type HitRole, type KitIntensity } from '@/lib/kit-intensity'
+import { realizeDrumBar } from '@/lib/kit-intensity-play'
 import { DEFAULT_KIT_MIX, type KitMix } from '@/lib/kit-mix'
 import { getOrCreateRhythmKit, type RhythmKit } from '@/lib/rhythm-audio'
 import {
-  VOICES,
   barDurationSec,
   beatAccentAt,
   beatDurationSec,
@@ -22,6 +22,7 @@ import {
   type RhythmMode,
   type VoiceId,
 } from '@/lib/rhythm'
+import type { RhythmStyleId } from '@/lib/rhythm-presets'
 import {
   DEFAULT_SPEED_BUILDER,
   nextSbPct,
@@ -116,6 +117,7 @@ export function useRhythmEngine({
   clickSound,
   kitMix = DEFAULT_KIT_MIX,
   kitIntensity = DEFAULT_KIT_INTENSITY,
+  kitStyle = DEFAULT_INTENSITY_STYLE,
   speedBuilder = DEFAULT_SPEED_BUILDER,
   onTempoCue,
 }: {
@@ -126,6 +128,7 @@ export function useRhythmEngine({
   clickSound: ClickSoundId
   kitMix?: KitMix
   kitIntensity?: KitIntensity
+  kitStyle?: RhythmStyleId
   speedBuilder?: SpeedBuilder
   onTempoCue?: (cue: SpeedBuilderCue) => void
 }) {
@@ -152,6 +155,7 @@ export function useRhythmEngine({
   const liveBarsRef = useRef(bars)
   const kitMixRef = useRef(kitMix)
   const intensityRef = useRef(kitIntensity)
+  const styleRef = useRef(kitStyle)
   const speedBuilderRef = useRef(speedBuilder)
   const onTempoCueRef = useRef(onTempoCue)
   const playbackBpmRef = useRef(bpm)
@@ -171,6 +175,7 @@ export function useRhythmEngine({
   pendingBarsRef.current = bars
   kitMixRef.current = kitMix
   intensityRef.current = kitIntensity
+  styleRef.current = kitStyle
   speedBuilderRef.current = speedBuilder
   onTempoCueRef.current = onTempoCue
 
@@ -191,7 +196,7 @@ export function useRhythmEngine({
     const kit = getOrCreateRhythmKit()
     if (!kit) return null
     kit.setMix(kitMixRef.current)
-    kit.setIntensity(intensityRef.current)
+    kit.setPerformance(styleRef.current, intensityRef.current)
     kitRef.current = kit
     return kit
   }, [])
@@ -229,11 +234,14 @@ export function useRhythmEngine({
       kit.stopAll()
       const start = kit.ctx.currentTime
       const tempo = bpmRef.current
-      for (const voice of VOICES) {
-        for (const hit of bar.pattern[voice] ?? []) {
-          if (hit.beat < 0 || hit.beat >= bar.beats) continue
-          kit.hit(voice, start + hitTimeInBar(hit, tempo, bar.beatUnit), voice === 'snare' ? snareHitRole(hit) : 'normal')
-        }
+      const realized = realizeDrumBar(bar, styleRef.current, intensityRef.current)
+      for (const ev of realized.hits) {
+        if (ev.hit.beat < 0 || ev.hit.beat >= bar.beats) continue
+        kit.hit(ev.voice, start + hitTimeInBar(ev.hit, tempo, bar.beatUnit), ev.role, {
+          tier: ev.tier,
+          vel: ev.vel,
+          rimshot: ev.rimshot,
+        })
       }
     },
     [grabKit],
@@ -286,9 +294,9 @@ export function useRhythmEngine({
   }, [kitMix])
 
   useLayoutEffect(() => {
-    kitRef.current?.setIntensity(kitIntensity)
+    kitRef.current?.setPerformance(kitStyle, kitIntensity)
     if (playing) retargetRef.current('intensity')
-  }, [kitIntensity, playing])
+  }, [kitIntensity, kitStyle, playing])
 
   useLayoutEffect(() => {
     if (!playing) {
@@ -378,13 +386,12 @@ export function useRhythmEngine({
         const bar = playbackBar(barIndex)
         if (!bar) return
         const tempo = playbackBpmRef.current
-        for (const voice of VOICES) {
-          for (const hit of bar.pattern[voice] ?? []) {
-            if (hit.beat < 0 || hit.beat >= bar.beats) continue
-            const when = barStart + hitTimeInBar(hit, tempo, bar.beatUnit)
-            if (when <= afterTime) continue
-            kit.hit(voice, when, voice === 'snare' ? snareHitRole(hit) : 'normal')
-          }
+        const realized = realizeDrumBar(bar, styleRef.current, intensityRef.current)
+        for (const ev of realized.hits) {
+          if (ev.hit.beat < 0 || ev.hit.beat >= bar.beats) continue
+          const when = barStart + hitTimeInBar(ev.hit, tempo, bar.beatUnit)
+          if (when <= afterTime) continue
+          kit.hit(ev.voice, when, ev.role, { tier: ev.tier, vel: ev.vel, rimshot: ev.rimshot })
         }
         armedBarRef.current = barIndex
       }
