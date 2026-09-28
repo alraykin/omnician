@@ -132,33 +132,30 @@ function TripletBracket({ first, last }: { first: number; last: number }) {
   )
 }
 
-function TupletOverNotes({ n, look }: { n: 5 | 6 | 7; look: NoteLook }) {
+function TupletBracket({ n }: { n: 5 | 6 | 7 }) {
   return (
     <>
       <g
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.7"
+        strokeWidth="1.9"
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d="M 10 16 V 6 H 19" />
-        <path d="M 46 16 V 6 H 37" />
+        <path d="M 6.2 28.4 V 11.2 H 18.4" />
+        <path d="M 49.8 28.4 V 11.2 H 37.6" />
       </g>
       <text
         x="28"
-        y="15"
+        y="20.6"
         textAnchor="middle"
         fill="currentColor"
-        fontSize="12"
+        fontSize="15"
         fontWeight="700"
         fontFamily="Outfit, ui-sans-serif, system-ui, sans-serif"
       >
         {n}
       </text>
-      <g transform="translate(0 6)">
-        <NoteGlyphs look={{ ...look, count: 2 }} headY={26} stemTop={12} />
-      </g>
     </>
   )
 }
@@ -195,7 +192,7 @@ export function SubdivIcon({
           <NoteGlyphs look={look} headY={32} stemTop={14.5} />
         </>
       ) : steps === 5 || steps === 6 || steps === 7 ? (
-        <TupletOverNotes n={steps} look={look} />
+        <TupletBracket n={steps} />
       ) : (
         <NoteGlyphs look={look} />
       )}
