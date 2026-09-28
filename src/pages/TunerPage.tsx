@@ -2,6 +2,7 @@ import { Check } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AppChrome } from '@/components/AppChrome'
+import { A4ReferenceControl } from '@/components/tuner/A4ReferenceControl'
 import { ChromaticCalibration } from '@/components/tuner/ChromaticCalibration'
 import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
 import { Headstock } from '@/components/tuner/Headstock'
@@ -250,9 +251,7 @@ export function TunerPage() {
         <h1 className="text-center text-xl font-bold tracking-tight text-white sm:text-2xl">
           Tuner
         </h1>
-        <p className="mt-1 text-center text-sm text-slate-400">
-          A4 = {a4Hz} Hz · lock ±{IN_TUNE_CENTS.toFixed(1)} ¢
-        </p>
+        <A4ReferenceControl a4Hz={a4Hz} onChange={setA4Hz} />
 
         <div className="mt-4">
           <button

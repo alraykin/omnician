@@ -25,6 +25,19 @@ const MAX_MIDI = 96
 const MIN_A4 = 415
 const MAX_A4 = 466
 
+export const A4_PRESETS: ReadonlyArray<{
+  hz: number
+  label: string
+  hint?: string
+}> = [
+  { hz: 415, label: '415', hint: 'Baroque' },
+  { hz: 432, label: '432' },
+  { hz: 440, label: '440', hint: 'Concert' },
+  { hz: 442, label: '442' },
+  { hz: 443, label: '443' },
+  { hz: 444, label: '444' },
+]
+
 function isMidi(value: unknown): value is number {
   return (
     typeof value === 'number' &&
@@ -37,6 +50,10 @@ function isMidi(value: unknown): value is number {
 export function clampA4(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return A4_HZ
   return Math.round(Math.min(MAX_A4, Math.max(MIN_A4, value)))
+}
+
+export function stepA4(hz: number, delta: number): number {
+  return clampA4(hz + delta)
 }
 
 export const A4_RANGE = { min: MIN_A4, max: MAX_A4 } as const

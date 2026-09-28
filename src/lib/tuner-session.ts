@@ -1,3 +1,4 @@
+import { clampA4 } from '@/lib/custom-presets'
 import { analyzeFrequency, A4_HZ, rms } from '@/lib/notes'
 import {
   captureChannelCount,
@@ -318,7 +319,7 @@ export function subscribeTuner(listener: (next: TunerSnapshot) => void): () => v
 }
 
 export function setTunerA4(next: number): void {
-  a4Hz = next
+  a4Hz = clampA4(next)
 }
 
 export function getTunerInputDeviceId(): string | null {
