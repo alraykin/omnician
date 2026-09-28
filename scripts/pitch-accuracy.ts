@@ -6,6 +6,8 @@ import { PitchDetector } from 'pitchy'
 
 import {
   HOP,
+  MAX_WINDOW,
+  MIN_WINDOW,
   createPitchScratch,
   estimateFromFilled,
   windowForHz,
@@ -50,6 +52,25 @@ function harmonicTone(hz: number, sr: number, seconds: number, bright = false): 
       s += Math.sin(2 * Math.PI * hz * h * t) * harms[h - 1]
     }
     out[i] = (s / norm) * 0.62 * env * decay
+  }
+  return out
+}
+
+function bassLikeTone(hz: number, sr: number, seconds: number): Float32Array {
+  const n = Math.floor(sr * seconds)
+  const out = new Float32Array(n)
+  const harms = [0.18, 1, 0.62, 0.32, 0.16, 0.08, 0.04]
+  let norm = 0
+  for (const a of harms) norm += a
+  for (let i = 0; i < n; i += 1) {
+    const t = i / sr
+    const env = 1 - Math.exp(-t * 50)
+    const decay = Math.exp(-t / 1.45)
+    let s = 0
+    for (let h = 1; h <= harms.length; h += 1) {
+      s += Math.sin(2 * Math.PI * hz * h * t) * harms[h - 1]
+    }
+    out[i] = (s / norm) * 0.7 * env * decay
   }
   return out
 }
@@ -116,13 +137,13 @@ function runDetector(samples: Float32Array, sr: number, target: number) {
   let prevHz: number | null = null
   const readings: number[] = []
   const rawFar: number[] = []
-  const start = Math.min(filtered.length, windowForHz(target, sr))
+  let consecutive = 0
+  let lockMs = Number.NaN
 
-  for (let pos = start; pos + hop < filtered.length; pos += hop) {
-    const win = Math.min(filtered.length, windowForHz(prevHz ?? target, sr))
-    if (pos < win) continue
-    const slice = filtered.subarray(pos - win, pos)
-    const estimate = estimateFromFilled(slice, win, sr, scratch, prevHz)
+  for (let pos = MIN_WINDOW; pos + hop <= filtered.length; pos += hop) {
+    const take = Math.min(pos, MAX_WINDOW)
+    const slice = filtered.subarray(pos - take, pos)
+    const estimate = estimateFromFilled(slice, take, sr, scratch, prevHz)
     if (estimate.frequency > 0) prevHz = estimate.frequency
     const tMs = (pos / sr) * 1000
     let energy = 0
@@ -135,7 +156,14 @@ function runDetector(samples: Float32Array, sr: number, target: number) {
       if (Math.abs(off) > 80) rawFar.push(off)
     }
     const next = pushEstimate(state, estimate.frequency, estimate.clarity, signal, tMs, hop / sr)
-    if (next.hz && tMs > 260) readings.push(cents(next.hz, target))
+    const err = next.hz ? cents(next.hz, target) : Number.NaN
+    if (next.hz && tMs > 180) readings.push(err)
+    if (Number.isFinite(err) && Math.abs(err) < 2) {
+      consecutive += 1
+      if (consecutive >= 3 && !Number.isFinite(lockMs)) lockMs = tMs
+    } else {
+      consecutive = 0
+    }
   }
 
   const mid = readings.length
@@ -143,7 +171,8 @@ function runDetector(samples: Float32Array, sr: number, target: number) {
     : Number.NaN
   const maxAbs = readings.length ? Math.max(...readings.map(Math.abs)) : Number.NaN
   const far = readings.filter((c) => Math.abs(c) > 40).length
-  return { n: readings.length, median: mid, maxAbs, far, rawFar: rawFar.length }
+  const octave = readings.filter((c) => Math.abs(c) > 1100 && Math.abs(c) < 1300).length
+  return { n: readings.length, median: mid, maxAbs, far, rawFar: rawFar.length, lockMs, octave }
 }
 
 function decodeWav(bytes: Uint8Array): { rate: number; samples: Float32Array } {
@@ -234,7 +263,11 @@ for (const sr of RATES) {
       Math.abs(result.median) <= 2 &&
       result.maxAbs <= 6 &&
       result.far === 0
-    report(ok, `${note.name} @ ${sr}`, `med ${result.median.toFixed(2)}¢  max ${result.maxAbs.toFixed(2)}¢  far ${result.far}  n ${result.n}`)
+      report(
+        ok,
+        `${note.name} @ ${sr}`,
+        `med ${result.median.toFixed(2)}¢  max ${result.maxAbs.toFixed(2)}¢  lock ${result.lockMs.toFixed(0)}ms  far ${result.far}  n ${result.n}`,
+      )
   }
 }
 
@@ -310,6 +343,70 @@ for (const note of NOTES) {
 
 if (recorded === 0) {
   console.log('No recorded fixtures on disk yet — run scripts/fetch-guitar-samples.sh')
+}
+
+const LOW_NOTES = [
+  { name: 'E0', hz: 20.601722307054366 },
+  { name: 'A0', hz: 27.5 },
+  { name: 'B0', hz: 30.86770632850775 },
+  { name: 'E1', hz: 41.20344461410874 },
+  { name: 'F#1', hz: 46.2493028389543 },
+  { name: 'E2', hz: 82.40688922821748 },
+  { name: 'A2', hz: 110 },
+  { name: 'D3', hz: 146.8323839587038 },
+  { name: 'G3', hz: 195.99771799087463 },
+  { name: 'B3', hz: 246.94165062806206 },
+  { name: 'E4', hz: 329.6275569128699 },
+] as const
+
+console.log('\n==== low-range + guitar (synth harmonics, lock time) ====')
+for (const sr of [44100, 48000]) {
+  console.log(`-- ${sr} Hz --`)
+  for (const note of LOW_NOTES) {
+    const tone = harmonicTone(note.hz, sr, 1.8, note.hz <= 110)
+    const result = runDetector(tone, sr, note.hz)
+    const lockOk = Number.isFinite(result.lockMs) && result.lockMs < 900
+    const ok =
+      Number.isFinite(result.median) &&
+      Math.abs(result.median) <= 2 &&
+      result.far === 0 &&
+      result.octave === 0 &&
+      lockOk
+    report(
+      ok,
+      `${note.name} harm @ ${sr}`,
+      `med ${result.median.toFixed(2)}¢  lock ${Number.isFinite(result.lockMs) ? result.lockMs.toFixed(0) : '—'}ms  oct ${result.octave}  n ${result.n}`,
+    )
+  }
+}
+
+console.log('\n==== bass-like weak fundamental (2nd harmonic dominant) ====')
+for (const sr of [44100, 48000]) {
+  for (const note of LOW_NOTES.filter((n) => n.hz <= 46.3)) {
+    const tone = bassLikeTone(note.hz, sr, 1.8)
+    const result = runDetector(tone, sr, note.hz)
+    const lockOk = Number.isFinite(result.lockMs) && result.lockMs < 1000
+    const ok =
+      Number.isFinite(result.median) &&
+      Math.abs(result.median) <= 2.5 &&
+      result.far === 0 &&
+      result.octave === 0 &&
+      lockOk
+    report(
+      ok,
+      `${note.name} bass-like @ ${sr}`,
+      `med ${result.median.toFixed(2)}¢  lock ${Number.isFinite(result.lockMs) ? result.lockMs.toFixed(0) : '—'}ms  oct ${result.octave}  n ${result.n}`,
+    )
+  }
+}
+
+console.log('\n==== no snap-to-zero (+3.5 ¢ E2) ====')
+{
+  const e2 = 82.40688922821748
+  const sharp = e2 * 2 ** (3.5 / 1200)
+  const result = runDetector(harmonicTone(sharp, 48000, 1.2), 48000, e2)
+  const ok = Number.isFinite(result.median) && Math.abs(result.median - 3.5) <= 0.7
+  report(ok, 'E2 +3.5¢ stays off-center', `med ${result.median.toFixed(2)}¢ (expect ~+3.5, never 0)`)
 }
 
 if (failed) {

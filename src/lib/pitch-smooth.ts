@@ -1,17 +1,17 @@
-import { MIN_CLARITY, MIN_CLARITY_BASS, MIN_HZ, MAX_HZ, MIN_RMS } from './mpm'
+import { MIN_CLARITY, MIN_CLARITY_BASS, MIN_CLARITY_SUB, MIN_HZ, MAX_HZ, MIN_RMS } from './mpm'
 
 export const SMOOTH = {
   minClarity: MIN_CLARITY,
   minClarityBass: MIN_CLARITY_BASS,
   minRms: MIN_RMS,
   holdMs: 720,
-  medianSize: 5,
+  medianSize: 3,
   onsetRatio: 2.1,
   onsetRms: 0.007,
   octaveLo: 1.87,
   octaveHi: 2.14,
-  snapCents: 35,
-  sustainAlpha: 0.22,
+  snapCents: 28,
+  sustainAlpha: 0.38,
 }
 
 export type SmoothState = {
@@ -51,8 +51,8 @@ function octavePair(a: number, b: number): boolean {
 
 function passes(frequency: number, clarity: number, signal: number): boolean {
   if (!Number.isFinite(frequency) || frequency < MIN_HZ || frequency > MAX_HZ) return false
-  const floor = frequency < 55 ? SMOOTH.minClarityBass : SMOOTH.minClarity
-  const rmsFloor = frequency < 50 ? SMOOTH.minRms * 1.4 : SMOOTH.minRms
+  const floor = frequency < 32 ? MIN_CLARITY_SUB : frequency < 55 ? SMOOTH.minClarityBass : SMOOTH.minClarity
+  const rmsFloor = frequency < 32 ? SMOOTH.minRms : frequency < 50 ? SMOOTH.minRms * 1.25 : SMOOTH.minRms
   return clarity >= floor && signal >= rmsFloor
 }
 

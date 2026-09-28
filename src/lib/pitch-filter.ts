@@ -1,6 +1,6 @@
-/** Fixed pre-filters for pitch: DC block, 25 Hz high-pass, 1.5 kHz low-pass. No AGC. */
+/** Fixed pre-filters for pitch: DC block, 12 Hz high-pass, 1.5 kHz low-pass. No AGC. */
 
-export const HP_HZ = 25
+export const HP_HZ = 12
 export const LP_HZ = 1500
 
 export type Biquad = {

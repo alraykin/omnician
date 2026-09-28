@@ -12,7 +12,7 @@ import {
   requestRawMic,
   saveInputDeviceId,
 } from '@/lib/mic-capture'
-import { createPitchScratch, estimateFromFilled } from '@/lib/mpm'
+import { createPitchScratch, estimateFromFilled, MAX_WINDOW } from '@/lib/mpm'
 import { filterBuffer } from '@/lib/pitch-filter'
 import { createSmoothState, pushEstimate, type SmoothState } from '@/lib/pitch-smooth'
 
@@ -502,12 +502,13 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
 
   const attachAnalyser = () => {
     const analyser = ctx.createAnalyser()
-    analyser.fftSize = 8192
+    const fftSize = Math.min(32768, Math.max(16384, MAX_WINDOW))
+    analyser.fftSize = fftSize
     analyser.smoothingTimeConstant = 0
     connectRawInput(ctx, source, analyser)
     const scratch = createPitchScratch()
-    const buffer = new Float32Array(8192)
-    const filtered = new Float32Array(8192)
+    const buffer = new Float32Array(fftSize)
+    const filtered = new Float32Array(fftSize)
     let prevHz: number | null = null
     const tick = () => {
       if (sessionId !== session) return

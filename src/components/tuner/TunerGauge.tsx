@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
+import { formatTenths } from '@/lib/feel'
 import { cn } from '@/lib/utils'
 
 type TunerGaugeProps = {
@@ -10,28 +11,11 @@ type TunerGaugeProps = {
   active: boolean
 }
 
-const HISTORY = 80
-const DEADZONE = 1.6
-
-function mixColor(absCents: number, intensity = 1): string {
-  const t = Math.min(1, absCents / 40)
-  if (t < 0.18) return fade('#34d399', intensity)
-  if (t < 0.38) return fade('#a3e635', intensity)
-  if (t < 0.62) return fade('#fbbf24', intensity)
-  return fade('#f87171', intensity)
-}
-
-function fade(hex: string, intensity: number): string {
-  const r = Number.parseInt(hex.slice(1, 3), 16)
-  const g = Number.parseInt(hex.slice(3, 5), 16)
-  const b = Number.parseInt(hex.slice(5, 7), 16)
-  return `rgba(${r}, ${g}, ${b}, ${Math.max(0.25, intensity)})`
-}
-
 export function TunerGauge({ cents, readout, inTune, active }: TunerGaugeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const shownRef = useRef(0)
-  const historyRef = useRef<number[]>([])
+  const offsetRef = useRef(0)
+  const lastTimeRef = useRef(0)
   const centsRef = useRef(cents)
   const readoutRef = useRef(readout)
   const inTuneRef = useRef(inTune)
@@ -44,41 +28,33 @@ export function TunerGauge({ cents, readout, inTune, active }: TunerGaugeProps) 
 
   useEffect(() => {
     let raf = 0
-    let lastTrail = 0
 
     const tick = (now: number) => {
+      const last = lastTimeRef.current || now
+      const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000))
+      lastTimeRef.current = now
+
       const live = activeRef.current
       const targetCents = centsRef.current
       const locked = inTuneRef.current && live
-      let target = 0
+
       if (live && targetCents !== null) {
         const clamped = Math.max(-50, Math.min(50, targetCents))
-        target = Math.abs(clamped) < DEADZONE || locked ? 0 : clamped
+        const delta = clamped - shownRef.current
+        const follow = Math.abs(delta) > 8 ? 0.48 : 0.34
+        shownRef.current += delta * follow
       } else {
-        target = shownRef.current * 0.88
+        shownRef.current *= 0.9
       }
 
-      const delta = target - shownRef.current
-      const catchUp = locked ? 0.38 : Math.abs(delta) > 10 ? 0.42 : 0.2
-      shownRef.current += delta * catchUp
-      if (locked) shownRef.current += (0 - shownRef.current) * 0.4
-      if (Math.abs(shownRef.current) < 0.28) shownRef.current = 0
+      const shown = shownRef.current
+      const speed = live && targetCents !== null ? shown * 14 : 0
+      offsetRef.current += speed * dt
 
-      if (now - lastTrail > 16) {
-        lastTrail = now
-        const history = historyRef.current
-        if (live && targetCents !== null) {
-          history.push(shownRef.current)
-          if (history.length > HISTORY) history.shift()
-        } else if (history.length > 0) {
-          history.splice(0, Math.max(1, Math.ceil(history.length / 22)))
-        }
-      }
-
-      drawTrail(
+      drawStrobe(
         canvasRef.current,
-        historyRef.current,
-        shownRef.current,
+        offsetRef.current,
+        shown,
         live && targetCents !== null,
         locked,
         readoutRef.current,
@@ -94,14 +70,14 @@ export function TunerGauge({ cents, readout, inTune, active }: TunerGaugeProps) 
     <div className="flex w-full flex-1 flex-col" aria-hidden>
       <div
         className={cn(
-          'relative min-h-[15.5rem] w-full flex-1 overflow-hidden rounded-3xl bg-[#0B1020] ring-1 sm:min-h-[18rem]',
+          'relative min-h-[15.5rem] w-full flex-1 overflow-hidden rounded-3xl bg-[#070A12] ring-1 sm:min-h-[18rem]',
           inTune && active ? 'omni-hold-glow ring-emerald-400/70' : 'ring-white/8',
         )}
       >
         <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-between px-4 text-[0.65rem] font-medium uppercase tracking-wider text-slate-500">
           <span>Flat</span>
-          <span className={cn(inTune && active ? 'text-emerald-300' : '')}>
-            In tune
+          <span className={cn(inTune && active ? 'text-emerald-300' : 'text-purple-300')}>
+            {inTune && active ? 'Locked' : 'Strobe'}
           </span>
           <span>Sharp</span>
         </div>
@@ -121,9 +97,9 @@ export function TunerGauge({ cents, readout, inTune, active }: TunerGaugeProps) 
   )
 }
 
-function drawTrail(
+function drawStrobe(
   canvas: HTMLCanvasElement | null,
-  history: number[],
+  offset: number,
   shown: number,
   live: boolean,
   locked: boolean,
@@ -150,118 +126,145 @@ function drawTrail(
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, width, height)
 
+  const top = 40
+  const bottom = height - 28
+  const usable = Math.max(48, bottom - top)
   const midX = width / 2
-  const top = 36
-  const bottom = height - 22
-  const usable = Math.max(40, bottom - top)
-  const reach = width * 0.44
-  const xOf = (value: number) => midX + (value / 50) * reach
+  const midY = top + usable / 2
+  const pitch = Math.max(22, Math.min(36, width / 14))
+  const shift = ((offset % pitch) + pitch) % pitch
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)'
-  ctx.lineWidth = 1
-  ;[-50, -25, 25, 50].forEach((mark) => {
-    ctx.beginPath()
-    ctx.moveTo(xOf(mark), top)
-    ctx.lineTo(xOf(mark), bottom)
-    ctx.stroke()
-  })
+  const purple = locked ? 'rgba(52, 211, 153, 0.82)' : 'rgba(168, 85, 247, 0.78)'
+  const purpleDim = locked ? 'rgba(16, 185, 129, 0.18)' : 'rgba(88, 28, 135, 0.45)'
+  const ink = locked ? 'rgba(6, 40, 28, 0.55)' : 'rgba(7, 10, 18, 0.88)'
 
-  ctx.fillStyle = 'rgba(148, 163, 184, 0.55)'
-  ctx.font = '10px Outfit, sans-serif'
-  ctx.textAlign = 'center'
-  ctx.fillText('−50¢', xOf(-50), height - 6)
-  ctx.fillText('+50¢', xOf(50), height - 6)
+  ctx.fillStyle = '#070A12'
+  ctx.fillRect(0, 0, width, height)
 
-  ctx.strokeStyle = locked ? 'rgba(52, 211, 153, 0.6)' : 'rgba(168, 85, 247, 0.3)'
-  ctx.lineWidth = 2
+  const band = ctx.createLinearGradient(0, top, 0, bottom)
+  band.addColorStop(0, 'rgba(168, 85, 247, 0.05)')
+  band.addColorStop(0.5, locked ? 'rgba(52, 211, 153, 0.08)' : 'rgba(168, 85, 247, 0.12)')
+  band.addColorStop(1, 'rgba(168, 85, 247, 0.05)')
+  ctx.fillStyle = band
+  ctx.fillRect(0, top, width, usable)
+
+  for (let x = -pitch * 2 + shift; x < width + pitch * 2; x += pitch) {
+    drawChevron(ctx, x, top + 8, pitch * 0.92, usable - 16, purple, purpleDim)
+  }
+
+  ctx.fillStyle = ink
+  ctx.globalAlpha = 0.35
+  ctx.fillRect(0, top, width * 0.08, usable)
+  ctx.fillRect(width * 0.92, top, width * 0.08, usable)
+  ctx.globalAlpha = 1
+
+  const windowW = locked ? 54 : 38
+  const lane = ctx.createLinearGradient(midX - windowW, 0, midX + windowW, 0)
+  lane.addColorStop(0, 'rgba(7, 10, 18, 0)')
+  lane.addColorStop(0.45, locked ? 'rgba(52, 211, 153, 0.22)' : 'rgba(168, 85, 247, 0.16)')
+  lane.addColorStop(0.55, locked ? 'rgba(52, 211, 153, 0.22)' : 'rgba(168, 85, 247, 0.16)')
+  lane.addColorStop(1, 'rgba(7, 10, 18, 0)')
+  ctx.fillStyle = lane
+  ctx.fillRect(midX - windowW, top, windowW * 2, usable)
+
+  ctx.strokeStyle = locked ? 'rgba(52, 211, 153, 0.95)' : 'rgba(232, 221, 255, 0.55)'
+  ctx.lineWidth = locked ? 3 : 2
   ctx.beginPath()
   ctx.moveTo(midX, top)
   ctx.lineTo(midX, bottom)
   ctx.stroke()
 
-  const laneW = locked ? 36 : 26
-  const lane = ctx.createLinearGradient(midX - laneW, 0, midX + laneW, 0)
-  lane.addColorStop(0, 'rgba(52, 211, 153, 0)')
-  lane.addColorStop(0.5, locked ? 'rgba(52, 211, 153, 0.28)' : 'rgba(168, 85, 247, 0.08)')
-  lane.addColorStop(1, 'rgba(52, 211, 153, 0)')
-  ctx.fillStyle = lane
-  ctx.fillRect(midX - laneW, top, laneW * 2, usable)
-
-  const points = history.length > 0 ? history : live ? [shown] : []
-  if (points.length < 2) {
-    if (live && points.length === 1) {
-      paintBubble(ctx, xOf(points[0]), bottom, mixColor(Math.abs(points[0])), locked, readout)
-    }
-    return
-  }
-
-  const yAt = (index: number) => top + (index / (points.length - 1)) * usable
-
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-  ctx.beginPath()
-  points.forEach((value, index) => {
-    const x = xOf(value)
-    const py = yAt(index)
-    if (index === 0) ctx.moveTo(x, py)
-    else ctx.lineTo(x, py)
-  })
-  ctx.strokeStyle = 'rgba(168, 85, 247, 0.16)'
-  ctx.lineWidth = 16
-  ctx.stroke()
-
-  for (let i = 1; i < points.length; i += 1) {
-    const t = i / (points.length - 1)
+  const reach = width * 0.42
+  const xOf = (value: number) => midX + (value / 50) * reach
+  if (live) {
+    const markerX = xOf(shown)
     ctx.beginPath()
-    ctx.moveTo(xOf(points[i - 1]), yAt(i - 1))
-    ctx.lineTo(xOf(points[i]), yAt(i))
-    ctx.strokeStyle = mixColor(Math.abs(points[i]), 0.35 + t * 0.65)
-    ctx.globalAlpha = 0.35 + t * 0.65
-    ctx.lineWidth = 2.2 + t * 3.6
-    ctx.stroke()
+    ctx.fillStyle = locked ? '#34d399' : '#e9d5ff'
+    ctx.moveTo(markerX, top + 2)
+    ctx.lineTo(markerX - 6, top + 12)
+    ctx.lineTo(markerX + 6, top + 12)
+    ctx.closePath()
+    ctx.fill()
   }
-  ctx.globalAlpha = 1
 
-  paintBubble(
-    ctx,
-    xOf(points[points.length - 1]),
-    bottom,
-    mixColor(Math.abs(shown)),
-    locked,
-    readout,
-  )
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)'
+  ctx.lineWidth = 1
+  ;[-50, -25, 25, 50].forEach((mark) => {
+    ctx.beginPath()
+    ctx.moveTo(xOf(mark), bottom - 10)
+    ctx.lineTo(xOf(mark), bottom)
+    ctx.stroke()
+  })
+
+  ctx.fillStyle = 'rgba(148, 163, 184, 0.7)'
+  ctx.font = '10px Outfit, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillText('−50¢', xOf(-50), height - 8)
+  ctx.fillText('+50¢', xOf(50), height - 8)
+
+  const label =
+    readout === null || !live ? null : `${formatTenths(readout)}¢`
+
+  if (label) {
+    ctx.font = '700 28px Outfit, sans-serif'
+    const textW = ctx.measureText(label).width
+    const boxW = textW + 28
+    const boxH = 44
+    const boxX = midX - boxW / 2
+    const boxY = midY - boxH / 2
+    ctx.beginPath()
+    roundRect(ctx, boxX, boxY, boxW, boxH, 14)
+    ctx.fillStyle = locked ? 'rgba(6, 40, 28, 0.88)' : 'rgba(11, 16, 32, 0.9)'
+    ctx.fill()
+    ctx.lineWidth = 2
+    ctx.strokeStyle = locked ? '#34d399' : 'rgba(168, 85, 247, 0.7)'
+    ctx.stroke()
+    ctx.fillStyle = locked ? '#ecfdf5' : '#f5e8ff'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(label, midX, midY + 1)
+  }
 }
 
-function paintBubble(
+function drawChevron(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  color: string,
-  locked: boolean,
-  readout: number | null,
+  w: number,
+  h: number,
+  bright: string,
+  dim: string,
 ) {
-  const label =
-    readout === null
-      ? null
-      : readout === 0
-        ? '0'
-        : readout > 0
-          ? `+${readout}`
-          : `−${Math.abs(readout)}`
-  const radius = locked ? 22 : label && label.length > 3 ? 24 : 20
-
   ctx.beginPath()
-  ctx.fillStyle = locked ? 'rgba(52, 211, 153, 0.28)' : 'rgba(12, 16, 28, 0.88)'
-  ctx.arc(x, y, radius, 0, Math.PI * 2)
+  ctx.moveTo(x, y)
+  ctx.lineTo(x + w * 0.58, y)
+  ctx.lineTo(x + w, y + h / 2)
+  ctx.lineTo(x + w * 0.58, y + h)
+  ctx.lineTo(x, y + h)
+  ctx.lineTo(x + w * 0.42, y + h / 2)
+  ctx.closePath()
+  const grad = ctx.createLinearGradient(x, y, x + w, y)
+  grad.addColorStop(0, dim)
+  grad.addColorStop(0.45, bright)
+  grad.addColorStop(1, dim)
+  ctx.fillStyle = grad
   ctx.fill()
-  ctx.lineWidth = 3
-  ctx.strokeStyle = locked ? '#34d399' : color
-  ctx.stroke()
+}
 
-  if (label === null) return
-  ctx.fillStyle = locked ? '#ecfdf5' : '#fff7ed'
-  ctx.font = `700 ${label.length > 4 ? 13 : 16}px Outfit, sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(label, x, y + 0.5)
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  const radius = Math.min(r, w / 2, h / 2)
+  ctx.moveTo(x + radius, y)
+  ctx.arcTo(x + w, y, x + w, y + h, radius)
+  ctx.arcTo(x + w, y + h, x, y + h, radius)
+  ctx.arcTo(x, y + h, x, y, radius)
+  ctx.arcTo(x, y, x + w, y, radius)
+  ctx.closePath()
 }

@@ -17,7 +17,7 @@ import {
   IN_TUNE_CENTS,
   IN_TUNE_EXIT_CENTS,
   STRING_HYSTERESIS_CENTS,
-  settleCents,
+  formatTenths,
 } from '@/lib/feel'
 import { playInTuneChime } from '@/lib/in-tune-chime'
 import { centsBetween, midiToFreq, trackString } from '@/lib/notes'
@@ -222,8 +222,7 @@ export function TunerPage() {
     }
   }, [activeString, instrumentMode, live, rawCents, tunedIds])
 
-  const displayCents =
-    rawCents === null ? null : settleCents(rawCents, inTune)
+  const displayCents = rawCents
   const targetLabel = activeString
     ? `${activeString.label}${activeString.octave}`
     : null
@@ -249,7 +248,7 @@ export function TunerPage() {
           Tuner
         </h1>
         <p className="mt-1 text-center text-sm text-slate-400">
-          A4 = {a4Hz} Hz · ±{IN_TUNE_CENTS} cents
+          A4 = {a4Hz} Hz · lock ±{IN_TUNE_CENTS.toFixed(1)} ¢
         </p>
 
         <div className="mt-4">
@@ -318,13 +317,7 @@ export function TunerPage() {
           <div className="mt-2 flex min-h-0 w-full flex-1 flex-col">
             <TunerGauge
               cents={displayCents}
-              readout={
-                live && rawCents !== null
-                  ? inTune
-                    ? 0
-                    : Math.round(rawCents)
-                  : null
-              }
+              readout={live && rawCents !== null ? rawCents : null}
               inTune={inTune}
               active={live}
             />
@@ -475,12 +468,13 @@ function formatCents(
   inTune: boolean,
   targetLabel: string | null,
 ): string {
-  const rounded = Math.round(cents)
+  const shown = formatTenths(cents)
   const vs = targetLabel ? ` of ${targetLabel}` : ''
-  if (inTune && Math.abs(rounded) <= 1) return `0 cents · in tune${vs}`
-  if (rounded > 0) return `${rounded} cents sharp${vs}`
-  if (rounded < 0) return `${Math.abs(rounded)} cents flat${vs}`
-  return `0 cents${vs}`
+  const lock = inTune ? ' · in tune' : ''
+  const tenths = Math.round(cents * 10) / 10
+  if (tenths > 0) return `${shown} cents sharp${lock}${vs}`
+  if (tenths < 0) return `${shown} cents flat${lock}${vs}`
+  return `${shown} cents${lock}${vs}`
 }
 
 function statusMessage(
@@ -509,7 +503,7 @@ function statusMessage(
   }
   return instrumentMode
     ? 'Auto is off. The red peg is locked — play that string, or tap another peg to change the target.'
-    : 'Play a steady note. The trail sits in the center when you are in tune.'
+    : 'Play a steady note. The strobe crawls with true cents; green lock is ±1.0 ¢ and never hides the number.'
 }
 
 function ordinal(value: number): string {

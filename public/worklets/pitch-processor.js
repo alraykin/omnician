@@ -1,25 +1,40 @@
 /* McLeod Pitch Method in the AudioWorklet. Uses the context sampleRate. */
-const MIN_HZ = 27
+const MIN_HZ = 16
 const MAX_HZ = 1500
-const MAX_WINDOW = 8192
+const HIGH_MIN_HZ = 38
+const LOW_MAX_HZ = 120
+const MAX_WINDOW = 32768
 const MIN_WINDOW = 2048
 const HOP = 512
+const LOW_DECIMATED_MIN = 3072
+const LOW_DECIMATED_MAX = 4096
 const CLARITY_K = 0.9
 const MIN_CLARITY = 0.9
 const MIN_CLARITY_BASS = 0.85
+const MIN_CLARITY_SUB = 0.8
 const MIN_RMS = 0.0024
-const HP_HZ = 25
+const HP_HZ = 12
 const LP_HZ = 1500
+
+function lowDecimateFactor(rate) {
+  if (rate >= 80000) return 8
+  if (rate >= 40000) return 4
+  return 2
+}
 
 function windowForHz(hz, rate) {
   const f = hz && hz > 0 ? hz : 55
-  const periods = f < 50 ? 3.6 : f < 90 ? 3.2 : f < 180 ? 2.8 : 2.4
+  const periods = f < 28 ? 5.5 : f < 50 ? 4.5 : f < 90 ? 3.6 : f < 180 ? 2.8 : 2.4
   const needed = Math.ceil((rate / f) * periods)
   const capped = Math.min(MAX_WINDOW, Math.max(MIN_WINDOW, needed))
   if (capped <= 2048) return 2048
   if (capped <= 3072) return 3072
   if (capped <= 4096) return 4096
   if (capped <= 6144) return 6144
+  if (capped <= 8192) return 8192
+  if (capped <= 12288) return 12288
+  if (capped <= 16384) return 16384
+  if (capped <= 24576) return 24576
   return MAX_WINDOW
 }
 
@@ -86,10 +101,57 @@ function fillNsdf(buffer, tauMax, nsdf) {
   }
 }
 
-function mpmPitch(buffer, rate, scratch) {
+function goertzelPower(buffer, rate, hz) {
   const n = buffer.length
-  const tauMin = Math.max(2, Math.floor(rate / MAX_HZ))
-  const tauMax = Math.min(scratch.nsdf.length - 1, Math.floor(rate / MIN_HZ), n - 2)
+  if (n < 8 || hz <= 0) return 0
+  const k = (n * hz) / rate
+  const w = (2 * Math.PI * k) / n
+  const cosine = Math.cos(w)
+  const coeff = 2 * cosine
+  let s0 = 0
+  let s1 = 0
+  let s2 = 0
+  for (let i = 0; i < n; i += 1) {
+    s0 = buffer[i] + coeff * s1 - s2
+    s2 = s1
+    s1 = s0
+  }
+  const real = s1 - s2 * cosine
+  const imag = s2 * Math.sin(w)
+  return real * real + imag * imag
+}
+
+function maybeLowerOctave(buffer, rate, estimate, minHz) {
+  if (estimate.frequency <= 0 || estimate.frequency > 120) return estimate
+  let f = estimate.frequency
+  for (const div of [2, 3]) {
+    const lower = f / div
+    if (lower < minHz) continue
+    const pLow = goertzelPower(buffer, rate, lower)
+    const pHigh = goertzelPower(buffer, rate, f)
+    const pLo = goertzelPower(buffer, rate, lower * 0.89)
+    const pHi = goertzelPower(buffer, rate, lower * 1.12)
+    const pThird = goertzelPower(buffer, rate, lower * 3)
+    const pOct = goertzelPower(buffer, rate, f * 2)
+    const magLow = Math.sqrt(Math.max(0, pLow))
+    const magHigh = Math.sqrt(Math.max(0, pHigh))
+    if (magHigh < 1e-9) continue
+    const peaked = pLow > pLo * 1.45 && pLow > pHi * 1.45
+    const series = pThird > pOct * 0.28
+    const minRatio = div === 3 ? 0.28 : 0.1
+    if (peaked && series && magLow > magHigh * minRatio) {
+      f = lower
+      break
+    }
+  }
+  if (f === estimate.frequency) return estimate
+  return { frequency: f, clarity: estimate.clarity }
+}
+
+function mpmPitch(buffer, rate, scratch, minHz, maxHz) {
+  const n = buffer.length
+  const tauMin = Math.max(2, Math.floor(rate / maxHz))
+  const tauMax = Math.min(scratch.nsdf.length - 1, Math.floor(rate / minHz), n - 2)
   if (tauMax <= tauMin + 2) return { frequency: 0, clarity: 0 }
   fillNsdf(buffer, tauMax, scratch.nsdf)
   const keys = keyMaximumIndices(scratch.nsdf, tauMin, tauMax)
@@ -98,7 +160,7 @@ function mpmPitch(buffer, rate, scratch) {
   for (let i = 0; i < keys.length; i += 1) {
     if (scratch.nsdf[keys[i]] > nMax) nMax = scratch.nsdf[keys[i]]
   }
-  if (nMax < MIN_CLARITY_BASS) return { frequency: 0, clarity: 0 }
+  if (nMax < MIN_CLARITY_SUB) return { frequency: 0, clarity: 0 }
   const cutoff = CLARITY_K * nMax
   let chosen = keys[0]
   for (let i = 0; i < keys.length; i += 1) {
@@ -110,16 +172,16 @@ function mpmPitch(buffer, rate, scratch) {
   const refined = parabolicPeak(scratch.nsdf, chosen)
   const frequency = rate / refined[0]
   const clarity = Math.max(0, Math.min(1, refined[1]))
-  if (!Number.isFinite(frequency) || frequency < MIN_HZ || frequency > MAX_HZ) {
+  if (!Number.isFinite(frequency) || frequency < minHz || frequency > maxHz) {
     return { frequency: 0, clarity: 0 }
   }
   return { frequency, clarity }
 }
 
-function yinPitch(buffer, rate, scratch) {
+function yinPitch(buffer, rate, scratch, minHz, maxHz) {
   const n = buffer.length
-  const tauMin = Math.max(2, Math.floor(rate / MAX_HZ))
-  const tauMax = Math.min(scratch.diff.length - 1, Math.floor(rate / MIN_HZ), Math.floor(n / 2) - 1)
+  const tauMin = Math.max(2, Math.floor(rate / maxHz))
+  const tauMax = Math.min(scratch.diff.length - 1, Math.floor(rate / minHz), Math.floor(n / 2) - 1)
   if (tauMax <= tauMin + 2) return { frequency: 0, clarity: 0 }
   const diff = scratch.diff
   const cmnd = scratch.cmnd
@@ -151,31 +213,96 @@ function yinPitch(buffer, rate, scratch) {
   const refined = parabolicPeak(cmnd, tauEstimate)
   const frequency = rate / refined[0]
   const clarity = Math.max(0, Math.min(1, 1 - cmnd[tauEstimate]))
-  if (!Number.isFinite(frequency) || frequency < MIN_HZ || frequency > MAX_HZ) {
+  if (!Number.isFinite(frequency) || frequency < minHz || frequency > maxHz) {
     return { frequency: 0, clarity: 0 }
   }
   return { frequency, clarity }
 }
 
-function estimatePitch(buffer, rate, scratch) {
-  if (localRms(buffer, 0, buffer.length) < MIN_RMS) return { frequency: 0, clarity: 0 }
-  const mpm = mpmPitch(buffer, rate, scratch)
-  if (mpm.frequency <= 0) return mpm
-  const yin = yinPitch(buffer, rate, scratch)
-  if (yin.frequency > 0 && yin.clarity >= 0.75) {
-    const hi = Math.max(mpm.frequency, yin.frequency)
-    const lo = Math.min(mpm.frequency, yin.frequency)
-    const ratio = hi / lo
-    if (ratio > 1.87 && ratio < 2.14 && yin.frequency < mpm.frequency) {
-      return { frequency: yin.frequency, clarity: Math.min(mpm.clarity, yin.clarity + 0.04) }
-    }
-    if (ratio > 2.85 && ratio < 3.2 && yin.frequency < 220 && yin.frequency < mpm.frequency) {
-      return { frequency: yin.frequency, clarity: Math.min(mpm.clarity, yin.clarity) }
+function isOctaveRatio(a, b) {
+  if (a <= 0 || b <= 0) return false
+  const r = a > b ? a / b : b / a
+  return r > 1.87 && r < 2.14
+}
+
+function isThirdHarmonic(higher, lower) {
+  return higher / lower > 2.85 && higher / lower < 3.2
+}
+
+function clarityFloor(hz) {
+  if (hz < 32) return MIN_CLARITY_SUB
+  if (hz < 55) return MIN_CLARITY_BASS
+  return MIN_CLARITY
+}
+
+function pickEstimate(high, yin, low, prevHz) {
+  let chosen = high
+  if (yin.frequency > 0 && yin.clarity >= 0.75 && high.frequency > 0) {
+    if (isOctaveRatio(high.frequency, yin.frequency) && yin.frequency < high.frequency) {
+      chosen = { frequency: yin.frequency, clarity: Math.min(high.clarity, yin.clarity + 0.04) }
+    } else if (isThirdHarmonic(high.frequency, yin.frequency) && yin.frequency < 220) {
+      chosen = { frequency: yin.frequency, clarity: Math.min(high.clarity, yin.clarity) }
     }
   }
-  const floor = mpm.frequency < 55 ? MIN_CLARITY_BASS : MIN_CLARITY
-  if (mpm.clarity < floor) return { frequency: 0, clarity: mpm.clarity }
-  return mpm
+  if (low.frequency > 0 && low.clarity >= MIN_CLARITY_SUB) {
+    if (chosen.frequency <= 0) return low
+    if (prevHz && prevHz < HIGH_MIN_HZ) {
+      const lowErr = Math.abs(1200 * Math.log2(low.frequency / prevHz))
+      const highErr = Math.abs(1200 * Math.log2(chosen.frequency / prevHz))
+      if (lowErr + 12 < highErr) return low
+    }
+  }
+  if (chosen.frequency > 0 && chosen.clarity < clarityFloor(chosen.frequency)) {
+    if (low.frequency > 0 && low.clarity >= clarityFloor(low.frequency)) return low
+    return { frequency: 0, clarity: chosen.clarity }
+  }
+  if (chosen.frequency > 0) return chosen
+  if (low.frequency > 0 && low.clarity >= clarityFloor(low.frequency)) return low
+  return chosen
+}
+
+function sliceTail(buffer, take) {
+  const n = buffer.length
+  const count = Math.min(n, take)
+  if (count === n) return buffer
+  return buffer.subarray(n - count, n)
+}
+
+function decimateAverage(buffer, factor, out) {
+  const n = Math.floor(buffer.length / factor)
+  for (let i = 0; i < n; i += 1) {
+    let s = 0
+    const base = i * factor
+    for (let k = 0; k < factor; k += 1) s += buffer[base + k]
+    out[i] = s / factor
+  }
+  return out.subarray(0, n)
+}
+
+function estimatePitch(buffer, rate, scratch, prevHz) {
+  if (localRms(buffer, 0, buffer.length) < MIN_RMS) return { frequency: 0, clarity: 0 }
+  const highWin = Math.min(buffer.length, windowForHz(prevHz && prevHz >= 70 ? prevHz : 110, rate))
+  const highBuf = sliceTail(buffer, highWin)
+  const high = maybeLowerOctave(buffer, rate, mpmPitch(highBuf, rate, scratch, HIGH_MIN_HZ, MAX_HZ), MIN_HZ)
+  const yin =
+    high.frequency > 0 ? yinPitch(highBuf, rate, scratch, HIGH_MIN_HZ, MAX_HZ) : { frequency: 0, clarity: 0 }
+  const wantLow = (!prevHz || prevHz < 58) && (high.frequency <= 0 || high.frequency < 58)
+  let low = { frequency: 0, clarity: 0 }
+  if (wantLow) {
+    const factor = lowDecimateFactor(rate)
+    const fullNeeded = LOW_DECIMATED_MAX * factor
+    const lowSlice = sliceTail(buffer, Math.min(buffer.length, fullNeeded))
+    if (lowSlice.length >= LOW_DECIMATED_MIN * factor) {
+      const decimated = decimateAverage(lowSlice, factor, scratch.low)
+      const keep = Math.min(decimated.length, LOW_DECIMATED_MAX)
+      const lowBuf = keep === decimated.length ? decimated : decimated.subarray(decimated.length - keep)
+      if (lowBuf.length >= LOW_DECIMATED_MIN) {
+        const rawLow = mpmPitch(lowBuf, rate / factor, scratch, MIN_HZ, LOW_MAX_HZ)
+        low = maybeLowerOctave(lowBuf, rate / factor, rawLow, MIN_HZ)
+      }
+    }
+  }
+  return maybeLowerOctave(buffer, rate, pickEstimate(high, yin, low, prevHz), MIN_HZ)
 }
 
 function rbj(type, freq, q, rate) {
@@ -229,6 +356,7 @@ class PitchProcessor extends AudioWorkletProcessor {
       nsdf: new Float32Array(MAX_WINDOW),
       diff: new Float32Array(MAX_WINDOW),
       cmnd: new Float32Array(MAX_WINDOW),
+      low: new Float32Array(LOW_DECIMATED_MAX + 8),
     }
     this.write = 0
     this.filled = 0
@@ -299,13 +427,13 @@ class PitchProcessor extends AudioWorkletProcessor {
   }
 
   emit() {
-    const window = Math.min(this.filled, windowForHz(this.prevHz, sampleRate))
+    const window = Math.min(this.filled, MAX_WINDOW)
     let src = this.write - window
     if (src < 0) src += MAX_WINDOW
     for (let i = 0; i < window; i += 1) this.view[i] = this.ring[(src + i) % MAX_WINDOW]
     const view = this.view.subarray(0, window)
     const rms = localRms(view, Math.max(0, window - 512), window)
-    const estimate = estimatePitch(view, sampleRate, this.scratch)
+    const estimate = estimatePitch(view, sampleRate, this.scratch, this.prevHz)
     if (estimate.frequency > 0) this.prevHz = estimate.frequency
     else if (rms < MIN_RMS) this.prevHz = null
     this.port.postMessage({

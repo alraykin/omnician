@@ -1,5 +1,6 @@
-export const IN_TUNE_CENTS = 5
-export const IN_TUNE_EXIT_CENTS = 8
+/** Tight visual lock. Displayed cents are never pulled toward 0. */
+export const IN_TUNE_CENTS = 1
+export const IN_TUNE_EXIT_CENTS = 1.8
 export const STRING_HYSTERESIS_CENTS = 32
 /** Peg stays green until this string is clearly off, not on small wobbles. */
 export const GREEN_CLEAR_CENTS = 32
@@ -16,11 +17,14 @@ export const TUNER_FEEL = {
   lockFrames: 4,
 }
 
-/** Pull a live cents reading toward 0 so a sustained in-tune note sits still. */
-export function settleCents(cents: number, inTune: boolean): number {
-  if (!inTune) return cents
-  const abs = Math.abs(cents)
-  if (abs <= 2.4) return 0
-  if (abs <= IN_TUNE_EXIT_CENTS) return cents * 0.22
+/** Identity — kept so older call sites compile. Never snap or settle toward 0. */
+export function settleCents(cents: number, _inTune?: boolean): number {
   return cents
+}
+
+export function formatTenths(cents: number): string {
+  const tenths = Math.round(cents * 10) / 10
+  if (Object.is(tenths, -0) || tenths === 0) return '0.0'
+  const abs = Math.abs(tenths).toFixed(1)
+  return tenths > 0 ? `+${abs}` : `−${abs}`
 }
