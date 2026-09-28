@@ -1,4 +1,4 @@
-import { Minus, Plus } from 'lucide-react'
+import { Minus, Plus, Mic } from 'lucide-react'
 
 import { BpmWheel } from '@/components/rhythm/BpmWheel'
 import { SpeedBuilderPanel, SpeedBuilderToggles } from '@/components/rhythm/SpeedBuilderPanel'
@@ -14,6 +14,7 @@ export function RhythmTempoCard({
   onSpeedBuilder,
   onBpm,
   onTap,
+  onListen,
   precountAlways = false,
 }: {
   bpm: number
@@ -23,6 +24,7 @@ export function RhythmTempoCard({
   onSpeedBuilder: (next: SpeedBuilder) => void
   onBpm: (next: number, tick?: boolean) => void
   onTap: () => void
+  onListen: () => void
   precountAlways?: boolean
 }) {
   const showLive = playing && speedBuilder.enabled
@@ -49,8 +51,9 @@ export function RhythmTempoCard({
         />
         <div
           data-tempo-taps
-          className="relative z-20 grid w-[9.25rem] max-w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-0.5 justify-self-end self-center"
+          className="relative z-20 flex w-[9.25rem] max-w-full flex-col gap-0.5 justify-self-end self-center"
         >
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-0.5">
           <div className="flex justify-end">
             <Button
               type="button"
@@ -87,6 +90,19 @@ export function RhythmTempoCard({
               5
             </Button>
           </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-listen
+            aria-label="Listen for tempo"
+            className="h-7 w-full min-w-0 gap-1 px-1.5 text-[0.7rem] touch-manipulation"
+            {...activateOnPointer(onListen)}
+          >
+            <Mic className="size-3" />
+            Listen
+          </Button>
         </div>
       </div>
     </section>

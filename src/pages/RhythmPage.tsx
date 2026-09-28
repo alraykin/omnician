@@ -9,6 +9,7 @@ import { CompactMeter } from '@/components/rhythm/CompactMeter'
 import { DrumBarStage } from '@/components/rhythm/DrumBarStage'
 import { KitFaders } from '@/components/rhythm/KitFaders'
 import { KitIntensityControl } from '@/components/rhythm/KitIntensity'
+import { ListenTempoSheet } from '@/components/rhythm/ListenTempo'
 import { RhythmTempoCard } from '@/components/rhythm/RhythmTempoCard'
 import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
@@ -44,6 +45,8 @@ import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
 import { unlockSpeech, type SpeedBuilder, type SpeedBuilderCue } from '@/lib/speed-builder'
+import { detectTempo, synthesizeClickTrack, type TempoEstimate } from '@/lib/tempo-detect'
+import { getTempoListener } from '@/lib/tempo-listen'
 import {
   RHYTHM_STYLES,
   barsForPreset,
@@ -75,6 +78,9 @@ export function RhythmPage() {
   const [pickerBeat, setPickerBeat] = useState<number | null>(null)
   const [speedBuilder, setSpeedBuilder] = useState<SpeedBuilder>(prefs.speedBuilder)
   const [tempoCue, setTempoCue] = useState<SpeedBuilderCue | null>(null)
+  const [listenOpen, setListenOpen] = useState(false)
+  const [listenSeed, setListenSeed] = useState<TempoEstimate | null>(null)
+  const [tempoNote, setTempoNote] = useState<string | null>(null)
   const tapTimes = useRef<number[]>([])
 
   const bars = mode === 'click' ? clickBars : drumBars
@@ -162,15 +168,19 @@ export function RhythmPage() {
     speedBuilder,
   ])
 
-  const chooseMode = (next: RhythmMode) => {
-    if (next === mode) return
-    setAccentEdit(false)
-    setPickerBeat(null)
-    setMode(next)
+  useEffect(() => {
+    if (urlMode === 'click' || urlMode === 'drums') {
+      if (urlMode !== mode) {
+        setAccentEdit(false)
+        setPickerBeat(null)
+        setMode(urlMode)
+      }
+      return
+    }
     const params = new URLSearchParams(searchParams)
-    params.set('mode', next)
+    params.set('mode', mode)
     setSearchParams(params, { replace: true })
-  }
+  }, [urlMode, mode, searchParams, setSearchParams])
 
   const setGroupMix = (group: KitGroupId, db: number) => {
     setKitMix((currentMix) => ({ ...currentMix, [group]: db }))
@@ -222,6 +232,7 @@ export function RhythmPage() {
     if (clamped === bpm) return
     if (tick) playWheelTick()
     setBpm(clamped)
+    setTempoNote(null)
   }
 
   const tapTempo = () => {
@@ -236,7 +247,38 @@ export function RhythmPage() {
     }
     const avg = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length
     setBpm(clampBpm(60000 / avg))
+    setTempoNote(null)
   }
+
+  const openListen = () => {
+    if (playing) {
+      halt()
+      setPlaying(false)
+    }
+    setListenSeed(null)
+    setListenOpen(true)
+    void getTempoListener().startMic()
+  }
+
+  const applyDetectedTempo = (next: number, note: string) => {
+    changeBpm(next)
+    setTempoNote(note)
+  }
+
+  useEffect(() => {
+    const raw = searchParams.get('listenDemo')
+    if (!raw) return
+    const demoBpm = Number(raw)
+    if (!Number.isFinite(demoBpm) || demoBpm < 40 || demoBpm > 240) return
+    const sr = 44100
+    const samples = synthesizeClickTrack(demoBpm, sr, 8)
+    const estimate = detectTempo(samples, sr)
+    if (!estimate) return
+    setListenSeed(estimate)
+    setListenOpen(true)
+    // Only seed from the URL once so mode switches don't reopen the sheet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const onPaintCell = useCallback(
     (targetBar: number, voice: VoiceId, step: number, on: boolean, playPreview: boolean) => {
@@ -275,6 +317,11 @@ export function RhythmPage() {
   }
 
   const startStop = useCallback(async () => {
+    if (listenOpen) {
+      setListenOpen(false)
+      setListenSeed(null)
+      void getTempoListener().cancel()
+    }
     if (playing) {
       halt()
       setPlaying(false)
@@ -287,7 +334,13 @@ export function RhythmPage() {
       await kit?.ensureAnnounce(speedBuilder.fromPct)
     }
     setPlaying(true)
-  }, [ensureKit, halt, playing, speedBuilder.announce, speedBuilder.enabled, speedBuilder.fromPct])
+  }, [ensureKit, halt, listenOpen, playing, speedBuilder.announce, speedBuilder.enabled, speedBuilder.fromPct])
+
+  useEffect(() => {
+    return () => {
+      void getTempoListener().cancel()
+    }
+  }, [])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -314,42 +367,37 @@ export function RhythmPage() {
     <AppChrome align="fill" wide compact>
       <div className="relative flex min-h-0 flex-1 flex-col">
         <SpeedBuilderPopup cue={tempoCue} />
+        <ListenTempoSheet
+          open={listenOpen}
+          onClose={() => {
+            setListenOpen(false)
+            setListenSeed(null)
+          }}
+          onUse={applyDetectedTempo}
+          speedBuilder={speedBuilder}
+          currentBpm={bpm}
+          seed={listenSeed}
+        />
         <div
           data-rhythm-scroll
-          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] [scrollbar-width:thin] [touch-action:pan-y] lg:pb-6"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain pb-[7.25rem] [scrollbar-width:thin] [touch-action:pan-y] lg:pb-6"
         >
           <div
             data-rhythm-header
-            className="rhythm-glass sticky top-0 z-30 flex items-center justify-between gap-3 rounded-full py-1 pl-3 pr-1"
+            className="rhythm-glass sticky top-0 z-30 flex items-center justify-between gap-3 rounded-full py-1.5 pl-4 pr-3"
           >
             <h1 className="text-lg font-bold tracking-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] sm:text-xl">
-              Rhythm
+              {mode === 'click' ? 'Click' : 'Drums'}
             </h1>
-            <div
-              role="radiogroup"
-              aria-label="Rhythm mode"
-              className="relative z-30 flex w-[12.25rem] shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#141A28] p-0.5"
-              data-section="mode"
-            >
-              {(['click', 'drums'] as const).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  role="radio"
-                  aria-checked={mode === item}
-                  aria-pressed={mode === item}
-                  data-mode={item}
-                  {...activateOnPointer(() => chooseMode(item))}
-                  className={cn(
-                    'relative z-30 h-11 min-h-11 flex-1 touch-manipulation rounded-full text-sm font-semibold capitalize transition',
-                    mode === item ? 'bg-[#A855F7] text-white' : 'text-slate-300 hover:text-white',
-                  )}
-                >
-                  {item === 'click' ? 'Click' : 'Drums'}
-                </button>
-              ))}
-            </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              {liveMeter}
+            </p>
           </div>
+          {tempoNote ? (
+            <p className="mt-1.5 text-center text-xs leading-5 text-slate-400" data-tempo-note>
+              {tempoNote}
+            </p>
+          ) : null}
 
           {mode === 'click' ? (
           <div
@@ -369,6 +417,7 @@ export function RhythmPage() {
                 onSpeedBuilder={setSpeedBuilder}
                 onBpm={changeBpm}
                 onTap={tapTempo}
+                onListen={openListen}
               />
 
               <section
@@ -550,6 +599,7 @@ export function RhythmPage() {
                 onSpeedBuilder={setSpeedBuilder}
                 onBpm={changeBpm}
                 onTap={tapTempo}
+                onListen={openListen}
                 precountAlways
               />
               <section
@@ -684,7 +734,7 @@ export function RhythmPage() {
         <PlayheadBarSync store={playheadStore} playing={playing} onBar={setBarIndex} />
         <TransportDock
           place="sticky"
-          className="rhythm-glass absolute inset-x-0 bottom-0 z-40 border-t border-white/10 pt-2 pb-[max(0.55rem,env(safe-area-inset-bottom))] lg:hidden"
+          className="rhythm-glass absolute inset-x-0 bottom-0 z-40 border-t border-white/10 pt-2 pb-2 lg:hidden"
           playing={playing}
           onToggle={() => void startStop()}
           holdUntilCycle={holdUntilCycle}

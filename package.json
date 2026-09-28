@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test:pitch": "npx --yes tsx scripts/pitch-accuracy.ts",
+    "test:tempo": "npx --yes tsx scripts/tempo-accuracy.ts",
     "preview": "vite preview"
   },
   "dependencies": {

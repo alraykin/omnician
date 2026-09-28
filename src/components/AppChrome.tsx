@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react'
-import { ArrowLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
+import { AppTabBar } from '@/components/AppTabBar'
 import { OmnicianWordmark } from '@/components/OmnicianMark'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 type AppChromeProps = {
@@ -31,32 +30,29 @@ export function AppChrome({
       className={cn(
         'relative flex w-full max-w-full flex-col overscroll-x-none [touch-action:pan-y]',
         compact
-          ? 'h-svh max-h-svh overflow-x-hidden overflow-y-hidden px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-5 lg:px-10'
+          ? 'h-svh max-h-svh overflow-x-hidden overflow-y-hidden px-4 pt-3 sm:px-6 sm:pt-4 md:px-8 md:pt-5 lg:px-10'
           : 'min-h-svh overflow-x-hidden px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-9',
       )}
     >
       <div className="stage-glow" aria-hidden />
-      <header className={cn('relative z-10 mx-auto flex w-full items-center justify-between', shell)}>
-        <Button asChild variant="ghost" size="sm" className="-ml-2">
-          <Link to="/">
-            <ArrowLeft className="size-4" />
-            Home
-          </Link>
-        </Button>
-        <OmnicianWordmark className={cn('w-auto', compact ? 'h-9 sm:h-11' : 'h-10 sm:h-12')} />
-        <span className="w-[4.5rem]" aria-hidden />
+      <header className={cn('relative z-10 mx-auto flex w-full items-center justify-center', shell)}>
+        <Link to="/" aria-label="Omnician home">
+          <OmnicianWordmark className={cn('w-auto', compact ? 'h-9 sm:h-11' : 'h-10 sm:h-12')} />
+        </Link>
       </header>
       <main
         className={cn(
           'relative z-10 mx-auto flex w-full flex-1 flex-col',
           shell,
-          compact ? 'pb-0' : 'pb-8',
+          compact ? 'pb-0' : 'pb-[calc(2rem+var(--tabbar-clearance))]',
           align === 'center' && 'items-center justify-center px-2 text-center',
           align === 'fill' && (compact ? 'min-h-0 overflow-hidden pt-2' : 'pt-4'),
         )}
       >
         {children}
       </main>
+      {compact ? <div className="h-[var(--tabbar-clearance)] shrink-0" aria-hidden data-tabbar-spacer /> : null}
+      <AppTabBar />
     </div>
   )
 }

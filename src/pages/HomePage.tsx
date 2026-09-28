@@ -1,4 +1,5 @@
 import { OmnicianWordmark } from '@/components/OmnicianMark'
+import { AppTabBar } from '@/components/AppTabBar'
 import { ToolButton } from '@/components/ToolButton'
 import { practiceTools } from '@/data/tools'
 
@@ -6,7 +7,7 @@ export function HomePage() {
   return (
     <div
       data-app-frame
-      className="relative flex min-h-svh w-full max-w-full flex-col overflow-x-hidden overflow-y-auto overscroll-x-none px-5 py-8 [touch-action:pan-y] sm:px-8 sm:py-12 lg:px-12 lg:py-16"
+      className="relative flex min-h-svh w-full max-w-full flex-col overflow-x-hidden overflow-y-auto overscroll-x-none px-5 pb-[calc(2.25rem+var(--tabbar-clearance))] pt-8 [touch-action:pan-y] sm:px-8 sm:pt-12 lg:px-12 lg:pt-16"
     >
       <div className="stage-glow" aria-hidden />
       <div className="sound-rings" aria-hidden />
@@ -26,7 +27,7 @@ export function HomePage() {
           Hello — are you ready to rock?
         </h1>
         <p className="mx-auto mt-3 max-w-lg text-center text-sm leading-6 text-slate-400 sm:text-base">
-          Pick a tool and step into the practice room. Tuner and Rhythm are ready.
+          Pick a tool and step into the practice room. Tuner, Click, and Drums are ready.
         </p>
 
         <nav
@@ -45,6 +46,7 @@ export function HomePage() {
           this first version is just the home stage.
         </p>
       </footer>
+      <AppTabBar />
     </div>
   )
 }
