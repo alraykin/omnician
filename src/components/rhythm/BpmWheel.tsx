@@ -230,7 +230,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
     return {
       x: rect.left + rect.width / 2,
       y: rect.top + rect.height / 2,
-      minRadius: Math.max(24, rect.width * 0.24),
+      minRadius: Math.max(24, rect.height * 0.24),
     }
   }
 
@@ -318,11 +318,14 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
           data-coasting={coasting ? 'true' : 'false'}
           data-spinning={dragging ? 'true' : 'false'}
           data-tempo-hit="true"
-          className="bpm-dial-hit absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none focus-visible:[&_.bpm-dial]:ring-2 focus-visible:[&_.bpm-dial]:ring-[#A855F7]/70"
+          data-tempo-hit-pad="true"
+          className="bpm-dial-hit absolute z-10 flex items-center justify-center rounded-full outline-none focus-visible:[&_.bpm-dial]:ring-2 focus-visible:[&_.bpm-dial]:ring-[#A855F7]/70"
           onPointerDown={(event) => {
             movedRef.current = false
             if (editing) return
-            if ((event.target as HTMLElement).closest('input')) return
+            const target = event.target as HTMLElement
+            if (target.closest('input')) return
+            if (target.closest('[data-speed-builder], [data-tempo-taps]')) return
             if (event.button !== 0) return
             event.preventDefault()
             try {

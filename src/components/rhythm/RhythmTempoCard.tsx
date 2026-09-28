@@ -34,9 +34,9 @@ export function RhythmTempoCard({
       data-tempo-card
       className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 pl-2 sm:pl-4"
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_9.25rem] items-start gap-x-2 gap-y-1.5 pt-6 pr-6 pb-2 sm:pt-5 sm:pr-5">
+      <div className="grid grid-cols-[minmax(0,1fr)_9.25rem] items-start gap-x-2 gap-y-1.5 pt-6 pr-7 pb-2 sm:pt-5 sm:pr-8">
         <SpeedBuilderPanel value={speedBuilder} baseBpm={bpm} onChange={onSpeedBuilder} />
-        <div className="w-[9.25rem] max-w-full justify-self-end">
+        <div className="relative z-10 w-[9.25rem] max-w-full justify-self-end">
           <BpmWheel
             compact
             value={bpm}

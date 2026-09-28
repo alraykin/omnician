@@ -184,7 +184,7 @@ export function SpeedBuilderPanel({
   const toBpm = sbBpm(baseBpm, value.toPct)
 
   return (
-    <div data-speed-builder className="min-w-0 flex-1" data-enabled={value.enabled ? 'true' : 'false'}>
+    <div data-speed-builder className="relative z-20 min-w-0 flex-1" data-enabled={value.enabled ? 'true' : 'false'}>
       <div className="w-max max-w-full">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
