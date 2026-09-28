@@ -135,40 +135,8 @@ function PowerSwitch({
   )
 }
 
-function Toggle({
-  label,
-  on,
-  onChange,
-  dimmed = false,
-  testId,
-}: {
-  label: string
-  on: boolean
-  onChange: (next: boolean) => void
-  dimmed?: boolean
-  testId?: string
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      data-toggle={testId}
-      data-on={on ? 'true' : 'false'}
-      {...activateOnPointer(() => onChange(!on))}
-      className={cn(
-        'flex h-6 items-center gap-1 rounded-full border px-1.5 text-[0.58rem] font-semibold uppercase tracking-[0.08em]',
-        on
-          ? 'border-[#A855F7]/60 bg-[#A855F7] text-white'
-          : 'border-white/12 bg-white/4 text-slate-400',
-        dimmed && 'opacity-45',
-      )}
-    >
-      {label}
-    </button>
-  )
-}
+const TOGGLE_LABEL =
+  'text-[0.58rem] font-semibold uppercase tracking-[0.08em] text-slate-400 whitespace-nowrap'
 
 export function SpeedBuilderPanel({
   value,
@@ -254,34 +222,32 @@ export function SpeedBuilderToggles({
   precountAlways?: boolean
 }) {
   const patch = (partial: Partial<SpeedBuilder>) => onChange({ ...value, ...partial })
+  const announceDim = !value.enabled
+  const precountDim = !value.enabled && !precountAlways
   return (
     <div
-      className={cn('flex flex-wrap items-center gap-1 self-center', className)}
+      className={cn('self-end', className)}
+      data-sb-toggles
       data-precount-always={precountAlways ? 'true' : 'false'}
     >
-      <div
-        className={cn(
-          'flex items-center gap-1.5',
-          !value.enabled && !precountAlways && 'opacity-45',
-        )}
-      >
-        <p className="text-[0.58rem] font-semibold uppercase tracking-[0.08em] text-slate-400">
-          Precount
-        </p>
+      <div className="grid grid-cols-[auto_auto] items-center justify-items-start gap-x-1.5 gap-y-1.5">
+        <p className={cn(TOGGLE_LABEL, announceDim && 'opacity-45')}>Announce</p>
+        <PowerSwitch
+          on={value.announce}
+          onChange={(announce) => patch({ announce })}
+          label="Announce"
+          testId="announce"
+          dimmed={announceDim}
+        />
+        <p className={cn(TOGGLE_LABEL, precountDim && 'opacity-45')}>Precount</p>
         <PowerSwitch
           on={value.precount}
           onChange={(precount) => patch({ precount })}
           label="Precount"
           testId="precount"
+          dimmed={precountDim}
         />
       </div>
-      <Toggle
-        label="Announce"
-        on={value.announce}
-        onChange={(announce) => patch({ announce })}
-        dimmed={!value.enabled}
-        testId="announce"
-      />
     </div>
   )
 }
