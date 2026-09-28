@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "omnician",
+  "compatibility_date": "2026-09-28",
+  // Assets-only Worker: Vite's dist/, with SPA fallback so /tuner and /rhythm
+  // (and any future client route) serve index.html instead of a 404.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+  },
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": {
+    "enabled": true,
+  },
+  // Attached on the first real `npm run deploy`. Do not add a CNAME for these
+  // hostnames first — Custom Domains create the DNS records themselves.
+  "routes": [
+    { "pattern": "omnician.app", "custom_domain": true },
+    { "pattern": "www.omnician.app", "custom_domain": true },
+  ],
+}

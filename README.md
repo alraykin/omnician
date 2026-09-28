@@ -122,6 +122,18 @@ npm run preview
 
 That is not required to try Omnician today.
 
+### Permanent site (omnician.app)
+
+The live site is a Cloudflare Worker that serves the Vite `dist/` folder. Client routes such as `/tuner` and `/rhythm` are covered by Wrangler's single-page-application fallback (`wrangler.jsonc`). The repo is not on GitHub, so deploys are a direct Wrangler upload — not Cloudflare Pages Git.
+
+When Cloudflare credentials are in the environment, publish with:
+
+```bash
+npm run deploy
+```
+
+That script builds the app, then runs `wrangler deploy`. It needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Do not put those values in the repo. They belong in Cursor **Cloud Agents → Secrets** (token as a **Runtime Secret**, account ID as an **Environment Variable**). The first real deploy also attaches `omnician.app` and `www.omnician.app`.
+
 ---
 
 ## Sample credits

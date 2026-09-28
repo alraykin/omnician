@@ -23,5 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+.wrangler
+.dev.vars
 scripts/__pycache__/
 scripts/fixtures/guitar-notes/.download/
