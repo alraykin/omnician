@@ -72,13 +72,13 @@ export function TunerTarget({ cents, inTune, active }: TunerTargetProps) {
           <div
             className={cn(
               'absolute inset-x-0 top-0 h-1 -translate-y-1/2 rounded-full',
-              locked ? 'bg-emerald-400/25' : 'bg-[#A855F7]/25',
+              locked ? 'bg-emerald-400/55' : 'bg-[#A855F7]/25',
             )}
           />
           <div
             className={cn(
-              'absolute left-1/2 top-0 h-1 w-[18%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[1px]',
-              locked ? 'bg-emerald-400/40' : 'bg-[#A855F7]/45',
+              'absolute left-1/2 top-0 h-1 w-[22%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[1px]',
+              locked ? 'bg-emerald-300/70' : 'bg-[#A855F7]/45',
             )}
           />
 
@@ -95,9 +95,9 @@ export function TunerTarget({ cents, inTune, active }: TunerTargetProps) {
 
           <span
             className={cn(
-              'absolute left-1/2 top-0 size-[3.15rem] -translate-x-1/2 -translate-y-1/2 rounded-full border-[2.5px] transition-colors',
+              'absolute left-1/2 top-0 size-[3.15rem] -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] transition-colors',
               locked
-                ? 'border-emerald-400 bg-emerald-400/20 shadow-[0_0_22px_rgba(52,211,153,0.45)]'
+                ? 'border-emerald-400 bg-emerald-400/35 shadow-[0_0_28px_rgba(52,211,153,0.7)]'
                 : 'border-[#A855F7]/80 bg-[#A855F7]/10',
             )}
           />
@@ -109,7 +109,7 @@ export function TunerTarget({ cents, inTune, active }: TunerTargetProps) {
               'absolute top-0 size-[1.35rem] -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors',
               !live && 'opacity-35',
               locked
-                ? 'bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,0.75)]'
+                ? 'bg-emerald-300 shadow-[0_0_22px_rgba(52,211,153,0.95)]'
                 : 'bg-[#E9D5FF] shadow-[0_0_16px_rgba(168,85,247,0.7)]',
             )}
             style={{ left: '50%' }}
