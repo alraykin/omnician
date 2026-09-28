@@ -108,6 +108,7 @@ export function pegLetter(
   if (string.pegLabel) return string.pegLabel
   const same = all.filter((item) => item.label === string.label)
   if (same.length < 2) return string.label
-  const highest = Math.min(...same.map((item) => item.stringNo))
-  return string.stringNo === highest ? string.label.toLowerCase() : string.label
+  // Only the 1st string is the high-e convention. A 7-string keeps both B pegs as B.
+  if (string.stringNo === 1) return string.label.toLowerCase()
+  return string.label
 }

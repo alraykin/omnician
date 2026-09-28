@@ -454,17 +454,17 @@ function guitarHalf(
   const { top, hx, nut } = guitarStations(nutY, nutHalf, bodyHalf, inset)
   const t = Math.max(0, Math.min(1, (y - top) / Math.max(1, nutY - top)))
   const maxW = hx
-  const midW = hx * 0.9
+  const midW = hx * 0.96
   let half: number
-  if (t < 0.08) {
-    const u = t / 0.08
+  if (t < 0.07) {
+    const u = t / 0.07
     const s = u * (2 - u)
-    half = maxW * (0.72 + 0.28 * s)
-  } else if (t < 0.64) {
-    const u = (t - 0.08) / 0.56
+    half = maxW * (0.84 + 0.16 * s)
+  } else if (t < 0.7) {
+    const u = (t - 0.07) / 0.63
     half = maxW + (midW - maxW) * u
   } else {
-    const u = (t - 0.64) / 0.36
+    const u = (t - 0.7) / 0.3
     const s = u * u * (3 - 2 * u)
     half = midW + (nut - midW) * s
   }
@@ -496,25 +496,25 @@ function guitarBatwing(
     bodyHalf,
     inset,
   )
-  const sideY = top + 54
-  const midY = top + (nutY - top) * 0.52
-  const lowY = nutY - 42
+  const sideY = top + 50
+  const midY = top + (nutY - top) * 0.55
+  const lowY = nutY - 38
   const sideH = guitarHalf(sideY, nutY, nutHalf, bodyHalf, inset)
   const midH = guitarHalf(midY, nutY, nutHalf, bodyHalf, inset)
 
   return [
     `M ${cx} ${scoopY}`,
-    `C ${cx + hx * 0.18} ${scoopY - 3}, ${cx + hx * 0.48} ${top - 6}, ${cx + hx * 0.78} ${top + 7}`,
-    `C ${cx + hx * 1.04} ${top + 16}, ${cx + sideH + 2} ${top + 34}, ${cx + sideH} ${sideY}`,
-    `C ${cx + sideH} ${sideY + 32}, ${cx + midH + 3} ${midY - 12}, ${cx + midH} ${midY}`,
-    `C ${cx + midH - 3} ${lowY - 8}, ${cx + nut + 16} ${lowY + 8}, ${cx + nut + 4} ${nutY - 7}`,
-    `C ${cx + nut + 1} ${nutY - 2}, ${cx + nut} ${nutY}, ${cx + nut} ${nutY}`,
+    `C ${cx + hx * 0.2} ${scoopY - 2}, ${cx + hx * 0.52} ${top - 2}, ${cx + hx * 0.86} ${top + 9}`,
+    `C ${cx + hx * 0.98} ${top + 18}, ${cx + sideH} ${top + 32}, ${cx + sideH} ${sideY}`,
+    `C ${cx + sideH} ${sideY + 36}, ${cx + midH + 1} ${midY - 10}, ${cx + midH} ${midY}`,
+    `C ${cx + midH - 1} ${lowY - 6}, ${cx + nut + 14} ${lowY + 6}, ${cx + nut + 3} ${nutY - 6}`,
+    `C ${cx + nut + 0.8} ${nutY - 1.6}, ${cx + nut} ${nutY}, ${cx + nut} ${nutY}`,
     `L ${cx - nut} ${nutY}`,
-    `C ${cx - nut} ${nutY}, ${cx - nut - 1} ${nutY - 2}, ${cx - nut - 4} ${nutY - 7}`,
-    `C ${cx - nut - 16} ${lowY + 8}, ${cx - midH + 3} ${lowY - 8}, ${cx - midH} ${midY}`,
-    `C ${cx - midH - 3} ${midY - 12}, ${cx - sideH} ${sideY + 32}, ${cx - sideH} ${sideY}`,
-    `C ${cx - sideH - 2} ${top + 34}, ${cx - hx * 1.04} ${top + 16}, ${cx - hx * 0.78} ${top + 7}`,
-    `C ${cx - hx * 0.48} ${top - 6}, ${cx - hx * 0.18} ${scoopY - 3}, ${cx} ${scoopY}`,
+    `C ${cx - nut} ${nutY}, ${cx - nut - 0.8} ${nutY - 1.6}, ${cx - nut - 3} ${nutY - 6}`,
+    `C ${cx - nut - 14} ${lowY + 6}, ${cx - midH + 1} ${lowY - 6}, ${cx - midH} ${midY}`,
+    `C ${cx - midH - 1} ${midY - 10}, ${cx - sideH} ${sideY + 36}, ${cx - sideH} ${sideY}`,
+    `C ${cx - sideH} ${top + 32}, ${cx - hx * 0.98} ${top + 18}, ${cx - hx * 0.86} ${top + 9}`,
+    `C ${cx - hx * 0.52} ${top - 2}, ${cx - hx * 0.2} ${scoopY - 2}, ${cx} ${scoopY}`,
     'Z',
   ].join(' ')
 }
@@ -643,10 +643,10 @@ export function Headstock({
             )}
             fill="none"
             stroke="#A855F7"
-            strokeWidth="10"
+            strokeWidth="12"
             strokeLinejoin="round"
             strokeLinecap="round"
-            opacity="0.22"
+            opacity="0.3"
             filter="url(#omnician-body-glow)"
           />
 
@@ -708,10 +708,10 @@ export function Headstock({
             )}
             fill="none"
             stroke={LAVENDER}
-            strokeWidth="1.15"
+            strokeWidth="1.25"
             strokeLinejoin="round"
             strokeLinecap="round"
-            opacity="0.38"
+            opacity="0.5"
           />
 
           <line
