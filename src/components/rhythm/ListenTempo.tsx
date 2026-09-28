@@ -69,7 +69,7 @@ export function ListenTempoSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-6"
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-3 pb-[calc(0.65rem+var(--tabbar-clearance))] sm:items-center sm:p-6 sm:pb-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="listen-tempo-title"
