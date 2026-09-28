@@ -161,7 +161,7 @@ export function ListenTempoSheet({
                 onClose()
               })}
             >
-              Use {chosen} BPM
+              Use this tempo
             </Button>
           ) : null}
           <div className="grid grid-cols-2 gap-2">
