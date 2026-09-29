@@ -262,11 +262,13 @@ export function TunerPage() {
   return (
     <AppChrome align="fill">
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="mx-auto w-min">
-          <h1 className="w-max text-center text-xl font-bold tracking-tight text-white sm:text-2xl">
+        <div className="mx-auto w-max">
+          <h1 className="text-center text-xl font-bold tracking-tight text-white sm:text-2xl">
             Tuner
           </h1>
-          <A4ReferenceControl a4Hz={a4Hz} onChange={setA4Hz} />
+          <div className="w-0 min-w-full">
+            <A4ReferenceControl a4Hz={a4Hz} onChange={setA4Hz} />
+          </div>
         </div>
 
         <div className="mt-4">
