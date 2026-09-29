@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 import { DEFAULT_INTENSITY_STYLE, DEFAULT_KIT_INTENSITY, type HitRole, type KitIntensity } from '@/lib/kit-intensity'
 import { realizeDrumBar } from '@/lib/kit-intensity-play'
 import { DEFAULT_KIT_MIX, DEFAULT_MASTER_VOLUME_DB, type KitMix } from '@/lib/kit-mix'
-import { onCaptureStarting, promotePlaybackSessionOnceWorking } from '@/lib/audio-context'
+import { onCaptureStarting } from '@/lib/audio-context'
 import { claimListenPreview } from '@/lib/listen-preview'
 import {
   LOOKAHEAD_MS,
@@ -615,9 +615,6 @@ export function useRhythmEngine({
           barStartRef.current = rebased
         }
         const horizon = scheduleHorizon(audioTime, observed.virtualNow, observed.frozen)
-        if (!observed.frozen && clockWatchRef.current.ticks > 2) {
-          promotePlaybackSessionOnceWorking(kit.ctx, true)
-        }
         while (nextTimeRef.current < horizon) {
           const tempo = applyPlaybackBpm()
           const sequence = liveBarsRef.current

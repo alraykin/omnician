@@ -46,7 +46,7 @@ import { requestRawMic } from '@/lib/mic-capture'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
-import { unlockSpeech, type SpeedBuilder, type SpeedBuilderCue } from '@/lib/speed-builder'
+import { type SpeedBuilder, type SpeedBuilderCue } from '@/lib/speed-builder'
 import { detectTempo, synthesizeClickTrack, type TempoEstimate } from '@/lib/tempo-detect'
 import { stopListenTempoPreview } from '@/lib/listen-preview'
 import { getTempoListener } from '@/lib/tempo-listen'
@@ -346,7 +346,6 @@ export function RhythmPage() {
       return
     }
     preparePlaybackFromGesture()
-    unlockSpeech()
     void ensureKit().then((kit) => {
       if (speedBuilder.enabled && speedBuilder.announce) {
         kit?.preloadAnnounce()

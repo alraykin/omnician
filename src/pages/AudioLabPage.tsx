@@ -38,9 +38,9 @@ const STRATEGIES: { id: LabStrategy; title: string; detail: string }[] = [
   },
   {
     id: 'P',
-    title: 'P · Preview then 8-bar Play (the live-app stall)',
+    title: 'P · Preview, Announce, precount, then 8-bar Play',
     detail:
-      'Same mic stop as A. Play then does Listen-style preview clicks, stops them, and starts the real lookahead scheduler for 8 bars of 4/4. Mark Heard only if it keeps going — not one click then silence.',
+      'Same mic stop as A. Play previews 4 Listen-style clicks, stops, plays the Kokoro announce clip through Web Audio (not speechSynthesis), counts in 4 precount pips, then 8 bars. Mark Heard only if it does not fade after the first precount clicks.',
   },
   {
     id: 'B',
@@ -118,8 +118,8 @@ export function AudioLabPage() {
               A-long
             </span>{' '}
             is A plus five seconds of real click and drum samples. <span className="text-white">P</span> is
-            the live-app sequence: mic, a few preview clicks, stop, then the real scheduler for 8
-            bars. Then tap{' '}
+            the live-app sequence: mic, preview clicks, a Web Audio announce clip, 4 precount pips,
+            then 8 bars that must not fade. Then tap{' '}
             <span className="text-white">Play test click</span> and mark Heard or Silent. Reset
             between letters. Fully quit Safari only after D or Silent switch if the next letter is
             silent, or if Reset leaves playback interrupted.
@@ -199,11 +199,12 @@ export function AudioLabPage() {
         <section className="rounded-2xl border border-amber-400/35 bg-amber-400/8 p-4">
           <h2 className="text-base font-bold text-amber-200">Silent switch</h2>
           <p className="mt-1 text-sm leading-5 text-slate-400">
-            The first button sets audioSession to playback <span className="text-white">before</span> the
-            context (the write that killed first Play as B6KcZYEI). The second matches the main app:
-            start the clicks, and only then set playback once currentTime is moving. Try each with
-            the ringer on, then with Silent on. If either poisons later letters, tap Reset, or fully
-            quit Safari before the next letter.
+            These two buttons write audioSession to playback on purpose so we can hear whether
+            Silent unmutes. The first write happens before the context (B6KcZYEI killed first Play).
+            The second writes after clicks are already running — that is the fade Alex heard after
+            one or two precount clicks, so the main app no longer does it. Try each with the ringer
+            on, then with Silent on. If either poisons later letters, tap Reset, or fully quit
+            Safari before the next letter.
           </p>
           <Button
             type="button"

@@ -18,8 +18,6 @@ export type AudioDebugSnapshot = {
   captureUsed: boolean
 }
 
-type AudioSessionType = 'auto' | 'playback' | 'play-and-record' | 'ambient'
-
 let playback: AudioContext | null = null
 let capture: AudioContext | null = null
 let lifecycleWired = false
@@ -30,8 +28,6 @@ let lastRecovery = 'none'
 let recoveries = 0
 let lastError = 'none'
 let captureUsedSincePlayback = false
-let sessionPromotedAfterRunning = false
-let ignoreInterruptUntil = 0
 
 const liveStreams = new Set<MediaStream>()
 const hiddenReleasers = new Set<() => void>()
@@ -148,23 +144,6 @@ export function onPlaybackRetiring(listener: () => void): () => void {
   }
 }
 
-function safariAudioSession(): { type: string } | undefined {
-  if (typeof navigator === 'undefined') return undefined
-  const session = (navigator as Navigator & { audioSession?: { type?: string } }).audioSession
-  if (!session || typeof session !== 'object') return undefined
-  return session as { type: string }
-}
-
-function setAudioSessionType(type: AudioSessionType): void {
-  const session = safariAudioSession()
-  if (!session) return
-  try {
-    session.type = type
-  } catch (error) {
-    noteAudioError(error, `audioSession.${type}`)
-  }
-}
-
 /** Tuner and Listen set this so the overlay shows "need recover" until Play resumes. */
 export function markCaptureUsed(): void {
   captureUsedSincePlayback = true
@@ -186,12 +165,9 @@ export function prepareCaptureFromGesture(): void {
   markCaptureUsed()
 }
 
-/** After capture, only touch audioSession if iOS left it in play-and-record. */
-function restoreSessionAfterCapture(): void {
-  const session = safariAudioSession()
-  if (!session || session.type !== 'play-and-record') return
-  setAudioSessionType('auto')
-}
+/** After capture, do not write audioSession. Lab A was heard without that write;
+ *  setting auto or playback during Play fades iOS Web Audio after the first
+ *  precount clicks (session category change). */
 
 async function disposeCaptureContext(): Promise<void> {
   if (liveStreams.size > 0) return
@@ -230,14 +206,6 @@ function wirePlayback(ctx: AudioContext): void {
     if (ctx !== playback) return
     const state = contextState(ctx)
     if (state !== 'interrupted') return
-    // A playback-session write after the metronome is already running can
-    // flicker interrupted. Resume and keep Play going instead of treating
-    // that the way the first-gesture write (B6KcZYEI) killed a fresh tab.
-    if (performance.now() < ignoreInterruptUntil) {
-      lastRecovery = 'interrupt-ignored-after-promote'
-      resumeFromGesture(ctx)
-      return
-    }
     // Stop the metronome UI if iOS interrupts mid-play. Do not close or
     // replace this context — the lab's working path just resume()s it
     // on the next Play / preview tap.
@@ -252,25 +220,6 @@ function wirePlayback(ctx: AudioContext): void {
       }
     }
   })
-}
-
-/**
- * Beat the iPhone silent switch without the B6KcZYEI first-Play death:
- * never write `playback` on the first gesture / before the context exists.
- * Only after this context is running and currentTime has moved.
- */
-export function promotePlaybackSessionOnceWorking(ctx: AudioContext, clockMoving: boolean): void {
-  if (sessionPromotedAfterRunning) return
-  if (!clockMoving) return
-  if (ctx !== playback) return
-  if (contextState(ctx) !== 'running') return
-  sessionPromotedAfterRunning = true
-  ignoreInterruptUntil = performance.now() + 1200
-  setAudioSessionType('playback')
-  lastRecovery =
-    lastRecovery === 'none' || lastRecovery === 'after-mic-resume'
-      ? 'session-playback-after-running'
-      : lastRecovery
 }
 
 function noteIfStillSuspended(ctx: AudioContext): void {
@@ -317,14 +266,15 @@ export function beginCaptureFromGesture(): AudioContext {
 }
 
 /**
- * Lab A/C/H: stop leftover mic hardware, optionally set session back to auto,
- * resume() the SAME playback context in this tap. Never close playback after
- * the mic — a fresh context was being born interrupted and the interrupt
- * handler then flipped Play back to Stop.
+ * Lab A/C/H: stop leftover mic hardware, resume() the SAME playback context
+ * in this tap. Never close playback after the mic, and never write
+ * audioSession — that fade is what killed Play after one or two precount clicks.
  */
 export function preparePlaybackFromGesture(): AudioContext {
   stopCaptureHardware()
-  restoreSessionAfterCapture()
+  // Do not write navigator.audioSession here. play-and-record → auto, or a
+  // later playback promote, fades Web Audio on iPhone after one or two
+  // precount clicks. Lab A only resume()s the same context.
   if (captureUsedSincePlayback) {
     lastRecovery = 'after-mic-resume'
     recoveries += 1

@@ -20,7 +20,7 @@ import {
 } from '@/lib/kit-mix'
 import { CLICK_SOUNDS, type ClickSoundId, type VoiceId } from '@/lib/rhythm'
 import type { RhythmStyleId } from '@/lib/rhythm-presets'
-import { clampSbPct, MAX_SB_PCT, MIN_SB_PCT, speakPercent } from '@/lib/speed-builder'
+import { clampSbPct, MAX_SB_PCT, MIN_SB_PCT } from '@/lib/speed-builder'
 
 export type DrumPlayOpts = {
   tier?: KitIntensity
@@ -983,12 +983,11 @@ export class RhythmKit {
       this.fire(buffer, time, 0.46, 1)
       return
     }
+    // Never speechSynthesis here — iOS fades Web Audio when the system voice
+    // starts, right after the first precount clicks.
     void this.ensureAnnounce(n).then((ready) => {
-      if (ready && time > this.ctx.currentTime + 0.012) {
-        this.fire(ready, time, 0.46, 1)
-        return
-      }
-      speakPercent(n)
+      if (!ready) return
+      if (time > this.ctx.currentTime + 0.012) this.fire(ready, time, 0.46, 1)
     })
   }
 

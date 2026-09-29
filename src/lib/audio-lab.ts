@@ -233,13 +233,32 @@ function fireOscAt(ctx: AudioContext, time: number): void {
   osc.stop(t + 0.04)
 }
 
-function scheduleEightBarLookahead(ctx: AudioContext): void {
+function firePrecountAt(ctx: AudioContext, time: number, strong: boolean): void {
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.type = 'square'
+  osc.frequency.value = strong ? 1680 : 1320
+  const immediate = time <= 0
+  const t = immediate ? ctx.currentTime : time
+  gain.gain.setValueAtTime(0.0001, t)
+  gain.gain.exponentialRampToValueAtTime(strong ? 0.55 : 0.32, t + 0.003)
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.028)
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(immediate ? 0 : time)
+  osc.stop(t + 0.035)
+}
+
+function schedulePrecountThenEightBars(ctx: AudioContext): void {
   if (lookaheadTimer) window.clearInterval(lookaheadTimer)
   const beat = 0.5
-  const total = 32
+  const precount = 4
+  const pattern = 32
+  const total = precount + pattern
   const watch = createClockWatch(ctx.currentTime, performance.now())
   let nextTime = ctx.currentTime + START_LEAD_SEC
   let remaining = total
+  let index = 0
   const tick = () => {
     const result = pumpClickScheduler({
       nextTime,
@@ -248,7 +267,11 @@ function scheduleEightBarLookahead(ctx: AudioContext): void {
       wallMs: performance.now(),
       beatSec: beat,
       watch,
-      emit: (when) => fireOscAt(ctx, when),
+      emit: (when) => {
+        if (index < precount) firePrecountAt(ctx, when, index === 0)
+        else fireOscAt(ctx, when)
+        index += 1
+      },
     })
     nextTime = result.nextTime
     remaining = result.remaining
@@ -257,12 +280,21 @@ function scheduleEightBarLookahead(ctx: AudioContext): void {
       lookaheadTimer = 0
       phase = 'mark'
       status =
-        'Did you hear 8 bars of click after the preview (32 beats, not one and then silence)? Mark Heard or Silent.'
+        'Did you hear a spoken percent (or skip if the clip was missing), 4 precount pips, then 8 bars that kept going? Mark Heard only if it did not fade after the first precount clicks.'
       emit()
     }
   }
   tick()
   lookaheadTimer = window.setInterval(tick, LOOKAHEAD_MS)
+}
+
+async function playAnnounceClip(ctx: AudioContext): Promise<void> {
+  try {
+    const buffer = await decodeUrl(ctx, '/rhythm/announce/af_heart/070.mp3')
+    fireBuffer(ctx, buffer, ctx.currentTime + 0.03, 0.46)
+  } catch (error) {
+    noteError(error, 'P.announce')
+  }
 }
 
 function playPreviewThenEightBars(ctx: AudioContext): void {
@@ -272,13 +304,14 @@ function playPreviewThenEightBars(ctx: AudioContext): void {
   const beat = 0.5
   const start = ctx.currentTime + 0.03
   for (let i = 0; i < 4; i += 1) fireOscAt(ctx, start + i * beat)
-  status = 'Previewing 4 clicks (like Listen 1×). The real 8-bar scheduler starts right after they stop.'
+  status = 'Previewing 4 clicks (like Listen 1×). Then Announce + precount + 8-bar Play — Web Audio only, no session write.'
   emit()
   clickTimer = window.setTimeout(() => {
     clickTimer = 0
-    status = 'Preview stopped. Playing 8 bars on the real lookahead scheduler…'
+    status = 'Preview stopped. Playing Kokoro announce through Web Audio, 4 precount pips, then 8 bars…'
     emit()
-    scheduleEightBarLookahead(ctx)
+    void playAnnounceClip(ctx)
+    schedulePrecountThenEightBars(ctx)
   }, 4 * beat * 1000 + 80)
 }
 
@@ -545,7 +578,7 @@ async function runAfterMic(id: number, chosen: LabStrategy, pending: Promise<Med
     phase = 'mic'
     status =
       chosen === 'P'
-        ? 'Mic is live for about 3 seconds. Then Play previews 4 clicks (like Listen 1×), stops, and runs the real 8-bar scheduler.'
+        ? 'Mic is live for about 3 seconds. Then Play previews 4 clicks, plays a Web Audio announce clip, counts in 4 precount pips, and runs 8 bars. It must not fade after the first pips.'
         : 'Mic is live for about 3 seconds…'
     emit()
 
@@ -643,7 +676,7 @@ export function playTestClickFromTap(): void {
       return
     }
     if (chosen === 'P') {
-      status = 'Mic stopped. Previewing 4 clicks, then the real 8-bar scheduler…'
+      status = 'Mic stopped. Preview, then Announce + precount + 8 bars (Web Audio announce clip)…'
       playPreviewThenEightBars(ctx)
       return
     }
