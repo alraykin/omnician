@@ -30,6 +30,8 @@ let lastRecovery = 'none'
 let recoveries = 0
 let lastError = 'none'
 let captureUsedSincePlayback = false
+let sessionPromotedAfterRunning = false
+let ignoreInterruptUntil = 0
 
 const liveStreams = new Set<MediaStream>()
 const hiddenReleasers = new Set<() => void>()
@@ -228,6 +230,14 @@ function wirePlayback(ctx: AudioContext): void {
     if (ctx !== playback) return
     const state = contextState(ctx)
     if (state !== 'interrupted') return
+    // A playback-session write after the metronome is already running can
+    // flicker interrupted. Resume and keep Play going instead of treating
+    // that the way the first-gesture write (B6KcZYEI) killed a fresh tab.
+    if (performance.now() < ignoreInterruptUntil) {
+      lastRecovery = 'interrupt-ignored-after-promote'
+      resumeFromGesture(ctx)
+      return
+    }
     // Stop the metronome UI if iOS interrupts mid-play. Do not close or
     // replace this context — the lab's working path just resume()s it
     // on the next Play / preview tap.
@@ -242,6 +252,25 @@ function wirePlayback(ctx: AudioContext): void {
       }
     }
   })
+}
+
+/**
+ * Beat the iPhone silent switch without the B6KcZYEI first-Play death:
+ * never write `playback` on the first gesture / before the context exists.
+ * Only after this context is running and currentTime has moved.
+ */
+export function promotePlaybackSessionOnceWorking(ctx: AudioContext, clockMoving: boolean): void {
+  if (sessionPromotedAfterRunning) return
+  if (!clockMoving) return
+  if (ctx !== playback) return
+  if (contextState(ctx) !== 'running') return
+  sessionPromotedAfterRunning = true
+  ignoreInterruptUntil = performance.now() + 1200
+  setAudioSessionType('playback')
+  lastRecovery =
+    lastRecovery === 'none' || lastRecovery === 'after-mic-resume'
+      ? 'session-playback-after-running'
+      : lastRecovery
 }
 
 function noteIfStillSuspended(ctx: AudioContext): void {

@@ -872,6 +872,7 @@ export class RhythmKit {
   private readonly announceBuffers = new Map<number, AudioBuffer>()
   private readonly announceLoads = new Map<number, Promise<AudioBuffer | null>>()
   private announceWarmed = false
+  private gainRestoreTimer = 0
   private readonly ready: Promise<void>
 
   constructor(ctx: AudioContext) {
@@ -1139,6 +1140,22 @@ export class RhythmKit {
       this.master.gain.setValueAtTime(restore, now + 0.008)
     } catch {
       this.master.gain.setValueAtTime(restore, now)
+    }
+    if (typeof window !== 'undefined') {
+      if (this.gainRestoreTimer) window.clearTimeout(this.gainRestoreTimer)
+      this.gainRestoreTimer = window.setTimeout(() => {
+        this.gainRestoreTimer = 0
+        const snap = this.playbackGain()
+        const t = this.ctx.currentTime
+        try {
+          this.master.gain.cancelScheduledValues(t)
+          this.master.gain.setValueAtTime(snap, t)
+          this.reverbWet.gain.cancelScheduledValues(t)
+          this.reverbWet.gain.setValueAtTime(REVERB_RETURN, t)
+        } catch {
+          this.master.gain.value = snap
+        }
+      }, 24)
     }
   }
 

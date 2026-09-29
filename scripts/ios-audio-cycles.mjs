@@ -21,6 +21,8 @@ function auditSources() {
     'src/lib/mic-capture.ts',
     'src/lib/rhythm-audio.ts',
     'src/lib/listen-preview.ts',
+    'src/lib/lookahead-scheduler.ts',
+    'src/hooks/useRhythmEngine.ts',
     'src/pages/RhythmPage.tsx',
     'src/components/AppTabBar.tsx',
     'src/App.tsx',
@@ -36,11 +38,13 @@ function auditSources() {
   assert.match(joined, /onPlaybackInterrupted/)
   assert.match(joined, /AudioDebugOverlay/)
   const audioSrc = readFileSync('src/lib/audio-context.ts', 'utf8')
-  assert.doesNotMatch(audioSrc, /setAudioSessionType\('playback'\)/)
   assert.doesNotMatch(audioSrc, /setAudioSessionType\('play-and-record'\)/)
   assert.doesNotMatch(audioSrc, /armPlaybackSessionOnce/)
   assert.match(audioSrc, /stopCaptureHardware/)
   assert.match(audioSrc, /after-mic-resume/)
+  assert.match(audioSrc, /promotePlaybackSessionOnceWorking/)
+  assert.match(audioSrc, /session-playback-after-running/)
+  assert.match(audioSrc, /interrupt-ignored-after-promote/)
   assert.doesNotMatch(audioSrc, /recoverPlaybackAfterCapture/)
   assert.doesNotMatch(audioSrc, /needsFreshPlayback/)
   assert.match(audioSrc, /session\.type !== 'play-and-record'/)
@@ -56,6 +60,17 @@ function auditSources() {
   assert.doesNotMatch(listenSrc, /getSharedAudioContext\(\)[\s\S]{0,200}createMediaStreamSource/)
   const previewSrc = readFileSync('src/lib/listen-preview.ts', 'utf8')
   assert.match(previewSrc, /preparePlaybackFromGesture\(\)/)
+  assert.match(previewSrc, /previewGeneration/)
+  assert.match(previewSrc, /claimListenPreview/)
+  const schedulerSrc = readFileSync('src/lib/lookahead-scheduler.ts', 'utf8')
+  assert.match(schedulerSrc, /SCHEDULE_AHEAD_SEC = 1\.5/)
+  assert.match(schedulerSrc, /FROZEN_PLAY_WHEN/)
+  assert.match(schedulerSrc, /pumpClickScheduler/)
+  const engineSrc = readFileSync('src/hooks/useRhythmEngine.ts', 'utf8')
+  assert.match(engineSrc, /claimListenPreview\(\)/)
+  assert.match(engineSrc, /watchClock/)
+  assert.match(engineSrc, /promotePlaybackSessionOnceWorking/)
+  assert.doesNotMatch(engineSrc, /SCHEDULE_AHEAD = 0\.12/)
   const tunerSrc = readFileSync('src/lib/tuner-session.ts', 'utf8')
   assert.match(tunerSrc, /markCaptureUsed\(\)/)
   const interruptBlock = audioSrc.slice(
@@ -64,7 +79,10 @@ function auditSources() {
   )
   assert.doesNotMatch(interruptBlock, /markCaptureUsed/)
   const playTap = audioSrc.slice(audioSrc.indexOf('export function preparePlaybackFromGesture'))
-  assert.doesNotMatch(playTap, /setAudioSessionType\('playback'\)/)
+  assert.doesNotMatch(
+    playTap.slice(0, playTap.indexOf('export function unlockPlaybackFromGesture')),
+    /setAudioSessionType\('playback'\)/,
+  )
   assert.match(playTap, /stopCaptureHardware\(\)/)
   assert.match(playTap, /unlockPlaybackFromGesture\(\)/)
   const unlockTap = audioSrc.slice(audioSrc.indexOf('export function unlockPlaybackFromGesture'))

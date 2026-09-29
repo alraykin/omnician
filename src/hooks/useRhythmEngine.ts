@@ -3,7 +3,18 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 import { DEFAULT_INTENSITY_STYLE, DEFAULT_KIT_INTENSITY, type HitRole, type KitIntensity } from '@/lib/kit-intensity'
 import { realizeDrumBar } from '@/lib/kit-intensity-play'
 import { DEFAULT_KIT_MIX, DEFAULT_MASTER_VOLUME_DB, type KitMix } from '@/lib/kit-mix'
-import { onCaptureStarting } from '@/lib/audio-context'
+import { onCaptureStarting, promotePlaybackSessionOnceWorking } from '@/lib/audio-context'
+import { claimListenPreview } from '@/lib/listen-preview'
+import {
+  LOOKAHEAD_MS,
+  START_LEAD_SEC,
+  createClockWatch,
+  noteStartTime,
+  rebaseNoteTime,
+  scheduleHorizon,
+  watchClock,
+  type ClockWatch,
+} from '@/lib/lookahead-scheduler'
 import { getOrCreateRhythmKit, type RhythmKit } from '@/lib/rhythm-audio'
 import {
   barDurationSec,
@@ -43,14 +54,11 @@ export type Playhead = {
   precount: boolean
 }
 
-const LOOKAHEAD_MS = 25
-const SCHEDULE_AHEAD = 0.12
+const IDLE_PLAYHEAD: Playhead = { bar: 0, step: -1, beat: -1, accent: 0, subdivision: false, precount: false }
 /** Paint the step a frame early so React/DOM land with the audible hit. */
 const VISUAL_LEAD = 0.02
 /** Voices closer than this stay; we only cancel/reschedule what's still in the future. */
 const COMMIT_SEC = LIVE_COMMIT_SEC
-
-const IDLE_PLAYHEAD: Playhead = { bar: 0, step: -1, beat: -1, accent: 0, subdivision: false, precount: false }
 
 export type PlayheadStore = {
   getSnapshot: () => Playhead
@@ -171,6 +179,8 @@ export function useRhythmEngine({
   const barStartRef = useRef(0)
   const barTempoRef = useRef(bpm)
   const retargetRef = useRef<(reason: 'tempo' | 'intensity') => void>(() => undefined)
+  const clockWatchRef = useRef<ClockWatch>(createClockWatch(0, 0))
+  const freezeResumeRef = useRef(false)
 
   playingRef.current = playing
   bpmRef.current = bpm
@@ -341,7 +351,8 @@ export function useRhythmEngine({
 
     let cancelled = false
 
-    const start = async () => {
+    const start = () => {
+      claimListenPreview()
       const kit = grabKit()
       if (!kit || cancelled || !playingRef.current) return
       void kit.unlock()
@@ -352,7 +363,9 @@ export function useRhythmEngine({
       stepRef.current = 0
       barRef.current = 0
       armedBarRef.current = null
-      nextTimeRef.current = kit.ctx.currentTime + 0.05
+      freezeResumeRef.current = false
+      clockWatchRef.current = createClockWatch(kit.ctx.currentTime, performance.now())
+      nextTimeRef.current = kit.ctx.currentTime + START_LEAD_SEC
 
       const sb = speedBuilderRef.current
       const sbStart = sb.enabled
@@ -440,15 +453,16 @@ export function useRhythmEngine({
         barIndex: number,
         bar: RhythmBar,
         step: number,
-        time: number,
+        playTime: number,
+        cueTime: number,
       ) => {
         const pulses = clickPulsesInBar(bar, playbackBpmRef.current)
         const pulse = pulses[step]
         if (!pulse) return
         const accent = pulse.onBeat ? beatAccentAt(bar.beatAccents, pulse.beat) : 0
-        kit.click(time, accent, clickRef.current, pulse.onBeat)
+        kit.click(playTime, accent, clickRef.current, pulse.onBeat)
         cuesRef.current.push({
-          time,
+          time: cueTime,
           bar: barIndex,
           step: pulse.slot,
           beat: pulse.beat,
@@ -588,20 +602,37 @@ export function useRhythmEngine({
 
       tick = () => {
         if (!playingRef.current) return
-        while (nextTimeRef.current < kit.ctx.currentTime + SCHEDULE_AHEAD) {
+        const audioTime = kit.ctx.currentTime
+        const observed = watchClock(clockWatchRef.current, audioTime, performance.now())
+        if (observed.frozen && !freezeResumeRef.current) {
+          freezeResumeRef.current = true
+          void kit.ctx.resume().catch(() => undefined)
+        }
+        const now = observed.frozen ? observed.virtualNow : audioTime
+        const rebased = rebaseNoteTime(nextTimeRef.current, now, START_LEAD_SEC, observed.frozen)
+        if (rebased !== nextTimeRef.current) {
+          nextTimeRef.current = rebased
+          barStartRef.current = rebased
+        }
+        const horizon = scheduleHorizon(audioTime, observed.virtualNow, observed.frozen)
+        if (!observed.frozen && clockWatchRef.current.ticks > 2) {
+          promotePlaybackSessionOnceWorking(kit.ctx, true)
+        }
+        while (nextTimeRef.current < horizon) {
           const tempo = applyPlaybackBpm()
           const sequence = liveBarsRef.current
           if (sequence.length === 0) return
-          const time = nextTimeRef.current
+          const slotTime = nextTimeRef.current
+          const playTime = noteStartTime(slotTime, observed.frozen)
 
           if (sbPhaseRef.current === 'precount') {
             const first = playbackBar(0) ?? sequence[0]
             if (!first) return
             const beat = precountBeatRef.current
             const strong = beat === 0
-            kit.precount(time, strong)
+            kit.precount(playTime, strong)
             cuesRef.current.push({
-              time,
+              time: slotTime,
               bar: 0,
               step: 0,
               beat,
@@ -609,7 +640,7 @@ export function useRhythmEngine({
               subdivision: false,
               precount: true,
             })
-            nextTimeRef.current = time + beatDurationSec(tempo, first.beatUnit)
+            nextTimeRef.current = slotTime + beatDurationSec(tempo, first.beatUnit)
             precountBeatRef.current = beat + 1
             if (precountBeatRef.current >= first.beats) {
               sbPhaseRef.current = 'pattern'
@@ -628,19 +659,19 @@ export function useRhythmEngine({
           const step = stepRef.current
           const pulse = pulses[step]
           if (step === 0) {
-            barStartRef.current = time
+            barStartRef.current = slotTime
             barTempoRef.current = tempo
           }
 
-          if (clickMode) scheduleClickPulse(barIndex, bar, step, time)
-          else scheduleDrumStep(barIndex, step, time)
+          if (clickMode) scheduleClickPulse(barIndex, bar, step, playTime, slotTime)
+          else scheduleDrumStep(barIndex, step, slotTime)
 
           const nextStep = step + 1
           if (nextStep >= length) {
             const wrapped = (barIndex + 1) % sequence.length
             const barEnd = clickMode
-              ? time - (pulse?.offsetSec ?? 0) + barDurationSec(bar.beats, tempo, bar.beatUnit)
-              : time + stepDurationSec(tempo, bar.subdivision, bar.beatUnit)
+              ? slotTime - (pulse?.offsetSec ?? 0) + barDurationSec(bar.beats, tempo, bar.beatUnit)
+              : slotTime + stepDurationSec(tempo, bar.subdivision, bar.beatUnit)
             stepRef.current = 0
             if (wrapped === 0) {
               commitPendingCycle()
@@ -662,10 +693,10 @@ export function useRhythmEngine({
             }
           } else if (clickMode && pulse && pulses[nextStep]) {
             stepRef.current = nextStep
-            nextTimeRef.current = time + (pulses[nextStep].offsetSec - pulse.offsetSec)
+            nextTimeRef.current = slotTime + (pulses[nextStep].offsetSec - pulse.offsetSec)
           } else {
             stepRef.current = nextStep
-            nextTimeRef.current = time + stepDurationSec(tempo, bar.subdivision, bar.beatUnit)
+            nextTimeRef.current = slotTime + stepDurationSec(tempo, bar.subdivision, bar.beatUnit)
           }
         }
       }
@@ -674,7 +705,9 @@ export function useRhythmEngine({
 
       const pumpVisuals = () => {
         if (!playingRef.current) return
-        const due = kit.ctx.currentTime + VISUAL_LEAD
+        const audioTime = kit.ctx.currentTime
+        const observed = clockWatchRef.current
+        const due = (observed.frozen ? observed.virtualNow : audioTime) + VISUAL_LEAD
         const queue = cuesRef.current
         let latest: (Playhead & { time: number }) | null = null
         let count = 0
@@ -702,7 +735,7 @@ export function useRhythmEngine({
       rafRef.current = window.requestAnimationFrame(pumpVisuals)
     }
 
-    void start()
+    start()
 
     return () => {
       cancelled = true

@@ -1,6 +1,12 @@
 import type { AudioDebugSnapshot } from '@/lib/audio-context'
+import {
+  LOOKAHEAD_MS,
+  START_LEAD_SEC,
+  createClockWatch,
+  pumpClickScheduler,
+} from '@/lib/lookahead-scheduler'
 
-export type LabStrategy = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'L' | 'S'
+export type LabStrategy = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'L' | 'P' | 'S'
 
 export type LabPhase = 'idle' | 'mic' | 'ready' | 'playing' | 'mark'
 
@@ -209,6 +215,71 @@ function htmlClickUrl(): string {
   if (htmlUrl) return htmlUrl
   htmlUrl = URL.createObjectURL(encodeWav(clickSamples(44100, 8, 120), 44100))
   return htmlUrl
+}
+
+function fireOscAt(ctx: AudioContext, time: number): void {
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.type = 'sine'
+  osc.frequency.value = 1180
+  const immediate = time <= 0
+  const t = immediate ? ctx.currentTime : time
+  gain.gain.setValueAtTime(0.0001, t)
+  gain.gain.exponentialRampToValueAtTime(0.7, t + 0.004)
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.03)
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(immediate ? 0 : time)
+  osc.stop(t + 0.04)
+}
+
+function scheduleEightBarLookahead(ctx: AudioContext): void {
+  if (lookaheadTimer) window.clearInterval(lookaheadTimer)
+  const beat = 0.5
+  const total = 32
+  const watch = createClockWatch(ctx.currentTime, performance.now())
+  let nextTime = ctx.currentTime + START_LEAD_SEC
+  let remaining = total
+  const tick = () => {
+    const result = pumpClickScheduler({
+      nextTime,
+      remaining,
+      audioTime: ctx.currentTime,
+      wallMs: performance.now(),
+      beatSec: beat,
+      watch,
+      emit: (when) => fireOscAt(ctx, when),
+    })
+    nextTime = result.nextTime
+    remaining = result.remaining
+    if (remaining <= 0) {
+      window.clearInterval(lookaheadTimer)
+      lookaheadTimer = 0
+      phase = 'mark'
+      status =
+        'Did you hear 8 bars of click after the preview (32 beats, not one and then silence)? Mark Heard or Silent.'
+      emit()
+    }
+  }
+  tick()
+  lookaheadTimer = window.setInterval(tick, LOOKAHEAD_MS)
+}
+
+function playPreviewThenEightBars(ctx: AudioContext): void {
+  if (clickTimer) window.clearTimeout(clickTimer)
+  if (lookaheadTimer) window.clearInterval(lookaheadTimer)
+  resumeNow(ctx)
+  const beat = 0.5
+  const start = ctx.currentTime + 0.03
+  for (let i = 0; i < 4; i += 1) fireOscAt(ctx, start + i * beat)
+  status = 'Previewing 4 clicks (like Listen 1×). The real 8-bar scheduler starts right after they stop.'
+  emit()
+  clickTimer = window.setTimeout(() => {
+    clickTimer = 0
+    status = 'Preview stopped. Playing 8 bars on the real lookahead scheduler…'
+    emit()
+    scheduleEightBarLookahead(ctx)
+  }, 4 * beat * 1000 + 80)
 }
 
 function fireBuffer(ctx: AudioContext, buffer: AudioBuffer, time: number, gain: number): void {
@@ -472,7 +543,10 @@ async function runAfterMic(id: number, chosen: LabStrategy, pending: Promise<Med
       return
     }
     phase = 'mic'
-    status = 'Mic is live for about 3 seconds…'
+    status =
+      chosen === 'P'
+        ? 'Mic is live for about 3 seconds. Then Play previews 4 clicks (like Listen 1×), stops, and runs the real 8-bar scheduler.'
+        : 'Mic is live for about 3 seconds…'
     emit()
 
     micTimer = window.setTimeout(() => finishMicStop(id, chosen), 3000)
@@ -515,6 +589,33 @@ export function beginSilentSwitchFromTap(): void {
   emit()
 }
 
+/** Same safety as the main app: clicks first, then playback session once the clock moves. */
+export function beginSilentSwitchAfterRunningFromTap(): void {
+  hardReset(false)
+  session += 1
+  strategy = 'S'
+  lastError = 'none'
+  lastRecovery = 'S-after-running'
+  const ctx = ensurePlayback()
+  resumeNow(ctx)
+  phase = 'playing'
+  status = 'Playing clicks first. audioSession playback is set only after currentTime is moving.'
+  const started = ctx.currentTime
+  scheduleWebClicks(ctx)
+  const poll = window.setInterval(() => {
+    if (ctx.currentTime > started + 0.12) {
+      window.clearInterval(poll)
+      setSessionType('playback')
+      lastRecovery = 'S-session-playback-after-running'
+      status =
+        'Clock was moving, then audioSession was set to playback. Mark Heard or Silent (try with Silent on).'
+      emit()
+    }
+  }, 40)
+  window.setTimeout(() => window.clearInterval(poll), 2500)
+  emit()
+}
+
 export function playTestClickFromTap(): void {
   if (phase !== 'ready' && phase !== 'mark') return
   const chosen = strategy
@@ -532,13 +633,18 @@ export function playTestClickFromTap(): void {
     return
   }
 
-  if (chosen === 'A' || chosen === 'C' || chosen === 'E' || chosen === 'G' || chosen === 'H' || chosen === 'L') {
+  if (chosen === 'A' || chosen === 'C' || chosen === 'E' || chosen === 'G' || chosen === 'H' || chosen === 'L' || chosen === 'P') {
     const ctx = chosen === 'E' ? ensurePlayback() : playback && ctxState(playback) !== 'closed' ? playback : ensurePlayback()
     resumeNow(ctx)
     if (chosen === 'L') {
       status = 'Playing ~5s of wood click + kick/snare on a lookahead scheduler…'
       scheduleLongKit(ctx)
       emit()
+      return
+    }
+    if (chosen === 'P') {
+      status = 'Mic stopped. Previewing 4 clicks, then the real 8-bar scheduler…'
+      playPreviewThenEightBars(ctx)
       return
     }
     scheduleWebClicks(ctx)

@@ -5,6 +5,7 @@ import { AudioDebugOverlay } from '@/components/AudioDebugOverlay'
 import { OmnicianWordmark } from '@/components/OmnicianMark'
 import { Button } from '@/components/ui/button'
 import {
+  beginSilentSwitchAfterRunningFromTap,
   beginSilentSwitchFromTap,
   beginStrategyFromTap,
   clearLabLog,
@@ -34,6 +35,12 @@ const STRATEGIES: { id: LabStrategy; title: string; detail: string }[] = [
     id: 'L',
     title: 'A-long · Real click + drums for 5 seconds',
     detail: 'Same mic stop as A, then a lookahead scheduler plays wood click plus kick/snare samples for about 5 seconds.',
+  },
+  {
+    id: 'P',
+    title: 'P · Preview then 8-bar Play (the live-app stall)',
+    detail:
+      'Same mic stop as A. Play then does Listen-style preview clicks, stops them, and starts the real lookahead scheduler for 8 bars of 4/4. Mark Heard only if it keeps going — not one click then silence.',
   },
   {
     id: 'B',
@@ -110,7 +117,9 @@ export function AudioLabPage() {
             same playback context after the mic (what Click/Listen now do). <span className="text-white">
               A-long
             </span>{' '}
-            is A plus five seconds of real click and drum samples. Then tap{' '}
+            is A plus five seconds of real click and drum samples. <span className="text-white">P</span> is
+            the live-app sequence: mic, a few preview clicks, stop, then the real scheduler for 8
+            bars. Then tap{' '}
             <span className="text-white">Play test click</span> and mark Heard or Silent. Reset
             between letters. Fully quit Safari only after D or Silent switch if the next letter is
             silent, or if Reset leaves playback interrupted.
@@ -190,9 +199,11 @@ export function AudioLabPage() {
         <section className="rounded-2xl border border-amber-400/35 bg-amber-400/8 p-4">
           <h2 className="text-base font-bold text-amber-200">Silent switch</h2>
           <p className="mt-1 text-sm leading-5 text-slate-400">
-            No mic. Sets audioSession to playback, then plays 8 Web Audio clicks. Try once with the
-            ringer on, then with Silent on. If this poisons later letters, tap Reset, or fully quit
-            Safari before the next letter.
+            The first button sets audioSession to playback <span className="text-white">before</span> the
+            context (the write that killed first Play as B6KcZYEI). The second matches the main app:
+            start the clicks, and only then set playback once currentTime is moving. Try each with
+            the ringer on, then with Silent on. If either poisons later letters, tap Reset, or fully
+            quit Safari before the next letter.
           </p>
           <Button
             type="button"
@@ -202,7 +213,17 @@ export function AudioLabPage() {
             disabled={view.phase !== 'idle'}
             {...activateOnPointer(() => beginSilentSwitchFromTap())}
           >
-            Set playback session + test click
+            Set playback first, then click
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-2 h-14 w-full"
+            data-lab-silent-switch-after
+            disabled={view.phase !== 'idle'}
+            {...activateOnPointer(() => beginSilentSwitchAfterRunningFromTap())}
+          >
+            Click first, then set playback
           </Button>
         </section>
 
