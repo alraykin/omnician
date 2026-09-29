@@ -57,6 +57,8 @@ function auditSources() {
   const listenSrc = readFileSync('src/lib/tempo-listen.ts', 'utf8')
   assert.match(listenSrc, /markCaptureUsed\(\)/)
   assert.match(listenSrc, /const startMic[\s\S]*markCaptureUsed\(\)/)
+  assert.match(listenSrc, /onaudioprocess = null/)
+  assert.match(listenSrc, /disposeCaptureIfIdle/)
   assert.doesNotMatch(listenSrc, /getSharedAudioContext\(\)[\s\S]{0,200}createMediaStreamSource/)
   const previewSrc = readFileSync('src/lib/listen-preview.ts', 'utf8')
   assert.match(previewSrc, /preparePlaybackFromGesture\(\)/)
@@ -86,6 +88,8 @@ function auditSources() {
   assert.doesNotMatch(labSrc, /SpeechSynthesisUtterance|speechSynthesis\.speak/)
   const tunerSrc = readFileSync('src/lib/tuner-session.ts', 'utf8')
   assert.match(tunerSrc, /markCaptureUsed\(\)/)
+  assert.match(tunerSrc, /captureSource/)
+  assert.match(tunerSrc, /disposeCaptureIfIdle/)
   const interruptBlock = audioSrc.slice(
     audioSrc.indexOf('function wirePlayback'),
     audioSrc.indexOf('function noteIfStillSuspended'),
@@ -97,7 +101,7 @@ function auditSources() {
   assert.doesNotMatch(rhythmPage, /unlockSpeech/)
   assert.doesNotMatch(rhythmPage, /onPlaybackInterrupted/)
   const playTap = audioSrc.slice(audioSrc.indexOf('export function preparePlaybackFromGesture'))
-  assert.match(playTap, /stopMicTracks\(\)/)
+  assert.match(playTap, /endLiveMicSessions\(\)/)
   assert.doesNotMatch(
     playTap.slice(0, playTap.indexOf('export function unlockPlaybackFromGesture')),
     /disposeCaptureContext|stopCaptureHardware/,
@@ -105,6 +109,8 @@ function auditSources() {
   assert.match(playTap, /unlockPlaybackFromGesture\(\)/)
   const unlockTap = audioSrc.slice(audioSrc.indexOf('export function unlockPlaybackFromGesture'))
   assert.match(unlockTap, /resumeFromGesture\(ctx\)/)
+  const micSrc = readFileSync('src/lib/mic-capture.ts', 'utf8')
+  assert.match(micSrc, /adoptMicStream\(await navigator.mediaDevices.getUserMedia/)
   console.log('ok  source audit: resume same playback after mic, no rebuild, resume in tap')
 }
 

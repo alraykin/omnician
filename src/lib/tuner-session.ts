@@ -1,12 +1,12 @@
 import {
   adoptMicStream,
   beginCaptureFromGesture,
+  disposeCaptureIfIdle,
   getCaptureAudioContext,
   markCaptureUsed,
   onHiddenReleaseCapture,
   releaseMicStream,
   resumeSharedAudioContext,
-  stopMediaTracks,
 } from '@/lib/audio-context'
 import { clampA4 } from '@/lib/custom-presets'
 import { analyzeFrequency, A4_HZ, rms } from '@/lib/notes'
@@ -27,7 +27,6 @@ import { filterBuffer } from '@/lib/pitch-filter'
 import { createSmoothState, pushEstimate, type SmoothState } from '@/lib/pitch-smooth'
 
 const UI_PERIOD_MS = 16
-const LEAVE_STOP_MS = 80
 const ORPHAN_PRIME_MS = 1600
 
 export type TunerStatus =
@@ -101,7 +100,6 @@ let snapshot: TunerSnapshot = {
 let a4Hz = A4_HZ
 let sessionId = 0
 let pageCount = 0
-let leaveTimer = 0
 let orphanTimer = 0
 let lastStartHadGesture = false
 let lastError = ''
@@ -113,6 +111,7 @@ let engine: 'worklet' | 'analyser' | 'none' = 'none'
 
 let audio: AudioContext | null = null
 let stream: MediaStream | null = null
+let captureSource: AudioNode | null = null
 let oscillator: OscillatorNode | null = null
 let worklet: AudioWorkletNode | null = null
 let raf = 0
@@ -258,6 +257,13 @@ function teardown(nextStatus: TunerStatus | null): void {
     // already gone
   }
 
+  try {
+    captureSource?.disconnect()
+  } catch {
+    // already gone
+  }
+  captureSource = null
+
   const liveStream = stream
   stream = null
   releaseMicStream(liveStream)
@@ -337,10 +343,6 @@ export async function setTunerInputDevice(id: string | null): Promise<void> {
 }
 
 export function stopTuner(): void {
-  if (leaveTimer) {
-    window.clearTimeout(leaveTimer)
-    leaveTimer = 0
-  }
   if (orphanTimer) {
     window.clearTimeout(orphanTimer)
     orphanTimer = 0
@@ -427,7 +429,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     }
 
     if (sessionId !== session) {
-      stopMediaTracks(nextStream)
+      releaseMicStream(nextStream)
       if (audio === ctx) audio = null
       return
     }
@@ -449,6 +451,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     }
     try {
       source = ctx.createMediaStreamSource(nextStream)
+      captureSource = source
     } catch (error) {
       lastError = `SOURCE: ${error instanceof Error ? error.message : String(error)}`
       releaseMicStream(nextStream)
@@ -600,10 +603,6 @@ export function beginTunerFromTap(): void {
 
 export function enterTunerPage(): void {
   pageCount += 1
-  if (leaveTimer) {
-    window.clearTimeout(leaveTimer)
-    leaveTimer = 0
-  }
   if (orphanTimer) {
     window.clearTimeout(orphanTimer)
     orphanTimer = 0
@@ -614,13 +613,8 @@ export function enterTunerPage(): void {
 export function leaveTunerPage(): void {
   pageCount = Math.max(0, pageCount - 1)
   if (pageCount > 0) return
-  releaseMicStream(stream)
-  stream = null
-  if (leaveTimer) window.clearTimeout(leaveTimer)
-  leaveTimer = window.setTimeout(() => {
-    leaveTimer = 0
-    if (pageCount === 0) stopTuner()
-  }, LEAVE_STOP_MS)
+  stopTuner()
+  disposeCaptureIfIdle()
 }
 
 onHiddenReleaseCapture(() => {

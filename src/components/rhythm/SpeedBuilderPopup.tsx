@@ -30,11 +30,17 @@ export function SpeedBuilderPopup({ cue }: { cue: SpeedBuilderCue | null }) {
           visible ? 'opacity-100' : 'opacity-0',
         )}
       >
-        <p className="text-[4.75rem] font-extrabold tabular-nums leading-none tracking-tight text-white sm:text-[6rem]">
+        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-[#C084FC]">
+          Speed Builder
+        </p>
+        <p className="mt-2 text-[4.75rem] font-extrabold tabular-nums leading-none tracking-tight text-white sm:text-[6rem]">
           {shown.pct}%
         </p>
         <p className="mt-2 text-[2.25rem] font-bold tabular-nums leading-none text-white/90 sm:text-5xl">
           {shown.bpm} BPM
+        </p>
+        <p className="mt-3 text-sm text-slate-400">
+          Practice tempo. The dial keeps the 100% goal.
         </p>
       </div>
     </div>

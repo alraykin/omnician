@@ -1,4 +1,9 @@
-import { getCaptureAudioContext, prepareCaptureFromGesture, resumeSharedAudioContext } from '@/lib/audio-context'
+import {
+  adoptMicStream,
+  getCaptureAudioContext,
+  prepareCaptureFromGesture,
+  resumeSharedAudioContext,
+} from '@/lib/audio-context'
 
 type ChromeAudioTrack = MediaTrackConstraints & {
   googEchoCancellation?: boolean
@@ -110,7 +115,7 @@ export async function requestRawMic(deviceId?: string | null): Promise<MediaStre
   let lastError: unknown
   for (const constraints of attempts) {
     try {
-      return await navigator.mediaDevices.getUserMedia(constraints)
+      return adoptMicStream(await navigator.mediaDevices.getUserMedia(constraints))
     } catch (error) {
       lastError = error
       if (isPermissionError(error)) throw error

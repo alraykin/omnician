@@ -104,9 +104,19 @@ export function stopMediaTracks(stream: MediaStream | null | undefined): void {
   if (!stream) return
   for (const track of stream.getTracks()) {
     try {
+      track.enabled = false
+    } catch {
+      // already ended
+    }
+    try {
       track.stop()
     } catch {
       // already ended
+    }
+    try {
+      stream.removeTrack(track)
+    } catch {
+      // already detached
     }
   }
 }
@@ -122,13 +132,24 @@ export function releaseMicStream(stream: MediaStream | null | undefined): void {
   liveStreams.delete(stream)
 }
 
-/** Stop mic tracks only. Do not close the capture context — closing it while
- *  Play is starting fades iOS Web Audio about half a second later. */
+/** Stop every adopted getUserMedia stream. Does not close the capture context. */
 export function stopMicTracks(): void {
   for (const stream of liveStreams) {
     stopMediaTracks(stream)
   }
   liveStreams.clear()
+}
+
+/** Listen/Tuner graph teardown + track.stop(). Do not close capture during a Play tap. */
+export function endLiveMicSessions(): void {
+  for (const release of hiddenReleasers) {
+    try {
+      release()
+    } catch {
+      // releaser must not throw
+    }
+  }
+  stopMicTracks()
 }
 
 export function stopCaptureHardware(): void {
@@ -137,14 +158,14 @@ export function stopCaptureHardware(): void {
 }
 
 export function releaseAllCapture(): void {
-  stopCaptureHardware()
-  for (const release of hiddenReleasers) {
-    try {
-      release()
-    } catch {
-      // releaser must not throw
-    }
-  }
+  endLiveMicSessions()
+  void disposeCaptureContext()
+}
+
+/** Close capture only when no mic tracks remain — after Listen/Tuner, not during Play. */
+export function disposeCaptureIfIdle(): void {
+  if (liveStreams.size > 0) return
+  void disposeCaptureContext()
 }
 
 export function onHiddenReleaseCapture(release: () => void): () => void {
@@ -299,9 +320,9 @@ export function beginCaptureFromGesture(): AudioContext {
  * audioSession — that fade is what killed Play after one or two precount clicks.
  */
 export function preparePlaybackFromGesture(): AudioContext {
-  stopMicTracks()
-  // Tracks only. Closing capture here (or ramping master to 0) fades Play
-  // ~0.5s in on iPhone — the lab one-shot click never hit that teardown.
+  endLiveMicSessions()
+  // Tracks + Listen/Tuner graphs. Closing capture on this tap still interrupts
+  // iOS ~0.5s later — Listen finishMic closes it earlier, while Play is idle.
   if (captureUsedSincePlayback) {
     lastRecovery = 'after-mic-resume'
     recoveries += 1

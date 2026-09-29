@@ -1,5 +1,6 @@
 import {
   adoptMicStream,
+  disposeCaptureIfIdle,
   getCaptureAudioContext,
   getPlaybackAudioContext,
   markCaptureUsed,
@@ -7,7 +8,6 @@ import {
   onHiddenReleaseCapture,
   releaseMicStream,
   resumeSharedAudioContext,
-  stopMediaTracks,
 } from '@/lib/audio-context'
 import { isPermissionError, isUnavailableError, requestRawMic } from '@/lib/mic-capture'
 import {
@@ -76,13 +76,20 @@ export function createTempoListener() {
     for (const fn of listeners) fn(snap)
   }
 
-  const teardownGraph = async () => {
+  const teardownGraph = () => {
     cancelAnimationFrame(raf)
     raf = 0
-    try {
-      processor?.disconnect()
-    } catch {
-      /* already gone */
+    if (processor) {
+      try {
+        processor.onaudioprocess = null
+      } catch {
+        /* already gone */
+      }
+      try {
+        processor.disconnect()
+      } catch {
+        /* already gone */
+      }
     }
     processor = null
     try {
@@ -113,7 +120,7 @@ export function createTempoListener() {
     session += 1
     chunks = []
     collected = 0
-    await teardownGraph()
+    teardownGraph()
     emit({ ...empty })
   }
 
@@ -121,7 +128,8 @@ export function createTempoListener() {
     if (id !== session) return
     emit({ phase: 'analyzing', progress: 1 })
     const ctxRate = audio?.sampleRate ?? 48000
-    await teardownGraph()
+    teardownGraph()
+    disposeCaptureIfIdle()
     if (id !== session) return
     const samples = new Float32Array(collected)
     let o = 0
@@ -155,6 +163,7 @@ export function createTempoListener() {
   const startMic = async (streamPromise?: Promise<MediaStream>) => {
     // Same flag as Tuner, even when the caller already started getUserMedia.
     markCaptureUsed()
+    teardownGraph()
     const id = session + 1
     session = id
     chunks = []
@@ -177,7 +186,7 @@ export function createTempoListener() {
       void ctx.resume().catch((error) => noteAudioError(error, 'listen.resume'))
       const nextStream = await pending
       if (id !== session) {
-        stopMediaTracks(nextStream)
+        releaseMicStream(nextStream)
         return
       }
       stream = adoptMicStream(nextStream)
@@ -252,7 +261,8 @@ export function createTempoListener() {
     } catch (error) {
       if (id !== session) return
       const detail = noteAudioError(error, 'listen')
-      await teardownGraph()
+      teardownGraph()
+      disposeCaptureIfIdle()
       emit({
         phase: 'error',
         message: errorMessage(error, false),
@@ -267,7 +277,7 @@ export function createTempoListener() {
   const analyzeFile = async (file: File) => {
     const id = session + 1
     session = id
-    await teardownGraph()
+    teardownGraph()
     emit({
       phase: 'analyzing',
       level: 0,
@@ -285,7 +295,7 @@ export function createTempoListener() {
       await resumeSharedAudioContext()
       const decoded = await ctx.decodeAudioData(data.slice(0))
       if (id !== session) {
-        await teardownGraph()
+        teardownGraph()
         return
       }
       const mono = mixToMono(decoded)
@@ -314,7 +324,7 @@ export function createTempoListener() {
     } catch (error) {
       if (id !== session) return
       const detail = noteAudioError(error, 'listen.file')
-      await teardownGraph()
+      teardownGraph()
       emit({
         phase: 'error',
         message: errorMessage(error, true),
@@ -327,7 +337,7 @@ export function createTempoListener() {
 
   const showEstimate = (estimate: TempoEstimate, source: 'mic' | 'file') => {
     session += 1
-    void teardownGraph()
+    teardownGraph()
     emit({
       phase: 'result',
       estimate,

@@ -2,6 +2,7 @@ import { Mic, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { disposeCaptureIfIdle } from '@/lib/audio-context'
 import { type SpeedBuilder, sbBpm } from '@/lib/speed-builder'
 import { type TempoEstimate } from '@/lib/tempo-detect'
 import { requestRawMic } from '@/lib/mic-capture'
@@ -38,6 +39,7 @@ export function ListenTempoSheet({
   const closeSheet = () => {
     stopListenTempoPreview()
     void listenerRef.current?.cancel()
+    disposeCaptureIfIdle()
     onClose()
   }
 
@@ -212,6 +214,7 @@ export function ListenTempoSheet({
                 stopListenTempoPreview()
                 onUse(chosen, useNote)
                 void listenerRef.current?.cancel()
+                disposeCaptureIfIdle()
                 onClose()
               })}
             >
