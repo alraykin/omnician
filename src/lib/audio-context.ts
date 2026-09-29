@@ -29,7 +29,6 @@ let timeAdvancing = false
 let lastRecovery = 'none'
 let recoveries = 0
 let lastError = 'none'
-let playbackSessionArmed = false
 let captureUsedSincePlayback = false
 
 const liveStreams = new Set<MediaStream>()
@@ -160,22 +159,15 @@ function setAudioSessionType(type: AudioSessionType): void {
   }
 }
 
-/** Silent-switch: iOS 17+ plays Web Audio while the ringer is muted. Once per first playback. */
-function armPlaybackSessionOnce(): void {
-  if (playbackSessionArmed) return
-  playbackSessionArmed = true
-  setAudioSessionType('playback')
-}
-
 /** Tuner and Listen both set this so the next Play/preview rebuilds playback. */
 export function markCaptureUsed(): void {
   captureUsedSincePlayback = true
 }
 
 /**
- * Tuner/Listen tap, immediately before getUserMedia. Stops Click/Drums,
- * marks that playback must be rebuilt on the next Play tap, then asks iOS
- * for play-and-record so the mic can open.
+ * Tuner/Listen tap, immediately before getUserMedia. Stops Click/Drums and
+ * marks that playback must be rebuilt on the next Play tap. Does not write
+ * audioSession — iOS picks play-and-record itself when the mic opens.
  */
 export function prepareCaptureFromGesture(): void {
   for (const listener of captureStartListeners) {
@@ -186,7 +178,13 @@ export function prepareCaptureFromGesture(): void {
     }
   }
   markCaptureUsed()
-  setAudioSessionType('play-and-record')
+}
+
+/** After capture, only touch audioSession if iOS left it in play-and-record. */
+function restoreSessionAfterCapture(): void {
+  const session = safariAudioSession()
+  if (!session || session.type !== 'play-and-record') return
+  setAudioSessionType('auto')
 }
 
 async function disposeCaptureContext(): Promise<void> {
@@ -210,7 +208,6 @@ export function getCaptureAudioContext(): AudioContext {
 
 export function getPlaybackAudioContext(): AudioContext {
   if (playback && contextState(playback) !== 'closed') return playback
-  armPlaybackSessionOnce()
   playback = createContext()
   wirePlayback(playback)
   wireLifecycle()
@@ -243,6 +240,29 @@ function wirePlayback(ctx: AudioContext): void {
   })
 }
 
+function noteIfStillSuspended(ctx: AudioContext): void {
+  if (ctx !== playback) return
+  const state = contextState(ctx)
+  if (state === 'suspended' || state === 'interrupted') {
+    noteAudioError(`AudioContext still ${state} after resume`, 'resume')
+  }
+}
+
+/** Call resume() in the user-gesture stack. Nothing may await before this. */
+function resumeFromGesture(ctx: AudioContext): void {
+  if (contextState(ctx) === 'closed') return
+  let pending: Promise<void>
+  try {
+    pending = ctx.resume()
+  } catch (error) {
+    noteAudioError(error, 'play.resume')
+    return
+  }
+  void pending.then(() => noteIfStillSuspended(ctx)).catch((error) => {
+    noteAudioError(error, 'play.resume')
+  })
+}
+
 async function resumeCtx(ctx: AudioContext): Promise<boolean> {
   if (contextState(ctx) === 'closed') return false
   if (!contextNeedsResume(ctx)) return true
@@ -252,6 +272,7 @@ async function resumeCtx(ctx: AudioContext): Promise<boolean> {
     noteAudioError(error, 'resume')
     return false
   }
+  noteIfStillSuspended(ctx)
   return !contextNeedsResume(ctx)
 }
 
@@ -272,10 +293,11 @@ function closeContext(ctx: AudioContext | null): void {
 }
 
 /**
- * After Tuner/Listen (or an interrupted context), iOS leaves playback stuck:
- * running, currentTime frozen, audioSession auto. Only on a Play or Listen
- * ½×/1×/2× preview tap: drop the mic, set playback, close the old context,
- * make a new one. Once per mic use / interrupt. Never while the transport runs.
+ * After Tuner/Listen (or an interrupted context), the old playback context is
+ * stuck. Only on a Play or Listen ½×/1×/2× preview tap: drop the mic, close
+ * the old context, make a new one, resume() in this tap. Never write
+ * audioSession to playback (that kills the first Play and shows Now Playing).
+ * Once per mic use / interrupt. Never while the transport runs.
  */
 function recoverPlaybackAfterCapture(): AudioContext {
   lastRecovery = 'after-capture'
@@ -288,16 +310,13 @@ function recoverPlaybackAfterCapture(): AudioContext {
     }
   }
   releaseAllCapture()
-  setAudioSessionType('playback')
-  playbackSessionArmed = true
+  restoreSessionAfterCapture()
   const old = playback
   playback = null
   closeContext(old)
   captureUsedSincePlayback = false
   const ctx = getPlaybackAudioContext()
-  if (contextNeedsResume(ctx)) {
-    void ctx.resume().catch((error) => noteAudioError(error, 'play.resume'))
-  }
+  resumeFromGesture(ctx)
   return ctx
 }
 
@@ -305,17 +324,12 @@ function needsFreshPlayback(): boolean {
   if (captureUsedSincePlayback) return true
   const state = contextState(playback)
   if (state === 'interrupted') return true
-  // Screenshot path: interrupt already fired, iOS flipped the context back to
-  // "running" with a frozen clock and audioSession auto.
   if (playback && lastRecovery === 'interrupted') return true
   return false
 }
 
 /** Play tap: resume the one playback context, or rebuild it once after the mic. */
 export function preparePlaybackFromGesture(): AudioContext {
-  // iOS resets audioSession to auto after the mic. Re-assert playback on every
-  // Play / Listen preview tap, not only the first context create.
-  setAudioSessionType('playback')
   if (needsFreshPlayback()) return recoverPlaybackAfterCapture()
   return unlockPlaybackFromGesture()
 }
@@ -323,7 +337,7 @@ export function preparePlaybackFromGesture(): AudioContext {
 /** Resume (or create) playback. Does not rebuild after mic — Play/Listen preview does that. */
 export function unlockPlaybackFromGesture(): AudioContext {
   const ctx = getPlaybackAudioContext()
-  if (contextNeedsResume(ctx)) void ctx.resume().catch((error) => noteAudioError(error, 'play.resume'))
+  resumeFromGesture(ctx)
   return ctx
 }
 
