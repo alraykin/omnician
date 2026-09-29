@@ -31,7 +31,7 @@ function activeTab(pathname: string, mode: string | null): TabId {
 }
 
 function onLeave(next: TabId) {
-  void getTempoListener().cancel()
+  getTempoListener().release()
   if (next === 'tuner') return
   leaveTunerPage()
   releaseAllCapture()

@@ -1,6 +1,6 @@
 import {
   adoptMicStream,
-  disposeCaptureIfIdle,
+  closeCaptureContext,
   getCaptureAudioContext,
   getPlaybackAudioContext,
   markCaptureUsed,
@@ -64,7 +64,6 @@ export function createTempoListener() {
   let audio: AudioContext | null = null
   let analyser: AnalyserNode | null = null
   let sourceNode: MediaStreamAudioSourceNode | null = null
-  let silent: GainNode | null = null
   let chunks: Float32Array[] = []
   let collected = 0
   let startedAt = 0
@@ -79,12 +78,9 @@ export function createTempoListener() {
   const teardownGraph = () => {
     cancelAnimationFrame(raf)
     raf = 0
-    try {
-      analyser?.disconnect()
-    } catch {
-      /* already gone */
-    }
-    analyser = null
+    const live = stream
+    stream = null
+    releaseMicStream(live)
     try {
       sourceNode?.disconnect()
     } catch {
@@ -92,15 +88,17 @@ export function createTempoListener() {
     }
     sourceNode = null
     try {
-      silent?.disconnect()
+      analyser?.disconnect()
     } catch {
       /* already gone */
     }
-    silent = null
-    const live = stream
-    stream = null
-    releaseMicStream(live)
+    analyser = null
     audio = null
+  }
+
+  const releaseListenHardware = () => {
+    teardownGraph()
+    closeCaptureContext()
   }
 
   const subscribe = (fn: Listener) => {
@@ -117,12 +115,20 @@ export function createTempoListener() {
     emit({ ...empty })
   }
 
+  const release = () => {
+    session += 1
+    chunks = []
+    collected = 0
+    releaseListenHardware()
+    emit({ ...empty })
+  }
+
   const finishMic = async (id: number) => {
     if (id !== session) return
     emit({ phase: 'analyzing', progress: 1 })
     const ctxRate = audio?.sampleRate ?? 48000
     teardownGraph()
-    disposeCaptureIfIdle()
+    closeCaptureContext()
     if (id !== session) return
     const samples = new Float32Array(collected)
     let o = 0
@@ -195,12 +201,7 @@ export function createTempoListener() {
       tap.fftSize = 4096
       tap.smoothingTimeConstant = 0
       analyser = tap
-      const mute = ctx.createGain()
-      mute.gain.value = 0
-      silent = mute
       src.connect(tap)
-      tap.connect(mute)
-      mute.connect(ctx.destination)
 
       const hop = new Float32Array(tap.fftSize)
       const hopSec = tap.fftSize / ctx.sampleRate
@@ -260,7 +261,7 @@ export function createTempoListener() {
       if (id !== session) return
       const detail = noteAudioError(error, 'listen')
       teardownGraph()
-      disposeCaptureIfIdle()
+      closeCaptureContext()
       emit({
         phase: 'error',
         message: errorMessage(error, false),
@@ -275,7 +276,7 @@ export function createTempoListener() {
   const analyzeFile = async (file: File) => {
     const id = session + 1
     session = id
-    teardownGraph()
+    releaseListenHardware()
     emit({
       phase: 'analyzing',
       level: 0,
@@ -335,7 +336,7 @@ export function createTempoListener() {
 
   const showEstimate = (estimate: TempoEstimate, source: 'mic' | 'file') => {
     session += 1
-    teardownGraph()
+    releaseListenHardware()
     emit({
       phase: 'result',
       estimate,
@@ -356,6 +357,7 @@ export function createTempoListener() {
     startMic,
     analyzeFile,
     cancel,
+    release,
     showEstimate,
     get snapshot() {
       return snap

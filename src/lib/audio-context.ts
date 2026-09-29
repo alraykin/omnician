@@ -132,6 +132,9 @@ export function adoptMicStream(stream: MediaStream): MediaStream {
 
 export function releaseMicStream(stream: MediaStream | null | undefined): void {
   if (!stream) return
+  for (const track of stream.getTracks()) {
+    liveTracks.delete(track)
+  }
   stopMediaTracks(stream)
   liveStreams.delete(stream)
 }
@@ -171,19 +174,31 @@ export function endLiveMicSessions(): void {
 
 export function stopCaptureHardware(): void {
   stopMicTracks()
-  void disposeCaptureContext()
+  closeCaptureContext()
 }
 
 export function releaseAllCapture(): void {
   endLiveMicSessions()
-  void disposeCaptureContext()
+  closeCaptureContext()
 }
 
-/** Close capture after Listen/Tuner. Never close it while Play is running. */
+/** Stop tracks and close capture. Use from Listen finish/cancel/close — not from a Play tap. */
 export function disposeCaptureIfIdle(): void {
   stopMicTracks()
-  if (playback && contextState(playback) === 'running') return
-  void disposeCaptureContext()
+  closeCaptureContext()
+}
+
+/** Close the capture AudioContext. Does not touch playback. */
+export function closeCaptureContext(): void {
+  const ctx = capture
+  capture = null
+  if (!ctx || contextState(ctx) === 'closed') return
+  lastRecovery = 'capture-closed'
+  try {
+    void ctx.close()
+  } catch {
+    // already closed
+  }
 }
 
 export function onHiddenReleaseCapture(release: () => void): () => void {
@@ -238,18 +253,6 @@ export function prepareCaptureFromGesture(): void {
 /** After capture, do not write audioSession. Lab A was heard without that write;
  *  setting auto or playback during Play fades iOS Web Audio after the first
  *  precount clicks (session category change). */
-
-async function disposeCaptureContext(): Promise<void> {
-  if (playback && contextState(playback) === 'running') return
-  const ctx = capture
-  capture = null
-  if (!ctx || contextState(ctx) === 'closed') return
-  try {
-    await ctx.close()
-  } catch {
-    // already closed
-  }
-}
 
 export function getCaptureAudioContext(): AudioContext {
   if (capture && contextState(capture) !== 'closed') return capture

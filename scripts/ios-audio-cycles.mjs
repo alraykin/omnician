@@ -53,13 +53,23 @@ function auditSources() {
   assert.match(audioSrc, /still \$\{state\} after resume|still suspended/)
   assert.match(audioSrc, /liveTracks/)
   assert.match(audioSrc, /endLiveMicSessions/)
+  assert.match(audioSrc, /export function closeCaptureContext/)
   assert.doesNotMatch(audioSrc, /silence\.mp3|armSilentUnlock|sampleRate:\s*48000|waitForPlaybackClock/)
+  const closeCaptureBlock = audioSrc.slice(
+    audioSrc.indexOf('export function closeCaptureContext'),
+    audioSrc.indexOf('export function onHiddenReleaseCapture'),
+  )
+  assert.doesNotMatch(closeCaptureBlock, /playback && contextState\(playback\) === 'running'/)
   const listenSrc = readFileSync('src/lib/tempo-listen.ts', 'utf8')
   assert.match(listenSrc, /markCaptureUsed\(\)/)
   assert.match(listenSrc, /const startMic[\s\S]*markCaptureUsed\(\)/)
   assert.match(listenSrc, /createAnalyser/)
   assert.doesNotMatch(listenSrc, /ScriptProcessor|createScriptProcessor|onaudioprocess/)
-  assert.match(listenSrc, /disposeCaptureIfIdle/)
+  assert.match(listenSrc, /closeCaptureContext/)
+  assert.match(listenSrc, /releaseListenHardware/)
+  assert.match(listenSrc, /const release = /)
+  const startMicBlock = listenSrc.slice(listenSrc.indexOf('const startMic'), listenSrc.indexOf('const analyzeFile'))
+  assert.doesNotMatch(startMicBlock, /\.destination/)
   assert.doesNotMatch(listenSrc, /getSharedAudioContext\(\)[\s\S]{0,200}createMediaStreamSource/)
   const previewSrc = readFileSync('src/lib/listen-preview.ts', 'utf8')
   assert.match(previewSrc, /preparePlaybackFromGesture\(\)/)
@@ -105,13 +115,15 @@ function auditSources() {
   assert.match(playTap, /endLiveMicSessions\(\)/)
   assert.doesNotMatch(
     playTap.slice(0, playTap.indexOf('export function unlockPlaybackFromGesture')),
-    /disposeCaptureContext|stopCaptureHardware/,
+    /disposeCaptureContext|stopCaptureHardware|closeCaptureContext/,
   )
   assert.match(playTap, /unlockPlaybackFromGesture\(\)/)
   const unlockTap = audioSrc.slice(audioSrc.indexOf('export function unlockPlaybackFromGesture'))
   assert.match(unlockTap, /resumeFromGesture\(ctx\)/)
   const micSrc = readFileSync('src/lib/mic-capture.ts', 'utf8')
   assert.match(micSrc, /adoptMicStream\(await navigator.mediaDevices.getUserMedia/)
+  const listenPage = readFileSync('src/components/rhythm/ListenTempo.tsx', 'utf8')
+  assert.match(listenPage, /\.release\(\)/)
   console.log('ok  source audit: resume same playback after mic, no rebuild, resume in tap')
 }
 

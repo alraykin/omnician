@@ -357,7 +357,7 @@ export function RhythmPage() {
 
   useEffect(() => {
     return () => {
-      void getTempoListener().cancel()
+      getTempoListener().release()
     }
   }, [])
 
