@@ -2,14 +2,6 @@ type AudioContextCtor = typeof AudioContext
 
 type SafariAudioState = AudioContextState | 'interrupted'
 
-export type AudioSessionType =
-  | 'auto'
-  | 'playback'
-  | 'transient'
-  | 'transient-solo'
-  | 'ambient'
-  | 'play-and-record'
-
 export type AudioDebugSnapshot = {
   playbackState: string
   playbackRate: number | null
@@ -25,21 +17,20 @@ export type AudioDebugSnapshot = {
   lastError: string
 }
 
-type AudioSessionApi = { type: string }
-
 let playback: AudioContext | null = null
 let capture: AudioContext | null = null
 let lifecycleWired = false
+let playbackWired = false
 let lastPlaybackTime = 0
 let lastPlaybackCheck = 0
 let timeAdvancing = false
 let lastRecovery = 'none'
 let recoveries = 0
 let lastError = 'none'
-let lastSetSession: AudioSessionType | null = null
 
 const liveStreams = new Set<MediaStream>()
 const hiddenReleasers = new Set<() => void>()
+const interruptListeners = new Set<() => void>()
 
 export function getAudioCtor(): AudioContextCtor | undefined {
   if (typeof window === 'undefined') return undefined
@@ -57,16 +48,6 @@ export function contextNeedsResume(ctx: AudioContext): boolean {
   return state === 'suspended' || state === 'interrupted'
 }
 
-function getAudioSession(): AudioSessionApi | null {
-  if (typeof navigator === 'undefined') return null
-  const session = (navigator as Navigator & { audioSession?: AudioSessionApi }).audioSession
-  return session ?? null
-}
-
-export function getAudioSessionType(): string {
-  return getAudioSession()?.type ?? 'unsupported'
-}
-
 export function formatAudioError(error: unknown): string {
   if (error instanceof Error) {
     const extra = 'code' in error ? ` [${String((error as Error & { code?: unknown }).code)}]` : ''
@@ -80,22 +61,9 @@ export function noteAudioError(error: unknown, where: string): string {
   return lastError
 }
 
-export function setAudioSessionType(type: AudioSessionType): void {
-  const session = getAudioSession()
-  if (!session) return
-  if (lastSetSession === type) return
-  try {
-    session.type = type
-    lastSetSession = type
-  } catch (error) {
-    noteAudioError(error, 'audioSession')
-  }
-}
-
 function createContext(): AudioContext {
   const Ctor = getAudioCtor()
   if (!Ctor) throw Object.assign(new Error('NO_AUDIO'), { code: 'unavailable' })
-  // Do not force sampleRate — iOS goes silent if the hardware rate changes after mic use.
   try {
     return new Ctor({ latencyHint: 'interactive' })
   } catch {
@@ -114,31 +82,8 @@ export function stopMediaTracks(stream: MediaStream | null | undefined): void {
   }
 }
 
-function discardPlaybackSync(reason: string): void {
-  lastRecovery = reason
-  recoveries += 1
-  const old = playback
-  playback = null
-  if (old && contextState(old) !== 'closed') {
-    try {
-      void old.close()
-    } catch {
-      // already closed
-    }
-  }
-}
-
-function restorePlaybackSessionAfterMic(): void {
-  setAudioSessionType('playback')
-  void disposeCaptureContext()
-  // Recreate playback AFTER the session is playback, never before.
-  // The old context is usually interrupted from play-and-record.
-  if (playback) discardPlaybackSync('after-mic')
-}
-
 export function adoptMicStream(stream: MediaStream): MediaStream {
   liveStreams.add(stream)
-  setAudioSessionType('play-and-record')
   return stream
 }
 
@@ -146,7 +91,7 @@ export function releaseMicStream(stream: MediaStream | null | undefined): void {
   if (!stream) return
   stopMediaTracks(stream)
   liveStreams.delete(stream)
-  if (liveStreams.size === 0) restorePlaybackSessionAfterMic()
+  if (liveStreams.size === 0) void disposeCaptureContext()
 }
 
 export function releaseAllCapture(): void {
@@ -161,13 +106,20 @@ export function releaseAllCapture(): void {
       // releaser must not throw
     }
   }
-  restorePlaybackSessionAfterMic()
+  void disposeCaptureContext()
 }
 
 export function onHiddenReleaseCapture(release: () => void): () => void {
   hiddenReleasers.add(release)
   return () => {
     hiddenReleasers.delete(release)
+  }
+}
+
+export function onPlaybackInterrupted(listener: () => void): () => void {
+  interruptListeners.add(listener)
+  return () => {
+    interruptListeners.delete(listener)
   }
 }
 
@@ -193,13 +145,34 @@ export function getCaptureAudioContext(): AudioContext {
 export function getPlaybackAudioContext(): AudioContext {
   if (playback && contextState(playback) !== 'closed') return playback
   playback = createContext()
+  wirePlayback(playback)
   wireLifecycle()
   return playback
 }
 
-/** Playback context only. Never attach a microphone stream to this. */
+/** Playback context only. Never attach a microphone stream to this. Never close it. */
 export function getSharedAudioContext(): AudioContext {
   return getPlaybackAudioContext()
+}
+
+function wirePlayback(ctx: AudioContext): void {
+  if (playbackWired) return
+  playbackWired = true
+  ctx.addEventListener('statechange', () => {
+    if (ctx !== playback) return
+    const state = contextState(ctx)
+    if (state !== 'interrupted') return
+    lastRecovery = 'interrupted'
+    recoveries += 1
+    noteAudioError('AudioContext state interrupted', 'statechange')
+    for (const listener of interruptListeners) {
+      try {
+        listener()
+      } catch {
+        // listener must not throw
+      }
+    }
+  })
 }
 
 async function resumeCtx(ctx: AudioContext): Promise<boolean> {
@@ -214,73 +187,27 @@ async function resumeCtx(ctx: AudioContext): Promise<boolean> {
   return !contextNeedsResume(ctx)
 }
 
-function nextFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
-}
-
-function playbackLooksFrozen(ctx: AudioContext): boolean {
-  const state = contextState(ctx)
-  if (state === 'closed') return true
-  if (state === 'interrupted') return true
-  if (state === 'running' && !timeAdvancing && ctx.currentTime > 0.05) return true
-  return false
-}
-
-/** Capture: set play-and-record and open the capture context inside the tap. */
+/** Capture context + resume inside the tap. Does not touch playback or audioSession. */
 export function beginCaptureFromGesture(): AudioContext {
-  wireLifecycle()
-  setAudioSessionType('play-and-record')
   const ctx = getCaptureAudioContext()
   void ctx.resume().catch((error) => noteAudioError(error, 'capture.resume'))
   return ctx
 }
 
-/**
- * Play tap: create/resume playback in the gesture. Rebuild now if the previous
- * context is interrupted or its clock was frozen. No HTMLAudioElement unlock.
- */
+/** Play tap: create the one playback context if needed, then resume(). Never close it. */
 export function unlockPlaybackFromGesture(): AudioContext {
-  wireLifecycle()
-  if (liveStreams.size === 0) setAudioSessionType('playback')
-  const old = playback
-  if (old && playbackLooksFrozen(old)) {
-    discardPlaybackSync(`${contextState(old)}:frozen@${Math.round(old.sampleRate)}`)
-  }
   const ctx = getPlaybackAudioContext()
-  void ctx.resume().catch((error) => noteAudioError(error, 'play.resume'))
+  if (contextNeedsResume(ctx)) void ctx.resume().catch((error) => noteAudioError(error, 'play.resume'))
   return ctx
 }
 
-/** First-gesture playback prime. Does not switch session if the mic is live. */
 export function unlockAudioFromGesture(): void {
-  if (liveStreams.size > 0) return
   unlockPlaybackFromGesture()
 }
 
-export async function waitForPlaybackClock(): Promise<boolean> {
-  const ctx = getPlaybackAudioContext()
-  await resumeCtx(ctx)
-  const a = ctx.currentTime
-  await nextFrame()
-  await nextFrame()
-  const advancing = ctx.currentTime > a + 1e-4
-  timeAdvancing = advancing
-  lastPlaybackTime = ctx.currentTime
-  lastPlaybackCheck = performance.now()
-  if (!advancing) noteAudioError(`state ${contextState(ctx)} t=${ctx.currentTime.toFixed(3)}`, 'clock')
-  return advancing && contextState(ctx) === 'running'
-}
-
-export async function resumePlaybackAndRecover(_forceCheck = false): Promise<boolean> {
-  if (liveStreams.size === 0) setAudioSessionType('playback')
-  const ctx = getPlaybackAudioContext()
-  const ok = await resumeCtx(ctx)
-  timeAdvancing = ok && contextState(ctx) === 'running'
-  return timeAdvancing
-}
-
 export async function resumeSharedAudioContext(): Promise<boolean> {
-  return resumePlaybackAndRecover(false)
+  const ctx = getPlaybackAudioContext()
+  return resumeCtx(ctx)
 }
 
 export function countLiveMicTracks(): { total: number; live: number } {
@@ -293,6 +220,12 @@ export function countLiveMicTracks(): { total: number; live: number } {
     }
   }
   return { total, live }
+}
+
+export function getAudioSessionType(): string {
+  if (typeof navigator === 'undefined') return 'unsupported'
+  const session = (navigator as Navigator & { audioSession?: { type?: string } }).audioSession
+  return session?.type ?? 'unsupported'
 }
 
 export function getAudioDebugSnapshot(): AudioDebugSnapshot {
@@ -345,24 +278,10 @@ function wireLifecycle(): void {
     releaseAllCapture()
   }
 
-  const onVisible = () => {
-    if (liveStreams.size > 0) return
-    setAudioSessionType('playback')
-    if (playback && contextState(playback) !== 'closed') void resumeCtx(playback)
-  }
-
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') onHidden()
-    else onVisible()
   })
   window.addEventListener('pagehide', onHidden)
-  window.addEventListener('pageshow', (event) => {
-    if (event.persisted) onVisible()
-    else if (playback) void resumeCtx(playback)
-  })
-  window.addEventListener('focus', () => {
-    if (playback && liveStreams.size === 0) void resumeCtx(playback)
-  })
 }
 
 export function isAudioDebugQuery(): boolean {

@@ -25,18 +25,19 @@ function auditSources() {
     'src/components/AudioDebugOverlay.tsx',
   ]
   const joined = files.map((file) => `${file}\n${readFileSync(file, 'utf8')}`).join('\n')
-  assert.match(joined, /audioSession/)
-  assert.match(joined, /play-and-record/)
+  assert.match(joined, /play-and-record|getCaptureAudioContext/)
   assert.match(joined, /getCaptureAudioContext/)
   assert.match(joined, /releaseMicStream/)
-  assert.match(joined, /waitForPlaybackClock/)
-  assert.match(joined, /beginCaptureFromGesture/)
-  assert.doesNotMatch(readFileSync('src/lib/audio-context.ts', 'utf8'), /silence\.mp3|armSilentUnlock/)
+  assert.match(joined, /unlockPlaybackFromGesture/)
+  assert.match(joined, /onPlaybackInterrupted/)
+  assert.match(joined, /AudioDebugOverlay/)
+  const audioSrc = readFileSync('src/lib/audio-context.ts', 'utf8')
+  assert.doesNotMatch(audioSrc, /silence\.mp3|armSilentUnlock|audioSession\.type\s*=|sampleRate:\s*48000|waitForPlaybackClock|discardPlayback/)
   assert.doesNotMatch(
     readFileSync('src/lib/tempo-listen.ts', 'utf8'),
     /getSharedAudioContext\(\)[\s\S]{0,200}createMediaStreamSource/,
   )
-  console.log('ok  source audit: capture/playback split + audioSession + mic release')
+  console.log('ok  source audit: one playback context, capture hygiene, no audioSession writes')
 }
 
 async function main() {

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { type SpeedBuilder, sbBpm } from '@/lib/speed-builder'
 import { type TempoEstimate } from '@/lib/tempo-detect'
-import { beginCaptureFromGesture } from '@/lib/audio-context'
+import { requestRawMic } from '@/lib/mic-capture'
 import { playListenTempoPreview, stopListenTempoPreview } from '@/lib/listen-preview'
 import { getTempoListener, type ListenSnapshot } from '@/lib/tempo-listen'
 import { activateOnPointer, cn } from '@/lib/utils'
@@ -201,8 +201,8 @@ export function ListenTempoSheet({
                 stopListenTempoPreview()
                 setPreviewBpm(null)
                 setPicked(null)
-                beginCaptureFromGesture()
-                void listenerRef.current?.startMic()
+                const micPromise = requestRawMic()
+                void listenerRef.current?.startMic(micPromise)
               })}
             >
               <Mic className="size-3.5" />

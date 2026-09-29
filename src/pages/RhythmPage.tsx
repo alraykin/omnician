@@ -41,7 +41,8 @@ import {
   type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
-import { beginCaptureFromGesture, unlockPlaybackFromGesture } from '@/lib/audio-context'
+import { onPlaybackInterrupted, unlockPlaybackFromGesture } from '@/lib/audio-context'
+import { requestRawMic } from '@/lib/mic-capture'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
@@ -262,14 +263,14 @@ export function RhythmPage() {
   }
 
   const openListen = () => {
-    beginCaptureFromGesture()
+    const micPromise = requestRawMic()
     if (playing) {
       halt()
       setPlaying(false)
     }
     setListenSeed(null)
     setListenOpen(true)
-    void getTempoListener().startMic()
+    void getTempoListener().startMic(micPromise)
   }
 
   const applyDetectedTempo = (next: number, note: string) => {
@@ -356,6 +357,13 @@ export function RhythmPage() {
       void getTempoListener().cancel()
     }
   }, [])
+
+  useEffect(() => {
+    return onPlaybackInterrupted(() => {
+      halt()
+      setPlaying(false)
+    })
+  }, [halt])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

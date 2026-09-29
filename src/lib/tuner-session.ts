@@ -5,7 +5,6 @@ import {
   onHiddenReleaseCapture,
   releaseMicStream,
   resumeSharedAudioContext,
-  setAudioSessionType,
   stopMediaTracks,
 } from '@/lib/audio-context'
 import { clampA4 } from '@/lib/custom-presets'
@@ -405,7 +404,6 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     } catch (error) {
       lastError = `${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error)}`
       if (audio === ctx) audio = null
-      setAudioSessionType('playback')
       if (sessionId !== session) return
       if (isPermissionError(error)) {
         const permission = await micPermissionState()
@@ -427,7 +425,6 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     if (sessionId !== session) {
       stopMediaTracks(nextStream)
       if (audio === ctx) audio = null
-      setAudioSessionType('playback')
       return
     }
 

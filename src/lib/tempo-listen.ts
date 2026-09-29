@@ -5,7 +5,7 @@ import {
   noteAudioError,
   onHiddenReleaseCapture,
   releaseMicStream,
-  resumePlaybackAndRecover,
+  resumeSharedAudioContext,
   stopMediaTracks,
 } from '@/lib/audio-context'
 import { isPermissionError, isUnavailableError, requestRawMic } from '@/lib/mic-capture'
@@ -151,7 +151,7 @@ export function createTempoListener() {
     })
   }
 
-  const startMic = async () => {
+  const startMic = async (streamPromise?: Promise<MediaStream>) => {
     const id = session + 1
     session = id
     chunks = []
@@ -168,14 +168,11 @@ export function createTempoListener() {
       message: '',
     })
     try {
+      const pending = streamPromise ?? requestRawMic()
       const ctx = getCaptureAudioContext()
       audio = ctx
-      try {
-        await ctx.resume()
-      } catch (error) {
-        noteAudioError(error, 'listen.resume')
-      }
-      const nextStream = await requestRawMic()
+      void ctx.resume().catch((error) => noteAudioError(error, 'listen.resume'))
+      const nextStream = await pending
       if (id !== session) {
         stopMediaTracks(nextStream)
         return
@@ -282,7 +279,7 @@ export function createTempoListener() {
       if (id !== session) return
       const ctx = getPlaybackAudioContext()
       audio = ctx
-      await resumePlaybackAndRecover(false)
+      await resumeSharedAudioContext()
       const decoded = await ctx.decodeAudioData(data.slice(0))
       if (id !== session) {
         await teardownGraph()

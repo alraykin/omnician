@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 import { DEFAULT_INTENSITY_STYLE, DEFAULT_KIT_INTENSITY, type HitRole, type KitIntensity } from '@/lib/kit-intensity'
 import { realizeDrumBar } from '@/lib/kit-intensity-play'
 import { DEFAULT_KIT_MIX, type KitMix } from '@/lib/kit-mix'
-import { resumeSharedAudioContext, waitForPlaybackClock } from '@/lib/audio-context'
+import { resumeSharedAudioContext } from '@/lib/audio-context'
 import { getOrCreateRhythmKit, type RhythmKit } from '@/lib/rhythm-audio'
 import {
   barDurationSec,
@@ -327,7 +327,6 @@ export function useRhythmEngine({
     let cancelled = false
 
     const start = async () => {
-      await waitForPlaybackClock()
       await resumeSharedAudioContext()
       const kit = await ensureKit()
       if (!kit || cancelled || !playingRef.current) return
