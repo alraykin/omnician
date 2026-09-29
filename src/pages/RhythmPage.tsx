@@ -406,7 +406,7 @@ export function RhythmPage() {
         >
           <div
             data-rhythm-header
-            className="rhythm-glass sticky top-0 z-30 flex items-center justify-between gap-3 rounded-full py-1.5 pl-4 pr-3"
+            className="rhythm-glass sticky top-0 z-30 flex items-center justify-between gap-3 rounded-full py-1.5 pl-4 pr-3 wide:static"
           >
             <h1 className="text-lg font-bold tracking-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] sm:text-xl">
               {mode === 'click' ? 'Click' : 'Drums'}
