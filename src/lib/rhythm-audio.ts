@@ -9,7 +9,15 @@ import {
   type HitRole,
   type KitIntensity,
 } from '@/lib/kit-intensity'
-import { DEFAULT_KIT_MIX, KIT_VOICE_GROUP, mixFaderToGain, type KitMix } from '@/lib/kit-mix'
+import {
+  DEFAULT_KIT_MIX,
+  DEFAULT_MASTER_VOLUME_DB,
+  KIT_VOICE_GROUP,
+  clampKitDb,
+  dbToGain,
+  mixFaderToGain,
+  type KitMix,
+} from '@/lib/kit-mix'
 import { CLICK_SOUNDS, type ClickSoundId, type VoiceId } from '@/lib/rhythm'
 import type { RhythmStyleId } from '@/lib/rhythm-presets'
 import { clampSbPct, MAX_SB_PCT, MIN_SB_PCT, speakPercent } from '@/lib/speed-builder'
@@ -92,7 +100,7 @@ const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
 const SAMPLE_GAIN: Record<VoiceId, number> = {
   kick: 1.2,
   snare: 1.28,
-  rim: 1.22,
+  rim: 2.7,
   highTom: 1.22,
   midTom: 1.2,
   floorTom: 1.18,
@@ -832,6 +840,7 @@ export class RhythmKit {
   private readonly layers: LayerBank = {}
   private readonly rr = new Map<string, number>()
   private mix: KitMix = { ...DEFAULT_KIT_MIX }
+  private volumeDb = DEFAULT_MASTER_VOLUME_DB
   private openHat: { gain: GainNode; start: number } | null = null
   private closedHat: { gain: GainNode; start: number } | null = null
   private sources: Array<{ node: AudioBufferSourceNode; when: number; kind: 'drum' | 'click' | 'other' }> = []
@@ -843,7 +852,7 @@ export class RhythmKit {
   constructor(ctx: AudioContext) {
     this.ctx = ctx
     this.master = ctx.createGain()
-    this.master.gain.value = MASTER_GAIN
+    this.master.gain.value = this.playbackGain()
     const wall = makeBrickwall(ctx, LIMITER_CEILING)
     this.master.connect(wall)
     wall.connect(ctx.destination)
@@ -856,7 +865,7 @@ export class RhythmKit {
     this.kickBus = makeKickBus(ctx, this.color)
     const room = makeReverbBus(ctx, ctx.destination)
     this.reverbSend = room.send
-    this.reverbSend.gain.value = MASTER_GAIN
+    this.reverbSend.gain.value = this.playbackGain()
     this.reverbWet = room.wet
     this.drums = bakeSynthDrums(ctx)
     this.clicks = bakeClicks(ctx)
@@ -985,6 +994,25 @@ export class RhythmKit {
     this.mix = { ...mix }
   }
 
+  setMasterVolume(db: number): void {
+    this.volumeDb = clampKitDb(db, DEFAULT_MASTER_VOLUME_DB)
+    const gain = this.playbackGain()
+    const now = this.ctx.currentTime
+    try {
+      this.master.gain.cancelScheduledValues(now)
+      this.master.gain.setValueAtTime(gain, now)
+      this.reverbSend.gain.cancelScheduledValues(now)
+      this.reverbSend.gain.setValueAtTime(gain, now)
+    } catch {
+      this.master.gain.value = gain
+      this.reverbSend.gain.value = gain
+    }
+  }
+
+  private playbackGain(): number {
+    return MASTER_GAIN * dbToGain(this.volumeDb)
+  }
+
   hit(voice: VoiceId, time: number, role: HitRole = 'normal', play: DrumPlayOpts = {}): void {
     if (CHOKE_HAT_VOICES.has(voice)) {
       this.chokeHats(time)
@@ -1070,13 +1098,14 @@ export class RhythmKit {
     } catch {
       this.reverbWet.gain.setValueAtTime(REVERB_RETURN, now)
     }
+    const restore = this.playbackGain()
     try {
       this.master.gain.cancelScheduledValues(now)
       this.master.gain.setValueAtTime(Math.max(0.0001, this.master.gain.value), now)
       this.master.gain.linearRampToValueAtTime(0.0001, now + 0.004)
-      this.master.gain.setValueAtTime(MASTER_GAIN, now + 0.008)
+      this.master.gain.setValueAtTime(restore, now + 0.008)
     } catch {
-      this.master.gain.setValueAtTime(MASTER_GAIN, now)
+      this.master.gain.setValueAtTime(restore, now)
     }
   }
 

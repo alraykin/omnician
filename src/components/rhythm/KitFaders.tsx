@@ -8,6 +8,7 @@ import {
   KIT_MIX_MIN_DB,
   clampKitDb,
   formatKitDb,
+  formatMasterVolume,
   mixDbToPos,
   mixPosToDb,
   type KitGroupId,
@@ -39,13 +40,15 @@ export function KitFaders({ mix, onChange }: KitFadersProps) {
     <div data-section="kit-faders" className="kit-fader-bank" data-wide={wideUi ? 'true' : 'false'}>
       <div className="kit-fader-channels">
         {KIT_GROUPS.map((group) => (
-          <KitFader
+          <MixFader
             key={group}
-            group={group}
+            id={group}
+            label={KIT_GROUP_LABELS[group]}
             db={mix[group]}
             held={held === group}
             wideUi={wideUi}
-            onChange={onChange}
+            readout={formatKitDb(mix[group])}
+            onChange={(db) => onChange(group, db)}
             onHoldStart={() => setHeld(group)}
             onHoldEnd={() => setHeld((current) => (current === group ? null : current))}
           />
@@ -53,7 +56,7 @@ export function KitFaders({ mix, onChange }: KitFadersProps) {
       </div>
       {held && !wideUi && typeof document !== 'undefined'
         ? createPortal(
-            <KitFaderZoom group={held} db={mix[held]} />,
+            <MixFaderZoom label={KIT_GROUP_LABELS[held]} db={mix[held]} readout={formatKitDb(mix[held])} />,
             document.body,
           )
         : null}
@@ -61,20 +64,67 @@ export function KitFaders({ mix, onChange }: KitFadersProps) {
   )
 }
 
-function KitFader({
-  group,
+export function VolumeFader({
+  db,
+  onChange,
+}: {
+  db: number
+  onChange: (db: number) => void
+}) {
+  const [held, setHeld] = useState(false)
+  const [wideUi, setWideUi] = useState(false)
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 768px)')
+    const sync = () => setWideUi(media.matches)
+    sync()
+    media.addEventListener('change', sync)
+    return () => media.removeEventListener('change', sync)
+  }, [])
+
+  const readout = formatMasterVolume(db)
+
+  return (
+    <>
+      <MixFader
+        id="volume"
+        label="Volume"
+        db={db}
+        held={held}
+        wideUi={wideUi}
+        compact
+        readout={readout}
+        onChange={onChange}
+        onHoldStart={() => setHeld(true)}
+        onHoldEnd={() => setHeld(false)}
+      />
+      {held && !wideUi && typeof document !== 'undefined'
+        ? createPortal(<MixFaderZoom label="Volume" db={db} readout={readout} />, document.body)
+        : null}
+    </>
+  )
+}
+
+function MixFader({
+  id,
+  label,
   db,
   held,
   wideUi,
+  compact = false,
+  readout,
   onChange,
   onHoldStart,
   onHoldEnd,
 }: {
-  group: KitGroupId
+  id: string
+  label: string
   db: number
   held: boolean
   wideUi: boolean
-  onChange: (group: KitGroupId, db: number) => void
+  compact?: boolean
+  readout: string
+  onChange: (db: number) => void
   onHoldStart: () => void
   onHoldEnd: () => void
 }) {
@@ -98,9 +148,9 @@ function KitFader({
       const drag = dragRef.current
       if (!drag) return
       const nextPos = Math.min(1, Math.max(0, drag.startPos + (drag.startY - clientY) / drag.travel))
-      onChange(group, mixPosToDb(nextPos))
+      onChange(mixPosToDb(nextPos))
     },
-    [group, onChange],
+    [onChange],
   )
 
   const endHold = useCallback(
@@ -129,9 +179,9 @@ function KitFader({
       channelRef.current?.setPointerCapture(pointerId)
       onHoldStart()
       const nextPos = Math.min(1, Math.max(0, dragRef.current.startPos + (dragRef.current.startY - clientY) / dragRef.current.travel))
-      onChange(group, mixPosToDb(nextPos))
+      onChange(mixPosToDb(nextPos))
     },
-    [group, onChange, onHoldStart],
+    [onChange, onHoldStart],
   )
 
   useEffect(() => {
@@ -145,15 +195,16 @@ function KitFader({
     <div
       ref={channelRef}
       className="kit-fader-channel"
-      data-kit-fader={group}
+      data-kit-fader={id}
+      data-volume={compact ? 'true' : undefined}
       data-held={held ? 'true' : 'false'}
       role="slider"
       tabIndex={0}
-      aria-label={`${KIT_GROUP_LABELS[group]} level`}
+      aria-label={`${label} level`}
       aria-valuemin={KIT_MIX_MIN_DB}
       aria-valuemax={KIT_MIX_MAX_DB}
       aria-valuenow={Math.round(db * 10) / 10}
-      aria-valuetext={formatKitDb(db)}
+      aria-valuetext={compact ? `${readout}, ${formatKitDb(db)}` : readout}
       aria-orientation="vertical"
       onPointerDown={(event) => {
         if (event.button !== 0) return
@@ -213,33 +264,33 @@ function KitFader({
         const step = event.shiftKey ? 0.25 : 0.5
         if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
           event.preventDefault()
-          onChange(group, clampKitDb(db + step))
+          onChange(clampKitDb(db + step))
         }
         if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
           event.preventDefault()
-          onChange(group, clampKitDb(db - step))
+          onChange(clampKitDb(db - step))
         }
         if (event.key === 'Home') {
           event.preventDefault()
-          onChange(group, KIT_MIX_MAX_DB)
+          onChange(KIT_MIX_MAX_DB)
         }
         if (event.key === 'End') {
           event.preventDefault()
-          onChange(group, KIT_MIX_MIN_DB)
+          onChange(KIT_MIX_MIN_DB)
         }
         if (event.key === '0' || event.key === 'Delete') {
           event.preventDefault()
-          onChange(group, 0)
+          onChange(0)
         }
       }}
     >
-      <span className="kit-fader-name">{KIT_GROUP_LABELS[group]}</span>
+      <span className="kit-fader-name">{label}</span>
       <div className="kit-fader-well" ref={wellRef}>
         <FaderThrow db={db} />
       </div>
       <span className="kit-fader-foot">
-        <span className="kit-fader-readout" data-kit-readout={group}>
-          {formatKitDb(db)}
+        <span className="kit-fader-readout" data-kit-readout={id}>
+          {readout}
         </span>
       </span>
     </div>
@@ -260,15 +311,15 @@ function FaderThrow({ db }: { db: number }) {
   )
 }
 
-function KitFaderZoom({ group, db }: { group: KitGroupId; db: number }) {
+function MixFaderZoom({ label, db, readout }: { label: string; db: number; readout: string }) {
   return (
-    <div className="kit-fader-zoom" data-kit-fader-zoom={group} aria-hidden>
+    <div className="kit-fader-zoom" data-kit-fader-zoom={label.toLowerCase()} aria-hidden>
       <div className="kit-fader-zoom-card">
-        <p className="kit-fader-zoom-name">{KIT_GROUP_LABELS[group]}</p>
+        <p className="kit-fader-zoom-name">{label}</p>
         <div className="kit-fader-zoom-throw">
           <FaderThrow db={db} />
         </div>
-        <p className="kit-fader-zoom-readout">{formatKitDb(db)}</p>
+        <p className="kit-fader-zoom-readout">{readout}</p>
       </div>
     </div>
   )

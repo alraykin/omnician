@@ -8,11 +8,11 @@ https://creativecommons.org/licenses/by/4.0/
 Omnician uses CrocellKit one-shots (5 intensity tiers, round-robin)
 encoded to AAC 192 kbps for the web. Tiers keep their natural relative loudness.
 Approved kick / snare / rimshot / toms / hats / crash / ride files are unchanged.
-Ride bell, china, splash, and stack were added from the same stereo mix:
+Ride bell, china, splash, and catch were added from the same stereo mix:
 - Ride Bell — RideRBell
 - China — ChinaR
 - Splash — SplashL
-- Stack — CrashRStopped (extra choked crash from the kit; CrocellKit has no stacked cymbal)
+- Catch — CrashRStopped (caught/choked crash from the kit; CrocellKit has no stacked cymbal)
 
 ---
 

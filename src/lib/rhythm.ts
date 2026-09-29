@@ -29,7 +29,7 @@ export const VOICE_LABELS: Record<VoiceId, string> = {
   ride: 'Ride',
   rideBell: 'Ride Bell',
   crash: 'Crash',
-  stack: 'Stack',
+  stack: 'Catch',
   splash: 'Splash',
   china: 'China',
 }

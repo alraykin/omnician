@@ -75,6 +75,7 @@ export function RhythmPage() {
   const [drumBarIndex, setDrumBarIndex] = useState(prefs.drumBarIndex)
   const [presetId, setPresetId] = useState<string | null>(prefs.presetId)
   const [kitMix, setKitMix] = useState<KitMix>(prefs.kitMix)
+  const [volumeDb, setVolumeDb] = useState(prefs.volumeDb)
   const [kitIntensity, setKitIntensity] = useState<KitIntensity>(prefs.kitIntensity)
   const [playing, setPlaying] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -116,6 +117,7 @@ export function RhythmPage() {
     bars,
     clickSound,
     kitMix,
+    volumeDb,
     kitIntensity,
     kitStyle: kitStyleId,
     speedBuilder,
@@ -159,6 +161,7 @@ export function RhythmPage() {
         drumBarIndex,
         presetId: matched?.id ?? presetId,
         kitMix,
+        volumeDb,
         kitIntensity,
         speedBuilder,
       })
@@ -173,6 +176,7 @@ export function RhythmPage() {
     bpm,
     kitIntensity,
     kitMix,
+    volumeDb,
     matched?.id,
     mode,
     presetId,
@@ -403,7 +407,7 @@ export function RhythmPage() {
         />
         <div
           data-rhythm-scroll
-          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain pb-[7.25rem] [scrollbar-width:thin] [touch-action:pan-y] lg:pb-6"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain [scrollbar-width:thin] [touch-action:pan-y]"
         >
           <div
             data-rhythm-header
@@ -437,10 +441,12 @@ export function RhythmPage() {
                 liveBpm={liveBpm}
                 playing={playing}
                 speedBuilder={speedBuilder}
+                volumeDb={volumeDb}
                 onSpeedBuilder={setSpeedBuilder}
                 onBpm={changeBpm}
                 onTap={tapTempo}
                 onListen={openListen}
+                onVolume={setVolumeDb}
               />
 
               <section
@@ -619,10 +625,12 @@ export function RhythmPage() {
                 liveBpm={liveBpm}
                 playing={playing}
                 speedBuilder={speedBuilder}
+                volumeDb={volumeDb}
                 onSpeedBuilder={setSpeedBuilder}
                 onBpm={changeBpm}
                 onTap={tapTempo}
                 onListen={openListen}
+                onVolume={setVolumeDb}
                 precountAlways
               />
               <section

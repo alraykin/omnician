@@ -211,7 +211,7 @@ def main() -> None:
         "ride_bell": "CrocellKit RideRBell stereo mix",
         "china": "CrocellKit ChinaR stereo mix",
         "splash": "CrocellKit SplashL stereo mix",
-        "stack": "CrocellKit CrashRStopped extra cymbal, used for Stack",
+        "stack": "CrocellKit CrashRStopped extra cymbal, used for Catch",
         "clap": "VCSL SoloClap velocity layers, tone-matched",
     }
     MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n")

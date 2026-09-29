@@ -25,7 +25,13 @@ import {
   type VoiceId,
 } from '@/lib/rhythm'
 import { DEFAULT_KIT_INTENSITY, clampStyleIntensity, type KitIntensity } from '@/lib/kit-intensity'
-import { DEFAULT_KIT_MIX, parseKitMix, type KitMix } from '@/lib/kit-mix'
+import {
+  DEFAULT_KIT_MIX,
+  DEFAULT_MASTER_VOLUME_DB,
+  parseKitMix,
+  parseMasterVolumeDb,
+  type KitMix,
+} from '@/lib/kit-mix'
 import { barsForPreset, findPreset, makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
 import { DEFAULT_SPEED_BUILDER, parseSpeedBuilder, type SpeedBuilder } from '@/lib/speed-builder'
 
@@ -64,6 +70,7 @@ export type RhythmPrefs = {
   kitMix: KitMix
   kitIntensity: KitIntensity
   speedBuilder: SpeedBuilder
+  volumeDb: number
 }
 
 function fallback(): RhythmPrefs {
@@ -79,6 +86,7 @@ function fallback(): RhythmPrefs {
     kitMix: { ...DEFAULT_KIT_MIX },
     kitIntensity: DEFAULT_KIT_INTENSITY,
     speedBuilder: { ...DEFAULT_SPEED_BUILDER },
+    volumeDb: DEFAULT_MASTER_VOLUME_DB,
   }
 }
 
@@ -174,6 +182,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
       kitMix?: unknown
       kitIntensity?: unknown
       speedBuilder?: unknown
+      volumeDb?: unknown
     }
 
     const split = Array.isArray(row.clickBars) || Array.isArray(row.drumBars)
@@ -207,6 +216,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
       kitMix: parseKitMix(row.kitMix, migrateCymbals),
       kitIntensity: clampStyleIntensity(libraryStyle, row.kitIntensity),
       speedBuilder: parseSpeedBuilder(row.speedBuilder),
+      volumeDb: parseMasterVolumeDb(row.volumeDb),
     }
   } catch {
     return base
@@ -231,6 +241,7 @@ export function saveRhythmPrefs(prefs: RhythmPrefs): void {
         prefs.kitIntensity,
       ),
       speedBuilder: parseSpeedBuilder(prefs.speedBuilder),
+      volumeDb: parseMasterVolumeDb(prefs.volumeDb),
     }),
   )
 }

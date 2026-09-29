@@ -32,6 +32,20 @@ export const DEFAULT_KIT_MIX: KitMix = {
   toms: 0,
 }
 
+/** Shared Click/Drums playback master. 0 dB = 100% / unity. */
+export const DEFAULT_MASTER_VOLUME_DB = 0
+
+export function parseMasterVolumeDb(raw: unknown): number {
+  if (typeof raw !== 'number') return DEFAULT_MASTER_VOLUME_DB
+  return clampKitDb(raw, DEFAULT_MASTER_VOLUME_DB)
+}
+
+/** 0 dB reads 100%. Below that is quieter; above 0 dB can exceed 100%. */
+export function formatMasterVolume(db: number): string {
+  if (db <= KIT_MIX_MIN_DB) return '0%'
+  return `${Math.round(dbToGain(db) * 100)}%`
+}
+
 export const KIT_VOICE_GROUP: Record<VoiceId, KitGroupId> = {
   kick: 'kick',
   snare: 'snare',

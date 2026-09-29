@@ -485,7 +485,7 @@ const HIPHOP: StyleIntensityProfile = {
     }),
     5: ch({
       name: 'Bounce',
-      blurb: 'Trap-busy hats, stack/splash, full fill, bright',
+      blurb: 'Trap-busy hats, catch/splash, full fill, bright',
       accentTier: 5,
       ghostTier: 3,
       hatTier: 5,
@@ -547,7 +547,7 @@ const HOUSE: StyleIntensityProfile = {
     }),
     3: ch({
       name: 'Peak',
-      blurb: '16th hats, splash/stack, phrase crash, brighter',
+      blurb: '16th hats, splash/catch, phrase crash, brighter',
       accentTier: 5,
       ghostTier: 3,
       hatTier: 5,

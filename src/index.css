@@ -15,6 +15,7 @@
   --background: #0b0f1a;
   --foreground: #f8fafc;
   --tabbar-clearance: calc(4.7rem + env(safe-area-inset-bottom, 0px));
+  --playbar-clearance: 10.75rem;
   color-scheme: dark;
 }
 
@@ -74,6 +75,19 @@ body {
   [data-rhythm-stack] {
     align-self: flex-start;
     height: fit-content;
+  }
+}
+
+/* Sticky Play overlays the scroll area below lg (and on short landscape, e.g. Tesla). */
+[data-rhythm-scroll] {
+  padding-bottom: calc(var(--playbar-clearance) + env(safe-area-inset-bottom, 0px));
+  scroll-padding-bottom: calc(var(--playbar-clearance) + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 1024px) and (min-height: 56rem) {
+  [data-rhythm-scroll] {
+    padding-bottom: 1.5rem;
+    scroll-padding-bottom: 1.5rem;
   }
 }
 
@@ -244,6 +258,43 @@ body {
 
 .kit-fader-channel[data-held='true'] {
   touch-action: none;
+}
+
+.kit-fader-channel[data-volume='true'] {
+  --kit-fader-name-h: 0.78rem;
+  --kit-fader-track-h: 3.2rem;
+  --kit-fader-foot-h: 0.9rem;
+  --kit-fader-cap-half: 0.32rem;
+  --kit-fader-slot-w: 0.4rem;
+  --kit-fader-cap-w: 1.22rem;
+  --kit-fader-cap-h: 0.64rem;
+  width: 2.15rem;
+  min-height: 0;
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .kit-fader-channel[data-volume='true'] {
+    --kit-fader-track-h: 5.2rem;
+    --kit-fader-cap-half: 0.4rem;
+    --kit-fader-slot-w: 0.5rem;
+    --kit-fader-cap-w: 1.42rem;
+    --kit-fader-cap-h: 0.8rem;
+    width: 2.35rem;
+    min-height: 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .kit-fader-channel[data-volume='true'] {
+    --kit-fader-track-h: 6.2rem;
+    --kit-fader-cap-half: 0.44rem;
+    --kit-fader-slot-w: 0.54rem;
+    --kit-fader-cap-w: 1.5rem;
+    --kit-fader-cap-h: 0.88rem;
+    width: 2.45rem;
+    min-height: 0;
+  }
 }
 
 .kit-fader-channel:focus-visible {
