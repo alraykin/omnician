@@ -1,8 +1,9 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 
+import { TunerLink } from '@/components/TunerLink'
 import { getTempoListener } from '@/lib/tempo-listen'
 import { primeRhythmKit } from '@/lib/rhythm-audio'
-import { leaveTunerPage, primeTuner } from '@/lib/tuner-session'
+import { leaveTunerPage } from '@/lib/tuner-session'
 import { cn } from '@/lib/utils'
 
 export const TAB_IDS = ['home', 'tuner', 'click', 'drums'] as const
@@ -15,7 +16,7 @@ const TABS: {
   prime?: () => void
 }[] = [
   { id: 'home', label: 'Home', to: '/' },
-  { id: 'tuner', label: 'Tuner', to: '/tuner', prime: primeTuner },
+  { id: 'tuner', label: 'Tuner', to: '/tuner' },
   { id: 'click', label: 'Click', to: '/rhythm?mode=click', prime: primeRhythmKit },
   { id: 'drums', label: 'Drums', to: '/rhythm?mode=drums', prime: primeRhythmKit },
 ]
@@ -50,6 +51,32 @@ export function AppTabBar() {
       >
         {TABS.map((tab) => {
           const active = current === tab.id
+          const className =
+            'min-w-0 touch-manipulation rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]'
+          const label = (
+            <span
+              className={cn(
+                'flex flex-col items-center gap-0.5 rounded-full px-1 py-1.5 text-[0.62rem] font-semibold leading-none',
+                active ? 'bg-[#0B0F1A]/82 text-[#C084FC]' : 'text-slate-400 hover:text-slate-200',
+              )}
+            >
+              <TabIcon id={tab.id} className={cn('size-[1.35rem]', active && 'text-[#A855F7]')} />
+              {tab.label}
+            </span>
+          )
+          if (tab.id === 'tuner') {
+            return (
+              <TunerLink
+                key={tab.id}
+                data-tab={tab.id}
+                aria-current={active ? 'page' : undefined}
+                onClick={() => onLeave(tab.id)}
+                className={className}
+              >
+                {label}
+              </TunerLink>
+            )
+          }
           return (
             <Link
               key={tab.id}
@@ -61,17 +88,9 @@ export function AppTabBar() {
                 onLeave(tab.id)
               }}
               onClick={() => onLeave(tab.id)}
-              className="min-w-0 touch-manipulation rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]"
+              className={className}
             >
-              <span
-                className={cn(
-                  'flex flex-col items-center gap-0.5 rounded-full px-1 py-1.5 text-[0.62rem] font-semibold leading-none',
-                  active ? 'bg-[#0B0F1A]/82 text-[#C084FC]' : 'text-slate-400 hover:text-slate-200',
-                )}
-              >
-                <TabIcon id={tab.id} className={cn('size-[1.35rem]', active && 'text-[#A855F7]')} />
-                {tab.label}
-              </span>
+              {label}
             </Link>
           )
         })}

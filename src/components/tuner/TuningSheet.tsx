@@ -1,7 +1,6 @@
 import { ChevronRight, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
-import { ChromaticCalibration } from '@/components/tuner/ChromaticCalibration'
 import { Button } from '@/components/ui/button'
 import {
   configsForFamily,
@@ -26,8 +25,6 @@ type TuningSheetProps = {
   current: TuningPreset
   instrumentId: InstrumentId
   customs: TuningPreset[]
-  a4Hz: number
-  onA4Change: (hz: number) => void
   onConfirm: (next: { instrumentId: InstrumentId; presetId: string }) => void
   onCreate: () => void
   onEdit: (id: string) => void
@@ -40,8 +37,6 @@ export function TuningSheet({
   current,
   instrumentId,
   customs,
-  a4Hz,
-  onA4Change,
   onConfirm,
   onCreate,
   onEdit,
@@ -88,8 +83,7 @@ export function TuningSheet({
     setQuery('')
     const nextConfigs = configsForFamily(id)
     if (id === 'chromatic') {
-      setDraftConfig('chromatic')
-      setDraftPresetId('chromatic')
+      applyTuning('chromatic', 'chromatic')
       return
     }
     if (id === 'custom') {
@@ -189,9 +183,7 @@ export function TuningSheet({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
-          {draftFamily === 'chromatic' ? (
-            <ChromaticCalibration a4Hz={a4Hz} onChange={onA4Change} />
-          ) : (
+          {draftFamily === 'chromatic' ? null : (
             <>
               <label className="relative mb-3 block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />

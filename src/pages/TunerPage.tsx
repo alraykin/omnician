@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AppChrome } from '@/components/AppChrome'
 import { A4ReferenceControl } from '@/components/tuner/A4ReferenceControl'
-import { ChromaticCalibration } from '@/components/tuner/ChromaticCalibration'
 import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
 import { Headstock } from '@/components/tuner/Headstock'
 import { InputPicker } from '@/components/tuner/InputPicker'
@@ -377,9 +376,9 @@ export function TunerPage() {
               />
             </div>
           ) : (
-            <div className="mt-4 w-full lg:mt-2">
-              <ChromaticCalibration a4Hz={a4Hz} onChange={setA4Hz} compact />
-            </div>
+            <p className="mt-4 w-full text-center text-sm leading-6 text-slate-500 lg:mt-2">
+              Listening for the nearest note. Set the reference with A4 above.
+            </p>
           )}
 
           <p
@@ -403,8 +402,6 @@ export function TunerPage() {
         current={current}
         instrumentId={activeInstrument}
         customs={customPresets}
-        a4Hz={a4Hz}
-        onA4Change={setA4Hz}
         onConfirm={({ instrumentId: nextInstrument, presetId: nextPreset }) => {
           setInstrumentId(nextInstrument)
           setPresetId(nextPreset)

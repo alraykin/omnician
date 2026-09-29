@@ -591,6 +591,10 @@ export async function resumeTuner(): Promise<void> {
 
 export function primeTuner(): void {
   lastStartHadGesture = true
+}
+
+export function beginTunerFromTap(): void {
+  primeTuner()
   if (orphanTimer) window.clearTimeout(orphanTimer)
   orphanTimer = window.setTimeout(() => {
     orphanTimer = 0
