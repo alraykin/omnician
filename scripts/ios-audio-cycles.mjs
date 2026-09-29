@@ -176,6 +176,7 @@ async function main() {
     await closeListenSheet()
     await click('[data-transport="play"]')
     await click('[data-transport="play"]')
+    console.log(`round ${round + 1} after Listen Play`, await snap())
     await go('/rhythm?mode=click&debug=audio&listenDemo=120')
     await page.waitForSelector('[data-listen-panel="open"]', { timeout: 8000 })
     await hearListenPreviews()
