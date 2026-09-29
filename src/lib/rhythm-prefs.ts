@@ -32,7 +32,7 @@ import {
   parseMasterVolumeDb,
   type KitMix,
 } from '@/lib/kit-mix'
-import { barsForPreset, findPreset, makeDefaultClickBars, makeDefaultRockBars } from '@/lib/rhythm-presets'
+import { barsForPreset, findPreset, makeDefaultClickBars, makeDefaultRockBars, matchPreset } from '@/lib/rhythm-presets'
 import { DEFAULT_SPEED_BUILDER, parseSpeedBuilder, type SpeedBuilder } from '@/lib/speed-builder'
 
 const STORAGE_KEY = 'omnician.rhythm.v21'
@@ -212,7 +212,10 @@ export function loadRhythmPrefs(): RhythmPrefs {
       drumBarIndex,
       presetId,
       kitMix: parseKitMix(row.kitMix, migrateCymbals),
-      kitIntensity: clampKitIntensity(row.kitIntensity),
+      kitIntensity: clampKitIntensity(
+        row.kitIntensity,
+        (presetId ? findPreset(presetId)?.styleId : null) ?? matchPreset(drumBars[0] ?? base.drumBars[0])?.styleId,
+      ),
       speedBuilder: parseSpeedBuilder(row.speedBuilder),
       volumeDb: parseMasterVolumeDb(row.volumeDb),
     }

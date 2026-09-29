@@ -1,3 +1,4 @@
+import { KIT_MIX_UNITY_POS } from '@/lib/kit-mix'
 import { stepsPerBeat, type HitPos, type SubdivisionId } from '@/lib/rhythm'
 import type { RhythmStyleId } from '@/lib/rhythm-presets'
 
@@ -5,11 +6,26 @@ import type { RhythmStyleId } from '@/lib/rhythm-presets'
 export const CROCELL_TIERS = [1, 2, 3, 4, 5] as const
 export type CrocellTier = (typeof CROCELL_TIERS)[number]
 
-/** Playing dynamics. Same notes at every level — only how hard they are struck. */
-export const KIT_INTENSITIES = ['pp', 'p', 'f', 'ff'] as const
+/** Playing dynamics. Same notes at every level — how hard they are struck. */
+export const KIT_INTENSITIES = ['low', 'mid', 'high'] as const
 export type KitIntensity = (typeof KIT_INTENSITIES)[number]
-export const DEFAULT_KIT_INTENSITY: KitIntensity = 'f'
+export const DEFAULT_KIT_INTENSITY: KitIntensity = 'high'
 export const DEFAULT_INTENSITY_STYLE: RhythmStyleId = 'rock'
+
+export const INTENSITY_LABELS: Record<KitIntensity, string> = {
+  low: 'Low',
+  mid: 'Mid',
+  high: 'High',
+}
+
+/** Cap positions on the shared kit throw. Mid sits on the 0.0 line. */
+export const INTENSITY_POS: Record<KitIntensity, number> = {
+  low: 0.28,
+  mid: KIT_MIX_UNITY_POS,
+  high: 1,
+}
+
+export const INTENSITY_POS_LIST = KIT_INTENSITIES.map((level) => INTENSITY_POS[level])
 
 export type HitRole = 'backbeat' | 'ghost' | 'normal'
 
@@ -23,55 +39,61 @@ export type IntensityDynamics = {
   ghostVel: number
   hatVel: number
   normalVel: number
-  /** Extra level so softer layers also play quieter, harder layers louder. */
+  /**
+   * Compensates Crocell layer loudness so Low / Mid / High stay within
+   * about 5% of each other. Feel comes from the velocity layer, not fader gain.
+   */
   gain: number
 }
 
 const DYNAMICS: Record<KitIntensity, IntensityDynamics> = {
-  pp: {
-    mark: 'pp',
+  low: {
+    mark: 'low',
     accentTier: 1,
     ghostTier: 1,
     hatTier: 1,
-    accentVel: 0.55,
-    ghostVel: 0.36,
-    hatVel: 0.48,
-    normalVel: 0.5,
-    gain: 0.62,
+    accentVel: 0.88,
+    ghostVel: 0.48,
+    hatVel: 0.72,
+    normalVel: 0.82,
+    gain: 1.655,
   },
-  p: {
-    mark: 'p',
-    accentTier: 2,
-    ghostTier: 1,
-    hatTier: 2,
-    accentVel: 0.7,
-    ghostVel: 0.42,
-    hatVel: 0.62,
-    normalVel: 0.66,
-    gain: 0.82,
-  },
-  f: {
-    mark: 'f',
-    accentTier: 4,
+  mid: {
+    mark: 'mid',
+    accentTier: 3,
     ghostTier: 2,
-    hatTier: 4,
+    hatTier: 3,
     accentVel: 0.92,
     ghostVel: 0.5,
-    hatVel: 0.8,
+    hatVel: 0.78,
     normalVel: 0.86,
     gain: 1,
   },
-  ff: {
-    mark: 'ff',
+  high: {
+    mark: 'high',
     accentTier: 5,
     ghostTier: 3,
     hatTier: 5,
-    accentVel: 1,
-    ghostVel: 0.58,
-    hatVel: 0.92,
-    normalVel: 0.96,
-    gain: 1.18,
+    accentVel: 0.96,
+    ghostVel: 0.52,
+    hatVel: 0.84,
+    normalVel: 0.9,
+    gain: 0.704,
   },
+}
+
+const STYLE_DEFAULT_INTENSITY: Record<RhythmStyleId, KitIntensity> = {
+  rock: 'high',
+  metal: 'high',
+  odd: 'high',
+  funk: 'mid',
+  pop: 'mid',
+  hiphop: 'mid',
+  house: 'mid',
+  latin: 'mid',
+  shuffle: 'mid',
+  jazz: 'low',
+  waltz: 'low',
 }
 
 export function dynamicsFor(intensity: KitIntensity): IntensityDynamics {
@@ -79,35 +101,56 @@ export function dynamicsFor(intensity: KitIntensity): IntensityDynamics {
 }
 
 export function intensityLabel(value: KitIntensity): string {
-  return dynamicsFor(value).mark
+  return INTENSITY_LABELS[value] ?? INTENSITY_LABELS[DEFAULT_KIT_INTENSITY]
+}
+
+export function isKitIntensity(value: unknown): value is KitIntensity {
+  return value === 'low' || value === 'mid' || value === 'high'
+}
+
+export function defaultIntensityForStyle(styleId: RhythmStyleId | null | undefined): KitIntensity {
+  if (!styleId) return DEFAULT_KIT_INTENSITY
+  return STYLE_DEFAULT_INTENSITY[styleId] ?? DEFAULT_KIT_INTENSITY
+}
+
+export function intensityFromPos(pos: number): KitIntensity {
+  const p = Math.min(1, Math.max(0, pos))
+  let best: KitIntensity = DEFAULT_KIT_INTENSITY
+  let bestDist = Number.POSITIVE_INFINITY
+  for (const level of KIT_INTENSITIES) {
+    const dist = Math.abs(INTENSITY_POS[level] - p)
+    if (dist < bestDist) {
+      best = level
+      bestDist = dist
+    }
+  }
+  return best
+}
+
+export function stepKitIntensity(value: KitIntensity, delta: number): KitIntensity {
+  const index = KIT_INTENSITIES.indexOf(value)
+  const next = Math.min(KIT_INTENSITIES.length - 1, Math.max(0, index + delta))
+  return KIT_INTENSITIES[next] ?? value
 }
 
 /**
- * Accept saved marks, or old 1–5 character numbers:
- * 1 Light → pp, 2 Pocket → p, 3 Driving → f, 4 Full (old default) → f, 5 Stadium → ff.
+ * Keep Low / Mid / High. Old pp / p / f / ff and 1–5 fall back to the
+ * style default so each beat family opens on its own intensity.
  */
-export function clampKitIntensity(value: unknown): KitIntensity {
-  if (value === 'pp' || value === 'p' || value === 'f' || value === 'ff') return value
-  if (typeof value === 'string' && value.trim() !== '') {
-    const asNumber = Number(value)
-    if (Number.isFinite(asNumber)) return clampKitIntensity(asNumber)
-  }
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const rounded = Math.round(value)
-    if (rounded <= 1) return 'pp'
-    if (rounded === 2) return 'p'
-    if (rounded === 3 || rounded === 4) return 'f'
-    return 'ff'
-  }
-  return DEFAULT_KIT_INTENSITY
+export function clampKitIntensity(
+  value: unknown,
+  styleId?: RhythmStyleId | null,
+): KitIntensity {
+  if (isKitIntensity(value)) return value
+  return defaultIntensityForStyle(styleId)
 }
 
-/** @deprecated Intensity is no longer per-style. */
+/** @deprecated Use defaultIntensityForStyle + clampKitIntensity. */
 export function clampStyleIntensity(
-  _styleId: RhythmStyleId | null | undefined,
+  styleId: RhythmStyleId | null | undefined,
   value: unknown,
 ): KitIntensity {
-  return clampKitIntensity(value)
+  return clampKitIntensity(value, styleId)
 }
 
 export function snareHitRole(hit: Pick<HitPos, 'beat' | 'num'>): HitRole {

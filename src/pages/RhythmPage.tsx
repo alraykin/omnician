@@ -8,14 +8,13 @@ import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
 import { CompactMeter } from '@/components/rhythm/CompactMeter'
 import { DrumBarStage } from '@/components/rhythm/DrumBarStage'
 import { KitFaders } from '@/components/rhythm/KitFaders'
-import { KitIntensityControl } from '@/components/rhythm/KitIntensity'
 import { ListenTempoSheet } from '@/components/rhythm/ListenTempo'
 import { RhythmTempoCard } from '@/components/rhythm/RhythmTempoCard'
 import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { usePlayhead, useRhythmEngine, type PlayheadStore } from '@/hooks/useRhythmEngine'
-import { snareRoleFromStep, type KitIntensity } from '@/lib/kit-intensity'
+import { defaultIntensityForStyle, snareRoleFromStep, type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
 import {
   CLICK_SOUND_LABELS,
@@ -219,6 +218,9 @@ export function RhythmPage() {
     setDrumBars(barsForPreset(preset).map(cloneBar))
     setDrumBarIndex(0)
     if (id === 'rock-44') setBpm(DEFAULT_BPM)
+    if (preset.styleId !== kitStyleId) {
+      setKitIntensity(defaultIntensityForStyle(preset.styleId))
+    }
     setPresetId(preset.id)
     setPickerOpen(false)
   }
@@ -726,8 +728,12 @@ export function RhythmPage() {
                 onPaint={onPaintCell}
                 onPreviewVoice={preview}
               />
-              <KitIntensityControl value={kitIntensity} onChange={setKitIntensity} />
-              <KitFaders mix={kitMix} onChange={setGroupMix} />
+              <KitFaders
+                mix={kitMix}
+                intensity={kitIntensity}
+                onChange={setGroupMix}
+                onIntensityChange={setKitIntensity}
+              />
               <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-500">
                 Drums:{' '}
                 <a

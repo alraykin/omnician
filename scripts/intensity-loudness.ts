@@ -1,4 +1,9 @@
-import { KIT_INTENSITIES, type KitIntensity } from '../src/lib/kit-intensity.ts'
+import {
+  KIT_INTENSITIES,
+  defaultIntensityForStyle,
+  dynamicsFor,
+  type KitIntensity,
+} from '../src/lib/kit-intensity.ts'
 import { estimateBarEnergy, quartersInBar, realizeDrumBar } from '../src/lib/kit-intensity-play.ts'
 import { VOICES } from '../src/lib/rhythm.ts'
 import { RHYTHM_STYLES, barsForPreset, type RhythmStyleId } from '../src/lib/rhythm-presets.ts'
@@ -19,6 +24,10 @@ function meanVel(hits: ReturnType<typeof realizeDrumBar>['hits']): number {
   return hits.reduce((sum, hit) => sum + hit.vel, 0) / hits.length
 }
 
+function ampFromEnergy(energy: number): number {
+  return Math.sqrt(Math.max(0, energy))
+}
+
 function main(): void {
   let failed = 0
   const rows: Array<{
@@ -31,6 +40,21 @@ function main(): void {
     gain: number
     accentTier: number
   }> = []
+
+  const expectedDefault: Record<string, KitIntensity> = {
+    rock: 'high',
+    metal: 'high',
+    odd: 'high',
+    funk: 'mid',
+    jazz: 'low',
+    waltz: 'low',
+  }
+  for (const [style, level] of Object.entries(expectedDefault)) {
+    if (defaultIntensityForStyle(style as RhythmStyleId) !== level) {
+      failed += 1
+      console.error(`DEFAULT ${style}: expected ${level}, got ${defaultIntensityForStyle(style as RhythmStyleId)}`)
+    }
+  }
 
   for (const style of RHYTHM_STYLES) {
     const groove = style.grooves[0]
@@ -72,17 +96,32 @@ function main(): void {
         failed += 1
         console.error(`PATTERN ${style.id}: ${prev.level} vs ${next.level} changed notes`)
       }
-      const prevEnergy = estimateBarEnergy(prev.realized.hits) / quartersInBar(bar)
-      const nextEnergy = estimateBarEnergy(next.realized.hits) / quartersInBar(bar)
-      if (!(nextEnergy > prevEnergy * 1.05)) {
+      const prevTier = dynamicsFor(prev.level).accentTier
+      const nextTier = dynamicsFor(next.level).accentTier
+      if (!(nextTier > prevTier)) {
+        failed += 1
+        console.error(`TIER ${style.id}: ${next.level} is not a harder layer than ${prev.level}`)
+      }
+      const prevAmp = ampFromEnergy(estimateBarEnergy(prev.realized.hits) / quartersInBar(bar))
+      const nextAmp = ampFromEnergy(estimateBarEnergy(next.realized.hits) / quartersInBar(bar))
+      const ratio = nextAmp / Math.max(prevAmp, 1e-9)
+      if (ratio < 1.02 || ratio > 1.09) {
         failed += 1
         console.error(
-          `DYNAMICS ${style.id}: ${next.level} is not harder than ${prev.level} (${prevEnergy.toFixed(4)} → ${nextEnergy.toFixed(4)})`,
+          `LEVEL ${style.id}: ${prev.level} → ${next.level} volume ratio ${ratio.toFixed(3)} (want ~5%, 1.02–1.09)`,
         )
       }
-      if (!(meanVel(next.realized.hits) > meanVel(prev.realized.hits))) {
+    }
+
+    const low = byLevel[0]
+    const high = byLevel[byLevel.length - 1]
+    if (low && high) {
+      const lowAmp = ampFromEnergy(estimateBarEnergy(low.realized.hits) / quartersInBar(bar))
+      const highAmp = ampFromEnergy(estimateBarEnergy(high.realized.hits) / quartersInBar(bar))
+      const span = highAmp / Math.max(lowAmp, 1e-9)
+      if (span > 1.16) {
         failed += 1
-        console.error(`VEL ${style.id}: ${next.level} is not stronger than ${prev.level}`)
+        console.error(`SPAN ${style.id}: Low→High volume ${span.toFixed(3)} is more than ~10%`)
       }
     }
 
@@ -100,11 +139,11 @@ function main(): void {
     }
   }
 
-  const header = 'style'.padEnd(8) + 'lv   hits  t  gain   vel    energy'
+  const header = 'style'.padEnd(8) + 'lv    hits  t  gain   vel    energy'
   console.log(header)
   for (const row of rows) {
     console.log(
-      `${row.style.padEnd(8)}${row.level.padEnd(5)}${String(row.hits).padStart(4)}  ${String(row.accentTier).padStart(1)}  ${row.gain.toFixed(2).padStart(4)}  ${row.vel.toFixed(3).padStart(5)}  ${row.energy.toFixed(4)}`,
+      `${row.style.padEnd(8)}${row.level.padEnd(6)}${String(row.hits).padStart(4)}  ${String(row.accentTier).padStart(1)}  ${row.gain.toFixed(2).padStart(4)}  ${row.vel.toFixed(3).padStart(5)}  ${row.energy.toFixed(4)}`,
     )
   }
 
@@ -112,7 +151,7 @@ function main(): void {
     console.error(`${failed} intensity check(s) failed`)
     process.exit(1)
   }
-  console.log(`${rows.length} style×levels: same notes, increasing dynamics pp → ff`)
+  console.log(`${rows.length} style×levels: same notes, harder layers, ~5% volume between Low / Mid / High`)
 }
 
 main()

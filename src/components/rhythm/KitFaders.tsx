@@ -2,6 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import {
+  INTENSITY_POS,
+  INTENSITY_POS_LIST,
+  intensityFromPos,
+  intensityLabel,
+  stepKitIntensity,
+  type KitIntensity,
+} from '@/lib/kit-intensity'
+import {
   KIT_GROUPS,
   KIT_GROUP_LABELS,
   KIT_MIX_MAX_DB,
@@ -18,14 +26,16 @@ import { DRAG_DEADZONE_PX, usesFaderZoom } from '@/lib/utils'
 
 type KitFadersProps = {
   mix: KitMix
+  intensity: KitIntensity
   onChange: (group: KitGroupId, db: number) => void
+  onIntensityChange: (next: KitIntensity) => void
 }
 
 /** Finger travel (px) for a full fader throw — much longer than the visible track. */
 const FINE_TRAVEL_PX = 340
 
-export function KitFaders({ mix, onChange }: KitFadersProps) {
-  const [held, setHeld] = useState<KitGroupId | null>(null)
+export function KitFaders({ mix, intensity, onChange, onIntensityChange }: KitFadersProps) {
+  const [held, setHeld] = useState<KitGroupId | 'intensity' | null>(null)
 
   return (
     <div data-section="kit-faders" className="kit-fader-bank">
@@ -35,18 +45,53 @@ export function KitFaders({ mix, onChange }: KitFadersProps) {
             key={group}
             id={group}
             label={KIT_GROUP_LABELS[group]}
-            db={mix[group]}
+            pos={mixDbToPos(mix[group])}
             held={held === group}
             readout={formatKitDb(mix[group])}
-            onChange={(db) => onChange(group, db)}
+            ariaValueMin={KIT_MIX_MIN_DB}
+            ariaValueMax={KIT_MIX_MAX_DB}
+            ariaValueNow={Math.round(mix[group] * 10) / 10}
+            ariaValueText={formatKitDb(mix[group])}
+            onChangePos={(pos) => onChange(group, mixPosToDb(pos))}
+            onNudge={(delta, large) => onChange(group, clampKitDb(mix[group] + (large ? 0.25 : 0.5) * delta))}
+            onHome={() => onChange(group, KIT_MIX_MAX_DB)}
+            onEnd={() => onChange(group, KIT_MIX_MIN_DB)}
+            onReset={() => onChange(group, 0)}
             onHoldStart={() => setHeld(group)}
             onHoldEnd={() => setHeld((current) => (current === group ? null : current))}
           />
         ))}
+        <MixFader
+          id="intensity"
+          label="Intensity"
+          pos={INTENSITY_POS[intensity]}
+          held={held === 'intensity'}
+          readout={intensityLabel(intensity)}
+          ariaValueMin={0}
+          ariaValueMax={2}
+          ariaValueNow={['low', 'mid', 'high'].indexOf(intensity)}
+          ariaValueText={intensityLabel(intensity)}
+          snap={INTENSITY_POS_LIST}
+          clickToSet
+          onChangePos={(pos) => onIntensityChange(intensityFromPos(pos))}
+          onNudge={(delta) => onIntensityChange(stepKitIntensity(intensity, delta))}
+          onHome={() => onIntensityChange('high')}
+          onEnd={() => onIntensityChange('low')}
+          onHoldStart={() => setHeld('intensity')}
+          onHoldEnd={() => setHeld((current) => (current === 'intensity' ? null : current))}
+        />
       </div>
       {held && typeof document !== 'undefined'
         ? createPortal(
-            <MixFaderZoom label={KIT_GROUP_LABELS[held]} db={mix[held]} readout={formatKitDb(mix[held])} />,
+            held === 'intensity' ? (
+              <MixFaderZoom label="Intensity" pos={INTENSITY_POS[intensity]} readout={intensityLabel(intensity)} />
+            ) : (
+              <MixFaderZoom
+                label={KIT_GROUP_LABELS[held]}
+                pos={mixDbToPos(mix[held])}
+                readout={formatKitDb(mix[held])}
+              />
+            ),
             document.body,
           )
         : null}
@@ -69,39 +114,79 @@ export function VolumeFader({
       <MixFader
         id="volume"
         label="Volume"
-        db={db}
+        pos={mixDbToPos(db)}
         held={held}
         compact
         readout={readout}
-        onChange={onChange}
+        ariaValueMin={KIT_MIX_MIN_DB}
+        ariaValueMax={KIT_MIX_MAX_DB}
+        ariaValueNow={Math.round(db * 10) / 10}
+        ariaValueText={`${readout}, ${formatKitDb(db)}`}
+        onChangePos={(pos) => onChange(mixPosToDb(pos))}
+        onNudge={(delta, large) => onChange(clampKitDb(db + (large ? 0.25 : 0.5) * delta))}
+        onHome={() => onChange(KIT_MIX_MAX_DB)}
+        onEnd={() => onChange(KIT_MIX_MIN_DB)}
+        onReset={() => onChange(0)}
         onHoldStart={() => setHeld(true)}
         onHoldEnd={() => setHeld(false)}
       />
       {held && typeof document !== 'undefined'
-        ? createPortal(<MixFaderZoom label="Volume" db={db} readout={readout} />, document.body)
+        ? createPortal(<MixFaderZoom label="Volume" pos={mixDbToPos(db)} readout={readout} />, document.body)
         : null}
     </>
   )
 }
 
+function snapTo(pos: number, snaps?: number[]): number {
+  const clamped = Math.min(1, Math.max(0, pos))
+  if (!snaps?.length) return clamped
+  return snaps.reduce((best, snap) => (Math.abs(snap - clamped) < Math.abs(best - clamped) ? snap : best))
+}
+
+function posFromClientY(well: HTMLDivElement | null, clientY: number): number {
+  const rect = well?.getBoundingClientRect()
+  if (!rect || rect.height <= 0) return 0
+  return Math.min(1, Math.max(0, 1 - (clientY - rect.top) / rect.height))
+}
+
 function MixFader({
   id,
   label,
-  db,
+  pos,
   held,
   compact = false,
   readout,
-  onChange,
+  ariaValueMin,
+  ariaValueMax,
+  ariaValueNow,
+  ariaValueText,
+  snap,
+  clickToSet = false,
+  onChangePos,
+  onNudge,
+  onHome,
+  onEnd,
+  onReset,
   onHoldStart,
   onHoldEnd,
 }: {
   id: string
   label: string
-  db: number
+  pos: number
   held: boolean
   compact?: boolean
   readout: string
-  onChange: (db: number) => void
+  ariaValueMin: number
+  ariaValueMax: number
+  ariaValueNow: number
+  ariaValueText: string
+  snap?: number[]
+  clickToSet?: boolean
+  onChangePos: (pos: number) => void
+  onNudge: (delta: 1 | -1, large: boolean) => void
+  onHome: () => void
+  onEnd: () => void
+  onReset?: () => void
   onHoldStart: () => void
   onHoldEnd: () => void
 }) {
@@ -115,24 +200,35 @@ function MixFader({
   } | null>(null)
   const wellRef = useRef<HTMLDivElement>(null)
   const channelRef = useRef<HTMLDivElement>(null)
+  const posRef = useRef(pos)
+  posRef.current = pos
+
+  const applyPos = useCallback(
+    (next: number) => {
+      onChangePos(snapTo(next, snap))
+    },
+    [onChangePos, snap],
+  )
 
   const moveTo = useCallback(
     (clientY: number) => {
       const drag = dragRef.current
       if (!drag) return
-      const nextPos = Math.min(1, Math.max(0, drag.startPos + (drag.startY - clientY) / drag.travel))
-      onChange(mixPosToDb(nextPos))
+      applyPos(drag.startPos + (drag.startY - clientY) / drag.travel)
     },
-    [onChange],
+    [applyPos],
   )
 
   const endHold = useCallback(
-    (pointerId?: number) => {
+    (pointerId?: number, clientY?: number) => {
       if (pointerId != null && dragRef.current && dragRef.current.pointerId !== pointerId) return
+      const drag = dragRef.current
+      const tapped = Boolean(clickToSet && drag && !drag.moved && clientY != null)
       dragRef.current = null
+      if (tapped) applyPos(posFromClientY(wellRef.current, clientY as number))
       onHoldEnd()
     },
-    [onHoldEnd],
+    [applyPos, clickToSet, onHoldEnd],
   )
 
   useEffect(() => {
@@ -148,14 +244,16 @@ function MixFader({
       className="kit-fader-channel"
       data-kit-fader={id}
       data-volume={compact ? 'true' : undefined}
+      data-section={id === 'intensity' ? 'kit-intensity' : undefined}
+      data-kit-intensity={id === 'intensity' ? readout.toLowerCase() : undefined}
       data-held={held ? 'true' : 'false'}
       role="slider"
       tabIndex={0}
       aria-label={`${label} level`}
-      aria-valuemin={KIT_MIX_MIN_DB}
-      aria-valuemax={KIT_MIX_MAX_DB}
-      aria-valuenow={Math.round(db * 10) / 10}
-      aria-valuetext={compact ? `${readout}, ${formatKitDb(db)}` : readout}
+      aria-valuemin={ariaValueMin}
+      aria-valuemax={ariaValueMax}
+      aria-valuenow={ariaValueNow}
+      aria-valuetext={ariaValueText}
       aria-orientation="vertical"
       onPointerDown={(event) => {
         if (event.button !== 0) return
@@ -168,8 +266,8 @@ function MixFader({
           pointerId: event.pointerId,
           startX: event.clientX,
           startY: event.clientY,
-          startPos: mixDbToPos(db),
-          travel: zoom ? FINE_TRAVEL_PX : Math.max(wellH, 80),
+          startPos: posRef.current,
+          travel: zoom && !snap ? FINE_TRAVEL_PX : Math.max(wellH, 80),
           moved: false,
         }
         if (zoom) onHoldStart()
@@ -190,36 +288,35 @@ function MixFader({
         event.preventDefault()
         moveTo(event.clientY)
       }}
-      onPointerUp={(event) => endHold(event.pointerId)}
+      onPointerUp={(event) => endHold(event.pointerId, event.clientY)}
       onPointerCancel={() => endHold()}
       onLostPointerCapture={() => endHold()}
       onKeyDown={(event) => {
-        const step = event.shiftKey ? 0.25 : 0.5
         if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
           event.preventDefault()
-          onChange(clampKitDb(db + step))
+          onNudge(1, event.shiftKey)
         }
         if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
           event.preventDefault()
-          onChange(clampKitDb(db - step))
+          onNudge(-1, event.shiftKey)
         }
         if (event.key === 'Home') {
           event.preventDefault()
-          onChange(KIT_MIX_MAX_DB)
+          onHome()
         }
         if (event.key === 'End') {
           event.preventDefault()
-          onChange(KIT_MIX_MIN_DB)
+          onEnd()
         }
-        if (event.key === '0' || event.key === 'Delete') {
+        if (onReset && (event.key === '0' || event.key === 'Delete')) {
           event.preventDefault()
-          onChange(0)
+          onReset()
         }
       }}
     >
       <span className="kit-fader-name">{label}</span>
       <div className="kit-fader-well" ref={wellRef}>
-        <FaderThrow db={db} />
+        <FaderThrow pos={pos} />
       </div>
       <span className="kit-fader-foot">
         <span className="kit-fader-readout" data-kit-readout={id}>
@@ -230,27 +327,27 @@ function MixFader({
   )
 }
 
-function FaderThrow({ db }: { db: number }) {
-  const pos = mixDbToPos(db)
+function FaderThrow({ pos }: { pos: number }) {
+  const p = Math.min(1, Math.max(0, pos))
   return (
-    <div className="kit-fader-slot" style={{ ['--kit-fader-pos' as string]: String(pos) }}>
+    <div className="kit-fader-slot" style={{ ['--kit-fader-pos' as string]: String(p) }}>
       <span className="kit-fader-rail" aria-hidden />
-      <span className="kit-fader-fill" style={{ height: `${pos * 100}%` }} />
+      <span className="kit-fader-fill" style={{ height: `${p * 100}%` }} />
       <span className="kit-fader-zero" aria-hidden />
-      <span className="kit-fader-cap" style={{ top: `calc(${(1 - pos) * 100}% - var(--kit-fader-cap-half))` }}>
+      <span className="kit-fader-cap" style={{ top: `calc(${(1 - p) * 100}% - var(--kit-fader-cap-half))` }}>
         <span className="kit-fader-cap-face" />
       </span>
     </div>
   )
 }
 
-function MixFaderZoom({ label, db, readout }: { label: string; db: number; readout: string }) {
+function MixFaderZoom({ label, pos, readout }: { label: string; pos: number; readout: string }) {
   return (
     <div className="kit-fader-zoom" data-kit-fader-zoom={label.toLowerCase()} aria-hidden>
       <div className="kit-fader-zoom-card">
         <p className="kit-fader-zoom-name">{label}</p>
         <div className="kit-fader-zoom-throw">
-          <FaderThrow db={db} />
+          <FaderThrow pos={pos} />
         </div>
         <p className="kit-fader-zoom-readout">{readout}</p>
       </div>

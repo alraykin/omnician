@@ -275,8 +275,8 @@ body {
 
 .kit-fader-channels {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.2rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.12rem;
 }
 
 .kit-fader-channel {
@@ -290,8 +290,19 @@ body {
   cursor: ns-resize;
 }
 
-.kit-fader-channel[data-held='true'] {
-  touch-action: none;
+.kit-fader-channel[data-kit-fader='intensity'] {
+  cursor: pointer;
+}
+
+.kit-fader-channel[data-kit-fader='intensity'] .kit-fader-name {
+  font-size: 0.48rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.kit-fader-channel[data-kit-fader='intensity'] .kit-fader-readout {
+  letter-spacing: 0.04em;
+  font-variant-numeric: normal;
 }
 
 .kit-fader-channel[data-volume='true'] {
