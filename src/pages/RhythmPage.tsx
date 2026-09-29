@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
+import { AppTabBar } from '@/components/AppTabBar'
 import { BarStrip } from '@/components/rhythm/BarStrip'
 import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
 import { CompactMeter } from '@/components/rhythm/CompactMeter'
@@ -390,7 +391,7 @@ export function RhythmPage() {
   const liveMeter = meterLabel(current.beats, current.beatUnit)
 
   return (
-    <AppChrome align="fill" wide compact>
+    <AppChrome align="fill" wide compact wideTabPlacement="inline">
       <div className="relative flex min-h-0 flex-1 flex-col">
         <SpeedBuilderPopup cue={tempoCue} />
         <ListenTempoSheet
@@ -429,10 +430,10 @@ export function RhythmPage() {
           <div
             data-rhythm-layout
             data-rhythm-mode="click"
-            className="mt-1.5 flex flex-col gap-1.5 lg:flex-row lg:items-start lg:gap-4"
+            className="mt-1.5 flex flex-col gap-1.5 lg:flex-row lg:items-start lg:gap-3 xl:gap-4"
           >
             <div
-              className="flex h-fit w-full shrink-0 flex-col gap-1.5 lg:w-[26rem] lg:max-w-[26rem]"
+              className="flex h-fit w-full shrink-0 flex-col gap-1.5 lg:w-[32.5rem] lg:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem]"
               data-rhythm-stack="controls"
             >
               <RhythmTempoCard
@@ -460,6 +461,44 @@ export function RhythmPage() {
                 />
               </section>
 
+              <section>
+                <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Subdivision
+                </p>
+                <div className="max-w-full overflow-x-hidden pb-0.5">
+                  <div
+                    role="group"
+                    aria-label="Subdivision for all beats"
+                    data-section="subdivision"
+                    className="flex w-full min-w-0 flex-nowrap items-center gap-0.5 sm:gap-1"
+                  >
+                    {SUBDIVISIONS.map((steps) => {
+                      const selected = current.beatSubdivisions.every((item) => item === steps)
+                      return (
+                        <button
+                          key={steps}
+                          type="button"
+                          aria-label={subdivisionLabel(steps, current.beatUnit)}
+                          title={subdivisionLabel(steps, current.beatUnit)}
+                          aria-pressed={selected}
+                          data-subdivision={steps}
+                          data-subdivision-label={subdivisionLabel(steps, current.beatUnit)}
+                          {...activateOnPointer(() => setSubdivision(steps))}
+                          className={cn(
+                            'flex h-10 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-11',
+                            selected
+                              ? 'bg-[#A855F7] text-white'
+                              : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
+                          )}
+                        >
+                          <SubdivIcon steps={steps} beatUnit={current.beatUnit} compact />
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </section>
+
               <TransportDock
                 place="inline"
                 className="hidden shrink-0 lg:flex lg:flex-col"
@@ -478,50 +517,15 @@ export function RhythmPage() {
                   holdUntilCycle={holdUntilCycle}
                 />
               </TransportDock>
+              <div className="hidden lg:block" data-inline-tabs>
+                <AppTabBar placement="inline" />
+              </div>
             </div>
 
             <div
               className="flex h-fit min-w-0 flex-1 flex-col gap-1.5"
               data-rhythm-stack="stage"
             >
-            <section>
-              <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Subdivision
-              </p>
-              <div className="max-w-full overflow-x-hidden pb-0.5">
-                <div
-                  role="group"
-                  aria-label="Subdivision for all beats"
-                  data-section="subdivision"
-                  className="flex w-full min-w-0 flex-nowrap items-center gap-0.5 sm:gap-1"
-                >
-                  {SUBDIVISIONS.map((steps) => {
-                    const selected = current.beatSubdivisions.every((item) => item === steps)
-                    return (
-                      <button
-                        key={steps}
-                        type="button"
-                        aria-label={subdivisionLabel(steps, current.beatUnit)}
-                        title={subdivisionLabel(steps, current.beatUnit)}
-                        aria-pressed={selected}
-                        data-subdivision={steps}
-                        data-subdivision-label={subdivisionLabel(steps, current.beatUnit)}
-                        {...activateOnPointer(() => setSubdivision(steps))}
-                        className={cn(
-                          'flex h-10 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-11',
-                          selected
-                            ? 'bg-[#A855F7] text-white'
-                            : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
-                        )}
-                      >
-                        <SubdivIcon steps={steps} beatUnit={current.beatUnit} compact />
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            </section>
-
             <section className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2 sm:px-4">
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <ClickLiveHeader store={playheadStore} playing={playing} barIndex={barIndex} />
@@ -613,10 +617,10 @@ export function RhythmPage() {
           <div
             data-rhythm-layout
             data-rhythm-mode="drums"
-            className="mt-1.5 flex flex-col gap-1.5 lg:flex-row lg:items-start lg:gap-4"
+            className="mt-1.5 flex flex-col gap-1.5 lg:flex-row lg:items-start lg:gap-3 xl:gap-4"
           >
             <div
-              className="flex h-fit w-full shrink-0 flex-col gap-1.5 lg:w-[26rem] lg:max-w-[26rem]"
+              className="flex h-fit w-full shrink-0 flex-col gap-1.5 lg:w-[32.5rem] lg:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem]"
               data-rhythm-stack="controls"
             >
               <RhythmTempoCard
@@ -696,6 +700,9 @@ export function RhythmPage() {
                   holdUntilCycle={holdUntilCycle}
                 />
               </TransportDock>
+              <div className="hidden lg:block" data-inline-tabs>
+                <AppTabBar placement="inline" />
+              </div>
             </div>
             <section className="flex h-fit min-h-0 min-w-0 flex-1 flex-col" data-rhythm-stack="stage">
               <button

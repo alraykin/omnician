@@ -37,20 +37,38 @@ function onLeave(next: TabId) {
   releaseAllCapture()
 }
 
-export function AppTabBar() {
+export function AppTabBar({
+  placement = 'dock',
+  className,
+}: {
+  placement?: 'dock' | 'inline'
+  className?: string
+}) {
   const location = useLocation()
   const [params] = useSearchParams()
   const current = activeTab(location.pathname, params.get('mode'))
+  const inline = placement === 'inline'
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] px-3 pb-[max(0.45rem,env(safe-area-inset-bottom,0px))] pt-1"
+      className={cn(
+        inline
+          ? 'relative z-20 w-full px-0 pt-0.5'
+          : 'pointer-events-none fixed inset-x-0 bottom-0 z-[60] px-3 pb-[max(0.45rem,env(safe-area-inset-bottom,0px))] pt-1',
+        className,
+      )}
       data-tab-bar-wrap
+      data-tab-placement={placement}
     >
       <nav
         aria-label="Omnician tools"
         data-tab-bar
-        className="pointer-events-auto mx-auto grid max-w-[23.75rem] grid-cols-4 gap-0.5 rounded-full border border-white/12 bg-[rgb(16_22_36/0.58)] px-1.5 py-1 shadow-[0_16px_44px_rgba(0,0,0,0.5)] backdrop-blur-[18px] [-webkit-backdrop-filter:blur(18px)] lg:max-w-[26rem]"
+        className={cn(
+          'grid grid-cols-4 gap-0.5 rounded-full border border-white/12 bg-[rgb(16_22_36/0.58)] px-1.5 py-1 shadow-[0_16px_44px_rgba(0,0,0,0.5)] backdrop-blur-[18px] [-webkit-backdrop-filter:blur(18px)]',
+          inline
+            ? 'pointer-events-auto w-full max-w-none'
+            : 'pointer-events-auto mx-auto max-w-[23.75rem] lg:max-w-[26rem]',
+        )}
       >
         {TABS.map((tab) => {
           const active = current === tab.id

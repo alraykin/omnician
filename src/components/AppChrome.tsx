@@ -10,6 +10,8 @@ type AppChromeProps = {
   align?: 'center' | 'fill'
   wide?: boolean
   compact?: boolean
+  /** Rhythm wide screens park the tabs under Play; phones keep the floating bar. */
+  wideTabPlacement?: 'dock' | 'inline'
 }
 
 const SHELL = {
@@ -22,11 +24,14 @@ export function AppChrome({
   align = 'center',
   wide = false,
   compact = false,
+  wideTabPlacement = 'dock',
 }: AppChromeProps) {
   const shell = wide ? SHELL.wide : SHELL.default
+  const inlineWideTabs = wideTabPlacement === 'inline'
   return (
     <div
       data-app-frame
+      data-wide-tabs={wideTabPlacement}
       className={cn(
         'relative flex w-full max-w-full flex-col overscroll-x-none [touch-action:pan-y]',
         compact
@@ -51,8 +56,14 @@ export function AppChrome({
       >
         {children}
       </main>
-      {compact ? <div className="h-[var(--tabbar-clearance)] shrink-0" aria-hidden data-tabbar-spacer /> : null}
-      <AppTabBar />
+      {compact ? (
+        <div
+          className={cn('h-[var(--tabbar-clearance)] shrink-0', inlineWideTabs && 'lg:hidden')}
+          aria-hidden
+          data-tabbar-spacer
+        />
+      ) : null}
+      <AppTabBar className={inlineWideTabs ? 'lg:hidden' : undefined} />
     </div>
   )
 }
