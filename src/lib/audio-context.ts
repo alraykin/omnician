@@ -34,6 +34,7 @@ let lastStop = 'none'
 let lastStopStack = ''
 
 const liveStreams = new Set<MediaStream>()
+const liveTracks = new Set<MediaStreamTrack>()
 const hiddenReleasers = new Set<() => void>()
 const interruptListeners = new Set<() => void>()
 const captureStartListeners = new Set<() => void>()
@@ -123,6 +124,9 @@ export function stopMediaTracks(stream: MediaStream | null | undefined): void {
 
 export function adoptMicStream(stream: MediaStream): MediaStream {
   liveStreams.add(stream)
+  for (const track of stream.getTracks()) {
+    liveTracks.add(track)
+  }
   return stream
 }
 
@@ -132,8 +136,21 @@ export function releaseMicStream(stream: MediaStream | null | undefined): void {
   liveStreams.delete(stream)
 }
 
-/** Stop every adopted getUserMedia stream. Does not close the capture context. */
+/** Stop every adopted getUserMedia stream and track. Does not close capture. */
 export function stopMicTracks(): void {
+  for (const track of liveTracks) {
+    try {
+      track.enabled = false
+    } catch {
+      // already ended
+    }
+    try {
+      track.stop()
+    } catch {
+      // already ended
+    }
+  }
+  liveTracks.clear()
   for (const stream of liveStreams) {
     stopMediaTracks(stream)
   }
@@ -162,9 +179,10 @@ export function releaseAllCapture(): void {
   void disposeCaptureContext()
 }
 
-/** Close capture only when no mic tracks remain — after Listen/Tuner, not during Play. */
+/** Close capture after Listen/Tuner. Never close it while Play is running. */
 export function disposeCaptureIfIdle(): void {
-  if (liveStreams.size > 0) return
+  stopMicTracks()
+  if (playback && contextState(playback) === 'running') return
   void disposeCaptureContext()
 }
 
@@ -222,7 +240,7 @@ export function prepareCaptureFromGesture(): void {
  *  precount clicks (session category change). */
 
 async function disposeCaptureContext(): Promise<void> {
-  if (liveStreams.size > 0) return
+  if (playback && contextState(playback) === 'running') return
   const ctx = capture
   capture = null
   if (!ctx || contextState(ctx) === 'closed') return
@@ -350,11 +368,18 @@ export async function resumeSharedAudioContext(): Promise<boolean> {
 export function countLiveMicTracks(): { total: number; live: number } {
   let total = 0
   let live = 0
+  const seen = new Set<MediaStreamTrack>()
   for (const stream of liveStreams) {
     for (const track of stream.getAudioTracks()) {
+      seen.add(track)
       total += 1
       if (track.readyState === 'live') live += 1
     }
+  }
+  for (const track of liveTracks) {
+    if (seen.has(track) || track.kind !== 'audio') continue
+    total += 1
+    if (track.readyState === 'live') live += 1
   }
   return { total, live }
 }

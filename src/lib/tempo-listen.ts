@@ -62,7 +62,7 @@ export function createTempoListener() {
   let session = 0
   let stream: MediaStream | null = null
   let audio: AudioContext | null = null
-  let processor: ScriptProcessorNode | null = null
+  let analyser: AnalyserNode | null = null
   let sourceNode: MediaStreamAudioSourceNode | null = null
   let silent: GainNode | null = null
   let chunks: Float32Array[] = []
@@ -79,19 +79,12 @@ export function createTempoListener() {
   const teardownGraph = () => {
     cancelAnimationFrame(raf)
     raf = 0
-    if (processor) {
-      try {
-        processor.onaudioprocess = null
-      } catch {
-        /* already gone */
-      }
-      try {
-        processor.disconnect()
-      } catch {
-        /* already gone */
-      }
+    try {
+      analyser?.disconnect()
+    } catch {
+      /* already gone */
     }
-    processor = null
+    analyser = null
     try {
       sourceNode?.disconnect()
     } catch {
@@ -198,33 +191,38 @@ export function createTempoListener() {
       }
       const src = ctx.createMediaStreamSource(nextStream)
       sourceNode = src
-      const proc = ctx.createScriptProcessor(4096, 1, 1)
-      processor = proc
+      const tap = ctx.createAnalyser()
+      tap.fftSize = 4096
+      tap.smoothingTimeConstant = 0
+      analyser = tap
       const mute = ctx.createGain()
       mute.gain.value = 0
       silent = mute
-      proc.onaudioprocess = (event) => {
-        if (id !== session) return
-        const input = event.inputBuffer.getChannelData(0)
-        const copy = new Float32Array(input.length)
-        copy.set(input)
-        chunks.push(copy)
-        collected += copy.length
-        let peak = 0
-        for (let i = 0; i < copy.length; i += 1) {
-          const a = Math.abs(copy[i])
-          if (a > peak) peak = a
-        }
-        levelEma = Math.max(peak, levelEma * 0.82)
-      }
-      src.connect(proc)
-      proc.connect(mute)
+      src.connect(tap)
+      tap.connect(mute)
       mute.connect(ctx.destination)
 
+      const hop = new Float32Array(tap.fftSize)
+      const hopSec = tap.fftSize / ctx.sampleRate
+      let lastCopy = 0
       let lastPeek = 0
       const tick = () => {
         if (id !== session) return
-        const elapsed = performance.now() - startedAt
+        const now = performance.now()
+        if (now - lastCopy >= hopSec * 1000) {
+          lastCopy = now
+          tap.getFloatTimeDomainData(hop)
+          const copy = new Float32Array(hop)
+          chunks.push(copy)
+          collected += copy.length
+          let peak = 0
+          for (let i = 0; i < copy.length; i += 1) {
+            const a = Math.abs(copy[i] ?? 0)
+            if (a > peak) peak = a
+          }
+          levelEma = Math.max(peak, levelEma * 0.82)
+        }
+        const elapsed = now - startedAt
         const progress = Math.min(1, elapsed / LISTEN_MAX_MS)
         emit({
           phase: 'listening',
