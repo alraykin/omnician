@@ -1,7 +1,7 @@
 {
   "name": "Omnician",
   "short_name": "Omnician",
-  "description": "The ultimate musician’s practice companion.",
+  "description": "Free guitar tuner, metronome and drum machine.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0B0F1A",
