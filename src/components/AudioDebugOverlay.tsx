@@ -33,12 +33,14 @@ export function AudioDebugOverlay({
     ['last recover', snap.lastRecovery],
     ['recoveries', String(snap.recoveries)],
     ['last error', snap.lastError],
+    ['last stop', snap.lastStop],
+    ['stop stack', snap.lastStopStack || '—'],
   ]
 
   return (
     <aside
       data-audio-debug="on"
-      className="pointer-events-none fixed top-3 right-3 z-[80] w-[min(20.5rem,calc(100vw-1.5rem))] rounded-2xl border border-amber-400/50 bg-[#0B0F1A]/94 px-3 py-2.5 font-mono text-[0.68rem] leading-5 text-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
+      className="pointer-events-none fixed top-3 right-3 z-[80] w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-amber-400/50 bg-[#0B0F1A]/94 px-3 py-2.5 font-mono text-[0.68rem] leading-5 text-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
     >
       <p className="mb-1 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-amber-300">
         Audio session · screenshot for Alex
@@ -48,7 +50,11 @@ export function AudioDebugOverlay({
           <div key={key} className="contents">
             <dt className="text-slate-500">{key}</dt>
             <dd
-              className={key === 'last error' ? 'min-w-0 whitespace-pre-wrap break-words text-white' : 'min-w-0 truncate text-white'}
+              className={
+                key === 'last error' || key === 'stop stack' || key === 'last stop'
+                  ? 'min-w-0 whitespace-pre-wrap break-words text-white'
+                  : 'min-w-0 truncate text-white'
+              }
               title={value}
             >
               {value}

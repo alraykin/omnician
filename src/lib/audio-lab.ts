@@ -49,6 +49,8 @@ let status = 'Pick a strategy. The mic starts on that tap.'
 let lastRecovery = 'none'
 let recoveries = 0
 let lastError = 'none'
+let lastStop = 'none'
+let lastStopStack = ''
 let lastPlaybackTime = 0
 let lastPlaybackCheck = 0
 let timeAdvancing = false
@@ -78,6 +80,30 @@ function ctxState(ctx: AudioContext | null): SafariState | 'none' {
 function noteError(error: unknown, where: string): void {
   lastError =
     error instanceof Error ? `${where}: ${error.name}: ${error.message}` : `${where}: ${String(error)}`
+}
+
+function truncateStack(stack: string | undefined, max = 280): string {
+  if (!stack) return ''
+  const compact = stack
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 8)
+    .join(' · ')
+  return compact.length > max ? `${compact.slice(0, max)}…` : compact
+}
+
+function noteLabStop(reason: string): void {
+  const ctx = playback
+  const stack = new Error(`STOP ${reason}`).stack
+  lastStop = reason
+  lastStopStack = truncateStack(stack)
+  const line = `STOP ${reason}  playback=${ctxState(ctx)}  currentTime=${ctx ? ctx.currentTime.toFixed(3) : 'n/a'}`
+  probeLog.push(line)
+  if (stack) probeLog.push(truncateStack(stack, 400))
+  lastError = `stop: ${reason}`
+  console.warn(`[lab stop] ${reason}`, stack)
+  emit()
 }
 
 function createCtx(): AudioContext {
@@ -237,12 +263,12 @@ function fireOscAt(ctx: AudioContext, time: number): void {
 
 function startPlaybackProbe(ctx: AudioContext, ms = 2000): void {
   if (probeTimer) window.clearInterval(probeTimer)
-  probeLog = []
+  probeLog.push('--- lookahead probe 100ms × 2s ---')
   const begun = performance.now()
   const sample = () => {
     const elapsed = (performance.now() - begun) / 1000
     const sessionApi = safariSession()
-    const line = `${elapsed.toFixed(1)}s  playback=${ctxState(ctx)}  currentTime=${ctx.currentTime.toFixed(3)}  capture=${ctxState(capture)}  session=${sessionApi?.type ?? 'n/a'}`
+    const line = `${elapsed.toFixed(1)}s  playback=${ctxState(ctx)}  currentTime=${ctx.currentTime.toFixed(3)}  capture=${ctxState(capture)}  session=${sessionApi?.type ?? 'n/a'}  lastStop=${lastStop}`
     probeLog.push(line)
     emit()
     if (performance.now() - begun >= ms) {
@@ -277,9 +303,10 @@ function scheduleSustainedLookahead(ctx: AudioContext): void {
     if (remaining <= 0) {
       window.clearInterval(lookaheadTimer)
       lookaheadTimer = 0
+      noteLabStop('lookahead-complete')
       phase = 'mark'
       status =
-        'Did the click keep going past 0.5s (8 bars), or did it fade after a beat? Mark Heard only if it did not fade. The 100ms probe is in the log.'
+        'Did the click keep going past 0.5s (8 bars), or did the transport stop? Mark Heard only if it kept playing. The 100ms probe and STOP stacks are in the log.'
       emit()
     }
   }
@@ -289,7 +316,11 @@ function scheduleSustainedLookahead(ctx: AudioContext): void {
 
 function playPreviewThenEightBars(ctx: AudioContext): void {
   if (clickTimer) window.clearTimeout(clickTimer)
-  if (lookaheadTimer) window.clearInterval(lookaheadTimer)
+  if (lookaheadTimer) {
+    window.clearInterval(lookaheadTimer)
+    lookaheadTimer = 0
+    noteLabStop('clear-lookahead-before-preview')
+  }
   resumeNow(ctx)
   const beat = 0.5
   const start = ctx.currentTime + 0.03
@@ -299,7 +330,8 @@ function playPreviewThenEightBars(ctx: AudioContext): void {
   emit()
   clickTimer = window.setTimeout(() => {
     clickTimer = 0
-    status = 'Preview stopped. Playing 8 bars on the lookahead scheduler. Probe logs state + currentTime every 100ms for 2s.'
+    status =
+      'Preview stopped. Playing 8 bars on the lookahead scheduler. Probe logs state every 100ms; STOP lines include a stack.'
     emit()
     scheduleSustainedLookahead(ctx)
   }, 4 * beat * 1000 + 80)
@@ -432,9 +464,30 @@ function playHtmlClicks(): void {
   }
 }
 
+function wireLabPlayback(ctx: AudioContext): void {
+  ctx.addEventListener('statechange', () => {
+    if (ctx !== playback) return
+    const state = ctxState(ctx)
+    const stack = new Error(`statechange ${state}`).stack
+    const line = `STATE ${state}  currentTime=${ctx.currentTime.toFixed(3)}`
+    probeLog.push(line)
+    if (stack) probeLog.push(truncateStack(stack, 400))
+    console.warn(`[lab statechange] ${state}`, stack)
+    if (state === 'interrupted' || state === 'suspended') {
+      lastRecovery = `lab-${state}-resume`
+      recoveries += 1
+      probeLog.push(`RESUME after ${state} (did not stop lookahead)`)
+      noteError(`AudioContext ${state}; resume, lookahead kept running`, 'statechange')
+      resumeNow(ctx)
+    }
+    emit()
+  })
+}
+
 function ensurePlayback(): AudioContext {
   if (playback && ctxState(playback) !== 'closed') return playback
   playback = createCtx()
+  wireLabPlayback(playback)
   return playback
 }
 
@@ -573,7 +626,7 @@ async function runAfterMic(id: number, chosen: LabStrategy, pending: Promise<Med
     phase = 'mic'
     status =
       chosen === 'P'
-        ? 'Mic is live for about 3 seconds. Then Play: 4 preview clicks, stop, then the lookahead scheduler (Drums with Precount off). A probe logs state and currentTime every 100ms for 2s.'
+        ? 'Mic is live for about 3 seconds. Then Play: 4 preview clicks, stop, then the lookahead scheduler (Drums with Precount off). Probe logs context.state every 100ms; every stop includes a stack.'
         : 'Mic is live for about 3 seconds…'
     emit()
 
@@ -671,7 +724,7 @@ export function playTestClickFromTap(): void {
       return
     }
     if (chosen === 'P') {
-      status = 'Mic stopped. Preview 4 clicks, then lookahead Play with a 100ms probe…'
+      status = 'Mic stopped. Preview 4 clicks, then lookahead Play. Probe logs state + STOP stacks…'
       playPreviewThenEightBars(ctx)
       return
     }
@@ -698,7 +751,7 @@ export function markVerdict(verdict: LabVerdict): void {
     at: new Date().toLocaleTimeString(),
     strategy,
     verdict,
-    note: `playback ${snap.playbackState} t=${snap.playbackTime.toFixed(3)} moving ${snap.timeAdvancing ? 'yes' : 'NO'} · session ${snap.sessionType} · recover ${snap.lastRecovery} · rec ${snap.recoveries} · ${snap.lastError}`,
+    note: `playback ${snap.playbackState} t=${snap.playbackTime.toFixed(3)} moving ${snap.timeAdvancing ? 'yes' : 'NO'} · session ${snap.sessionType} · recover ${snap.lastRecovery} · rec ${snap.recoveries} · stop ${snap.lastStop} · ${snap.lastError}`,
   })
   phase = 'idle'
   status =
@@ -716,11 +769,17 @@ export function hardReset(announce = true): void {
   micTimer = 0
   if (clickTimer) window.clearTimeout(clickTimer)
   clickTimer = 0
-  if (lookaheadTimer) window.clearInterval(lookaheadTimer)
-  lookaheadTimer = 0
+  if (lookaheadTimer) {
+    window.clearInterval(lookaheadTimer)
+    lookaheadTimer = 0
+    noteLabStop('hardReset-lookahead')
+  }
   if (probeTimer) window.clearInterval(probeTimer)
   probeTimer = 0
+  if (playback) noteLabStop('hardReset')
   probeLog = []
+  lastStop = 'none'
+  lastStopStack = ''
   disconnectCaptureGraph()
   stopTracks(stream, true)
   stream = null
@@ -806,5 +865,7 @@ export function getLabAudioSnapshot(): AudioDebugSnapshot {
     recoveries,
     lastError,
     captureUsed: mics.live > 0 || phase === 'mic' || (strategy === 'G' && !!stream),
+    lastStop,
+    lastStopStack,
   }
 }

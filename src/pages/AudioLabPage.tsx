@@ -38,9 +38,9 @@ const STRATEGIES: { id: LabStrategy; title: string; detail: string }[] = [
   },
   {
     id: 'P',
-    title: 'P · After mic: preview, then lookahead Play (the 0.5s fade)',
+    title: 'P · After mic: preview, then lookahead Play (the 0.5s stop)',
     detail:
-      'Stop mic tracks and leave capture open (what Click/Drums now do). Play does 4 Listen-style preview clicks, stops, then the real lookahead scheduler for 8 bars — no precount. Mark Heard only if it does not fade after ~0.5s. A probe logs playback state and currentTime every 100ms for 2 seconds.',
+      'Stop mic tracks and leave capture open (what Click/Drums now do). Play does 4 Listen-style preview clicks, then the real lookahead scheduler for 8 bars — no precount. Mark Heard only if it keeps going past ~0.5s and does not stop. A probe logs playback state every 100ms for 2 seconds, and every stop / statechange includes a stack trace.',
   },
   {
     id: 'B',
@@ -105,7 +105,7 @@ export function AudioLabPage() {
         </Link>
       </header>
 
-      <main className="mx-auto w-full max-w-lg space-y-5 pt-[13.5rem] sm:pt-2">
+      <main className="mx-auto w-full max-w-lg space-y-5 pt-[16.5rem] sm:pt-2">
         <div>
           <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
             Hidden iPhone audio lab
@@ -119,7 +119,7 @@ export function AudioLabPage() {
             </span>{' '}
             is A plus five seconds of real click and drum samples. <span className="text-white">P</span> is
             after the mic: preview clicks, then a lookahead scheduler like Drums with Precount off,
-            with a 100ms state/currentTime probe for 2s. Then tap{' '}
+            with a 100ms state probe and STOP stacks. Then tap{' '}
             <span className="text-white">Play test click</span> and mark Heard or Silent. Reset
             between letters. Fully quit Safari only after D or Silent switch if the next letter is
             silent, or if Reset leaves playback interrupted.
@@ -242,10 +242,10 @@ export function AudioLabPage() {
 
         <section data-lab-probe>
           <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
-            100ms probe (first 2s of lookahead)
+            100ms probe + STOP stacks (first 2s of lookahead)
           </h2>
           {view.probe.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-500">Runs automatically on P Play. Copy log includes it.</p>
+            <p className="mt-2 text-sm text-slate-500">Runs automatically on P Play. Copy log includes state, STOP lines, and stacks.</p>
           ) : (
             <pre className="mt-2 overflow-x-auto rounded-xl border border-white/10 bg-black/40 px-3 py-2 font-mono text-[0.72rem] leading-5 text-slate-200">
               {view.probe.join('\n')}

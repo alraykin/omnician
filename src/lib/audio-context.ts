@@ -16,6 +16,8 @@ export type AudioDebugSnapshot = {
   recoveries: number
   lastError: string
   captureUsed: boolean
+  lastStop: string
+  lastStopStack: string
 }
 
 let playback: AudioContext | null = null
@@ -28,6 +30,8 @@ let lastRecovery = 'none'
 let recoveries = 0
 let lastError = 'none'
 let captureUsedSincePlayback = false
+let lastStop = 'none'
+let lastStopStack = ''
 
 const liveStreams = new Set<MediaStream>()
 const hiddenReleasers = new Set<() => void>()
@@ -62,6 +66,28 @@ export function formatAudioError(error: unknown): string {
 export function noteAudioError(error: unknown, where: string): string {
   lastError = `${where}: ${formatAudioError(error)}`
   return lastError
+}
+
+function truncateStack(stack: string | undefined, max = 280): string {
+  if (!stack) return ''
+  const compact = stack
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 8)
+    .join(' · ')
+  return compact.length > max ? `${compact.slice(0, max)}…` : compact
+}
+
+/** Real transport stop only. Interrupted/suspended must resume, not call this. */
+export function noteTransportStop(reason: string): void {
+  const stack = new Error(`stop: ${reason}`).stack
+  lastStop = reason
+  lastStopStack = truncateStack(stack)
+  lastError = `stop: ${reason}`
+  if (typeof console !== 'undefined') {
+    console.warn(`[omnician stop] ${reason}`, stack)
+  }
 }
 
 function createContext(): AudioContext {
@@ -210,20 +236,17 @@ function wirePlayback(ctx: AudioContext): void {
   ctx.addEventListener('statechange', () => {
     if (ctx !== playback) return
     const state = contextState(ctx)
-    if (state !== 'interrupted') return
-    // Stop the metronome UI if iOS interrupts mid-play. Do not close or
-    // replace this context — the lab's working path just resume()s it
-    // on the next Play / preview tap.
-    lastRecovery = 'interrupted'
-    recoveries += 1
-    noteAudioError('AudioContext state interrupted', 'statechange')
-    for (const listener of interruptListeners) {
-      try {
-        listener()
-      } catch {
-        // listener must not throw
-      }
+    const stack = truncateStack(new Error(`statechange ${state}`).stack)
+    if (typeof console !== 'undefined') {
+      console.warn(`[omnician] playback ${state}`, stack)
     }
+    // After mic teardown iOS often marks this context interrupted ~0.5s in.
+    // Treating that as Stop was killing the Play button. Resume instead.
+    if (state !== 'interrupted' && state !== 'suspended') return
+    lastRecovery = `${state}-resume`
+    recoveries += 1
+    noteAudioError(`AudioContext ${state}; resume, transport kept running`, 'statechange')
+    resumeFromGesture(ctx)
   })
 }
 
@@ -347,6 +370,8 @@ export function getAudioDebugSnapshot(): AudioDebugSnapshot {
     recoveries,
     lastError,
     captureUsed: captureUsedSincePlayback,
+    lastStop,
+    lastStopStack,
   }
 }
 

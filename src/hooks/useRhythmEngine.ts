@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 import { DEFAULT_INTENSITY_STYLE, DEFAULT_KIT_INTENSITY, type HitRole, type KitIntensity } from '@/lib/kit-intensity'
 import { realizeDrumBar } from '@/lib/kit-intensity-play'
 import { DEFAULT_KIT_MIX, DEFAULT_MASTER_VOLUME_DB, type KitMix } from '@/lib/kit-mix'
-import { onCaptureStarting } from '@/lib/audio-context'
+import { noteTransportStop, onCaptureStarting } from '@/lib/audio-context'
 import { claimListenPreview } from '@/lib/listen-preview'
 import {
   LOOKAHEAD_MS,
@@ -278,11 +278,13 @@ export function useRhythmEngine({
     [grabKit],
   )
 
-  const stopScheduler = useCallback(() => {
+  const stopScheduler = useCallback((reason = 'scheduler') => {
+    const wasRunning = timerRef.current !== null
     if (timerRef.current !== null) {
       window.clearInterval(timerRef.current)
       timerRef.current = null
     }
+    if (wasRunning) noteTransportStop(reason)
     clearVisuals()
     kitRef.current?.stopAll()
     playheadStore.set(IDLE_PLAYHEAD)
@@ -339,13 +341,13 @@ export function useRhythmEngine({
 
   useEffect(() => {
     return onCaptureStarting(() => {
-      if (playingRef.current) stopScheduler()
+      if (playingRef.current) stopScheduler('capture-starting')
     })
   }, [stopScheduler])
 
   useEffect(() => {
     if (!playing) {
-      stopScheduler()
+      stopScheduler('playing-false')
       return
     }
 

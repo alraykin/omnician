@@ -41,7 +41,7 @@ import {
   type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
-import { onCaptureStarting, onPlaybackInterrupted, preparePlaybackFromGesture } from '@/lib/audio-context'
+import { onCaptureStarting, preparePlaybackFromGesture } from '@/lib/audio-context'
 import { requestRawMic } from '@/lib/mic-capture'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
@@ -268,7 +268,7 @@ export function RhythmPage() {
 
   const openListen = () => {
     if (playing) {
-      halt()
+      halt('listen-open')
       setPlaying(false)
     }
     const micPromise = requestRawMic()
@@ -341,7 +341,7 @@ export function RhythmPage() {
       void getTempoListener().cancel()
     }
     if (playing) {
-      halt()
+      halt('user-stop')
       setPlaying(false)
       return
     }
@@ -362,15 +362,8 @@ export function RhythmPage() {
   }, [])
 
   useEffect(() => {
-    return onPlaybackInterrupted(() => {
-      halt()
-      setPlaying(false)
-    })
-  }, [halt])
-
-  useEffect(() => {
     return onCaptureStarting(() => {
-      halt()
+      halt('capture-starting')
       setPlaying(false)
     })
   }, [halt])

@@ -51,6 +51,8 @@ function auditSources() {
   assert.match(audioSrc, /resumeFromGesture/)
   assert.match(audioSrc, /export function markCaptureUsed/)
   assert.match(audioSrc, /still \$\{state\} after resume|still suspended/)
+  assert.match(audioSrc, /noteTransportStop/)
+  assert.match(audioSrc, /\$\{state\}-resume/)
   assert.doesNotMatch(audioSrc, /silence\.mp3|armSilentUnlock|sampleRate:\s*48000|waitForPlaybackClock/)
   const listenSrc = readFileSync('src/lib/tempo-listen.ts', 'utf8')
   assert.match(listenSrc, /markCaptureUsed\(\)/)
@@ -67,10 +69,9 @@ function auditSources() {
   const engineSrc = readFileSync('src/hooks/useRhythmEngine.ts', 'utf8')
   assert.match(engineSrc, /claimListenPreview\(\)/)
   assert.match(engineSrc, /watchClock/)
+  assert.match(engineSrc, /noteTransportStop/)
   assert.doesNotMatch(engineSrc, /promotePlaybackSessionOnceWorking/)
   assert.doesNotMatch(engineSrc, /SCHEDULE_AHEAD = 0\.12/)
-  const rhythmPage = readFileSync('src/pages/RhythmPage.tsx', 'utf8')
-  assert.doesNotMatch(rhythmPage, /unlockSpeech/)
   const kitSrc = readFileSync('src/lib/rhythm-audio.ts', 'utf8')
   assert.doesNotMatch(kitSrc, /speakPercent/)
   const stopAllSrc = kitSrc.slice(kitSrc.indexOf('stopAll(): void'), kitSrc.indexOf('private bufferFor'))
@@ -79,6 +80,9 @@ function auditSources() {
   assert.match(labSrc, /scheduleSustainedLookahead/)
   assert.match(labSrc, /startPlaybackProbe/)
   assert.match(labSrc, /setInterval\(sample, 100\)/)
+  assert.match(labSrc, /noteLabStop/)
+  assert.match(labSrc, /wireLabPlayback/)
+  assert.match(labSrc, /did not stop lookahead/)
   assert.doesNotMatch(labSrc, /SpeechSynthesisUtterance|speechSynthesis\.speak/)
   const tunerSrc = readFileSync('src/lib/tuner-session.ts', 'utf8')
   assert.match(tunerSrc, /markCaptureUsed\(\)/)
@@ -87,6 +91,11 @@ function auditSources() {
     audioSrc.indexOf('function noteIfStillSuspended'),
   )
   assert.doesNotMatch(interruptBlock, /markCaptureUsed/)
+  assert.match(interruptBlock, /resumeFromGesture/)
+  assert.doesNotMatch(interruptBlock, /interruptListeners/)
+  const rhythmPage = readFileSync('src/pages/RhythmPage.tsx', 'utf8')
+  assert.doesNotMatch(rhythmPage, /unlockSpeech/)
+  assert.doesNotMatch(rhythmPage, /onPlaybackInterrupted/)
   const playTap = audioSrc.slice(audioSrc.indexOf('export function preparePlaybackFromGesture'))
   assert.match(playTap, /stopMicTracks\(\)/)
   assert.doesNotMatch(
@@ -148,6 +157,7 @@ async function main() {
   assert.match(overlay, /audioSession/)
   assert.match(overlay, /playback/)
   assert.match(overlay, /need recover/)
+  assert.match(overlay, /last stop/)
 
   const snap = async () =>
     page.evaluate(() => {
