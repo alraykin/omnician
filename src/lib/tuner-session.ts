@@ -72,6 +72,7 @@ type EstimateMsg = {
 type StartOptions = {
   fromGesture?: boolean
   force?: boolean
+  streamPromise?: Promise<MediaStream>
 }
 
 const listeners = new Set<(snapshot: TunerSnapshot) => void>()
@@ -329,7 +330,8 @@ export async function setTunerInputDevice(id: string | null): Promise<void> {
   preferredDeviceId = id
   saveInputDeviceId(id)
   if (pageCount > 0) {
-    await startTuner({ force: true, fromGesture: lastStartHadGesture })
+    const micPromise = requestRawMic(preferredDeviceId)
+    await startTuner({ force: true, fromGesture: true, streamPromise: micPromise })
   }
 }
 
@@ -400,7 +402,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
   } else {
     let nextStream: MediaStream
     try {
-      nextStream = await requestRawMic(preferredDeviceId)
+      nextStream = await (options.streamPromise ?? requestRawMic(preferredDeviceId))
     } catch (error) {
       lastError = `${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error)}`
       if (audio === ctx) audio = null
@@ -586,7 +588,12 @@ export function beginTunerFromTap(): void {
     orphanTimer = 0
     if (pageCount === 0) stopTuner()
   }, ORPHAN_PRIME_MS)
-  void startTuner({ fromGesture: true })
+  if (snapshot.status === 'starting' || snapshot.status === 'listening') {
+    void resumeContext()
+    return
+  }
+  const micPromise = requestRawMic(preferredDeviceId)
+  void startTuner({ fromGesture: true, streamPromise: micPromise })
 }
 
 export function enterTunerPage(): void {

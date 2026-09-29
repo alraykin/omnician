@@ -1,4 +1,4 @@
-import { getSharedAudioContext, resumeSharedAudioContext } from '@/lib/audio-context'
+import { getSharedAudioContext, onPlaybackRetiring, resumeSharedAudioContext } from '@/lib/audio-context'
 import {
   DEFAULT_INTENSITY_STYLE,
   DEFAULT_KIT_INTENSITY,
@@ -383,6 +383,8 @@ function bakeSynthDrums(ctx: AudioContext): Record<VoiceId, AudioBuffer> {
   }
 }
 
+const decodedCache = new Map<string, AudioBuffer>()
+
 function decodeAudio(ctx: AudioContext, data: ArrayBuffer): Promise<AudioBuffer> {
   const copy = data.slice(0)
   return new Promise((resolve, reject) => {
@@ -409,10 +411,14 @@ function decodeAudio(ctx: AudioContext, data: ArrayBuffer): Promise<AudioBuffer>
 }
 
 async function loadSample(ctx: AudioContext, url: string): Promise<AudioBuffer> {
+  const hit = decodedCache.get(url)
+  if (hit) return hit
   const response = await fetch(url, { cache: 'force-cache' })
   if (!response.ok) throw new Error(`Failed to load ${url} (${response.status})`)
   const data = await response.arrayBuffer()
-  return decodeAudio(ctx, data)
+  const buffer = await decodeAudio(ctx, data)
+  decodedCache.set(url, buffer)
+  return buffer
 }
 
 function crocellUrl(file: string): string {
@@ -777,6 +783,14 @@ export function playWheelTick(): void {
 let sharedKit: RhythmKit | null = null
 let lastPreviewPathMs = 0
 
+onPlaybackRetiring(() => {
+  try {
+    sharedKit?.stopAll()
+  } catch {
+    // old graph may already be gone
+  }
+})
+
 export function lastDrumPreviewPathMs(): number {
   return lastPreviewPathMs
 }
@@ -784,8 +798,19 @@ export function lastDrumPreviewPathMs(): number {
 export function getOrCreateRhythmKit(): RhythmKit | null {
   const ctx = getSharedAudioContext()
   if (sharedKit && sharedKit.ctx === ctx && sharedKit.ctx.state !== 'closed') return sharedKit
+  const previous = sharedKit
+  try {
+    previous?.stopAll()
+  } catch {
+    // old graph may already be gone
+  }
   try {
     sharedKit = new RhythmKit(ctx)
+    if (previous) {
+      sharedKit.setMix(previous.getMix())
+      sharedKit.setMasterVolume(previous.getVolumeDb())
+      sharedKit.setPerformance(previous.styleId, previous.intensity)
+    }
     void sharedKit.unlock()
     exposeDrumDebug()
     return sharedKit
@@ -992,6 +1017,14 @@ export class RhythmKit {
 
   setMix(mix: KitMix): void {
     this.mix = { ...mix }
+  }
+
+  getMix(): KitMix {
+    return { ...this.mix }
+  }
+
+  getVolumeDb(): number {
+    return this.volumeDb
   }
 
   setMasterVolume(db: number): void {

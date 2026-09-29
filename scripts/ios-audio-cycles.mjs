@@ -19,6 +19,7 @@ function auditSources() {
     'src/lib/tuner-session.ts',
     'src/lib/mic-capture.ts',
     'src/lib/rhythm-audio.ts',
+    'src/lib/listen-preview.ts',
     'src/pages/RhythmPage.tsx',
     'src/components/AppTabBar.tsx',
     'src/App.tsx',
@@ -28,16 +29,22 @@ function auditSources() {
   assert.match(joined, /play-and-record|getCaptureAudioContext/)
   assert.match(joined, /getCaptureAudioContext/)
   assert.match(joined, /releaseMicStream/)
+  assert.match(joined, /preparePlaybackFromGesture/)
   assert.match(joined, /unlockPlaybackFromGesture/)
   assert.match(joined, /onPlaybackInterrupted/)
   assert.match(joined, /AudioDebugOverlay/)
   const audioSrc = readFileSync('src/lib/audio-context.ts', 'utf8')
-  assert.doesNotMatch(audioSrc, /silence\.mp3|armSilentUnlock|audioSession\.type\s*=|sampleRate:\s*48000|waitForPlaybackClock|discardPlayback/)
+  assert.match(audioSrc, /setAudioSessionType\('playback'\)/)
+  assert.match(audioSrc, /setAudioSessionType\('play-and-record'\)/)
+  assert.match(audioSrc, /captureUsedSincePlayback/)
+  assert.match(audioSrc, /recoverPlaybackAfterCapture/)
+  assert.match(audioSrc, /preparePlaybackFromGesture/)
+  assert.doesNotMatch(audioSrc, /silence\.mp3|armSilentUnlock|sampleRate:\s*48000|waitForPlaybackClock/)
   assert.doesNotMatch(
     readFileSync('src/lib/tempo-listen.ts', 'utf8'),
     /getSharedAudioContext\(\)[\s\S]{0,200}createMediaStreamSource/,
   )
-  console.log('ok  source audit: one playback context, capture hygiene, no audioSession writes')
+  console.log('ok  source audit: playback session, capture rebuild on next Play, no silent-loop')
 }
 
 async function main() {
@@ -88,6 +95,42 @@ async function main() {
   const overlay = await page.locator('[data-audio-debug="on"]').innerText()
   assert.match(overlay, /audioSession/)
   assert.match(overlay, /playback/)
+  assert.match(overlay, /need recover/)
+
+  const snap = async () =>
+    page.evaluate(() => {
+      const row = window.__OMNICIAN_AUDIO__
+      return row
+        ? {
+            captureUsed: row.captureUsed,
+            lastRecovery: row.lastRecovery,
+            recoveries: row.recoveries,
+            live: row.micLive,
+            tracks: row.micTracks,
+            state: row.playbackState,
+          }
+        : null
+    })
+
+  for (let round = 0; round < 3; round += 1) {
+    await go('/rhythm?mode=click&debug=audio')
+    await click('[data-transport="play"]')
+    await click('[data-transport="play"]')
+    await click('[data-tab="tuner"]')
+    await page.waitForTimeout(250)
+    await click('[data-tab="click"]')
+    await page.waitForTimeout(200)
+    await click('[data-transport="play"]')
+    await click('[data-transport="play"]')
+    await click('[data-listen]')
+    await page.waitForTimeout(250)
+    const closeListen = page.locator('[data-listen-panel="open"] [aria-label="Cancel"]')
+    if (await closeListen.count()) await closeListen.first().evaluate((node) => node.click())
+    else await page.keyboard.press('Escape')
+    await click('[data-transport="play"]')
+    await click('[data-transport="play"]')
+    console.log(`round ${round + 1} after Tuner+Listen`, await snap())
+  }
 
   let plays = 0
   try {

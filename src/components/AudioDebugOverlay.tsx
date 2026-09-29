@@ -25,6 +25,7 @@ export function AudioDebugOverlay() {
     ['cap rate', formatRate(snap.captureRate)],
     ['audioSession', snap.sessionType],
     ['mic tracks', `${snap.micLive} live / ${snap.micTracks}`],
+    ['need recover', snap.captureUsed ? 'yes' : 'no'],
     ['last recover', snap.lastRecovery],
     ['recoveries', String(snap.recoveries)],
     ['last error', snap.lastError],
