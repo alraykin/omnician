@@ -1,13 +1,21 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from 'react-router-dom'
 
+import { AudioDebugOverlay } from '@/components/AudioDebugOverlay'
 import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { HomePage } from '@/pages/HomePage'
 import { RhythmPage } from '@/pages/RhythmPage'
 import { TunerPage } from '@/pages/TunerPage'
 
+function AudioDebugGate() {
+  const [params] = useSearchParams()
+  if (params.get('debug') !== 'audio') return null
+  return <AudioDebugOverlay />
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <AudioDebugGate />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/tuner" element={<TunerPage />} />

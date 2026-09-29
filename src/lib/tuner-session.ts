@@ -1,4 +1,13 @@
-import { resumeSharedAudioContext, stopMediaTracks } from '@/lib/audio-context'
+import {
+  adoptMicStream,
+  getCaptureAudioContext,
+  onHiddenReleaseCapture,
+  releaseMicStream,
+  resumeSharedAudioContext,
+  setAudioSessionType,
+  stopMediaTracks,
+  syncAudioSession,
+} from '@/lib/audio-context'
 import { clampA4 } from '@/lib/custom-presets'
 import { analyzeFrequency, A4_HZ, rms } from '@/lib/notes'
 import {
@@ -6,7 +15,6 @@ import {
   captureDeviceLabel,
   captureSampleRate,
   connectRawInput,
-  createTunerContextSync,
   isPermissionError,
   isUnavailableError,
   loadInputDeviceId,
@@ -251,7 +259,7 @@ function teardown(nextStatus: TunerStatus | null): void {
 
   const liveStream = stream
   stream = null
-  stopMediaTracks(liveStream)
+  releaseMicStream(liveStream)
 
   const osc = oscillator
   oscillator = null
@@ -271,6 +279,19 @@ function teardown(nextStatus: TunerStatus | null): void {
 }
 
 async function resumeContext(): Promise<boolean> {
+  if (audio && audio.state !== 'closed') {
+    try {
+      if (audio.state === 'suspended' || (audio.state as string) === 'interrupted') {
+        await audio.resume()
+      }
+      if (audio.state === 'running') {
+        if (snapshot.needsGesture) emit({ needsGesture: false })
+        return true
+      }
+    } catch {
+      // fall through to playback resume
+    }
+  }
   const ok = await resumeSharedAudioContext()
   if (ok) {
     if (snapshot.needsGesture) emit({ needsGesture: false })
@@ -351,14 +372,17 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
 
   let ctx: AudioContext
   try {
-    ctx = audio && audio.state !== 'closed' ? audio : createTunerContextSync(lastCaptureRate)
+    ctx = audio && audio.state !== 'closed' ? audio : getCaptureAudioContext()
   } catch {
     if (sessionId === session) emit({ status: 'unavailable', needsGesture: false })
     return
   }
 
   audio = ctx
-  const resumePromise = resumeSharedAudioContext()
+  const resumePromise =
+    ctx.state === 'suspended' || (ctx.state as string) === 'interrupted'
+      ? ctx.resume().catch(() => undefined)
+      : Promise.resolve()
 
   const demoHz = Number(new URLSearchParams(window.location.search).get('demo'))
   const useDemo = Number.isFinite(demoHz) && demoHz > 20 && demoHz < 4000
@@ -384,6 +408,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     } catch (error) {
       lastError = `${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error)}`
       if (audio === ctx) audio = null
+      syncAudioSession()
       if (sessionId !== session) return
       if (isPermissionError(error)) {
         const permission = await micPermissionState()
@@ -405,10 +430,12 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     if (sessionId !== session) {
       stopMediaTracks(nextStream)
       if (audio === ctx) audio = null
+      syncAudioSession()
       return
     }
 
-    stream = nextStream
+      setAudioSessionType('play-and-record')
+      stream = adoptMicStream(nextStream)
     const track = nextStream.getAudioTracks()[0]
     const trackRate = captureSampleRate(nextStream)
     lastChannelCount = captureChannelCount(nextStream)
@@ -427,7 +454,8 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
       source = ctx.createMediaStreamSource(nextStream)
     } catch (error) {
       lastError = `SOURCE: ${error instanceof Error ? error.message : String(error)}`
-      stopMediaTracks(nextStream)
+      releaseMicStream(nextStream)
+      stream = null
       if (audio === ctx) audio = null
       if (sessionId !== session) return
       emit({ status: 'error', needsGesture: true, reading: null })
@@ -437,7 +465,15 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
 
   if (sessionId !== session) return
 
-  await resumeSharedAudioContext()
+  try {
+    await ctx.resume()
+  } catch {
+    try {
+      await ctx.resume()
+    } catch {
+      await resumeSharedAudioContext()
+    }
+  }
 
   let workletOk = false
   try {
@@ -447,7 +483,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     workletOk = false
   }
   if (sessionId !== session) {
-    stopMediaTracks(stream)
+    releaseMicStream(stream)
     if (stream && !tracksAreLive()) stream = null
     if (audio === ctx) audio = null
     return
@@ -576,7 +612,7 @@ export function enterTunerPage(): void {
 export function leaveTunerPage(): void {
   pageCount = Math.max(0, pageCount - 1)
   if (pageCount > 0) return
-  stopMediaTracks(stream)
+  releaseMicStream(stream)
   stream = null
   if (leaveTimer) window.clearTimeout(leaveTimer)
   leaveTimer = window.setTimeout(() => {
@@ -584,3 +620,7 @@ export function leaveTunerPage(): void {
     if (pageCount === 0) stopTuner()
   }, LEAVE_STOP_MS)
 }
+
+onHiddenReleaseCapture(() => {
+  if (stream) stopTuner()
+})

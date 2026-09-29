@@ -1,4 +1,4 @@
-import { unlockAudioFromGesture } from '@/lib/audio-context'
+import { unlockPlaybackFromGesture } from '@/lib/audio-context'
 import { getOrCreateRhythmKit } from '@/lib/rhythm-audio'
 
 let stopPreview: (() => void) | null = null
@@ -12,7 +12,7 @@ export function stopListenTempoPreview(): void {
 /** Two bars of 4/4 click, capped at ~4 seconds. Shared AudioContext only. */
 export function playListenTempoPreview(bpm: number, onEnded?: () => void): void {
   stopListenTempoPreview()
-  unlockAudioFromGesture()
+  unlockPlaybackFromGesture()
   const kit = getOrCreateRhythmKit()
   if (!kit) {
     onEnded?.()

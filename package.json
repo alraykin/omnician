@@ -11,6 +11,7 @@
     "test:tempo": "npx --yes tsx scripts/tempo-accuracy.ts",
     "test:intensity": "npx --yes tsx scripts/intensity-loudness.ts",
     "test:a4": "npx --yes tsx scripts/a4-reference.ts",
+    "test:ios-audio": "npx --yes tsx scripts/ios-audio-cycles.ts",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-cloudflare.sh"
   },

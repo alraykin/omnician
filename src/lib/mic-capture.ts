@@ -1,4 +1,4 @@
-import { getSharedAudioContext, resumeSharedAudioContext } from '@/lib/audio-context'
+import { getCaptureAudioContext, resumeSharedAudioContext } from '@/lib/audio-context'
 
 type ChromeAudioTrack = MediaTrackConstraints & {
   googEchoCancellation?: boolean
@@ -163,12 +163,16 @@ export function captureDeviceLabel(stream: MediaStream): string {
 }
 
 export function createTunerContextSync(_sampleRate?: number | null): AudioContext {
-  return getSharedAudioContext()
+  return getCaptureAudioContext()
 }
 
 export async function createTunerContext(): Promise<AudioContext> {
-  const audio = getSharedAudioContext()
-  await resumeSharedAudioContext()
+  const audio = getCaptureAudioContext()
+  try {
+    await audio.resume()
+  } catch {
+    await resumeSharedAudioContext()
+  }
   return audio
 }
 

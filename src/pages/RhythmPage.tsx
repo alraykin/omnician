@@ -41,7 +41,7 @@ import {
   type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
-import { unlockAudioFromGesture } from '@/lib/audio-context'
+import { unlockAudioFromGesture, unlockPlaybackFromGesture } from '@/lib/audio-context'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
@@ -133,9 +133,11 @@ export function RhythmPage() {
     }
     window.addEventListener('pointerdown', resume)
     document.addEventListener('visibilitychange', resume)
+    window.addEventListener('pageshow', resume)
     return () => {
       window.removeEventListener('pointerdown', resume)
       document.removeEventListener('visibilitychange', resume)
+      window.removeEventListener('pageshow', resume)
     }
   }, [ensureKit])
 
@@ -327,7 +329,7 @@ export function RhythmPage() {
   }
 
   const startStop = useCallback(() => {
-    unlockAudioFromGesture()
+    unlockPlaybackFromGesture()
     if (listenOpen) {
       stopListenTempoPreview()
       setListenOpen(false)

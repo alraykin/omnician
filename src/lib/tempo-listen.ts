@@ -1,4 +1,12 @@
-import { getSharedAudioContext, resumeSharedAudioContext, stopMediaTracks } from '@/lib/audio-context'
+import {
+  adoptMicStream,
+  getCaptureAudioContext,
+  getPlaybackAudioContext,
+  onHiddenReleaseCapture,
+  releaseMicStream,
+  resumePlaybackAndRecover,
+  stopMediaTracks,
+} from '@/lib/audio-context'
 import { isPermissionError, isUnavailableError, requestRawMic } from '@/lib/mic-capture'
 import {
   LISTEN_MAX_MS,
@@ -85,10 +93,10 @@ export function createTempoListener() {
       /* already gone */
     }
     silent = null
-    stopMediaTracks(stream)
+    const live = stream
     stream = null
+    releaseMicStream(live)
     audio = null
-    await resumeSharedAudioContext()
   }
 
   const subscribe = (fn: Listener) => {
@@ -162,11 +170,20 @@ export function createTempoListener() {
         stopMediaTracks(nextStream)
         return
       }
-      stream = nextStream
-      const ctx = getSharedAudioContext()
+      stream = adoptMicStream(nextStream)
+      const ctx = getCaptureAudioContext()
       audio = ctx
-      await resumeSharedAudioContext()
-      if (id !== session) return
+      try {
+        await ctx.resume()
+      } catch {
+        // gesture / session may still unlock on the next tick
+      }
+      if (id !== session) {
+        releaseMicStream(stream)
+        stream = null
+        audio = null
+        return
+      }
       const src = ctx.createMediaStreamSource(nextStream)
       sourceNode = src
       const proc = ctx.createScriptProcessor(4096, 1, 1)
@@ -258,9 +275,9 @@ export function createTempoListener() {
     try {
       const data = await file.arrayBuffer()
       if (id !== session) return
-      const ctx = getSharedAudioContext()
+      const ctx = getPlaybackAudioContext()
       audio = ctx
-      await resumeSharedAudioContext()
+      await resumePlaybackAndRecover(false)
       const decoded = await ctx.decodeAudioData(data.slice(0))
       if (id !== session) {
         await teardownGraph()
@@ -270,7 +287,7 @@ export function createTempoListener() {
       const slice = sliceForFileAnalysis(mono, decoded.sampleRate)
       emit({ progress: 0.7, phase: 'analyzing' })
       const estimate = detectTempo(slice, decoded.sampleRate)
-      await teardownGraph()
+      audio = null
       if (id !== session) return
       if (!estimate) {
         emit({
@@ -314,6 +331,10 @@ export function createTempoListener() {
       message: '',
     })
   }
+
+  onHiddenReleaseCapture(() => {
+    void cancel()
+  })
 
   return {
     subscribe,
