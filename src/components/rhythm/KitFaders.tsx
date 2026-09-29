@@ -185,12 +185,7 @@ function MixFader({
             endHold(event.pointerId)
             return
           }
-          // Re-anchor so the deadzone (and any press jitter) never jumps the value.
           drag.moved = true
-          drag.startY = event.clientY
-          drag.startX = event.clientX
-          event.preventDefault()
-          return
         }
         event.preventDefault()
         moveTo(event.clientY)
