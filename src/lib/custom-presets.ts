@@ -15,23 +15,16 @@ export type CustomTuning = {
 
 export type TunerDisplayMode = 'strobe' | 'target'
 
-export type TunerLayoutMode = 'headstock' | 'inline'
-
 export type TunerPrefs = {
   presetId: string
   instrumentId: InstrumentId
   a4Hz: number
   autoString: boolean
   displayMode: TunerDisplayMode
-  layoutMode: TunerLayoutMode
 }
 
 export function parseDisplayMode(value: unknown): TunerDisplayMode {
   return value === 'target' ? 'target' : 'strobe'
-}
-
-export function parseLayoutMode(value: unknown): TunerLayoutMode {
-  return value === 'inline' ? 'inline' : 'headstock'
 }
 
 const MIN_MIDI = 12
@@ -110,7 +103,6 @@ export function loadTunerPrefs(): TunerPrefs {
     a4Hz: A4_HZ,
     autoString: true,
     displayMode: 'strobe',
-    layoutMode: 'headstock',
   }
   if (typeof localStorage === 'undefined') return fallback
   try {
@@ -124,7 +116,6 @@ export function loadTunerPrefs(): TunerPrefs {
       a4Hz?: unknown
       autoString?: unknown
       displayMode?: unknown
-      layoutMode?: unknown
     }
     const instrumentId =
       typeof row.instrumentId === 'string'
@@ -139,7 +130,6 @@ export function loadTunerPrefs(): TunerPrefs {
       a4Hz: clampA4(row.a4Hz),
       autoString: typeof row.autoString === 'boolean' ? row.autoString : fallback.autoString,
       displayMode: parseDisplayMode(row.displayMode),
-      layoutMode: parseLayoutMode(row.layoutMode),
     }
   } catch {
     return fallback

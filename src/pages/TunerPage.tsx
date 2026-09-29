@@ -15,10 +15,8 @@ import { useCustomTunings } from '@/hooks/useCustomTunings'
 import { useTuner, type TunerStatus } from '@/hooks/useTuner'
 import {
   loadTunerPrefs,
-  parseLayoutMode,
   saveTunerPrefs,
   type TunerDisplayMode,
-  type TunerLayoutMode,
 } from '@/lib/custom-presets'
 import {
   GREEN_CLEAR_CENTS,
@@ -33,7 +31,6 @@ import {
   customToPreset,
   familyHasSubmenu,
   familyOf,
-  findBuiltinPreset,
   findConfig,
   findFamily,
   inferInstrument,
@@ -53,21 +50,8 @@ import { cn } from '@/lib/utils'
 export function TunerPage() {
   const prefs = useMemo(() => loadTunerPrefs(), [])
   const { tunings, upsert, remove } = useCustomTunings()
-  const [presetId, setPresetId] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const query = new URLSearchParams(window.location.search).get('preset')
-      if (query && findBuiltinPreset(query)) return query
-    }
-    return prefs.presetId
-  })
-  const [instrumentId, setInstrumentId] = useState<InstrumentId>(() => {
-    if (typeof window !== 'undefined') {
-      const query = new URLSearchParams(window.location.search).get('preset')
-      const found = query ? findBuiltinPreset(query) : undefined
-      if (found) return found.config
-    }
-    return prefs.instrumentId
-  })
+  const [presetId, setPresetId] = useState(prefs.presetId)
+  const [instrumentId, setInstrumentId] = useState<InstrumentId>(prefs.instrumentId)
   const [a4Hz, setA4Hz] = useState(prefs.a4Hz)
   const [autoString, setAutoString] = useState(prefs.autoString)
   const [displayMode, setDisplayMode] = useState<TunerDisplayMode>(() => {
@@ -76,13 +60,6 @@ export function TunerPage() {
       if (query === 'strobe' || query === 'target') return query
     }
     return prefs.displayMode
-  })
-  const [layoutMode, setLayoutMode] = useState<TunerLayoutMode>(() => {
-    if (typeof window !== 'undefined') {
-      const query = new URLSearchParams(window.location.search).get('layout')
-      if (query === 'inline' || query === 'headstock') return query
-    }
-    return parseLayoutMode(prefs.layoutMode)
   })
   const demo = useMemo(() => readTunerDemo(), [])
   const [pickerOpen, setPickerOpen] = useState(() => {
@@ -145,9 +122,8 @@ export function TunerPage() {
       a4Hz,
       autoString,
       displayMode,
-      layoutMode,
     })
-  }, [activeInstrument, a4Hz, autoString, current.id, displayMode, layoutMode])
+  }, [activeInstrument, a4Hz, autoString, current.id, displayMode])
 
   useEffect(() => {
     setFocusIndex(0)
@@ -396,8 +372,6 @@ export function TunerPage() {
                   if (index >= 0) setFocusIndex(index)
                   if (autoString) setAutoId(string.id)
                 }}
-                layoutMode={layoutMode}
-                onLayoutChange={setLayoutMode}
               />
             </div>
           ) : (
