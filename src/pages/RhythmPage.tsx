@@ -765,7 +765,7 @@ export function RhythmPage() {
         <PlayheadBarSync store={playheadStore} playing={playing} onBar={setBarIndex} />
         <TransportDock
           place="sticky"
-          className="rhythm-glass absolute inset-x-0 bottom-0 z-40 border-t border-white/10 pt-2 pb-2 lg:hidden"
+          className="rhythm-glass z-40 shrink-0 border-t border-white/10 pt-2 pb-2 lg:hidden"
           playing={playing}
           onToggle={() => void startStop()}
           holdUntilCycle={holdUntilCycle}

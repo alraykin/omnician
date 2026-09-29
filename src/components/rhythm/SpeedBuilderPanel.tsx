@@ -230,7 +230,7 @@ export function SpeedBuilderToggles({
       data-sb-toggles
       data-precount-always={precountAlways ? 'true' : 'false'}
     >
-      <div className="grid w-full grid-cols-[auto_auto] items-center justify-items-end gap-x-1.5 gap-y-1.5">
+      <div className="grid w-full grid-cols-[auto_auto] items-center justify-end justify-items-end gap-x-1.5 gap-y-1.5">
         <p className={cn(TOGGLE_LABEL, announceDim && 'opacity-45')}>Announce</p>
         <PowerSwitch
           on={value.announce}

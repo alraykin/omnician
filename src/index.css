@@ -15,7 +15,6 @@
   --background: #0b0f1a;
   --foreground: #f8fafc;
   --tabbar-clearance: calc(4.7rem + env(safe-area-inset-bottom, 0px));
-  --playbar-clearance: 10.75rem;
   color-scheme: dark;
 }
 
@@ -78,10 +77,17 @@ body {
   }
 }
 
-/* Sticky Play overlays the scroll area below lg (and on short landscape, e.g. Tesla). */
+/* Room above the in-flow Play bar (and a little extra on short landscape). */
 [data-rhythm-scroll] {
-  padding-bottom: calc(var(--playbar-clearance) + env(safe-area-inset-bottom, 0px));
-  scroll-padding-bottom: calc(var(--playbar-clearance) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: 1.25rem;
+  scroll-padding-bottom: 1.25rem;
+}
+
+@media (max-height: 56rem) {
+  [data-rhythm-scroll] {
+    padding-bottom: 1.75rem;
+    scroll-padding-bottom: 1.75rem;
+  }
 }
 
 @media (min-width: 1024px) and (min-height: 56rem) {
