@@ -6,15 +6,19 @@ function formatRate(rate: number | null): string {
   return rate == null ? '—' : `${Math.round(rate)} Hz`
 }
 
-export function AudioDebugOverlay() {
-  const [snap, setSnap] = useState<AudioDebugSnapshot>(() => getAudioDebugSnapshot())
+export function AudioDebugOverlay({
+  getSnapshot = getAudioDebugSnapshot,
+}: {
+  getSnapshot?: () => AudioDebugSnapshot
+}) {
+  const [snap, setSnap] = useState<AudioDebugSnapshot>(() => getSnapshot())
 
   useEffect(() => {
-    const tick = () => setSnap(getAudioDebugSnapshot())
+    const tick = () => setSnap(getSnapshot())
     tick()
     const id = window.setInterval(tick, 200)
     return () => window.clearInterval(id)
-  }, [])
+  }, [getSnapshot])
 
   const rows: [string, string][] = [
     ['playback', snap.playbackState],
