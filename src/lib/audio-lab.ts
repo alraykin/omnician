@@ -1,6 +1,6 @@
 import type { AudioDebugSnapshot } from '@/lib/audio-context'
 
-export type LabStrategy = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'S'
+export type LabStrategy = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'L' | 'S'
 
 export type LabPhase = 'idle' | 'mic' | 'ready' | 'playing' | 'mark'
 
@@ -28,7 +28,12 @@ let htmlAudio: HTMLAudioElement | null = null
 let htmlUrl: string | null = null
 let clickTimer = 0
 let micTimer = 0
+let lookaheadTimer = 0
 let session = 0
+let longClick: AudioBuffer | null = null
+let longAccent: AudioBuffer | null = null
+let longKick: AudioBuffer | null = null
+let longSnare: AudioBuffer | null = null
 
 let phase: LabPhase = 'idle'
 let strategy: LabStrategy | null = null
@@ -204,6 +209,81 @@ function htmlClickUrl(): string {
   if (htmlUrl) return htmlUrl
   htmlUrl = URL.createObjectURL(encodeWav(clickSamples(44100, 8, 120), 44100))
   return htmlUrl
+}
+
+function fireBuffer(ctx: AudioContext, buffer: AudioBuffer, time: number, gain: number): void {
+  const src = ctx.createBufferSource()
+  const amp = ctx.createGain()
+  src.buffer = buffer
+  amp.gain.value = gain
+  src.connect(amp)
+  amp.connect(ctx.destination)
+  src.start(time)
+}
+
+async function decodeUrl(ctx: AudioContext, url: string): Promise<AudioBuffer> {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`${url} ${response.status}`)
+  const data = await response.arrayBuffer()
+  return ctx.decodeAudioData(data.slice(0))
+}
+
+async function preloadLongKit(ctx: AudioContext): Promise<void> {
+  try {
+    const [click, accent, kick, snare] = await Promise.all([
+      decodeUrl(ctx, '/rhythm/clicks/wood-soft-tick.wav'),
+      decodeUrl(ctx, '/rhythm/clicks/wood-soft-accent.wav'),
+      decodeUrl(ctx, '/rhythm/drums/crocell/kick/t1_rr1.m4a'),
+      decodeUrl(ctx, '/rhythm/drums/crocell/snare_snappy_p2/t1_rr1.m4a'),
+    ])
+    longClick = click
+    longAccent = accent
+    longKick = kick
+    longSnare = snare
+  } catch (error) {
+    noteError(error, 'A-long.preload')
+  }
+}
+
+function scheduleLongKit(ctx: AudioContext): void {
+  if (lookaheadTimer) window.clearInterval(lookaheadTimer)
+  const click = longClick
+  const accent = longAccent
+  const kick = longKick
+  const snare = longSnare
+  if (!click || !kick) {
+    status = 'Drum samples were not ready — falling back to oscillator clicks.'
+    scheduleWebClicks(ctx)
+    emit()
+    return
+  }
+  const beat = 0.5
+  const horizon = 5
+  let next = ctx.currentTime + 0.05
+  const end = next + horizon
+  let beatIndex = 0
+  const ahead = 0.14
+  const tick = () => {
+    const now = ctx.currentTime
+    while (next < now + ahead && next < end) {
+      const onOne = beatIndex % 4 === 0
+      const onThree = beatIndex % 4 === 2
+      fireBuffer(ctx, onOne && accent ? accent : click, next, onOne ? 0.72 : 0.38)
+      if (onOne) fireBuffer(ctx, kick, next, 0.95)
+      if (onThree && snare) fireBuffer(ctx, snare, next, 0.78)
+      next += beat
+      beatIndex += 1
+    }
+    if (now >= end - 0.02) {
+      window.clearInterval(lookaheadTimer)
+      lookaheadTimer = 0
+      phase = 'mark'
+      status = 'Did you hear about 5 seconds of wood click plus kick/snare? Mark Heard or Silent.'
+      emit()
+    }
+  }
+  tick()
+  lookaheadTimer = window.setInterval(tick, 25)
 }
 
 function scheduleWebClicks(ctx: AudioContext): void {
@@ -383,6 +463,7 @@ async function runAfterMic(id: number, chosen: LabStrategy, pending: Promise<Med
 
     const micCtx = chosen === 'E' ? ensurePlayback() : ensureCapture()
     wireMic(micCtx, next)
+    if (chosen === 'L') void preloadLongKit(ensurePlayback())
     if (chosen === 'H') {
       phase = 'ready'
       status =
@@ -451,9 +532,15 @@ export function playTestClickFromTap(): void {
     return
   }
 
-  if (chosen === 'C' || chosen === 'E' || chosen === 'G' || chosen === 'H') {
+  if (chosen === 'A' || chosen === 'C' || chosen === 'E' || chosen === 'G' || chosen === 'H' || chosen === 'L') {
     const ctx = chosen === 'E' ? ensurePlayback() : playback && ctxState(playback) !== 'closed' ? playback : ensurePlayback()
     resumeNow(ctx)
+    if (chosen === 'L') {
+      status = 'Playing ~5s of wood click + kick/snare on a lookahead scheduler…'
+      scheduleLongKit(ctx)
+      emit()
+      return
+    }
     scheduleWebClicks(ctx)
     return
   }
@@ -495,6 +582,8 @@ export function hardReset(announce = true): void {
   micTimer = 0
   if (clickTimer) window.clearTimeout(clickTimer)
   clickTimer = 0
+  if (lookaheadTimer) window.clearInterval(lookaheadTimer)
+  lookaheadTimer = 0
   disconnectCaptureGraph()
   stopTracks(stream, true)
   stream = null

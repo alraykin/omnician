@@ -27,8 +27,13 @@ const STRATEGIES: { id: LabStrategy; title: string; detail: string }[] = [
   },
   {
     id: 'A',
-    title: 'A · Control (after mic stop, new context)',
-    detail: 'Stop mic tracks, close the capture context, then Play makes a brand-new playback context immediately. Same moment as tapping ½× after Listen finishes.',
+    title: 'A · Control (after mic stop, same context)',
+    detail: 'Stop mic tracks and close capture. Play resumes the SAME playback context (the path the app now uses).',
+  },
+  {
+    id: 'L',
+    title: 'A-long · Real click + drums for 5 seconds',
+    detail: 'Same mic stop as A, then a lookahead scheduler plays wood click plus kick/snare samples for about 5 seconds.',
   },
   {
     id: 'B',
@@ -101,11 +106,14 @@ export function AudioLabPage() {
           <h1 className="mt-1 text-3xl font-bold text-white">Audio lab</h1>
           <p className="mt-3 text-sm leading-6 text-slate-400">
             We do <span className="text-white">not</span> assume the click can play while the mic is
-            on. Start with <span className="text-white">H</span> (Play test click while capture is
-            live). A–G stop the mic first — that is the moment Listen’s ½× / 1× / 2× preview goes
-            silent. Then tap <span className="text-white">Play test click</span> and mark Heard or
-            Silent. Reset between letters. Fully quit Safari only after D or Silent switch if the
-            next letter is silent, or if Reset leaves playback interrupted.
+            on. Start with <span className="text-white">H</span> if you want that check. A resumes the
+            same playback context after the mic (what Click/Listen now do). <span className="text-white">
+              A-long
+            </span>{' '}
+            is A plus five seconds of real click and drum samples. Then tap{' '}
+            <span className="text-white">Play test click</span> and mark Heard or Silent. Reset
+            between letters. Fully quit Safari only after D or Silent switch if the next letter is
+            silent, or if Reset leaves playback interrupted.
           </p>
         </div>
 

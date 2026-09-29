@@ -163,14 +163,14 @@ function setAudioSessionType(type: AudioSessionType): void {
   }
 }
 
-/** Tuner and Listen both set this so the next Play/preview rebuilds playback. */
+/** Tuner and Listen set this so the overlay shows "need recover" until Play resumes. */
 export function markCaptureUsed(): void {
   captureUsedSincePlayback = true
 }
 
 /**
  * Tuner/Listen tap, immediately before getUserMedia. Stops Click/Drums and
- * marks that playback must be rebuilt on the next Play tap. Does not write
+ * marks that the next Play tap should resume playback after the mic. Does not write
  * audioSession — iOS picks play-and-record itself when the mic opens.
  */
 export function prepareCaptureFromGesture(): void {
@@ -228,9 +228,9 @@ function wirePlayback(ctx: AudioContext): void {
     if (ctx !== playback) return
     const state = contextState(ctx)
     if (state !== 'interrupted') return
-    // Same flag as Tuner/Listen: resume() on this context stays running with a
-    // frozen clock (audioSession auto). Next Play tap rebuilds instead.
-    markCaptureUsed()
+    // Stop the metronome UI if iOS interrupts mid-play. Do not close or
+    // replace this context — the lab's working path just resume()s it
+    // on the next Play / preview tap.
     lastRecovery = 'interrupted'
     recoveries += 1
     noteAudioError('AudioContext state interrupted', 'statechange')
@@ -287,60 +287,24 @@ export function beginCaptureFromGesture(): AudioContext {
   return ctx
 }
 
-function closeContext(ctx: AudioContext | null): void {
-  if (!ctx || contextState(ctx) === 'closed') return
-  try {
-    void ctx.close()
-  } catch (error) {
-    noteAudioError(error, 'context.close')
-  }
-}
-
 /**
- * After Tuner/Listen (or an interrupted context), the old playback context is
- * stuck. Only on a Play or Listen ½×/1×/2× preview tap: drop the mic, close
- * the old context, make a new one, resume() in this tap. Never write
- * audioSession to playback (that kills the first Play and shows Now Playing).
- * Once per mic use / interrupt. Never while the transport runs.
+ * Lab A/C/H: stop leftover mic hardware, optionally set session back to auto,
+ * resume() the SAME playback context in this tap. Never close playback after
+ * the mic — a fresh context was being born interrupted and the interrupt
+ * handler then flipped Play back to Stop.
  */
-function recoverPlaybackAfterCapture(): AudioContext {
-  lastRecovery = 'after-capture'
-  recoveries += 1
-  for (const listener of playbackRetireListeners) {
-    try {
-      listener()
-    } catch {
-      // listener must not throw
-    }
-  }
-  // Stop the mic graph only. Do not run pagehide releasers — those cancel Listen
-  // and would close the tempo sheet when ½× / 1× / 2× preview recovers playback.
+export function preparePlaybackFromGesture(): AudioContext {
   stopCaptureHardware()
   restoreSessionAfterCapture()
-  const old = playback
-  playback = null
-  closeContext(old)
-  captureUsedSincePlayback = false
-  const ctx = getPlaybackAudioContext()
-  resumeFromGesture(ctx)
-  return ctx
-}
-
-function needsFreshPlayback(): boolean {
-  if (captureUsedSincePlayback) return true
-  const state = contextState(playback)
-  if (state === 'interrupted') return true
-  if (playback && lastRecovery === 'interrupted') return true
-  return false
-}
-
-/** Play tap: resume the one playback context, or rebuild it once after the mic. */
-export function preparePlaybackFromGesture(): AudioContext {
-  if (needsFreshPlayback()) return recoverPlaybackAfterCapture()
+  if (captureUsedSincePlayback) {
+    lastRecovery = 'after-mic-resume'
+    recoveries += 1
+    captureUsedSincePlayback = false
+  }
   return unlockPlaybackFromGesture()
 }
 
-/** Resume (or create) playback. Does not rebuild after mic — Play/Listen preview does that. */
+/** Resume (or create) playback. Does not rebuild after mic. */
 export function unlockPlaybackFromGesture(): AudioContext {
   const ctx = getPlaybackAudioContext()
   resumeFromGesture(ctx)

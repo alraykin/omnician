@@ -40,17 +40,14 @@ function auditSources() {
   assert.doesNotMatch(audioSrc, /setAudioSessionType\('play-and-record'\)/)
   assert.doesNotMatch(audioSrc, /armPlaybackSessionOnce/)
   assert.match(audioSrc, /stopCaptureHardware/)
-  const recoverBlock = audioSrc.slice(audioSrc.indexOf('function recoverPlaybackAfterCapture'))
-  assert.match(recoverBlock, /stopCaptureHardware\(\)/)
-  assert.doesNotMatch(recoverBlock.slice(0, 800), /releaseAllCapture\(\)/)
+  assert.match(audioSrc, /after-mic-resume/)
+  assert.doesNotMatch(audioSrc, /recoverPlaybackAfterCapture/)
+  assert.doesNotMatch(audioSrc, /needsFreshPlayback/)
   assert.match(audioSrc, /session\.type !== 'play-and-record'/)
   assert.match(audioSrc, /captureUsedSincePlayback/)
-  assert.match(audioSrc, /recoverPlaybackAfterCapture/)
   assert.match(audioSrc, /preparePlaybackFromGesture/)
   assert.match(audioSrc, /resumeFromGesture/)
   assert.match(audioSrc, /export function markCaptureUsed/)
-  assert.match(audioSrc, /lastRecovery === 'interrupted'/)
-  assert.match(audioSrc, /needsFreshPlayback/)
   assert.match(audioSrc, /still \$\{state\} after resume|still suspended/)
   assert.doesNotMatch(audioSrc, /silence\.mp3|armSilentUnlock|sampleRate:\s*48000|waitForPlaybackClock/)
   const listenSrc = readFileSync('src/lib/tempo-listen.ts', 'utf8')
@@ -61,14 +58,18 @@ function auditSources() {
   assert.match(previewSrc, /preparePlaybackFromGesture\(\)/)
   const tunerSrc = readFileSync('src/lib/tuner-session.ts', 'utf8')
   assert.match(tunerSrc, /markCaptureUsed\(\)/)
-  const interruptBlock = audioSrc.slice(audioSrc.indexOf('function wirePlayback'))
-  assert.match(interruptBlock, /markCaptureUsed\(\)/)
+  const interruptBlock = audioSrc.slice(
+    audioSrc.indexOf('function wirePlayback'),
+    audioSrc.indexOf('function noteIfStillSuspended'),
+  )
+  assert.doesNotMatch(interruptBlock, /markCaptureUsed/)
   const playTap = audioSrc.slice(audioSrc.indexOf('export function preparePlaybackFromGesture'))
-  assert.doesNotMatch(playTap, /setAudioSessionType/)
-  assert.match(playTap, /needsFreshPlayback\(\)/)
+  assert.doesNotMatch(playTap, /setAudioSessionType\('playback'\)/)
+  assert.match(playTap, /stopCaptureHardware\(\)/)
+  assert.match(playTap, /unlockPlaybackFromGesture\(\)/)
   const unlockTap = audioSrc.slice(audioSrc.indexOf('export function unlockPlaybackFromGesture'))
   assert.match(unlockTap, /resumeFromGesture\(ctx\)/)
-  console.log('ok  source audit: no playback session writes, Listen=Tuner mic flag, resume in tap')
+  console.log('ok  source audit: resume same playback after mic, no rebuild, resume in tap')
 }
 
 async function main() {
@@ -152,7 +153,7 @@ async function main() {
   })
   assert.equal(recovered.before, true, 'Listen/Tuner flag is set before Play recover')
   assert.equal(recovered.captureUsed, false, 'Play recover clears the mic-used flag')
-  assert.equal(recovered.lastRecovery, 'after-capture', 'Play after Listen rebuilds playback')
+  assert.equal(recovered.lastRecovery, 'after-mic-resume', 'Play after mic resume keeps the same context')
   console.log('ok  Play after mic-used flag rebuilds', recovered)
 
   const closeListenSheet = async () => {
