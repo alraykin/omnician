@@ -70,7 +70,7 @@ function metrics(count: number, bass: boolean) {
       postInset: 14,
       neckH: bass ? 118 : 108,
       leftHalf: 50,
-      rightWing: 86,
+      rightWing: 92,
     }
   }
   if (count <= 6) {
@@ -84,7 +84,7 @@ function metrics(count: number, bass: boolean) {
       postInset: 13,
       neckH: 104,
       leftHalf: 48,
-      rightWing: 84,
+      rightWing: 90,
     }
   }
   if (count === 7) {
@@ -98,7 +98,7 @@ function metrics(count: number, bass: boolean) {
       postInset: 12,
       neckH: 100,
       leftHalf: 46,
-      rightWing: 80,
+      rightWing: 86,
     }
   }
   if (count === 8) {
@@ -112,7 +112,7 @@ function metrics(count: number, bass: boolean) {
       postInset: 11.5,
       neckH: 96,
       leftHalf: 44,
-      rightWing: 76,
+      rightWing: 82,
     }
   }
   return {
@@ -217,38 +217,38 @@ function ibanezOutline(
   rightWing: number,
   inset: number,
 ): string {
-  const tipY = 12 + inset * 0.25
-  const tipX = cx + 20 - inset * 0.15
-  const leftTopX = cx - leftHalf * 0.72 + inset * 0.55
-  const leftTopY = 36 + inset * 0.2
-  const leftMidX = cx - leftHalf + inset
-  const leftMidY = 18 + (nutY - 18) * 0.48
-  const leftLowX = cx - leftHalf * 0.92 + inset * 0.7
-  const leftLowY = nutY - 52
-  const nutL = cx - nutHalf + inset * 0.15
-  const nutR = cx + nutHalf - inset * 0.15
+  const i = inset
+  const tipX = cx + 34 - i * 0.12
+  const tipY = 7 + i * 0.45
+  const leftShoulderX = cx - leftHalf * 0.42 + i * 0.7
+  const leftShoulderY = 26 + i * 0.25
+  const leftX = cx - leftHalf + i
+  const leftUpperY = 64
+  const leftLowY = nutY - 58
+  const nutL = cx - nutHalf + i * 0.18
+  const nutR = cx + nutHalf - i * 0.18
 
-  const hornX = cx + rightWing - inset * 0.85
-  const hornY = 78 + inset * 0.15
-  const scoopX = cx + rightWing * 0.52 + inset * 0.4
-  const scoopY = 132
-  const bellyX = cx + rightWing * 0.7 - inset * 0.5
-  const bellyY = 18 + (nutY - 18) * 0.52
-  const cutX = cx + nutHalf + 16 - inset * 0.3
-  const cutY = nutY - 44
+  const hornX = cx + rightWing + 8 - i * 0.9
+  const hornY = 64 + i * 0.15
+  const biteX = cx + rightWing * 0.34 + i * 0.55
+  const biteY = 108
+  const wingX = cx + rightWing * 0.58 - i * 0.35
+  const wingY = 158
+  const taperX = cx + nutHalf + 14 - i * 0.2
+  const taperY = nutY - 38
 
   return [
     `M ${tipX} ${tipY}`,
-    `C ${tipX + 18} ${tipY + 8}, ${hornX - 8} ${hornY - 22}, ${hornX} ${hornY}`,
-    `C ${hornX + 6} ${hornY + 18}, ${scoopX + 10} ${scoopY - 16}, ${scoopX} ${scoopY}`,
-    `C ${scoopX - 8} ${scoopY + 22}, ${bellyX + 4} ${bellyY - 18}, ${bellyX} ${bellyY}`,
-    `C ${bellyX - 2} ${bellyY + 28}, ${cutX + 10} ${cutY - 8}, ${cutX} ${cutY}`,
-    `C ${cutX - 6} ${cutY + 14}, ${nutR + 8} ${nutY - 10}, ${nutR} ${nutY}`,
+    `C ${tipX + 10} ${tipY + 16}, ${hornX - 4} ${hornY - 26}, ${hornX} ${hornY}`,
+    `C ${hornX + 3} ${hornY + 16}, ${biteX + 18} ${biteY - 12}, ${biteX} ${biteY}`,
+    `C ${biteX - 6} ${biteY + 14}, ${wingX + 10} ${wingY - 10}, ${wingX} ${wingY}`,
+    `C ${wingX - 6} ${wingY + 36}, ${taperX + 8} ${taperY - 10}, ${taperX} ${taperY}`,
+    `C ${taperX - 5} ${taperY + 12}, ${nutR + 7} ${nutY - 8}, ${nutR} ${nutY}`,
     `L ${nutL} ${nutY}`,
-    `C ${nutL - 6} ${nutY - 8}, ${leftLowX - 4} ${leftLowY + 16}, ${leftLowX} ${leftLowY}`,
-    `C ${leftLowX - 2} ${leftLowY - 24}, ${leftMidX} ${leftMidY + 20}, ${leftMidX} ${leftMidY}`,
-    `C ${leftMidX} ${leftMidY - 28}, ${leftTopX - 4} ${leftTopY + 18}, ${leftTopX} ${leftTopY}`,
-    `C ${leftTopX + 6} ${leftTopY - 14}, ${tipX - 16} ${tipY + 10}, ${tipX} ${tipY}`,
+    `C ${nutL - 5} ${nutY - 10}, ${leftX - 2} ${leftLowY + 14}, ${leftX} ${leftLowY}`,
+    `C ${leftX} ${leftLowY - 30}, ${leftX} ${leftUpperY + 18}, ${leftX} ${leftUpperY}`,
+    `C ${leftX + 2} ${leftUpperY - 18}, ${leftShoulderX - 6} ${leftShoulderY + 8}, ${leftShoulderX} ${leftShoulderY}`,
+    `C ${leftShoulderX + 8} ${leftShoulderY - 10}, ${tipX - 20} ${tipY + 14}, ${tipX} ${tipY}`,
     'Z',
   ].join(' ')
 }
