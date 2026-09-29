@@ -12,7 +12,6 @@ export function KitIntensityControl({
   onChange: (next: KitIntensity) => void
 }) {
   const profile = styleIntensityProfile(styleId)
-  const character = profile.characters[value]
   return (
     <div
       data-section="kit-intensity"
@@ -29,9 +28,6 @@ export function KitIntensityControl({
           {intensityLabel(styleId, value)}
         </p>
       </div>
-      {character ? (
-        <p className="mt-0.5 text-[0.62rem] leading-4 text-slate-500">{character.blurb}</p>
-      ) : null}
       <div role="radiogroup" aria-label={`${profile.styleId} kit intensity`} className="mt-1.5 flex gap-1">
         {profile.levels.map((step) => (
           <button

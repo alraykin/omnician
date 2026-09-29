@@ -96,11 +96,12 @@ const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
   },
 }
 
-/** Hidden per-lane trims under the 75% / 0 dB fader rest. Kick+snare lead. */
+/** Hidden per-lane trims under the 75% / 0 dB fader rest. Kick+snare lead.
+ *  Rim (sidestick) is matched to ~85% of snare by peak×RMS of the rendered Crocell hits. */
 const SAMPLE_GAIN: Record<VoiceId, number> = {
   kick: 1.2,
   snare: 1.28,
-  rim: 2.7,
+  rim: 11.5,
   highTom: 1.22,
   midTom: 1.2,
   floorTom: 1.18,
