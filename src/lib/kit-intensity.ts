@@ -1,4 +1,3 @@
-import { KIT_MIX_UNITY_POS } from '@/lib/kit-mix'
 import { stepsPerBeat, type HitPos, type SubdivisionId } from '@/lib/rhythm'
 import type { RhythmStyleId } from '@/lib/rhythm-presets'
 
@@ -18,10 +17,10 @@ export const INTENSITY_LABELS: Record<KitIntensity, string> = {
   high: 'High',
 }
 
-/** Cap positions on the shared kit throw. Mid sits on the 0.0 line. */
+/** Cap positions: Low at the bottom, Mid at center, High at the top. */
 export const INTENSITY_POS: Record<KitIntensity, number> = {
-  low: 0.28,
-  mid: KIT_MIX_UNITY_POS,
+  low: 0,
+  mid: 0.5,
   high: 1,
 }
 
@@ -40,11 +39,19 @@ export type IntensityDynamics = {
   hatVel: number
   normalVel: number
   /**
-   * Compensates Crocell layer loudness so Low / Mid / High stay within
-   * about 5% of each other. Feel comes from the velocity layer, not fader gain.
+   * Compensates Crocell layer loudness so Low / Mid / High play at
+   * the same overall level. Feel comes from the velocity layer, not fader gain.
    */
   gain: number
 }
+
+/** Shared hit velocities — gain equalizes layer loudness, not these. */
+const MATCHED_VEL = {
+  accentVel: 0.92,
+  ghostVel: 0.5,
+  hatVel: 0.78,
+  normalVel: 0.86,
+} as const
 
 const DYNAMICS: Record<KitIntensity, IntensityDynamics> = {
   low: {
@@ -52,21 +59,15 @@ const DYNAMICS: Record<KitIntensity, IntensityDynamics> = {
     accentTier: 1,
     ghostTier: 1,
     hatTier: 1,
-    accentVel: 0.88,
-    ghostVel: 0.48,
-    hatVel: 0.72,
-    normalVel: 0.82,
-    gain: 1.655,
+    ...MATCHED_VEL,
+    gain: 0.7 / 0.42,
   },
   mid: {
     mark: 'mid',
     accentTier: 3,
     ghostTier: 2,
     hatTier: 3,
-    accentVel: 0.92,
-    ghostVel: 0.5,
-    hatVel: 0.78,
-    normalVel: 0.86,
+    ...MATCHED_VEL,
     gain: 1,
   },
   high: {
@@ -74,11 +75,8 @@ const DYNAMICS: Record<KitIntensity, IntensityDynamics> = {
     accentTier: 5,
     ghostTier: 3,
     hatTier: 5,
-    accentVel: 0.96,
-    ghostVel: 0.52,
-    hatVel: 0.84,
-    normalVel: 0.9,
-    gain: 0.704,
+    ...MATCHED_VEL,
+    gain: 0.7,
   },
 }
 

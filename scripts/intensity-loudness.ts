@@ -102,26 +102,22 @@ function main(): void {
         failed += 1
         console.error(`TIER ${style.id}: ${next.level} is not a harder layer than ${prev.level}`)
       }
-      const prevAmp = ampFromEnergy(estimateBarEnergy(prev.realized.hits) / quartersInBar(bar))
-      const nextAmp = ampFromEnergy(estimateBarEnergy(next.realized.hits) / quartersInBar(bar))
-      const ratio = nextAmp / Math.max(prevAmp, 1e-9)
-      if (ratio < 1.02 || ratio > 1.09) {
-        failed += 1
-        console.error(
-          `LEVEL ${style.id}: ${prev.level} → ${next.level} volume ratio ${ratio.toFixed(3)} (want ~5%, 1.02–1.09)`,
-        )
-      }
     }
 
-    const low = byLevel[0]
-    const high = byLevel[byLevel.length - 1]
-    if (low && high) {
-      const lowAmp = ampFromEnergy(estimateBarEnergy(low.realized.hits) / quartersInBar(bar))
-      const highAmp = ampFromEnergy(estimateBarEnergy(high.realized.hits) / quartersInBar(bar))
-      const span = highAmp / Math.max(lowAmp, 1e-9)
-      if (span > 1.16) {
+    const amps = byLevel.map(
+      (row) => ampFromEnergy(estimateBarEnergy(row.realized.hits) / quartersInBar(bar)),
+    )
+    const midAmp = amps[1] ?? 0
+    for (let i = 0; i < byLevel.length; i += 1) {
+      const row = byLevel[i]
+      const amp = amps[i] ?? 0
+      if (!row) continue
+      const ratio = amp / Math.max(midAmp, 1e-9)
+      if (ratio < 0.96 || ratio > 1.04) {
         failed += 1
-        console.error(`SPAN ${style.id}: Low→High volume ${span.toFixed(3)} is more than ~10%`)
+        console.error(
+          `LEVEL ${style.id}: ${row.level} volume ${ratio.toFixed(3)}× Mid (want matched, 0.96–1.04)`,
+        )
       }
     }
 
@@ -151,7 +147,7 @@ function main(): void {
     console.error(`${failed} intensity check(s) failed`)
     process.exit(1)
   }
-  console.log(`${rows.length} style×levels: same notes, harder layers, ~5% volume between Low / Mid / High`)
+  console.log(`${rows.length} style×levels: same notes, harder layers, matched volume Low / Mid / High`)
 }
 
 main()

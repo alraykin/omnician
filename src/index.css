@@ -305,6 +305,11 @@ body {
   font-variant-numeric: normal;
 }
 
+.kit-fader-channel[data-kit-fader='intensity'] .kit-fader-zero,
+.kit-fader-zoom[data-kit-fader-zoom='intensity'] .kit-fader-zero {
+  display: none;
+}
+
 .kit-fader-channel[data-volume='true'] {
   --kit-fader-name-h: 0.92rem;
   --kit-fader-track-h: auto;
