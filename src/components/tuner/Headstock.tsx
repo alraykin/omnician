@@ -1,3 +1,4 @@
+import { InlineStrings, LayoutStyleToggle } from '@/components/tuner/InlineStrings'
 import {
   layoutPegs,
   pegLetter,
@@ -6,6 +7,7 @@ import {
   type PegSide,
   type PegSlot,
 } from '@/lib/headstock'
+import type { TunerLayoutMode } from '@/lib/custom-presets'
 import type { InstrumentString } from '@/lib/notes'
 import type { InstrumentId } from '@/lib/presets'
 import { cn } from '@/lib/utils'
@@ -20,6 +22,8 @@ type HeadstockProps = {
   autoString: boolean
   onAutoChange: (value: boolean) => void
   onTapPeg: (string: InstrumentString) => void
+  layoutMode: TunerLayoutMode
+  onLayoutChange: (value: TunerLayoutMode) => void
 }
 
 const VIEW_W = 480
@@ -546,6 +550,8 @@ export function Headstock({
   autoString,
   onAutoChange,
   onTapPeg,
+  layoutMode,
+  onLayoutChange,
 }: HeadstockProps) {
   const clover = usesCloverPegs(config)
   const slots = layoutPegs(strings, config)
@@ -559,15 +565,28 @@ export function Headstock({
   return (
     <div className="w-full">
       <div className="mb-1 flex items-center justify-between gap-3">
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-          Headstock
-        </p>
+        <LayoutStyleToggle
+          layoutMode={layoutMode}
+          onToggle={() =>
+            onLayoutChange(layoutMode === 'inline' ? 'headstock' : 'inline')
+          }
+        />
         <label className="flex items-center gap-2 text-xs font-semibold text-slate-300">
           Auto strings
           <AutoSwitch on={autoString} onChange={onAutoChange} />
         </label>
       </div>
 
+      {layoutMode === 'inline' ? (
+        <InlineStrings
+          strings={strings}
+          selectedId={selectedId}
+          tunedIds={tunedIds}
+          inTune={inTune}
+          live={live}
+          onTapPeg={onTapPeg}
+        />
+      ) : (
       <div
         id="headstock"
         className={cn(
@@ -827,6 +846,7 @@ export function Headstock({
           ) : null}
         </svg>
       </div>
+      )}
       <p className="mt-2 text-center text-[0.65rem] leading-4 text-slate-500">
         Tap a peg to hear its pitch and set the target. The active string turns red
         until it locks green.
