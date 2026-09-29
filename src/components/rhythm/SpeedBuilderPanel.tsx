@@ -230,23 +230,27 @@ export function SpeedBuilderToggles({
       data-sb-toggles
       data-precount-always={precountAlways ? 'true' : 'false'}
     >
-      <div className="grid w-full grid-cols-[auto_auto] items-center justify-end justify-items-end gap-x-1.5 gap-y-1.5">
-        <p className={cn(TOGGLE_LABEL, announceDim && 'opacity-45')}>Announce</p>
-        <PowerSwitch
-          on={value.announce}
-          onChange={(announce) => patch({ announce })}
-          label="Announce"
-          testId="announce"
-          dimmed={announceDim}
-        />
-        <p className={cn(TOGGLE_LABEL, precountDim && 'opacity-45')}>Precount</p>
-        <PowerSwitch
-          on={value.precount}
-          onChange={(precount) => patch({ precount })}
-          label="Precount"
-          testId="precount"
-          dimmed={precountDim}
-        />
+      <div className="grid w-full grid-cols-[3.15rem_minmax(0,1fr)] items-center gap-x-1 gap-y-1.5">
+        <p className={cn(TOGGLE_LABEL, 'text-left', announceDim && 'opacity-45')}>Announce</p>
+        <div className="flex justify-end">
+          <PowerSwitch
+            on={value.announce}
+            onChange={(announce) => patch({ announce })}
+            label="Announce"
+            testId="announce"
+            dimmed={announceDim}
+          />
+        </div>
+        <p className={cn(TOGGLE_LABEL, 'text-left', precountDim && 'opacity-45')}>Precount</p>
+        <div className="flex justify-end">
+          <PowerSwitch
+            on={value.precount}
+            onChange={(precount) => patch({ precount })}
+            label="Precount"
+            testId="precount"
+            dimmed={precountDim}
+          />
+        </div>
       </div>
     </div>
   )
