@@ -24,6 +24,8 @@ import { clampSbPct, MAX_SB_PCT, MIN_SB_PCT } from '@/lib/speed-builder'
 
 export type DrumPlayOpts = {
   tier?: CrocellTier
+  blendTier?: CrocellTier
+  blendMix?: number
   vel?: number
   rimshot?: boolean
 }
@@ -1057,8 +1059,8 @@ export class RhythmKit {
     const group = KIT_VOICE_GROUP[voice]
     const groupGain = mixFaderToGain(group, this.mix[group] ?? 0)
     const mix = (SAMPLE_GAIN[voice] ?? 1) * groupGain * Math.max(0.05, vel)
-    const buffer = this.bufferFor(voice, role, play) ?? this.drums[voice]
-    const source = this.fire(buffer, time, mix, 1, voice, 'drum')
+    const layers = this.layerBuffers(voice, role, play)
+    const source = this.fireLayers(layers, time, mix, voice)
     if (voice === 'openHat' && source) this.openHat = { gain: source, start: time }
     if (voice === 'closedHat' && source) this.closedHat = { gain: source, start: time }
   }
@@ -1145,19 +1147,80 @@ export class RhythmKit {
     }
   }
 
-  private bufferFor(voice: VoiceId, role: HitRole, play: DrumPlayOpts = {}): AudioBuffer | null {
+  private layerBuffers(
+    voice: VoiceId,
+    role: HitRole,
+    play: DrumPlayOpts = {},
+  ): Array<{ buffer: AudioBuffer; weight: number }> {
     const derived = playOptsForRole(this.intensity, role)
     const tier = play.tier ?? derived.tier ?? resolveTier(this.intensity, voice === 'snare' ? role : 'normal')
+    const blendTier = play.blendTier ?? derived.blendTier
+    const blendMix = play.blendMix ?? derived.blendMix ?? 0
     let piece = VOICE_PIECE[voice]
     if (voice === 'snare' && play.rimshot) {
       piece = 'rimshot_snappy_p2'
     }
-    return (
+    const primary =
       this.nextRoundRobin(piece, tier) ??
       (piece === 'rimshot_snappy_p2' ? this.nextRoundRobin('snare_snappy_p2', tier) : null) ??
       this.drums[voice] ??
       null
-    )
+    if (!primary) return []
+    if (!blendTier || blendMix <= 0.001 || blendMix >= 0.999) {
+      return [{ buffer: primary, weight: 1 }]
+    }
+    const secondary =
+      this.nextRoundRobin(piece, blendTier) ??
+      (piece === 'rimshot_snappy_p2' ? this.nextRoundRobin('snare_snappy_p2', blendTier) : null)
+    if (!secondary) return [{ buffer: primary, weight: 1 }]
+    return [
+      { buffer: primary, weight: 1 - blendMix },
+      { buffer: secondary, weight: blendMix },
+    ]
+  }
+
+  private fireLayers(
+    layers: Array<{ buffer: AudioBuffer; weight: number }>,
+    time: number,
+    mix: number,
+    voice: VoiceId,
+  ): GainNode | null {
+    if (layers.length === 0) {
+      const fallback = this.drums[voice]
+      return fallback ? this.fire(fallback, time, mix, 1, voice, 'drum') : null
+    }
+    if (layers.length === 1) {
+      const only = layers[0]
+      return only ? this.fire(only.buffer, time, mix, 1, voice, 'drum') : null
+    }
+    const when = time <= 0 ? 0 : time
+    const gainTime = when === 0 ? this.ctx.currentTime : when
+    const bus = this.ctx.createGain()
+    bus.gain.setValueAtTime(Math.max(0.0001, mix), gainTime)
+    bus.connect(voice === 'kick' ? this.kickBus : this.color)
+    const sendAmt = REVERB_SEND[voice] ?? 0
+    if (sendAmt > 0) {
+      const send = this.ctx.createGain()
+      send.gain.setValueAtTime(sendAmt, gainTime)
+      bus.connect(send)
+      send.connect(this.reverbSend)
+    }
+    for (const layer of layers) {
+      const source = this.ctx.createBufferSource()
+      source.buffer = layer.buffer
+      source.playbackRate.setValueAtTime(1, gainTime)
+      const amp = this.ctx.createGain()
+      amp.gain.setValueAtTime(Math.max(0.0001, layer.weight), gainTime)
+      source.connect(amp)
+      amp.connect(bus)
+      source.start(when)
+      const startAt = when === 0 ? this.ctx.currentTime : when
+      this.sources.push({ node: source, when: startAt, kind: 'drum' })
+      source.onended = () => {
+        this.sources = this.sources.filter((item) => item.node !== source)
+      }
+    }
+    return bus
   }
 
   private nextRoundRobin(piece: CrocellPiece, tier: CrocellTier): AudioBuffer | null {

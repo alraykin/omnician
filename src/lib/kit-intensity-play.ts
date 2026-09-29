@@ -1,10 +1,12 @@
 import {
   dynamicsFor,
+  layerBlendFor,
   snareHitRole,
   type CrocellTier,
   type HitRole,
   type IntensityDynamics,
   type KitIntensity,
+  type LayerBlend,
 } from '@/lib/kit-intensity'
 import { VOICES, clonePattern, type HitPos, type RhythmBar, type VoiceId } from '@/lib/rhythm'
 
@@ -13,6 +15,8 @@ export type RealizedHit = {
   hit: HitPos
   role: HitRole
   tier: CrocellTier
+  blendTier?: CrocellTier
+  blendMix: number
   vel: number
   rimshot: false
 }
@@ -78,12 +82,12 @@ function velFor(voice: VoiceId, role: HitRole, dyn: IntensityDynamics, hit: HitP
   return dyn.accentVel
 }
 
-function tierFor(voice: VoiceId, role: HitRole, dyn: IntensityDynamics): CrocellTier {
-  if (role === 'ghost') return dyn.ghostTier
+function blendFor(voice: VoiceId, role: HitRole, intensity: KitIntensity): LayerBlend {
+  if (role === 'ghost') return layerBlendFor(intensity, role, 'ghost')
   if (voice === 'closedHat' || voice === 'openHat' || voice === 'ride' || voice === 'rideBell') {
-    return dyn.hatTier
+    return layerBlendFor(intensity, role, 'hat')
   }
-  return dyn.accentTier
+  return layerBlendFor(intensity, role, 'accent')
 }
 
 function roleFor(voice: VoiceId, hit: HitPos): HitRole {
@@ -119,11 +123,14 @@ export function realizeDrumBar(
     for (const hit of pattern[voice] ?? []) {
       if (hit.beat < 0 || hit.beat >= bar.beats) continue
       const role = roleFor(voice, hit)
+      const blend = blendFor(voice, role, intensity)
       hits.push({
         voice,
         hit,
         role,
-        tier: tierFor(voice, role, dyn),
+        tier: blend.tier,
+        blendTier: blend.blendTier,
+        blendMix: blend.blendMix,
         vel: velFor(voice, role, dyn, hit) * dyn.gain,
         rimshot: false,
       })

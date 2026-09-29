@@ -255,6 +255,8 @@ export function useRhythmEngine({
         if (ev.hit.beat < 0 || ev.hit.beat >= bar.beats) continue
         kit.hit(ev.voice, start + hitTimeInBar(ev.hit, tempo, bar.beatUnit), ev.role, {
           tier: ev.tier,
+          blendTier: ev.blendTier,
+          blendMix: ev.blendMix,
           vel: ev.vel,
           rimshot: ev.rimshot,
         })
@@ -423,7 +425,13 @@ export function useRhythmEngine({
           if (ev.hit.beat < 0 || ev.hit.beat >= bar.beats) continue
           const when = barStart + hitTimeInBar(ev.hit, tempo, bar.beatUnit)
           if (when <= afterTime) continue
-          kit.hit(ev.voice, when, ev.role, { tier: ev.tier, vel: ev.vel, rimshot: ev.rimshot })
+          kit.hit(ev.voice, when, ev.role, {
+            tier: ev.tier,
+            blendTier: ev.blendTier,
+            blendMix: ev.blendMix,
+            vel: ev.vel,
+            rimshot: ev.rimshot,
+          })
         }
         armedBarRef.current = barIndex
       }

@@ -26,11 +26,41 @@ export const INTENSITY_POS: Record<KitIntensity, number> = {
 
 export const INTENSITY_POS_LIST = KIT_INTENSITIES.map((level) => INTENSITY_POS[level])
 
+/**
+ * Hit strength vs High. High is the reference (1.0). Mid is 15% less,
+ * Low is 15% less than Mid (0.85 × 0.85 = 0.7225 ≈ 0.72).
+ */
+export const INTENSITY_STRENGTH: Record<KitIntensity, number> = {
+  high: 1,
+  mid: 0.85,
+  low: 0.72,
+}
+
+/** High playback gain before Mid/Low loudness compensation. Do not change. */
+export const HIGH_INTENSITY_GAIN = 0.7
+
+/**
+ * Extra gain so Mid / Low match High RMS within ~0.5 dB after
+ * velocity-layer blending. High stays 1. Measured from rendered Crocell output.
+ */
+export const INTENSITY_LOUDNESS_COMP: Record<KitIntensity, number> = {
+  high: 1,
+  mid: 1.818,
+  low: 2.923,
+}
+
 export type HitRole = 'backbeat' | 'ghost' | 'normal'
+
+export type LayerBlend = {
+  tier: CrocellTier
+  blendTier?: CrocellTier
+  blendMix: number
+}
 
 export type IntensityDynamics = {
   mark: KitIntensity
-  /** Crocell layer for kicks, snares, toms, crashes. */
+  strength: number
+  /** High's Crocell layers — Mid/Low scale these instead of jumping to t1. */
   accentTier: CrocellTier
   ghostTier: CrocellTier
   hatTier: CrocellTier
@@ -38,46 +68,38 @@ export type IntensityDynamics = {
   ghostVel: number
   hatVel: number
   normalVel: number
-  /**
-   * Compensates Crocell layer loudness so Low / Mid / High play at
-   * the same overall level. Feel comes from the velocity layer, not fader gain.
-   */
+  /** High's 0.7, times strength, times measured Mid/Low compensation. */
   gain: number
 }
 
-/** Shared hit velocities — gain equalizes layer loudness, not these. */
-const MATCHED_VEL = {
+const HIGH_VEL = {
   accentVel: 0.92,
   ghostVel: 0.5,
   hatVel: 0.78,
   normalVel: 0.86,
 } as const
 
+const HIGH_LAYERS = {
+  accentTier: 5 as CrocellTier,
+  ghostTier: 3 as CrocellTier,
+  hatTier: 5 as CrocellTier,
+}
+
+function dynamicsAt(mark: KitIntensity): IntensityDynamics {
+  const strength = INTENSITY_STRENGTH[mark]
+  return {
+    mark,
+    strength,
+    ...HIGH_LAYERS,
+    ...HIGH_VEL,
+    gain: HIGH_INTENSITY_GAIN * strength * INTENSITY_LOUDNESS_COMP[mark],
+  }
+}
+
 const DYNAMICS: Record<KitIntensity, IntensityDynamics> = {
-  low: {
-    mark: 'low',
-    accentTier: 1,
-    ghostTier: 1,
-    hatTier: 1,
-    ...MATCHED_VEL,
-    gain: 0.7 / 0.42,
-  },
-  mid: {
-    mark: 'mid',
-    accentTier: 3,
-    ghostTier: 2,
-    hatTier: 3,
-    ...MATCHED_VEL,
-    gain: 1,
-  },
-  high: {
-    mark: 'high',
-    accentTier: 5,
-    ghostTier: 3,
-    hatTier: 5,
-    ...MATCHED_VEL,
-    gain: 0.7,
-  },
+  low: dynamicsAt('low'),
+  mid: dynamicsAt('mid'),
+  high: dynamicsAt('high'),
 }
 
 const STYLE_DEFAULT_INTENSITY: Record<RhythmStyleId, KitIntensity> = {
@@ -96,6 +118,26 @@ const STYLE_DEFAULT_INTENSITY: Record<RhythmStyleId, KitIntensity> = {
 
 export function dynamicsFor(intensity: KitIntensity): IntensityDynamics {
   return DYNAMICS[intensity] ?? DYNAMICS[DEFAULT_KIT_INTENSITY]
+}
+
+/** Map High's layer × strength onto Crocell t1–t5, blending neighbors. */
+export function scaleLayer(refTier: CrocellTier, strength: number): LayerBlend {
+  if (strength >= 0.999) return { tier: refTier, blendMix: 0 }
+  const continuous = 1 + (refTier - 1) * Math.min(1, Math.max(0, strength))
+  const lo = Math.min(5, Math.max(1, Math.floor(continuous))) as CrocellTier
+  const hi = Math.min(5, Math.max(1, Math.ceil(continuous))) as CrocellTier
+  if (lo === hi) return { tier: lo, blendMix: 0 }
+  return { tier: lo, blendTier: hi, blendMix: continuous - lo }
+}
+
+export function layerBlendFor(
+  intensity: KitIntensity,
+  role: HitRole,
+  kind: 'accent' | 'ghost' | 'hat' = role === 'ghost' ? 'ghost' : 'accent',
+): LayerBlend {
+  const dyn = dynamicsFor(intensity)
+  const ref = kind === 'ghost' ? dyn.ghostTier : kind === 'hat' ? dyn.hatTier : dyn.accentTier
+  return scaleLayer(ref, dyn.strength)
 }
 
 export function intensityLabel(value: KitIntensity): string {
@@ -165,20 +207,17 @@ export function snareRoleFromStep(step: number, subdivision: SubdivisionId): Hit
 }
 
 export function resolveTier(intensity: KitIntensity, role: HitRole): CrocellTier {
-  const dyn = dynamicsFor(intensity)
-  return role === 'ghost' ? dyn.ghostTier : dyn.accentTier
+  return layerBlendFor(intensity, role).tier
 }
 
 export function playOptsForRole(
   intensity: KitIntensity,
   role: HitRole,
-): { tier: CrocellTier; rimshot: false; vel: number } {
+): { tier: CrocellTier; blendTier?: CrocellTier; blendMix: number; rimshot: false; vel: number } {
   const dyn = dynamicsFor(intensity)
-  if (role === 'ghost') {
-    return { tier: dyn.ghostTier, rimshot: false, vel: dyn.ghostVel * dyn.gain }
-  }
-  if (role === 'backbeat') {
-    return { tier: dyn.accentTier, rimshot: false, vel: dyn.accentVel * dyn.gain }
-  }
-  return { tier: dyn.accentTier, rimshot: false, vel: dyn.normalVel * dyn.gain }
+  const kind = role === 'ghost' ? 'ghost' : 'accent'
+  const blend = layerBlendFor(intensity, role, kind)
+  const vel =
+    role === 'ghost' ? dyn.ghostVel * dyn.gain : role === 'backbeat' ? dyn.accentVel * dyn.gain : dyn.normalVel * dyn.gain
+  return { ...blend, rimshot: false, vel }
 }

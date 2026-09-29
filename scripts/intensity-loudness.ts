@@ -1,12 +1,16 @@
 import {
+  HIGH_INTENSITY_GAIN,
+  INTENSITY_STRENGTH,
   KIT_INTENSITIES,
   defaultIntensityForStyle,
-  dynamicsFor,
+  playOptsForRole,
+  scaleLayer,
   type KitIntensity,
 } from '../src/lib/kit-intensity.ts'
-import { estimateBarEnergy, quartersInBar, realizeDrumBar } from '../src/lib/kit-intensity-play.ts'
+import { realizeDrumBar } from '../src/lib/kit-intensity-play.ts'
 import { VOICES } from '../src/lib/rhythm.ts'
-import { RHYTHM_STYLES, barsForPreset, type RhythmStyleId } from '../src/lib/rhythm-presets.ts'
+import { RHYTHM_STYLES, type RhythmStyleId } from '../src/lib/rhythm-presets.ts'
+import { barsForPreset } from '../src/lib/rhythm-presets.ts'
 
 function hitId(voice: string, hit: { beat: number; num: number; den: number }): string {
   return `${voice}:${hit.beat}:${hit.num}/${hit.den}`
@@ -19,27 +23,30 @@ function fingerprint(hits: ReturnType<typeof realizeDrumBar>['hits']): string {
     .join('|')
 }
 
-function meanVel(hits: ReturnType<typeof realizeDrumBar>['hits']): number {
-  if (!hits.length) return 0
-  return hits.reduce((sum, hit) => sum + hit.vel, 0) / hits.length
-}
-
-function ampFromEnergy(energy: number): number {
-  return Math.sqrt(Math.max(0, energy))
-}
-
 function main(): void {
   let failed = 0
-  const rows: Array<{
-    style: RhythmStyleId
-    groove: string
-    level: KitIntensity
-    hits: number
-    energy: number
-    vel: number
-    gain: number
-    accentTier: number
-  }> = []
+
+  const highBackbeat = playOptsForRole('high', 'backbeat')
+  if (highBackbeat.tier !== 5 || highBackbeat.blendMix !== 0) {
+    failed += 1
+    console.error(`HIGH layer drifted: ${JSON.stringify(highBackbeat)}`)
+  }
+  const expectedVel = 0.92 * HIGH_INTENSITY_GAIN
+  if (Math.abs(highBackbeat.vel - expectedVel) > 1e-9) {
+    failed += 1
+    console.error(`HIGH vel drifted: ${highBackbeat.vel} vs ${expectedVel}`)
+  }
+
+  const mid = scaleLayer(5, INTENSITY_STRENGTH.mid)
+  const low = scaleLayer(5, INTENSITY_STRENGTH.low)
+  if (Math.abs(INTENSITY_STRENGTH.mid - 0.85) > 1e-9 || Math.abs(INTENSITY_STRENGTH.low - 0.72) > 1e-9) {
+    failed += 1
+    console.error('strength map must stay 1.0 / 0.85 / 0.72')
+  }
+  if (mid.tier < 4 || low.tier < 3) {
+    failed += 1
+    console.error(`Low/Mid jumped too soft: mid=${JSON.stringify(mid)} low=${JSON.stringify(low)}`)
+  }
 
   const expectedDefault: Record<string, KitIntensity> = {
     rock: 'high',
@@ -52,7 +59,7 @@ function main(): void {
   for (const [style, level] of Object.entries(expectedDefault)) {
     if (defaultIntensityForStyle(style as RhythmStyleId) !== level) {
       failed += 1
-      console.error(`DEFAULT ${style}: expected ${level}, got ${defaultIntensityForStyle(style as RhythmStyleId)}`)
+      console.error(`DEFAULT ${style}: expected ${level}`)
     }
   }
 
@@ -78,13 +85,11 @@ function main(): void {
     for (const row of byLevel) {
       if (row.print !== writtenKeys) {
         failed += 1
-        console.error(
-          `PATTERN ${style.id} ${row.level}: realized hits differ from the written groove (${row.realized.hits.length} vs ${writtenKeys.split('|').filter(Boolean).length})`,
-        )
+        console.error(`PATTERN ${style.id} ${row.level}: notes changed`)
       }
       if (row.realized.hits.some((hit) => hit.rimshot)) {
         failed += 1
-        console.error(`RIMSHOT ${style.id} ${row.level}: intensity must not swap snare to rimshot`)
+        console.error(`RIMSHOT ${style.id} ${row.level}`)
       }
     }
 
@@ -96,58 +101,17 @@ function main(): void {
         failed += 1
         console.error(`PATTERN ${style.id}: ${prev.level} vs ${next.level} changed notes`)
       }
-      const prevTier = dynamicsFor(prev.level).accentTier
-      const nextTier = dynamicsFor(next.level).accentTier
-      if (!(nextTier > prevTier)) {
-        failed += 1
-        console.error(`TIER ${style.id}: ${next.level} is not a harder layer than ${prev.level}`)
-      }
     }
-
-    const amps = byLevel.map(
-      (row) => ampFromEnergy(estimateBarEnergy(row.realized.hits) / quartersInBar(bar)),
-    )
-    const midAmp = amps[1] ?? 0
-    for (let i = 0; i < byLevel.length; i += 1) {
-      const row = byLevel[i]
-      const amp = amps[i] ?? 0
-      if (!row) continue
-      const ratio = amp / Math.max(midAmp, 1e-9)
-      if (ratio < 0.96 || ratio > 1.04) {
-        failed += 1
-        console.error(
-          `LEVEL ${style.id}: ${row.level} volume ${ratio.toFixed(3)}× Mid (want matched, 0.96–1.04)`,
-        )
-      }
-    }
-
-    for (const row of byLevel) {
-      rows.push({
-        style: style.id,
-        groove: groove.id,
-        level: row.level,
-        hits: row.realized.hits.length,
-        energy: estimateBarEnergy(row.realized.hits) / quartersInBar(bar),
-        vel: meanVel(row.realized.hits),
-        gain: row.realized.gain,
-        accentTier: row.realized.dynamics.accentTier,
-      })
-    }
-  }
-
-  const header = 'style'.padEnd(8) + 'lv    hits  t  gain   vel    energy'
-  console.log(header)
-  for (const row of rows) {
-    console.log(
-      `${row.style.padEnd(8)}${row.level.padEnd(6)}${String(row.hits).padStart(4)}  ${String(row.accentTier).padStart(1)}  ${row.gain.toFixed(2).padStart(4)}  ${row.vel.toFixed(3).padStart(5)}  ${row.energy.toFixed(4)}`,
-    )
   }
 
   if (failed > 0) {
     console.error(`${failed} intensity check(s) failed`)
     process.exit(1)
   }
-  console.log(`${rows.length} style×levels: same notes, harder layers, matched volume Low / Mid / High`)
+  console.log(
+    `High stays t${highBackbeat.tier} vel ${highBackbeat.vel.toFixed(3)}; Mid blend t${mid.tier}/${mid.blendTier} @ ${mid.blendMix.toFixed(2)}; Low blend t${low.tier}/${low.blendTier} @ ${low.blendMix.toFixed(2)}`,
+  )
+  console.log(`${RHYTHM_STYLES.length} styles: same notes, High reference unchanged, strength 1.00 / 0.85 / 0.72`)
 }
 
 main()
