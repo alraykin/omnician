@@ -1,19 +1,17 @@
+import { getSharedAudioContext, resumeSharedAudioContext } from '@/lib/audio-context'
 import type { FamilyId } from '@/lib/presets'
 import { familyTone } from '@/lib/headstock'
 
-type AudioContextCtor = typeof AudioContext
-
-function getCtor(): AudioContextCtor | undefined {
-  if (typeof window === 'undefined') return undefined
-  const view = window as Window & { webkitAudioContext?: AudioContextCtor }
-  return window.AudioContext ?? view.webkitAudioContext
-}
-
 export function playReferenceTone(frequency: number, family: FamilyId): void {
-  const AudioContextCtor = getCtor()
-  if (!AudioContextCtor || !Number.isFinite(frequency) || frequency < 20) return
+  if (!Number.isFinite(frequency) || frequency < 20) return
 
-  const audio = new AudioContextCtor()
+  let audio: AudioContext
+  try {
+    audio = getSharedAudioContext()
+  } catch {
+    return
+  }
+  void resumeSharedAudioContext()
   const tone = familyTone(family)
   const now = audio.currentTime + 0.01
   const duration = tone === 'bass' ? 0.85 : tone === 'ukulele' ? 0.38 : 0.55
@@ -72,6 +70,13 @@ export function playReferenceTone(frequency: number, family: FamilyId): void {
   noise.stop(now + 0.06)
 
   window.setTimeout(() => {
-    void audio.close()
+    try {
+      fundamental.disconnect()
+      partial.disconnect()
+      noise.disconnect()
+      master.disconnect()
+    } catch {
+      // already finished
+    }
   }, duration * 1000 + 120)
 }

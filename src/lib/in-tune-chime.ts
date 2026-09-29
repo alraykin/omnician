@@ -1,21 +1,19 @@
+import { getSharedAudioContext, resumeSharedAudioContext } from '@/lib/audio-context'
+
 let lastPlayedAt = 0
-let shared: AudioContext | null = null
 const COOLDOWN_MS = 900
 
 function getAudio(): AudioContext | null {
-  const Ctor =
-    window.AudioContext ??
-    (window as Window & { webkitAudioContext?: typeof AudioContext })
-      .webkitAudioContext
-  if (!Ctor) return null
-  if (!shared || shared.state === 'closed') {
-    shared = new Ctor()
+  try {
+    const shared = getSharedAudioContext()
+    void resumeSharedAudioContext()
+    return shared
+  } catch {
+    return null
   }
-  if (shared.state === 'suspended') void shared.resume()
-  return shared
 }
 
-function voice(
+function head(
   audio: AudioContext,
   dest: AudioNode,
   frequency: number,
@@ -60,9 +58,9 @@ export function playInTuneChime(): void {
   master.connect(audio.destination)
 
   // Soft “lock”: C5 – E5 – G5, then a quiet C6 sparkle.
-  voice(audio, filter, 523.25, start, 0.92, 'sine', 0.2)
-  voice(audio, filter, 659.25, start + 0.055, 0.84, 'triangle', 0.13)
-  voice(audio, filter, 783.99, start + 0.11, 0.78, 'sine', 0.11)
-  voice(audio, filter, 1046.5, start + 0.16, 0.55, 'sine', 0.07)
-  voice(audio, filter, 523.25 * 2.01, start + 0.02, 0.7, 'sine', 0.035)
+  head(audio, filter, 523.25, start, 0.92, 'sine', 0.2)
+  head(audio, filter, 659.25, start + 0.055, 0.84, 'triangle', 0.13)
+  head(audio, filter, 783.99, start + 0.11, 0.78, 'sine', 0.11)
+  head(audio, filter, 1046.5, start + 0.16, 0.55, 'sine', 0.07)
+  head(audio, filter, 523.25 * 2.01, start + 0.02, 0.7, 'sine', 0.035)
 }

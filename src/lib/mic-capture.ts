@@ -1,3 +1,5 @@
+import { getSharedAudioContext, resumeSharedAudioContext } from '@/lib/audio-context'
+
 type ChromeAudioTrack = MediaTrackConstraints & {
   googEchoCancellation?: boolean
   googNoiseSuppression?: boolean
@@ -160,31 +162,13 @@ export function captureDeviceLabel(stream: MediaStream): string {
   return track?.label || 'Default input'
 }
 
-export function createTunerContextSync(sampleRate?: number | null): AudioContext {
-  const Ctor =
-    window.AudioContext ??
-    (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-  if (!Ctor) throw Object.assign(new Error('NO_AUDIO'), { code: 'unavailable' })
-
-  if (sampleRate) {
-    try {
-      return new Ctor({ latencyHint: 'interactive', sampleRate })
-    } catch {
-      // Safari sometimes rejects an explicit rate; fall through.
-    }
-  }
-  try {
-    return new Ctor({ latencyHint: 'interactive' })
-  } catch {
-    return new Ctor()
-  }
+export function createTunerContextSync(_sampleRate?: number | null): AudioContext {
+  return getSharedAudioContext()
 }
 
 export async function createTunerContext(): Promise<AudioContext> {
-  const audio = createTunerContextSync()
-  if (audio.state === 'suspended') {
-    await audio.resume()
-  }
+  const audio = getSharedAudioContext()
+  await resumeSharedAudioContext()
   return audio
 }
 

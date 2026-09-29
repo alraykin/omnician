@@ -1,3 +1,4 @@
+import { getSharedAudioContext, resumeSharedAudioContext, stopMediaTracks } from '@/lib/audio-context'
 import { isPermissionError, isUnavailableError, requestRawMic } from '@/lib/mic-capture'
 import {
   LISTEN_MAX_MS,
@@ -84,17 +85,9 @@ export function createTempoListener() {
       /* already gone */
     }
     silent = null
-    stream?.getTracks().forEach((t) => t.stop())
+    stopMediaTracks(stream)
     stream = null
-    const ctx = audio
     audio = null
-    if (ctx && ctx.state !== 'closed') {
-      try {
-        await ctx.close()
-      } catch {
-        /* already closed */
-      }
-    }
   }
 
   const subscribe = (fn: Listener) => {
@@ -165,17 +158,13 @@ export function createTempoListener() {
     try {
       const nextStream = await requestRawMic()
       if (id !== session) {
-        nextStream.getTracks().forEach((t) => t.stop())
+        stopMediaTracks(nextStream)
         return
       }
       stream = nextStream
-      const Ctor =
-        window.AudioContext ??
-        (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-      if (!Ctor) throw Object.assign(new Error('NO_AUDIO'), { code: 'unavailable' })
-      const ctx = new Ctor({ latencyHint: 'interactive' })
+      const ctx = getSharedAudioContext()
       audio = ctx
-      if (ctx.state === 'suspended') await ctx.resume()
+      await resumeSharedAudioContext()
       if (id !== session) return
       const src = ctx.createMediaStreamSource(nextStream)
       sourceNode = src
@@ -268,13 +257,9 @@ export function createTempoListener() {
     try {
       const data = await file.arrayBuffer()
       if (id !== session) return
-      const Ctor =
-        window.AudioContext ??
-        (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-      if (!Ctor) throw Object.assign(new Error('NO_AUDIO'), { code: 'unavailable' })
-      const ctx = new Ctor()
+      const ctx = getSharedAudioContext()
       audio = ctx
-      if (ctx.state === 'suspended') await ctx.resume()
+      await resumeSharedAudioContext()
       const decoded = await ctx.decodeAudioData(data.slice(0))
       if (id !== session) {
         await teardownGraph()

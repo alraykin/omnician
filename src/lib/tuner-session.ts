@@ -1,3 +1,4 @@
+import { resumeSharedAudioContext, stopMediaTracks } from '@/lib/audio-context'
 import { clampA4 } from '@/lib/custom-presets'
 import { analyzeFrequency, A4_HZ, rms } from '@/lib/notes'
 import {
@@ -229,15 +230,6 @@ function applyEstimate(hz: number, clarity: number, signal: number, now: number)
   emit({ reading: { ...note, clarity }, debug })
 }
 
-async function closeContext(ctx: AudioContext | null): Promise<void> {
-  if (!ctx || ctx.state === 'closed') return
-  try {
-    await ctx.close()
-  } catch {
-    // already closed
-  }
-}
-
 function teardown(nextStatus: TunerStatus | null): void {
   sessionId += 1
   cancelAnimationFrame(raf)
@@ -259,7 +251,7 @@ function teardown(nextStatus: TunerStatus | null): void {
 
   const liveStream = stream
   stream = null
-  liveStream?.getTracks().forEach((track) => track.stop())
+  stopMediaTracks(liveStream)
 
   const osc = oscillator
   oscillator = null
@@ -269,9 +261,7 @@ function teardown(nextStatus: TunerStatus | null): void {
     // already stopped
   }
 
-  const ctx = audio
   audio = null
-  void closeContext(ctx)
 
   if (nextStatus !== null) {
     emit({ status: nextStatus, reading: null, needsGesture: nextStatus === 'denied' })
@@ -281,24 +271,13 @@ function teardown(nextStatus: TunerStatus | null): void {
 }
 
 async function resumeContext(): Promise<boolean> {
-  const ctx = audio
-  if (!ctx || ctx.state === 'closed') return false
-  if (ctx.state !== 'suspended') {
+  const ok = await resumeSharedAudioContext()
+  if (ok) {
     if (snapshot.needsGesture) emit({ needsGesture: false })
     return true
   }
-  try {
-    await ctx.resume()
-  } catch {
-    emit({ needsGesture: true })
-    return false
-  }
-  if (ctx.state === 'suspended') {
-    emit({ needsGesture: true })
-    return false
-  }
-  if (snapshot.needsGesture) emit({ needsGesture: false })
-  return true
+  emit({ needsGesture: true })
+  return false
 }
 
 function tracksAreLive(): boolean {
@@ -379,7 +358,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
   }
 
   audio = ctx
-  const resumePromise = ctx.state === 'suspended' ? ctx.resume().catch(() => undefined) : Promise.resolve()
+  const resumePromise = resumeSharedAudioContext()
 
   const demoHz = Number(new URLSearchParams(window.location.search).get('demo'))
   const useDemo = Number.isFinite(demoHz) && demoHz > 20 && demoHz < 4000
@@ -405,7 +384,6 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     } catch (error) {
       lastError = `${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error)}`
       if (audio === ctx) audio = null
-      await closeContext(ctx)
       if (sessionId !== session) return
       if (isPermissionError(error)) {
         const permission = await micPermissionState()
@@ -425,9 +403,8 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     }
 
     if (sessionId !== session) {
-      nextStream.getTracks().forEach((track) => track.stop())
+      stopMediaTracks(nextStream)
       if (audio === ctx) audio = null
-      await closeContext(ctx)
       return
     }
 
@@ -437,18 +414,6 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     lastChannelCount = captureChannelCount(nextStream)
     lastDeviceLabel = captureDeviceLabel(nextStream)
     if (trackRate) lastCaptureRate = trackRate
-    if (trackRate && Math.abs(trackRate - ctx.sampleRate) > 50) {
-      const replacement = createTunerContextSync(trackRate)
-      if (audio === ctx) audio = null
-      await closeContext(ctx)
-      ctx = replacement
-      audio = ctx
-      try {
-        await ctx.resume()
-      } catch {
-        // tap-anywhere will unlock if this late resume is rejected
-      }
-    }
     if (track) {
       logCapture({
         settings: track.getSettings(),
@@ -462,9 +427,8 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
       source = ctx.createMediaStreamSource(nextStream)
     } catch (error) {
       lastError = `SOURCE: ${error instanceof Error ? error.message : String(error)}`
-      nextStream.getTracks().forEach((track) => track.stop())
+      stopMediaTracks(nextStream)
       if (audio === ctx) audio = null
-      await closeContext(ctx)
       if (sessionId !== session) return
       emit({ status: 'error', needsGesture: true, reading: null })
       return
@@ -473,13 +437,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
 
   if (sessionId !== session) return
 
-  if (ctx.state === 'suspended') {
-    try {
-      await ctx.resume()
-    } catch {
-      // iOS can reject a late resume; a later tap retries.
-    }
-  }
+  await resumeSharedAudioContext()
 
   let workletOk = false
   try {
@@ -489,10 +447,9 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     workletOk = false
   }
   if (sessionId !== session) {
-    stream?.getTracks().forEach((item) => item.stop())
+    stopMediaTracks(stream)
     if (stream && !tracksAreLive()) stream = null
     if (audio === ctx) audio = null
-    await closeContext(ctx)
     return
   }
 
@@ -619,6 +576,8 @@ export function enterTunerPage(): void {
 export function leaveTunerPage(): void {
   pageCount = Math.max(0, pageCount - 1)
   if (pageCount > 0) return
+  stopMediaTracks(stream)
+  stream = null
   if (leaveTimer) window.clearTimeout(leaveTimer)
   leaveTimer = window.setTimeout(() => {
     leaveTimer = 0

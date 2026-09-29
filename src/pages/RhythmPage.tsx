@@ -41,6 +41,7 @@ import {
   type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
+import { unlockAudioFromGesture } from '@/lib/audio-context'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
@@ -258,6 +259,7 @@ export function RhythmPage() {
   }
 
   const openListen = () => {
+    unlockAudioFromGesture()
     if (playing) {
       halt()
       setPlaying(false)
@@ -323,7 +325,8 @@ export function RhythmPage() {
     if (bar && !playing) void previewClickBar(bar)
   }
 
-  const startStop = useCallback(async () => {
+  const startStop = useCallback(() => {
+    unlockAudioFromGesture()
     if (listenOpen) {
       setListenOpen(false)
       setListenSeed(null)
@@ -335,11 +338,12 @@ export function RhythmPage() {
       return
     }
     unlockSpeech()
-    const kit = await ensureKit()
-    if (speedBuilder.enabled && speedBuilder.announce) {
-      kit?.preloadAnnounce()
-      await kit?.ensureAnnounce(speedBuilder.fromPct)
-    }
+    void ensureKit().then((kit) => {
+      if (speedBuilder.enabled && speedBuilder.announce) {
+        kit?.preloadAnnounce()
+        void kit?.ensureAnnounce(speedBuilder.fromPct)
+      }
+    })
     setPlaying(true)
   }, [ensureKit, halt, listenOpen, playing, speedBuilder.announce, speedBuilder.enabled, speedBuilder.fromPct])
 

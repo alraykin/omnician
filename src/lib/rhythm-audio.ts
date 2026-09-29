@@ -1,3 +1,4 @@
+import { getSharedAudioContext, resumeSharedAudioContext } from '@/lib/audio-context'
 import {
   DEFAULT_INTENSITY_STYLE,
   DEFAULT_KIT_INTENSITY,
@@ -19,26 +20,10 @@ export type DrumPlayOpts = {
   rimshot?: boolean
 }
 
-type AudioContextCtor = typeof AudioContext
-
-export function getAudioCtor(): AudioContextCtor | undefined {
-  if (typeof window === 'undefined') return undefined
-  const view = window as Window & { webkitAudioContext?: AudioContextCtor }
-  return window.AudioContext ?? view.webkitAudioContext
-}
+export { getAudioCtor } from '@/lib/audio-context'
 
 export function createRhythmContext(): AudioContext {
-  const Ctor = getAudioCtor()
-  if (!Ctor) throw new Error('NO_AUDIO')
-  try {
-    return new Ctor({ latencyHint: 'interactive', sampleRate: 48000 })
-  } catch {
-    try {
-      return new Ctor({ latencyHint: 'interactive' })
-    } catch {
-      return new Ctor()
-    }
-  }
+  return getSharedAudioContext()
 }
 
 type CrocellPiece =
@@ -757,24 +742,18 @@ let lastWheelTickAt = 0
 
 /** Short mechanical detent for the BPM wheel. Rate-limited so fast scrubs don't explode. */
 export function playWheelTick(): void {
-  const Ctor = getAudioCtor()
-  if (!Ctor) return
   const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
   if (now - lastWheelTickAt < 48) return
   lastWheelTickAt = now
   try {
-    if (!wheelTickCtx || wheelTickCtx.state === 'closed') {
-      try {
-        wheelTickCtx = createRhythmContext()
-      } catch {
-        wheelTickCtx = new Ctor()
-      }
-      wheelTickBuffer = bakeWheelTick(wheelTickCtx)
+    const ctx = getSharedAudioContext()
+    if (!wheelTickBuffer || wheelTickCtx !== ctx) {
+      wheelTickCtx = ctx
+      wheelTickBuffer = bakeWheelTick(ctx)
     }
-    const ctx = wheelTickCtx
     const buffer = wheelTickBuffer
     if (!buffer) return
-    if (ctx.state === 'suspended') void ctx.resume()
+    void resumeSharedAudioContext()
     const source = ctx.createBufferSource()
     source.buffer = buffer
     const amp = ctx.createGain()
@@ -795,9 +774,10 @@ export function lastDrumPreviewPathMs(): number {
 }
 
 export function getOrCreateRhythmKit(): RhythmKit | null {
-  if (sharedKit && sharedKit.ctx.state !== 'closed') return sharedKit
+  const ctx = getSharedAudioContext()
+  if (sharedKit && sharedKit.ctx === ctx && sharedKit.ctx.state !== 'closed') return sharedKit
   try {
-    sharedKit = new RhythmKit(createRhythmContext())
+    sharedKit = new RhythmKit(ctx)
     void sharedKit.unlock()
     exposeDrumDebug()
     return sharedKit
@@ -933,13 +913,7 @@ export class RhythmKit {
   }
 
   async unlock(): Promise<void> {
-    if (this.ctx.state === 'suspended') {
-      try {
-        await this.ctx.resume()
-      } catch {
-        // Need a later gesture on iOS.
-      }
-    }
+    await resumeSharedAudioContext()
   }
 
   click(
@@ -1029,14 +1003,14 @@ export class RhythmKit {
 
   previewVoice(voice: VoiceId, role: HitRole = 'backbeat'): void {
     const started = performance.now()
-    if (this.ctx.state === 'suspended') void this.ctx.resume()
+    void resumeSharedAudioContext()
     this.hit(voice, 0, role)
     lastPreviewPathMs = performance.now() - started
   }
 
   previewClick(sound: ClickSoundId, level: 0 | 1 | 2 = 2, onBeat = true): void {
     const started = performance.now()
-    if (this.ctx.state === 'suspended') void this.ctx.resume()
+    void resumeSharedAudioContext()
     this.click(0, level, sound, onBeat)
     lastPreviewPathMs = performance.now() - started
   }
