@@ -1,4 +1,4 @@
-import { InlineStrings, LayoutStyleToggle } from '@/components/tuner/InlineStrings'
+import { InlineHeadstock, LayoutStyleToggle } from '@/components/tuner/InlineHeadstock'
 import {
   layoutPegs,
   pegLetter,
@@ -578,8 +578,9 @@ export function Headstock({
       </div>
 
       {layoutMode === 'inline' ? (
-        <InlineStrings
+        <InlineHeadstock
           strings={strings}
+          config={config}
           selectedId={selectedId}
           tunedIds={tunedIds}
           inTune={inTune}
