@@ -47,6 +47,7 @@ import { activateOnPointer, cn } from '@/lib/utils'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
 import { unlockSpeech, type SpeedBuilder, type SpeedBuilderCue } from '@/lib/speed-builder'
 import { detectTempo, synthesizeClickTrack, type TempoEstimate } from '@/lib/tempo-detect'
+import { stopListenTempoPreview } from '@/lib/listen-preview'
 import { getTempoListener } from '@/lib/tempo-listen'
 import {
   RHYTHM_STYLES,
@@ -328,6 +329,7 @@ export function RhythmPage() {
   const startStop = useCallback(() => {
     unlockAudioFromGesture()
     if (listenOpen) {
+      stopListenTempoPreview()
       setListenOpen(false)
       setListenSeed(null)
       void getTempoListener().cancel()

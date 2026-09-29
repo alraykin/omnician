@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { type SpeedBuilder, sbBpm } from '@/lib/speed-builder'
 import { type TempoEstimate } from '@/lib/tempo-detect'
+import { playListenTempoPreview, stopListenTempoPreview } from '@/lib/listen-preview'
 import { getTempoListener, type ListenSnapshot } from '@/lib/tempo-listen'
 import { activateOnPointer, cn } from '@/lib/utils'
 
@@ -28,11 +29,14 @@ export function ListenTempoSheet({
   const fileRef = useRef<HTMLInputElement>(null)
   const [snap, setSnap] = useState<ListenSnapshot | null>(null)
   const [picked, setPicked] = useState<number | null>(null)
+  const [previewBpm, setPreviewBpm] = useState<number | null>(null)
 
   useEffect(() => {
     if (!open) {
+      stopListenTempoPreview()
       void listenerRef.current?.cancel()
       setPicked(null)
+      setPreviewBpm(null)
       return
     }
     const unsub = listenerRef.current?.subscribe(setSnap)
@@ -80,6 +84,7 @@ export function ListenTempoSheet({
         className="absolute inset-0 cursor-default"
         aria-label="Close listen"
         onClick={() => {
+          stopListenTempoPreview()
           void listenerRef.current?.cancel()
           onClose()
         }}
@@ -107,6 +112,7 @@ export function ListenTempoSheet({
             className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300"
             aria-label="Cancel"
             {...activateOnPointer(() => {
+              stopListenTempoPreview()
               void listenerRef.current?.cancel()
               onClose()
             })}
@@ -144,7 +150,20 @@ export function ListenTempoSheet({
           <ResultBody
             estimate={estimate}
             chosen={chosen}
+            previewBpm={previewBpm}
             onChoose={setPicked}
+            onPreview={(bpm) => {
+              if (previewBpm === bpm) {
+                stopListenTempoPreview()
+                setPreviewBpm(null)
+                return
+              }
+              setPicked(bpm)
+              setPreviewBpm(bpm)
+              playListenTempoPreview(bpm, () => {
+                setPreviewBpm((current) => (current === bpm ? null : current))
+              })
+            }}
             useNote={useNote}
             source={snap?.source ?? 'file'}
           />
@@ -156,6 +175,7 @@ export function ListenTempoSheet({
               type="button"
               data-listen-use
               {...activateOnPointer(() => {
+                stopListenTempoPreview()
                 onUse(chosen, useNote)
                 void listenerRef.current?.cancel()
                 onClose()
@@ -170,6 +190,8 @@ export function ListenTempoSheet({
               variant="outline"
               data-listen-again
               {...activateOnPointer(() => {
+                stopListenTempoPreview()
+                setPreviewBpm(null)
                 setPicked(null)
                 void listenerRef.current?.startMic()
               })}
@@ -191,6 +213,7 @@ export function ListenTempoSheet({
             type="button"
             className="mt-1 text-center text-xs font-semibold text-slate-500"
             {...activateOnPointer(() => {
+              stopListenTempoPreview()
               void listenerRef.current?.cancel()
               onClose()
             })}
@@ -217,13 +240,16 @@ export function ListenTempoSheet({
 function ResultBody({
   estimate,
   chosen,
-  onChoose,
+  previewBpm,
+  onPreview,
   useNote,
   source,
 }: {
   estimate: TempoEstimate
   chosen: number | null
+  previewBpm: number | null
   onChoose: (bpm: number) => void
+  onPreview: (bpm: number) => void
   useNote: string
   source: 'mic' | 'file' | null
 }) {
@@ -231,9 +257,6 @@ function ResultBody({
     Math.abs(estimate.bpmExact - estimate.bpm) >= 0.15
       ? estimate.bpmExact.toFixed(1)
       : null
-  const alts = [estimate.half, estimate.double].filter(
-    (b, i, all) => b !== estimate.bpm && b >= 30 && b <= 300 && all.indexOf(b) === i,
-  )
 
   return (
     <div data-listen-result="ready">
@@ -251,33 +274,34 @@ function ResultBody({
           confidence
         </p>
       </div>
-      {alts.length > 0 ? (
-        <div className="mt-4">
-          <p className="mb-1.5 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Or it might be
-          </p>
-          <div className="flex justify-center gap-2">
-            <AltChip
-              label="½×"
-              bpm={estimate.half}
-              active={chosen === estimate.half}
-              onPick={() => onChoose(estimate.half)}
-            />
-            <AltChip
-              label="1×"
-              bpm={estimate.bpm}
-              active={chosen === estimate.bpm}
-              onPick={() => onChoose(estimate.bpm)}
-            />
-            <AltChip
-              label="2×"
-              bpm={estimate.double}
-              active={chosen === estimate.double}
-              onPick={() => onChoose(estimate.double)}
-            />
-          </div>
+      <div className="mt-4">
+        <p className="mb-1.5 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          Tap to hear · Use this tempo to apply
+        </p>
+        <div className="flex justify-center gap-2">
+          <AltChip
+            label="½×"
+            bpm={estimate.half}
+            active={chosen === estimate.half}
+            playing={previewBpm === estimate.half}
+            onPick={() => onPreview(estimate.half)}
+          />
+          <AltChip
+            label="1×"
+            bpm={estimate.bpm}
+            active={chosen === estimate.bpm}
+            playing={previewBpm === estimate.bpm}
+            onPick={() => onPreview(estimate.bpm)}
+          />
+          <AltChip
+            label="2×"
+            bpm={estimate.double}
+            active={chosen === estimate.double}
+            playing={previewBpm === estimate.double}
+            onPick={() => onPreview(estimate.double)}
+          />
         </div>
-      ) : null}
+      </div>
       <p className="mt-4 text-center text-sm leading-5 text-slate-400">{useNote}</p>
     </div>
   )
@@ -287,27 +311,32 @@ function AltChip({
   label,
   bpm,
   active,
+  playing,
   onPick,
 }: {
   label: string
   bpm: number
   active: boolean
+  playing: boolean
   onPick: () => void
 }) {
   return (
     <button
       type="button"
       data-listen-alt={label}
+      data-listen-preview={playing ? 'on' : 'off'}
       {...activateOnPointer(onPick)}
       className={cn(
         'min-w-[4.8rem] rounded-2xl border px-3 py-2 text-center touch-manipulation',
-        active
-          ? 'border-[#A855F7] bg-[#A855F7]/20 text-white'
-          : 'border-white/12 bg-white/4 text-slate-200',
+        playing
+          ? 'border-[#A855F7] bg-[#A855F7]/28 text-white ring-1 ring-[#A855F7]/70'
+          : active
+            ? 'border-[#A855F7] bg-[#A855F7]/20 text-white'
+            : 'border-white/12 bg-white/4 text-slate-200',
       )}
     >
       <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-slate-500">
-        {label}
+        {playing ? 'Playing' : label}
       </span>
       <span className="block text-sm font-bold tabular-nums">{bpm}</span>
     </button>

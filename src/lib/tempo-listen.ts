@@ -88,6 +88,7 @@ export function createTempoListener() {
     stopMediaTracks(stream)
     stream = null
     audio = null
+    await resumeSharedAudioContext()
   }
 
   const subscribe = (fn: Listener) => {
