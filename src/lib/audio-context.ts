@@ -20,9 +20,9 @@ export type AudioDebugSnapshot = {
   sessionType: string
   micTracks: number
   micLive: number
-  silentUnlock: boolean
   lastRecovery: string
   recoveries: number
+  lastError: string
 }
 
 type AudioSessionApi = { type: string }
@@ -30,13 +30,13 @@ type AudioSessionApi = { type: string }
 let playback: AudioContext | null = null
 let capture: AudioContext | null = null
 let lifecycleWired = false
-let silentEl: HTMLAudioElement | null = null
 let lastPlaybackTime = 0
 let lastPlaybackCheck = 0
 let timeAdvancing = false
 let lastRecovery = 'none'
 let recoveries = 0
-let recovering = false
+let lastError = 'none'
+let lastSetSession: AudioSessionType | null = null
 
 const liveStreams = new Set<MediaStream>()
 const hiddenReleasers = new Set<() => void>()
@@ -67,13 +67,28 @@ export function getAudioSessionType(): string {
   return getAudioSession()?.type ?? 'unsupported'
 }
 
+export function formatAudioError(error: unknown): string {
+  if (error instanceof Error) {
+    const extra = 'code' in error ? ` [${String((error as Error & { code?: unknown }).code)}]` : ''
+    return `${error.name}: ${error.message}${extra}`
+  }
+  return String(error)
+}
+
+export function noteAudioError(error: unknown, where: string): string {
+  lastError = `${where}: ${formatAudioError(error)}`
+  return lastError
+}
+
 export function setAudioSessionType(type: AudioSessionType): void {
   const session = getAudioSession()
   if (!session) return
+  if (lastSetSession === type) return
   try {
     session.type = type
-  } catch {
-    // older WebKit builds reject unknown types
+    lastSetSession = type
+  } catch (error) {
+    noteAudioError(error, 'audioSession')
   }
 }
 
@@ -88,10 +103,6 @@ function createContext(): AudioContext {
   }
 }
 
-export function syncAudioSession(): void {
-  setAudioSessionType(liveStreams.size > 0 ? 'play-and-record' : 'playback')
-}
-
 export function stopMediaTracks(stream: MediaStream | null | undefined): void {
   if (!stream) return
   for (const track of stream.getTracks()) {
@@ -103,9 +114,31 @@ export function stopMediaTracks(stream: MediaStream | null | undefined): void {
   }
 }
 
+function discardPlaybackSync(reason: string): void {
+  lastRecovery = reason
+  recoveries += 1
+  const old = playback
+  playback = null
+  if (old && contextState(old) !== 'closed') {
+    try {
+      void old.close()
+    } catch {
+      // already closed
+    }
+  }
+}
+
+function restorePlaybackSessionAfterMic(): void {
+  setAudioSessionType('playback')
+  void disposeCaptureContext()
+  // Recreate playback AFTER the session is playback, never before.
+  // The old context is usually interrupted from play-and-record.
+  if (playback) discardPlaybackSync('after-mic')
+}
+
 export function adoptMicStream(stream: MediaStream): MediaStream {
   liveStreams.add(stream)
-  syncAudioSession()
+  setAudioSessionType('play-and-record')
   return stream
 }
 
@@ -113,11 +146,7 @@ export function releaseMicStream(stream: MediaStream | null | undefined): void {
   if (!stream) return
   stopMediaTracks(stream)
   liveStreams.delete(stream)
-  syncAudioSession()
-  if (liveStreams.size === 0) {
-    void disposeCaptureContext()
-    void resumePlaybackAndRecover(true)
-  }
+  if (liveStreams.size === 0) restorePlaybackSessionAfterMic()
 }
 
 export function releaseAllCapture(): void {
@@ -132,8 +161,7 @@ export function releaseAllCapture(): void {
       // releaser must not throw
     }
   }
-  syncAudioSession()
-  void disposeCaptureContext()
+  restorePlaybackSessionAfterMic()
 }
 
 export function onHiddenReleaseCapture(release: () => void): () => void {
@@ -174,108 +202,85 @@ export function getSharedAudioContext(): AudioContext {
   return getPlaybackAudioContext()
 }
 
-function armSilentUnlock(): void {
-  if (typeof document === 'undefined') return
-  if (!silentEl) {
-    const el = document.createElement('audio')
-    el.src = '/audio/silence.mp3'
-    el.loop = true
-    el.preload = 'auto'
-    el.setAttribute('playsinline', 'true')
-    el.setAttribute('webkit-playsinline', 'true')
-    ;(el as HTMLAudioElement & { playsInline?: boolean }).playsInline = true
-    el.volume = 0.0001
-    el.setAttribute('aria-hidden', 'true')
-    el.style.display = 'none'
-    document.body.appendChild(el)
-    silentEl = el
-  }
-  void silentEl.play().catch(() => undefined)
-}
-
 async function resumeCtx(ctx: AudioContext): Promise<boolean> {
   if (contextState(ctx) === 'closed') return false
   if (!contextNeedsResume(ctx)) return true
   try {
     await ctx.resume()
-  } catch {
+  } catch (error) {
+    noteAudioError(error, 'resume')
     return false
   }
   return !contextNeedsResume(ctx)
 }
 
-async function waitUntilRunning(ctx: AudioContext, ms: number): Promise<boolean> {
-  const started = performance.now()
-  while (performance.now() - started < ms) {
-    if (contextState(ctx) === 'running') return true
-    await resumeCtx(ctx)
-    await new Promise((resolve) => window.setTimeout(resolve, 40))
-  }
-  return contextState(ctx) === 'running'
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
-async function measureAdvancing(ctx: AudioContext): Promise<boolean> {
-  if (contextState(ctx) !== 'running') return false
-  const a = ctx.currentTime
-  await new Promise((resolve) => window.setTimeout(resolve, 50))
-  return ctx.currentTime > a + 0.01
+function playbackLooksFrozen(ctx: AudioContext): boolean {
+  const state = contextState(ctx)
+  if (state === 'closed') return true
+  if (state === 'interrupted') return true
+  if (state === 'running' && !timeAdvancing && ctx.currentTime > 0.05) return true
+  return false
 }
 
-async function recreatePlayback(reason: string): Promise<void> {
-  if (recovering) return
-  recovering = true
-  lastRecovery = reason
-  recoveries += 1
+/** Capture: set play-and-record and open the capture context inside the tap. */
+export function beginCaptureFromGesture(): AudioContext {
+  wireLifecycle()
+  setAudioSessionType('play-and-record')
+  const ctx = getCaptureAudioContext()
+  void ctx.resume().catch((error) => noteAudioError(error, 'capture.resume'))
+  return ctx
+}
+
+/**
+ * Play tap: create/resume playback in the gesture. Rebuild now if the previous
+ * context is interrupted or its clock was frozen. No HTMLAudioElement unlock.
+ */
+export function unlockPlaybackFromGesture(): AudioContext {
+  wireLifecycle()
+  if (liveStreams.size === 0) setAudioSessionType('playback')
   const old = playback
-  playback = null
-  if (old && contextState(old) !== 'closed') {
-    try {
-      await old.close()
-    } catch {
-      // already closed
-    }
+  if (old && playbackLooksFrozen(old)) {
+    discardPlaybackSync(`${contextState(old)}:frozen@${Math.round(old.sampleRate)}`)
   }
-  playback = createContext()
-  recovering = false
+  const ctx = getPlaybackAudioContext()
+  void ctx.resume().catch((error) => noteAudioError(error, 'play.resume'))
+  return ctx
 }
 
-export async function resumePlaybackAndRecover(forceCheck = false): Promise<boolean> {
+/** First-gesture playback prime. Does not switch session if the mic is live. */
+export function unlockAudioFromGesture(): void {
+  if (liveStreams.size > 0) return
+  unlockPlaybackFromGesture()
+}
+
+export async function waitForPlaybackClock(): Promise<boolean> {
+  const ctx = getPlaybackAudioContext()
+  await resumeCtx(ctx)
+  const a = ctx.currentTime
+  await nextFrame()
+  await nextFrame()
+  const advancing = ctx.currentTime > a + 1e-4
+  timeAdvancing = advancing
+  lastPlaybackTime = ctx.currentTime
+  lastPlaybackCheck = performance.now()
+  if (!advancing) noteAudioError(`state ${contextState(ctx)} t=${ctx.currentTime.toFixed(3)}`, 'clock')
+  return advancing && contextState(ctx) === 'running'
+}
+
+export async function resumePlaybackAndRecover(_forceCheck = false): Promise<boolean> {
   if (liveStreams.size === 0) setAudioSessionType('playback')
   const ctx = getPlaybackAudioContext()
-  const resumed = await resumeCtx(ctx)
-  if (!forceCheck && resumed && contextState(ctx) === 'running') {
-    timeAdvancing = true
-    return true
-  }
-  const running = await waitUntilRunning(ctx, 300)
-  const advancing = running ? await measureAdvancing(ctx) : false
-  timeAdvancing = advancing
-  if (running && advancing) return true
-  await recreatePlayback(
-    `${contextState(ctx)}${advancing ? '' : ':frozen'}@${Math.round(ctx.sampleRate)}`,
-  )
-  const next = getPlaybackAudioContext()
-  const ok = await resumeCtx(next)
-  timeAdvancing = ok
-  return ok
+  const ok = await resumeCtx(ctx)
+  timeAdvancing = ok && contextState(ctx) === 'running'
+  return timeAdvancing
 }
 
 export async function resumeSharedAudioContext(): Promise<boolean> {
   return resumePlaybackAndRecover(false)
-}
-
-/** Call from a click/pointer handler before any await so iOS unlocks playback. */
-export function unlockAudioFromGesture(): void {
-  armSilentUnlock()
-  syncAudioSession()
-  void resumeSharedAudioContext()
-}
-
-/** Play tap: resume, and recreate the playback context if iOS left it interrupted. */
-export function unlockPlaybackFromGesture(): void {
-  armSilentUnlock()
-  if (liveStreams.size === 0) setAudioSessionType('playback')
-  void resumePlaybackAndRecover(true)
 }
 
 export function countLiveMicTracks(): { total: number; live: number } {
@@ -312,9 +317,9 @@ export function getAudioDebugSnapshot(): AudioDebugSnapshot {
     sessionType: getAudioSessionType(),
     micTracks: mics.total,
     micLive: mics.live,
-    silentUnlock: Boolean(silentEl && !silentEl.paused),
     lastRecovery,
     recoveries,
+    lastError,
   }
 }
 
@@ -341,8 +346,9 @@ function wireLifecycle(): void {
   }
 
   const onVisible = () => {
+    if (liveStreams.size > 0) return
     setAudioSessionType('playback')
-    void resumePlaybackAndRecover(true)
+    if (playback && contextState(playback) !== 'closed') void resumeCtx(playback)
   }
 
   document.addEventListener('visibilitychange', () => {
@@ -352,11 +358,18 @@ function wireLifecycle(): void {
   window.addEventListener('pagehide', onHidden)
   window.addEventListener('pageshow', (event) => {
     if (event.persisted) onVisible()
-    else void resumePlaybackAndRecover(false)
+    else if (playback) void resumeCtx(playback)
   })
   window.addEventListener('focus', () => {
-    void resumePlaybackAndRecover(false)
+    if (playback && liveStreams.size === 0) void resumeCtx(playback)
   })
-  window.addEventListener('pointerdown', () => unlockAudioFromGesture(), { capture: true })
-  window.addEventListener('touchstart', () => unlockAudioFromGesture(), { capture: true, passive: true })
+}
+
+export function isAudioDebugQuery(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return new URLSearchParams(window.location.search).get('debug') === 'audio'
+  } catch {
+    return false
+  }
 }

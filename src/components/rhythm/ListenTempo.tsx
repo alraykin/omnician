@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { type SpeedBuilder, sbBpm } from '@/lib/speed-builder'
 import { type TempoEstimate } from '@/lib/tempo-detect'
+import { beginCaptureFromGesture } from '@/lib/audio-context'
 import { playListenTempoPreview, stopListenTempoPreview } from '@/lib/listen-preview'
 import { getTempoListener, type ListenSnapshot } from '@/lib/tempo-listen'
 import { activateOnPointer, cn } from '@/lib/utils'
@@ -143,7 +144,14 @@ export function ListenTempoSheet({
         ) : null}
 
         {phase === 'error' ? (
-          <p className="text-sm text-slate-300">{snap?.message}</p>
+          <div className="space-y-2">
+            <p className="text-sm text-slate-300">{snap?.message}</p>
+            {snap?.detail && new URLSearchParams(window.location.search).get('debug') === 'audio' ? (
+              <p className="break-words font-mono text-[0.68rem] text-amber-200" data-listen-error-detail>
+                {snap.detail}
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         {phase === 'result' && estimate ? (
@@ -193,6 +201,7 @@ export function ListenTempoSheet({
                 stopListenTempoPreview()
                 setPreviewBpm(null)
                 setPicked(null)
+                beginCaptureFromGesture()
                 void listenerRef.current?.startMic()
               })}
             >

@@ -29,8 +29,9 @@ function auditSources() {
   assert.match(joined, /play-and-record/)
   assert.match(joined, /getCaptureAudioContext/)
   assert.match(joined, /releaseMicStream/)
-  assert.match(joined, /unlockPlaybackFromGesture/)
-  assert.match(joined, /AudioDebugOverlay/)
+  assert.match(joined, /waitForPlaybackClock/)
+  assert.match(joined, /beginCaptureFromGesture/)
+  assert.doesNotMatch(readFileSync('src/lib/audio-context.ts', 'utf8'), /silence\.mp3|armSilentUnlock/)
   assert.doesNotMatch(
     readFileSync('src/lib/tempo-listen.ts', 'utf8'),
     /getSharedAudioContext\(\)[\s\S]{0,200}createMediaStreamSource/,

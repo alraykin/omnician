@@ -1,12 +1,12 @@
 import {
   adoptMicStream,
+  beginCaptureFromGesture,
   getCaptureAudioContext,
   onHiddenReleaseCapture,
   releaseMicStream,
   resumeSharedAudioContext,
   setAudioSessionType,
   stopMediaTracks,
-  syncAudioSession,
 } from '@/lib/audio-context'
 import { clampA4 } from '@/lib/custom-presets'
 import { analyzeFrequency, A4_HZ, rms } from '@/lib/notes'
@@ -372,17 +372,17 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
 
   let ctx: AudioContext
   try {
-    ctx = audio && audio.state !== 'closed' ? audio : getCaptureAudioContext()
+    ctx = fromGesture || lastStartHadGesture ? beginCaptureFromGesture() : getCaptureAudioContext()
+    if (audio && audio.state !== 'closed' && audio !== ctx) {
+      audio = ctx
+    }
   } catch {
     if (sessionId === session) emit({ status: 'unavailable', needsGesture: false })
     return
   }
 
   audio = ctx
-  const resumePromise =
-    ctx.state === 'suspended' || (ctx.state as string) === 'interrupted'
-      ? ctx.resume().catch(() => undefined)
-      : Promise.resolve()
+  void ctx.resume().catch(() => undefined)
 
   const demoHz = Number(new URLSearchParams(window.location.search).get('demo'))
   const useDemo = Number.isFinite(demoHz) && demoHz > 20 && demoHz < 4000
@@ -398,17 +398,14 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     osc.start()
     oscillator = osc
     source = gain
-    await resumePromise
   } else {
     let nextStream: MediaStream
     try {
-      const streamPromise = requestRawMic(preferredDeviceId)
-      const [resolved] = await Promise.all([streamPromise, resumePromise])
-      nextStream = resolved
+      nextStream = await requestRawMic(preferredDeviceId)
     } catch (error) {
       lastError = `${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error)}`
       if (audio === ctx) audio = null
-      syncAudioSession()
+      setAudioSessionType('playback')
       if (sessionId !== session) return
       if (isPermissionError(error)) {
         const permission = await micPermissionState()
@@ -430,12 +427,11 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     if (sessionId !== session) {
       stopMediaTracks(nextStream)
       if (audio === ctx) audio = null
-      syncAudioSession()
+      setAudioSessionType('playback')
       return
     }
 
-      setAudioSessionType('play-and-record')
-      stream = adoptMicStream(nextStream)
+    stream = adoptMicStream(nextStream)
     const track = nextStream.getAudioTracks()[0]
     const trackRate = captureSampleRate(nextStream)
     lastChannelCount = captureChannelCount(nextStream)

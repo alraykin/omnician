@@ -25,9 +25,9 @@ export function AudioDebugOverlay() {
     ['cap rate', formatRate(snap.captureRate)],
     ['audioSession', snap.sessionType],
     ['mic tracks', `${snap.micLive} live / ${snap.micTracks}`],
-    ['silent unlock', snap.silentUnlock ? 'playing' : 'off'],
     ['last recover', snap.lastRecovery],
     ['recoveries', String(snap.recoveries)],
+    ['last error', snap.lastError],
   ]
 
   return (
@@ -42,7 +42,10 @@ export function AudioDebugOverlay() {
         {rows.map(([key, value]) => (
           <div key={key} className="contents">
             <dt className="text-slate-500">{key}</dt>
-            <dd className="min-w-0 truncate text-white" title={value}>
+            <dd
+              className={key === 'last error' ? 'min-w-0 whitespace-pre-wrap break-words text-white' : 'min-w-0 truncate text-white'}
+              title={value}
+            >
               {value}
             </dd>
           </div>

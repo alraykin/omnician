@@ -1,7 +1,7 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 
 import { TunerLink } from '@/components/TunerLink'
-import { releaseAllCapture, unlockPlaybackFromGesture } from '@/lib/audio-context'
+import { releaseAllCapture } from '@/lib/audio-context'
 import { getTempoListener } from '@/lib/tempo-listen'
 import { primeRhythmKit } from '@/lib/rhythm-audio'
 import { leaveTunerPage } from '@/lib/tuner-session'
@@ -35,7 +35,6 @@ function onLeave(next: TabId) {
   if (next === 'tuner') return
   leaveTunerPage()
   releaseAllCapture()
-  unlockPlaybackFromGesture()
 }
 
 export function AppTabBar() {

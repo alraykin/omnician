@@ -2,6 +2,7 @@ import {
   adoptMicStream,
   getCaptureAudioContext,
   getPlaybackAudioContext,
+  noteAudioError,
   onHiddenReleaseCapture,
   releaseMicStream,
   resumePlaybackAndRecover,
@@ -27,6 +28,7 @@ export type ListenSnapshot = {
   estimate: TempoEstimate | null
   source: 'mic' | 'file' | null
   message: string
+  detail: string
 }
 
 const empty: ListenSnapshot = {
@@ -37,6 +39,7 @@ const empty: ListenSnapshot = {
   estimate: null,
   source: null,
   message: '',
+  detail: '',
 }
 
 type Listener = (snap: ListenSnapshot) => void
@@ -165,19 +168,19 @@ export function createTempoListener() {
       message: '',
     })
     try {
+      const ctx = getCaptureAudioContext()
+      audio = ctx
+      try {
+        await ctx.resume()
+      } catch (error) {
+        noteAudioError(error, 'listen.resume')
+      }
       const nextStream = await requestRawMic()
       if (id !== session) {
         stopMediaTracks(nextStream)
         return
       }
       stream = adoptMicStream(nextStream)
-      const ctx = getCaptureAudioContext()
-      audio = ctx
-      try {
-        await ctx.resume()
-      } catch {
-        // gesture / session may still unlock on the next tick
-      }
       if (id !== session) {
         releaseMicStream(stream)
         stream = null
@@ -248,10 +251,12 @@ export function createTempoListener() {
       raf = requestAnimationFrame(tick)
     } catch (error) {
       if (id !== session) return
+      const detail = noteAudioError(error, 'listen')
       await teardownGraph()
       emit({
         phase: 'error',
         message: errorMessage(error, false),
+        detail,
         estimate: null,
         source: 'mic',
         progress: 0,
@@ -308,10 +313,12 @@ export function createTempoListener() {
       })
     } catch (error) {
       if (id !== session) return
+      const detail = noteAudioError(error, 'listen.file')
       await teardownGraph()
       emit({
         phase: 'error',
         message: errorMessage(error, true),
+        detail,
         estimate: null,
         source: 'file',
       })

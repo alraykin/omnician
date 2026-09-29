@@ -41,7 +41,7 @@ import {
   type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
-import { unlockAudioFromGesture, unlockPlaybackFromGesture } from '@/lib/audio-context'
+import { beginCaptureFromGesture, unlockPlaybackFromGesture } from '@/lib/audio-context'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
@@ -262,7 +262,7 @@ export function RhythmPage() {
   }
 
   const openListen = () => {
-    unlockAudioFromGesture()
+    beginCaptureFromGesture()
     if (playing) {
       halt()
       setPlaying(false)
