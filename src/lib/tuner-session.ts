@@ -2,6 +2,7 @@ import {
   adoptMicStream,
   beginCaptureFromGesture,
   getCaptureAudioContext,
+  markCaptureUsed,
   onHiddenReleaseCapture,
   releaseMicStream,
   resumeSharedAudioContext,
@@ -400,6 +401,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     oscillator = osc
     source = gain
   } else {
+    markCaptureUsed()
     let nextStream: MediaStream
     try {
       nextStream = await (options.streamPromise ?? requestRawMic(preferredDeviceId))

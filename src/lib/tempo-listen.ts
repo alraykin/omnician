@@ -2,6 +2,7 @@ import {
   adoptMicStream,
   getCaptureAudioContext,
   getPlaybackAudioContext,
+  markCaptureUsed,
   noteAudioError,
   onHiddenReleaseCapture,
   releaseMicStream,
@@ -152,6 +153,8 @@ export function createTempoListener() {
   }
 
   const startMic = async (streamPromise?: Promise<MediaStream>) => {
+    // Same flag as Tuner, even when the caller already started getUserMedia.
+    markCaptureUsed()
     const id = session + 1
     session = id
     chunks = []

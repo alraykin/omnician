@@ -9,7 +9,7 @@ export function stopListenTempoPreview(): void {
   stop?.()
 }
 
-/** Two bars of 4/4 click, capped at ~4 seconds. Shared AudioContext only. */
+/** Two bars of 4/4 click, capped at ~4 seconds. Same Play-tap recover path after the mic. */
 export function playListenTempoPreview(bpm: number, onEnded?: () => void): void {
   stopListenTempoPreview()
   preparePlaybackFromGesture()

@@ -1,7 +1,8 @@
 /**
  * WebKit session cycles. Headless WebKit cannot own a real iPhone audio
- * session; this still proves route teardown, Listen close, debug overlay,
- * and Play start/stop. Listen uses listenDemo so getUserMedia never blocks.
+ * session; this still proves route teardown, Listen close, Listen ½×/1×/2×
+ * preview, debug overlay, and Play start/stop. Listen uses listenDemo so
+ * getUserMedia never blocks the preview path.
  *
  *   BASE_URL=http://127.0.0.1:43121 node scripts/ios-audio-cycles.mjs
  */
@@ -24,6 +25,7 @@ function auditSources() {
     'src/components/AppTabBar.tsx',
     'src/App.tsx',
     'src/components/AudioDebugOverlay.tsx',
+    'src/components/rhythm/ListenTempo.tsx',
   ]
   const joined = files.map((file) => `${file}\n${readFileSync(file, 'utf8')}`).join('\n')
   assert.match(joined, /play-and-record|getCaptureAudioContext/)
@@ -39,12 +41,24 @@ function auditSources() {
   assert.match(audioSrc, /captureUsedSincePlayback/)
   assert.match(audioSrc, /recoverPlaybackAfterCapture/)
   assert.match(audioSrc, /preparePlaybackFromGesture/)
+  assert.match(audioSrc, /export function markCaptureUsed/)
+  assert.match(audioSrc, /lastRecovery === 'interrupted'/)
+  assert.match(audioSrc, /needsFreshPlayback/)
   assert.doesNotMatch(audioSrc, /silence\.mp3|armSilentUnlock|sampleRate:\s*48000|waitForPlaybackClock/)
-  assert.doesNotMatch(
-    readFileSync('src/lib/tempo-listen.ts', 'utf8'),
-    /getSharedAudioContext\(\)[\s\S]{0,200}createMediaStreamSource/,
-  )
-  console.log('ok  source audit: playback session, capture rebuild on next Play, no silent-loop')
+  const listenSrc = readFileSync('src/lib/tempo-listen.ts', 'utf8')
+  assert.match(listenSrc, /markCaptureUsed\(\)/)
+  assert.match(listenSrc, /const startMic[\s\S]*markCaptureUsed\(\)/)
+  assert.doesNotMatch(listenSrc, /getSharedAudioContext\(\)[\s\S]{0,200}createMediaStreamSource/)
+  const previewSrc = readFileSync('src/lib/listen-preview.ts', 'utf8')
+  assert.match(previewSrc, /preparePlaybackFromGesture\(\)/)
+  const tunerSrc = readFileSync('src/lib/tuner-session.ts', 'utf8')
+  assert.match(tunerSrc, /markCaptureUsed\(\)/)
+  const interruptBlock = audioSrc.slice(audioSrc.indexOf('function wirePlayback'))
+  assert.match(interruptBlock, /markCaptureUsed\(\)/)
+  const playTap = audioSrc.slice(audioSrc.indexOf('export function preparePlaybackFromGesture'))
+  assert.match(playTap, /setAudioSessionType\('playback'\)/)
+  assert.match(playTap, /needsFreshPlayback\(\)/)
+  console.log('ok  source audit: Listen=Tuner mic flag, interrupt rebuilds, preview uses Play path')
 }
 
 async function main() {
@@ -112,6 +126,41 @@ async function main() {
         : null
     })
 
+  await click('[data-transport="play"]')
+  await click('[data-transport="play"]')
+  const recovered = await page.evaluate(() => {
+    const hooks = window.__OMNICIAN_AUDIO_HOOKS__
+    hooks.markCaptureUsed()
+    const before = window.__OMNICIAN_AUDIO__.captureUsed
+    hooks.preparePlaybackFromGesture()
+    const after = window.__OMNICIAN_AUDIO__
+    return {
+      before,
+      captureUsed: after.captureUsed,
+      lastRecovery: after.lastRecovery,
+    }
+  })
+  assert.equal(recovered.before, true, 'Listen/Tuner flag is set before Play recover')
+  assert.equal(recovered.captureUsed, false, 'Play recover clears the mic-used flag')
+  assert.equal(recovered.lastRecovery, 'after-capture', 'Play after Listen rebuilds playback')
+  console.log('ok  Play after mic-used flag rebuilds', recovered)
+
+  const closeListenSheet = async () => {
+    const closeListen = page.locator('[data-listen-panel="open"] [aria-label="Cancel"]')
+    if (await closeListen.count()) await closeListen.first().evaluate((node) => node.click())
+    else await page.keyboard.press('Escape')
+  }
+
+  const hearListenPreviews = async () => {
+    await page.waitForSelector('[data-listen-result="ready"]', { timeout: 8000 })
+    for (const alt of ['½×', '1×', '2×']) {
+      const chip = page.locator(`[data-listen-alt="${alt}"]`).first()
+      await chip.evaluate((node) => node.click())
+      await page.waitForTimeout(120)
+    }
+  }
+
+  // Click Play/Stop → Tuner → Click Play → Listen → close → Play → Listen ½×/1×/2× → Play
   for (let round = 0; round < 3; round += 1) {
     await go('/rhythm?mode=click&debug=audio')
     await click('[data-transport="play"]')
@@ -124,12 +173,16 @@ async function main() {
     await click('[data-transport="play"]')
     await click('[data-listen]')
     await page.waitForTimeout(250)
-    const closeListen = page.locator('[data-listen-panel="open"] [aria-label="Cancel"]')
-    if (await closeListen.count()) await closeListen.first().evaluate((node) => node.click())
-    else await page.keyboard.press('Escape')
+    await closeListenSheet()
     await click('[data-transport="play"]')
     await click('[data-transport="play"]')
-    console.log(`round ${round + 1} after Tuner+Listen`, await snap())
+    await go('/rhythm?mode=click&debug=audio&listenDemo=120')
+    await page.waitForSelector('[data-listen-panel="open"]', { timeout: 8000 })
+    await hearListenPreviews()
+    await closeListenSheet()
+    await click('[data-transport="play"]')
+    await click('[data-transport="play"]')
+    console.log(`round ${round + 1} after Tuner+Listen+previews`, await snap())
   }
 
   let plays = 0
@@ -157,7 +210,7 @@ async function main() {
     (item) => !/crash|access control|NotAllowedError|NotFoundError/i.test(item),
   )
   if (fatal.length) throw new Error(fatal.join('\n'))
-  console.log(`ok  webkit ${CYCLES} Tuner/Listen/tab/background cycles, Play x${plays}, overlay live`)
+  console.log(`ok  webkit ${CYCLES} Tuner/Listen/preview/tab/background cycles, Play x${plays}, overlay live`)
 }
 
 main().catch((error) => {

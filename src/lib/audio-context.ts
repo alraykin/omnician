@@ -146,7 +146,7 @@ export function onPlaybackRetiring(listener: () => void): () => void {
 function safariAudioSession(): { type: string } | undefined {
   if (typeof navigator === 'undefined') return undefined
   const session = (navigator as Navigator & { audioSession?: { type?: string } }).audioSession
-  if (!session || typeof session.type !== 'string') return undefined
+  if (!session || typeof session !== 'object') return undefined
   return session as { type: string }
 }
 
@@ -167,6 +167,11 @@ function armPlaybackSessionOnce(): void {
   setAudioSessionType('playback')
 }
 
+/** Tuner and Listen both set this so the next Play/preview rebuilds playback. */
+export function markCaptureUsed(): void {
+  captureUsedSincePlayback = true
+}
+
 /**
  * Tuner/Listen tap, immediately before getUserMedia. Stops Click/Drums,
  * marks that playback must be rebuilt on the next Play tap, then asks iOS
@@ -180,7 +185,7 @@ export function prepareCaptureFromGesture(): void {
       // listener must not throw
     }
   }
-  captureUsedSincePlayback = true
+  markCaptureUsed()
   setAudioSessionType('play-and-record')
 }
 
@@ -222,6 +227,9 @@ function wirePlayback(ctx: AudioContext): void {
     if (ctx !== playback) return
     const state = contextState(ctx)
     if (state !== 'interrupted') return
+    // Same flag as Tuner/Listen: resume() on this context stays running with a
+    // frozen clock (audioSession auto). Next Play tap rebuilds instead.
+    markCaptureUsed()
     lastRecovery = 'interrupted'
     recoveries += 1
     noteAudioError('AudioContext state interrupted', 'statechange')
@@ -264,9 +272,10 @@ function closeContext(ctx: AudioContext | null): void {
 }
 
 /**
- * After Tuner/Listen, iOS leaves the old playback context stuck in play-and-record.
- * Only on a Play (or Listen preview) tap: drop the mic, set playback, close the
- * old context, make a new one. Once per mic use. Never while the transport runs.
+ * After Tuner/Listen (or an interrupted context), iOS leaves playback stuck:
+ * running, currentTime frozen, audioSession auto. Only on a Play or Listen
+ * ½×/1×/2× preview tap: drop the mic, set playback, close the old context,
+ * make a new one. Once per mic use / interrupt. Never while the transport runs.
  */
 function recoverPlaybackAfterCapture(): AudioContext {
   lastRecovery = 'after-capture'
@@ -292,9 +301,22 @@ function recoverPlaybackAfterCapture(): AudioContext {
   return ctx
 }
 
+function needsFreshPlayback(): boolean {
+  if (captureUsedSincePlayback) return true
+  const state = contextState(playback)
+  if (state === 'interrupted') return true
+  // Screenshot path: interrupt already fired, iOS flipped the context back to
+  // "running" with a frozen clock and audioSession auto.
+  if (playback && lastRecovery === 'interrupted') return true
+  return false
+}
+
 /** Play tap: resume the one playback context, or rebuild it once after the mic. */
 export function preparePlaybackFromGesture(): AudioContext {
-  if (captureUsedSincePlayback) return recoverPlaybackAfterCapture()
+  // iOS resets audioSession to auto after the mic. Re-assert playback on every
+  // Play / Listen preview tap, not only the first context create.
+  setAudioSessionType('playback')
+  if (needsFreshPlayback()) return recoverPlaybackAfterCapture()
   return unlockPlaybackFromGesture()
 }
 
@@ -370,6 +392,13 @@ function exposeAudioDebug(): void {
     configurable: true,
     get() {
       return getAudioDebugSnapshot()
+    },
+  })
+  Object.defineProperty(window, '__OMNICIAN_AUDIO_HOOKS__', {
+    configurable: true,
+    value: {
+      markCaptureUsed,
+      preparePlaybackFromGesture,
     },
   })
 }
