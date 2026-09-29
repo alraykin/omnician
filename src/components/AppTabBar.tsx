@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 
 import { TunerLink } from '@/components/TunerLink'
@@ -38,50 +39,44 @@ function onLeave(next: TabId) {
 }
 
 export function AppTabBar({
-  placement = 'dock',
+  trailing,
   className,
 }: {
-  placement?: 'dock' | 'inline'
+  trailing?: ReactNode
   className?: string
 }) {
   const location = useLocation()
   const [params] = useSearchParams()
   const current = activeTab(location.pathname, params.get('mode'))
-  const inline = placement === 'inline'
+  const currentLabel = TABS.find((tab) => tab.id === current)?.label ?? 'Omnician'
 
   return (
     <div
       className={cn(
-        inline
-          ? 'relative z-20 w-full px-0 pt-0.5'
-          : 'pointer-events-none fixed inset-x-0 bottom-0 z-[60] px-3 pb-[max(0.45rem,env(safe-area-inset-bottom,0px))] pt-1',
+        'rhythm-glass flex w-full min-w-0 items-center gap-1.5 rounded-full py-1 pl-1 pr-2',
         className,
       )}
       data-tab-bar-wrap
-      data-tab-placement={placement}
+      data-tab-placement="header"
+      data-rhythm-header
     >
+      <h1 className="sr-only">{currentLabel}</h1>
       <nav
         aria-label="Omnician tools"
         data-tab-bar
-        className={cn(
-          'grid grid-cols-4 gap-0.5 rounded-full border border-white/12 bg-[rgb(16_22_36/0.58)] px-1.5 py-1 shadow-[0_16px_44px_rgba(0,0,0,0.5)] backdrop-blur-[18px] [-webkit-backdrop-filter:blur(18px)]',
-          inline
-            ? 'pointer-events-auto w-full max-w-none'
-            : 'pointer-events-auto mx-auto max-w-[23.75rem] lg:max-w-[26rem]',
-        )}
+        className="grid min-w-0 flex-1 grid-cols-4 gap-0.5"
       >
         {TABS.map((tab) => {
           const active = current === tab.id
           const className =
-            'min-w-0 touch-manipulation rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]'
+            'min-w-0 touch-manipulation rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0F1A]'
           const label = (
             <span
               className={cn(
-                'flex flex-col items-center gap-0.5 rounded-full px-1 py-1.5 text-[0.62rem] font-semibold leading-none',
-                active ? 'bg-[#0B0F1A]/82 text-[#C084FC]' : 'text-slate-400 hover:text-slate-200',
+                'flex h-8 items-center justify-center rounded-full px-1 text-[0.72rem] font-semibold leading-none sm:text-sm',
+                active ? 'bg-[#A855F7] text-white' : 'text-slate-300 hover:bg-white/6 hover:text-white',
               )}
             >
-              <TabIcon id={tab.id} className={cn('size-[1.35rem]', active && 'text-[#A855F7]')} />
               {tab.label}
             </span>
           )
@@ -116,78 +111,11 @@ export function AppTabBar({
           )
         })}
       </nav>
+      {trailing ? (
+        <div className="shrink-0 pr-1" data-header-trailing>
+          {trailing}
+        </div>
+      ) : null}
     </div>
-  )
-}
-
-function TabIcon({ id, className }: { id: TabId; className?: string }) {
-  if (id === 'home') return <HomeGlyph className={className} />
-  if (id === 'tuner') return <TunerGlyph className={className} />
-  if (id === 'click') return <ClickGlyph className={className} />
-  return <DrumsGlyph className={className} />
-}
-
-function HomeGlyph({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-      <path
-        d="M4.5 11.2 12 4.8l7.5 6.4"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M6.4 10.6V19h4.1v-5.1h3V19h4.1v-8.4"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function TunerGlyph({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-      <path
-        d="M9.2 3.8 7.4 20.2M14.8 3.8l1.8 16.4"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <path d="M8.6 8.2h6.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="12" cy="8.2" r="1.15" fill="currentColor" />
-    </svg>
-  )
-}
-
-function ClickGlyph({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-      <path
-        d="M6.2 20.2h11.6L12 4.6 6.2 20.2Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <path d="M12 11.4 16.6 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="17.2" cy="6.4" r="1.15" fill="currentColor" />
-    </svg>
-  )
-}
-
-function DrumsGlyph({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-      <ellipse cx="12" cy="8.4" rx="7.2" ry="3.1" stroke="currentColor" strokeWidth="1.8" />
-      <path
-        d="M4.8 8.4v6.3c0 1.7 3.2 3.1 7.2 3.1s7.2-1.4 7.2-3.1V8.4"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <path d="M5.6 4.4 10 8.1M18.4 4.4 14 8.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
   )
 }

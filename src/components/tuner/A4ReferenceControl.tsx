@@ -30,7 +30,7 @@ export function A4ReferenceControl({ a4Hz, onChange }: A4ReferenceControlProps) 
         aria-expanded={open}
         aria-label={`A4 reference ${a4Hz} hertz. Tap to change.`}
         onClick={() => setOpen(true)}
-        className="mx-auto mt-1 flex h-6 w-full min-w-0 items-center justify-center gap-px overflow-hidden rounded-full border border-white/18 bg-white/10 px-1 text-[0.58rem] font-semibold leading-none tabular-nums text-slate-200 transition-colors hover:border-white/28 hover:bg-white/14 hover:text-white"
+        className="mx-auto mt-1 flex h-6 w-max min-w-0 items-center justify-center gap-px overflow-hidden rounded-full border border-white/18 bg-white/10 px-2.5 text-[0.58rem] font-semibold leading-none tabular-nums text-slate-200 transition-colors hover:border-white/28 hover:bg-white/14 hover:text-white"
       >
         <span className="min-w-0 truncate">A4 {a4Hz} Hz</span>
         <ChevronDown className="size-2.5 shrink-0 text-slate-400" />

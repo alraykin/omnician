@@ -2,7 +2,6 @@ import { Check } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AppChrome } from '@/components/AppChrome'
-import { AppTabBar } from '@/components/AppTabBar'
 import { A4ReferenceControl } from '@/components/tuner/A4ReferenceControl'
 import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
 import { Headstock } from '@/components/tuner/Headstock'
@@ -261,15 +260,10 @@ export function TunerPage() {
   }
 
   return (
-    <AppChrome align="fill" wideTabPlacement="inline">
+    <AppChrome align="fill">
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="mx-auto w-max">
-          <h1 className="text-center text-xl font-bold tracking-tight text-white sm:text-2xl">
-            Tuner
-          </h1>
-          <div className="w-0 min-w-full">
-            <A4ReferenceControl a4Hz={a4Hz} onChange={setA4Hz} />
-          </div>
+          <A4ReferenceControl a4Hz={a4Hz} onChange={setA4Hz} />
         </div>
 
         <div className="mt-4">
@@ -399,9 +393,6 @@ export function TunerPage() {
             {showDebug ? <TunerDebugOverlay debug={debug} /> : null}
           </div>
         </section>
-        <div className="mt-4 hidden wide:block" data-inline-tabs>
-          <AppTabBar placement="inline" />
-        </div>
       </div>
 
       <TuningSheet

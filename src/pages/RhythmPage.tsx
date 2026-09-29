@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
-import { AppTabBar } from '@/components/AppTabBar'
 import { BarStrip } from '@/components/rhythm/BarStrip'
 import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
 import { CompactMeter } from '@/components/rhythm/CompactMeter'
@@ -386,7 +385,16 @@ export function RhythmPage() {
   const liveMeter = meterLabel(current.beats, current.beatUnit)
 
   return (
-    <AppChrome align="fill" wide compact wideTabPlacement="inline">
+    <AppChrome
+      align="fill"
+      wide
+      compact
+      headerTrailing={
+        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-slate-400">
+          {liveMeter}
+        </p>
+      }
+    >
       <div className="relative flex min-h-0 flex-1 flex-col wide:block">
         <SpeedBuilderPopup cue={tempoCue} />
         <ListenTempoSheet
@@ -404,17 +412,6 @@ export function RhythmPage() {
           data-rhythm-scroll
           className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain [scrollbar-width:thin] [touch-action:pan-y] wide:overflow-x-clip wide:overflow-y-visible wide:overscroll-auto"
         >
-          <div
-            data-rhythm-header
-            className="rhythm-glass sticky top-0 z-30 flex items-center justify-between gap-3 rounded-full py-1.5 pl-4 pr-3 wide:static"
-          >
-            <h1 className="text-lg font-bold tracking-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] sm:text-xl">
-              {mode === 'click' ? 'Click' : 'Drums'}
-            </h1>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-              {liveMeter}
-            </p>
-          </div>
           {tempoNote ? (
             <p className="mt-1.5 text-center text-xs leading-5 text-slate-400" data-tempo-note>
               {tempoNote}
@@ -512,9 +509,6 @@ export function RhythmPage() {
                   holdUntilCycle={holdUntilCycle}
                 />
               </TransportDock>
-              <div className="hidden wide:block" data-inline-tabs>
-                <AppTabBar placement="inline" />
-              </div>
             </div>
 
             <div
@@ -695,9 +689,6 @@ export function RhythmPage() {
                   holdUntilCycle={holdUntilCycle}
                 />
               </TransportDock>
-              <div className="hidden wide:block" data-inline-tabs>
-                <AppTabBar placement="inline" />
-              </div>
             </div>
             <section className="flex h-fit min-h-0 min-w-0 flex-1 flex-col" data-rhythm-stack="stage">
               <button
@@ -766,7 +757,7 @@ export function RhythmPage() {
         <PlayheadBarSync store={playheadStore} playing={playing} onBar={setBarIndex} />
         <TransportDock
           place="sticky"
-          className="rhythm-glass z-40 shrink-0 border-t border-white/10 pt-2 pb-2 wide:hidden"
+          className="rhythm-glass z-40 shrink-0 border-t border-white/10 pt-2 pb-[max(0.7rem,env(safe-area-inset-bottom,0px))] wide:hidden"
           playing={playing}
           onToggle={() => void startStop()}
           holdUntilCycle={holdUntilCycle}
