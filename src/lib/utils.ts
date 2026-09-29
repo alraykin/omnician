@@ -11,6 +11,16 @@ export const TAP_SLOP_PX = 10
 export const DRAG_DEADZONE_PX = 12
 export const HOLD_TO_DRAG_MS = 160
 
+/** True on phones/tablets (and any other coarse pointing device). */
+export function isCoarsePointer(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+}
+
+/** Mid-screen fader zoom + fine relative throw — touch or coarse pointer, never mouse on desktop. */
+export function usesFaderZoom(pointerType: string): boolean {
+  return pointerType === 'touch' || isCoarsePointer()
+}
+
 export function accumulatedScroll(node: EventTarget | null): number {
   let total = typeof window === 'undefined' ? 0 : window.scrollY
   let el: Element | null = node instanceof Element ? node : null

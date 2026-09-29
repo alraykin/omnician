@@ -14,7 +14,7 @@ import {
   type KitGroupId,
   type KitMix,
 } from '@/lib/kit-mix'
-import { DRAG_DEADZONE_PX, HOLD_TO_DRAG_MS, accumulatedScroll } from '@/lib/utils'
+import { DRAG_DEADZONE_PX, usesFaderZoom } from '@/lib/utils'
 
 type KitFadersProps = {
   mix: KitMix
@@ -26,18 +26,9 @@ const FINE_TRAVEL_PX = 340
 
 export function KitFaders({ mix, onChange }: KitFadersProps) {
   const [held, setHeld] = useState<KitGroupId | null>(null)
-  const [wideUi, setWideUi] = useState(false)
-
-  useEffect(() => {
-    const media = window.matchMedia('(min-width: 768px)')
-    const sync = () => setWideUi(media.matches)
-    sync()
-    media.addEventListener('change', sync)
-    return () => media.removeEventListener('change', sync)
-  }, [])
 
   return (
-    <div data-section="kit-faders" className="kit-fader-bank" data-wide={wideUi ? 'true' : 'false'}>
+    <div data-section="kit-faders" className="kit-fader-bank">
       <div className="kit-fader-channels">
         {KIT_GROUPS.map((group) => (
           <MixFader
@@ -46,7 +37,6 @@ export function KitFaders({ mix, onChange }: KitFadersProps) {
             label={KIT_GROUP_LABELS[group]}
             db={mix[group]}
             held={held === group}
-            wideUi={wideUi}
             readout={formatKitDb(mix[group])}
             onChange={(db) => onChange(group, db)}
             onHoldStart={() => setHeld(group)}
@@ -54,7 +44,7 @@ export function KitFaders({ mix, onChange }: KitFadersProps) {
           />
         ))}
       </div>
-      {held && !wideUi && typeof document !== 'undefined'
+      {held && typeof document !== 'undefined'
         ? createPortal(
             <MixFaderZoom label={KIT_GROUP_LABELS[held]} db={mix[held]} readout={formatKitDb(mix[held])} />,
             document.body,
@@ -72,16 +62,6 @@ export function VolumeFader({
   onChange: (db: number) => void
 }) {
   const [held, setHeld] = useState(false)
-  const [wideUi, setWideUi] = useState(false)
-
-  useEffect(() => {
-    const media = window.matchMedia('(min-width: 768px)')
-    const sync = () => setWideUi(media.matches)
-    sync()
-    media.addEventListener('change', sync)
-    return () => media.removeEventListener('change', sync)
-  }, [])
-
   const readout = formatMasterVolume(db)
 
   return (
@@ -91,14 +71,13 @@ export function VolumeFader({
         label="Volume"
         db={db}
         held={held}
-        wideUi={wideUi}
         compact
         readout={readout}
         onChange={onChange}
         onHoldStart={() => setHeld(true)}
         onHoldEnd={() => setHeld(false)}
       />
-      {held && !wideUi && typeof document !== 'undefined'
+      {held && typeof document !== 'undefined'
         ? createPortal(<MixFaderZoom label="Volume" db={db} readout={readout} />, document.body)
         : null}
     </>
@@ -110,7 +89,6 @@ function MixFader({
   label,
   db,
   held,
-  wideUi,
   compact = false,
   readout,
   onChange,
@@ -121,25 +99,20 @@ function MixFader({
   label: string
   db: number
   held: boolean
-  wideUi: boolean
   compact?: boolean
   readout: string
   onChange: (db: number) => void
   onHoldStart: () => void
   onHoldEnd: () => void
 }) {
-  const dragRef = useRef<{ pointerId: number; startY: number; startPos: number; travel: number } | null>(null)
-  const pendingRef = useRef<{
+  const dragRef = useRef<{
     pointerId: number
-    x: number
-    y: number
-    scroll: number
+    startX: number
+    startY: number
     startPos: number
     travel: number
-    armed: boolean
-    ignored: boolean
+    moved: boolean
   } | null>(null)
-  const holdTimerRef = useRef(0)
   const wellRef = useRef<HTMLDivElement>(null)
   const channelRef = useRef<HTMLDivElement>(null)
 
@@ -156,32 +129,10 @@ function MixFader({
   const endHold = useCallback(
     (pointerId?: number) => {
       if (pointerId != null && dragRef.current && dragRef.current.pointerId !== pointerId) return
-      window.clearTimeout(holdTimerRef.current)
-      pendingRef.current = null
       dragRef.current = null
       onHoldEnd()
     },
     [onHoldEnd],
-  )
-
-  const engage = useCallback(
-    (clientY: number, pointerId: number) => {
-      const pending = pendingRef.current
-      if (!pending || pending.ignored || dragRef.current) return
-      dragRef.current = {
-        pointerId,
-        startY: pending.y,
-        startPos: pending.startPos,
-        travel: pending.travel,
-      }
-      pendingRef.current = null
-      window.clearTimeout(holdTimerRef.current)
-      channelRef.current?.setPointerCapture(pointerId)
-      onHoldStart()
-      const nextPos = Math.min(1, Math.max(0, dragRef.current.startPos + (dragRef.current.startY - clientY) / dragRef.current.travel))
-      onChange(mixPosToDb(nextPos))
-    },
-    [onChange, onHoldStart],
   )
 
   useEffect(() => {
@@ -208,54 +159,41 @@ function MixFader({
       aria-orientation="vertical"
       onPointerDown={(event) => {
         if (event.button !== 0) return
+        const zoom = usesFaderZoom(event.pointerType)
         const wellH = wellRef.current?.getBoundingClientRect().height ?? FINE_TRAVEL_PX
-        pendingRef.current = {
+        event.preventDefault()
+        event.stopPropagation()
+        event.currentTarget.setPointerCapture(event.pointerId)
+        dragRef.current = {
           pointerId: event.pointerId,
-          x: event.clientX,
-          y: event.clientY,
-          scroll: accumulatedScroll(event.currentTarget),
+          startX: event.clientX,
+          startY: event.clientY,
           startPos: mixDbToPos(db),
-          travel: wideUi ? Math.max(wellH, 80) : FINE_TRAVEL_PX,
-          armed: false,
-          ignored: false,
+          travel: zoom ? FINE_TRAVEL_PX : Math.max(wellH, 80),
+          moved: false,
         }
-        window.clearTimeout(holdTimerRef.current)
-        holdTimerRef.current = window.setTimeout(() => {
-          const pending = pendingRef.current
-          if (!pending || pending.ignored) return
-          pending.armed = true
-        }, HOLD_TO_DRAG_MS)
+        if (zoom) onHoldStart()
       }}
       onPointerMove={(event) => {
-        if (dragRef.current && event.pointerId === dragRef.current.pointerId) {
+        const drag = dragRef.current
+        if (!drag || event.pointerId !== drag.pointerId) return
+        if (!drag.moved) {
+          const dx = event.clientX - drag.startX
+          const dy = event.clientY - drag.startY
+          if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
+          if (Math.abs(dx) > Math.abs(dy)) {
+            endHold(event.pointerId)
+            return
+          }
+          // Re-anchor so the deadzone (and any press jitter) never jumps the value.
+          drag.moved = true
+          drag.startY = event.clientY
+          drag.startX = event.clientX
           event.preventDefault()
-          moveTo(event.clientY)
           return
         }
-        const pending = pendingRef.current
-        if (!pending || pending.pointerId !== event.pointerId || pending.ignored) return
-        if (Math.abs(accumulatedScroll(event.currentTarget) - pending.scroll) > 1) {
-          pending.ignored = true
-          window.clearTimeout(holdTimerRef.current)
-          return
-        }
-        const dx = event.clientX - pending.x
-        const dy = event.clientY - pending.y
-        const dist = Math.hypot(dx, dy)
-        if (dist < DRAG_DEADZONE_PX) return
-        if (Math.abs(dx) > Math.abs(dy)) {
-          pending.ignored = true
-          window.clearTimeout(holdTimerRef.current)
-          return
-        }
-        if (!pending.armed && Math.abs(dy) > Math.abs(dx) * 1.2) {
-          pending.ignored = true
-          window.clearTimeout(holdTimerRef.current)
-          return
-        }
-        if (!pending.armed) return
         event.preventDefault()
-        engage(event.clientY, event.pointerId)
+        moveTo(event.clientY)
       }}
       onPointerUp={(event) => endHold(event.pointerId)}
       onPointerCancel={() => endHold()}
