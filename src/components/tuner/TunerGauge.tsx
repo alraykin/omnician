@@ -70,7 +70,7 @@ export function TunerGauge({ cents, readout, inTune, active }: TunerGaugeProps) 
     <div className="flex w-full flex-1 flex-col" aria-hidden>
       <div
         className={cn(
-          'relative min-h-[15.5rem] w-full flex-1 overflow-hidden rounded-3xl bg-[#070A12] ring-1 sm:min-h-[18rem]',
+          'relative min-h-[15.5rem] w-full flex-1 overflow-hidden rounded-3xl bg-[#070A12] ring-1 sm:min-h-[18rem] wide:min-h-[12rem] wide:flex-none',
           inTune && active ? 'omni-hold-glow ring-emerald-400/70' : 'ring-white/8',
         )}
       >

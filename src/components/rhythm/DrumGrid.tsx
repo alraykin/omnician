@@ -145,7 +145,7 @@ export const DrumGrid = memo(function DrumGrid({
       className={cn(
         'max-w-full touch-manipulation overflow-x-hidden pb-1',
         'max-h-[min(46vh,28rem)] overflow-y-auto overscroll-x-none md:max-h-[min(50vh,32rem)]',
-        'lg:max-h-none lg:overflow-x-clip lg:overflow-y-visible lg:overscroll-auto',
+        'wide:!max-h-none wide:overflow-x-clip wide:!overflow-y-visible wide:overscroll-auto',
       )}
       onPointerDown={startPaint}
       onClick={(event) => event.preventDefault()}
@@ -222,7 +222,7 @@ export const DrumGrid = memo(function DrumGrid({
                   },
                 }
               })()}
-              className="min-w-0 touch-manipulation whitespace-nowrap rounded-md py-1 pr-0.5 text-left text-[0.56rem] font-semibold leading-none tracking-tight text-slate-300 hover:bg-white/6 hover:text-white sm:text-[0.62rem] md:text-[0.68rem] lg:py-0 lg:text-[0.58rem]"
+              className="min-w-0 touch-manipulation whitespace-nowrap rounded-md py-1 pr-0.5 text-left text-[0.56rem] font-semibold leading-none tracking-tight text-slate-300 hover:bg-white/6 hover:text-white sm:text-[0.62rem] md:text-[0.68rem] wide:py-0 wide:text-[0.58rem]"
             >
               {VOICE_LABELS[voice]}
             </button>
@@ -275,7 +275,7 @@ const DrumCell = memo(function DrumCell({
       aria-pressed={on}
       aria-label={`${VOICE_LABELS[voice]}, beat ${beat + 1}, slot ${offset + 1}${on ? ', on' : ', off'}`}
       className={cn(
-        'h-5 min-w-0 flex-1 touch-manipulation rounded-md border sm:h-6 md:h-7 lg:h-5',
+        'h-5 min-w-0 flex-1 touch-manipulation rounded-md border sm:h-6 md:h-7 wide:!h-5',
         on ? 'border-[#A855F7] bg-[#A855F7]' : offset === 0 ? 'border-white/14 bg-white/8' : 'border-white/8 bg-white/4',
       )}
     />

@@ -2,6 +2,7 @@ import { Check } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AppChrome } from '@/components/AppChrome'
+import { AppTabBar } from '@/components/AppTabBar'
 import { A4ReferenceControl } from '@/components/tuner/A4ReferenceControl'
 import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
 import { Headstock } from '@/components/tuner/Headstock'
@@ -260,7 +261,7 @@ export function TunerPage() {
   }
 
   return (
-    <AppChrome align="fill">
+    <AppChrome align="fill" wideTabPlacement="inline">
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="mx-auto w-max">
           <h1 className="text-center text-xl font-bold tracking-tight text-white sm:text-2xl">
@@ -295,7 +296,7 @@ export function TunerPage() {
 
         <section
           className={cn(
-            'mt-4 flex min-h-0 flex-1 flex-col items-center rounded-3xl border px-4 py-4 sm:px-6 sm:py-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8',
+            'mt-4 flex min-h-0 flex-1 flex-col items-center rounded-3xl border px-4 py-4 sm:px-6 sm:py-5 wide:grid wide:grid-cols-2 wide:items-start wide:gap-6',
             inTune && live
               ? 'border-emerald-400/50 bg-emerald-500/10'
               : 'border-white/10 bg-[#141A28]/80',
@@ -358,7 +359,7 @@ export function TunerPage() {
           </div>
 
           {instrumentMode ? (
-            <div className="mt-4 w-full lg:mt-2">
+            <div className="mt-4 w-full wide:mt-2">
               <Headstock
                 strings={strings}
                 config={activeInstrument}
@@ -380,24 +381,27 @@ export function TunerPage() {
               />
             </div>
           ) : (
-            <p className="mt-4 w-full text-center text-sm leading-6 text-slate-500 lg:mt-2">
+            <p className="mt-4 w-full text-center text-sm leading-6 text-slate-500 wide:mt-2">
               Listening for the nearest note. Set the reference with A4 above.
             </p>
           )}
 
           <p
             className={cn(
-              'mt-4 min-h-10 text-center text-sm leading-6 lg:col-span-2',
+              'mt-4 min-h-10 text-center text-sm leading-6 wide:col-span-2',
               needsGesture || status === 'denied' ? 'text-slate-500' : 'text-slate-400',
             )}
           >
             {statusMessage(status, live, instrumentMode, autoString, needsGesture)}
           </p>
-          <div className="w-full lg:col-span-2">
+          <div className="w-full wide:col-span-2">
             <InputPicker />
             {showDebug ? <TunerDebugOverlay debug={debug} /> : null}
           </div>
         </section>
+        <div className="mt-4 hidden wide:block" data-inline-tabs>
+          <AppTabBar placement="inline" />
+        </div>
       </div>
 
       <TuningSheet

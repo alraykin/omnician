@@ -387,7 +387,7 @@ export function RhythmPage() {
 
   return (
     <AppChrome align="fill" wide compact wideTabPlacement="inline">
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div className="relative flex min-h-0 flex-1 flex-col wide:block">
         <SpeedBuilderPopup cue={tempoCue} />
         <ListenTempoSheet
           open={listenOpen}
@@ -402,7 +402,7 @@ export function RhythmPage() {
         />
         <div
           data-rhythm-scroll
-          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain [scrollbar-width:thin] [touch-action:pan-y]"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain [scrollbar-width:thin] [touch-action:pan-y] wide:overflow-x-clip wide:overflow-y-visible wide:overscroll-auto"
         >
           <div
             data-rhythm-header
@@ -425,10 +425,10 @@ export function RhythmPage() {
           <div
             data-rhythm-layout
             data-rhythm-mode="click"
-            className="mt-1.5 flex flex-col gap-1.5 lg:flex-row lg:items-start lg:gap-3 xl:gap-4"
+            className="mt-1.5 flex flex-col gap-1.5 wide:flex-row wide:items-start wide:gap-3 xl:gap-4"
           >
             <div
-              className="flex h-fit w-full shrink-0 flex-col gap-1.5 lg:w-[32.5rem] lg:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem]"
+              className="flex h-fit w-full shrink-0 flex-col gap-1.5 wide:w-[min(32.5rem,48%)] wide:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem]"
               data-rhythm-stack="controls"
             >
               <RhythmTempoCard
@@ -496,7 +496,7 @@ export function RhythmPage() {
 
               <TransportDock
                 place="inline"
-                className="hidden shrink-0 lg:flex lg:flex-col"
+                className="hidden shrink-0 wide:flex wide:flex-col"
                 playing={playing}
                 onToggle={() => void startStop()}
                 holdUntilCycle={holdUntilCycle}
@@ -512,7 +512,7 @@ export function RhythmPage() {
                   holdUntilCycle={holdUntilCycle}
                 />
               </TransportDock>
-              <div className="hidden lg:block" data-inline-tabs>
+              <div className="hidden wide:block" data-inline-tabs>
                 <AppTabBar placement="inline" />
               </div>
             </div>
@@ -612,10 +612,10 @@ export function RhythmPage() {
           <div
             data-rhythm-layout
             data-rhythm-mode="drums"
-            className="mt-1.5 flex flex-col gap-1.5 lg:flex-row lg:items-start lg:gap-3 xl:gap-4"
+            className="mt-1.5 flex flex-col gap-1.5 wide:flex-row wide:items-start wide:gap-3 xl:gap-4"
           >
             <div
-              className="flex h-fit w-full shrink-0 flex-col gap-1.5 lg:w-[32.5rem] lg:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem]"
+              className="flex h-fit w-full shrink-0 flex-col gap-1.5 wide:w-[min(32.5rem,48%)] wide:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem]"
               data-rhythm-stack="controls"
             >
               <RhythmTempoCard
@@ -664,14 +664,14 @@ export function RhythmPage() {
                         data-subdivision-label={subdivisionLabel(steps, current.beatUnit)}
                         {...activateOnPointer(() => setSubdivision(steps))}
                         className={cn(
-                          'flex h-12 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-14 lg:h-10',
+                          'flex h-12 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-14 wide:h-10',
                           current.subdivision === steps
                             ? 'bg-[#A855F7] text-white'
                             : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
                         )}
                       >
-                        <SubdivIcon steps={steps} beatUnit={current.beatUnit} className="lg:hidden" />
-                        <SubdivIcon steps={steps} beatUnit={current.beatUnit} compact className="hidden lg:block" />
+                        <SubdivIcon steps={steps} beatUnit={current.beatUnit} className="wide:hidden" />
+                        <SubdivIcon steps={steps} beatUnit={current.beatUnit} compact className="hidden wide:block" />
                       </button>
                     ))}
                   </div>
@@ -679,7 +679,7 @@ export function RhythmPage() {
               </section>
               <TransportDock
                 place="inline"
-                className="hidden shrink-0 lg:flex lg:flex-col"
+                className="hidden shrink-0 wide:flex wide:flex-col"
                 playing={playing}
                 onToggle={() => void startStop()}
                 holdUntilCycle={holdUntilCycle}
@@ -695,7 +695,7 @@ export function RhythmPage() {
                   holdUntilCycle={holdUntilCycle}
                 />
               </TransportDock>
-              <div className="hidden lg:block" data-inline-tabs>
+              <div className="hidden wide:block" data-inline-tabs>
                 <AppTabBar placement="inline" />
               </div>
             </div>
@@ -766,7 +766,7 @@ export function RhythmPage() {
         <PlayheadBarSync store={playheadStore} playing={playing} onBar={setBarIndex} />
         <TransportDock
           place="sticky"
-          className="rhythm-glass z-40 shrink-0 border-t border-white/10 pt-2 pb-2 lg:hidden"
+          className="rhythm-glass z-40 shrink-0 border-t border-white/10 pt-2 pb-2 wide:hidden"
           playing={playing}
           onToggle={() => void startStop()}
           holdUntilCycle={holdUntilCycle}

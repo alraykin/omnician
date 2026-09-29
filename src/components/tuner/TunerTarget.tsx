@@ -56,7 +56,7 @@ export function TunerTarget({ cents, inTune, active }: TunerTargetProps) {
       <div
         data-tuner-target
         className={cn(
-          'relative min-h-[15.5rem] w-full flex-1 overflow-hidden rounded-3xl bg-[#070A12] ring-1 sm:min-h-[18rem]',
+          'relative min-h-[15.5rem] w-full flex-1 overflow-hidden rounded-3xl bg-[#070A12] ring-1 sm:min-h-[18rem] wide:min-h-[12rem] wide:flex-none',
           locked ? 'omni-hold-glow ring-emerald-400/70' : 'ring-white/8',
         )}
       >
