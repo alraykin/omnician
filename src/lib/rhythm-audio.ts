@@ -2,10 +2,10 @@ import { getSharedAudioContext, onPlaybackRetiring, resumeSharedAudioContext } f
 import {
   DEFAULT_INTENSITY_STYLE,
   DEFAULT_KIT_INTENSITY,
-  characterFor,
+  dynamicsFor,
   playOptsForRole,
   resolveTier,
-  useRimshotBackbeat,
+  type CrocellTier,
   type HitRole,
   type KitIntensity,
 } from '@/lib/kit-intensity'
@@ -23,7 +23,7 @@ import type { RhythmStyleId } from '@/lib/rhythm-presets'
 import { clampSbPct, MAX_SB_PCT, MIN_SB_PCT } from '@/lib/speed-builder'
 
 export type DrumPlayOpts = {
-  tier?: KitIntensity
+  tier?: CrocellTier
   vel?: number
   rimshot?: boolean
 }
@@ -70,12 +70,12 @@ const VOICE_PIECE: Record<VoiceId, CrocellPiece> = {
 
 type CrocellFile = {
   piece: CrocellPiece
-  tier: KitIntensity
+  tier: CrocellTier
   rr: number
   file: string
 }
 
-type LayerBank = Partial<Record<CrocellPiece, Partial<Record<KitIntensity, AudioBuffer[]>>>>
+type LayerBank = Partial<Record<CrocellPiece, Partial<Record<CrocellTier, AudioBuffer[]>>>>
 
 const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
   wood: {
@@ -437,23 +437,23 @@ async function loadCrocellManifest(): Promise<CrocellFile[]> {
   return Array.isArray(data.files) ? data.files : []
 }
 
-function storeLayer(bank: LayerBank, piece: CrocellPiece, tier: KitIntensity, buffer: AudioBuffer): void {
+function storeLayer(bank: LayerBank, piece: CrocellPiece, tier: CrocellTier, buffer: AudioBuffer): void {
   const tiers = bank[piece] ?? (bank[piece] = {})
   const row = tiers[tier] ?? (tiers[tier] = [])
   row.push(buffer)
 }
 
-function filePriority(tier: KitIntensity, focus: KitIntensity): number {
+function filePriority(tier: CrocellTier, focus: CrocellTier): number {
   return Math.abs(tier - focus)
 }
 
 function pickNearestTier(
-  rows: Partial<Record<KitIntensity, AudioBuffer[]>>,
-  tier: KitIntensity,
+  rows: Partial<Record<CrocellTier, AudioBuffer[]>>,
+  tier: CrocellTier,
 ): AudioBuffer[] | undefined {
   if (rows[tier]?.length) return rows[tier]
   for (const delta of [1, -1, 2, -2, 3, -3, 4, -4]) {
-    const next = (tier + delta) as KitIntensity
+    const next = (tier + delta) as CrocellTier
     if (next < 1 || next > 5) continue
     if (rows[next]?.length) return rows[next]
   }
@@ -463,7 +463,7 @@ function pickNearestTier(
 async function loadCrocellLayers(
   ctx: AudioContext,
   bank: LayerBank,
-  focus: KitIntensity,
+  focus: CrocellTier,
 ): Promise<void> {
   const used = new Set(Object.values(VOICE_PIECE))
   const files = (await loadCrocellManifest()).filter((row) => used.has(row.piece))
@@ -901,7 +901,7 @@ export class RhythmKit {
       loadClicks(ctx, this.clicks).then((clicks) => {
         this.clicks = clicks
       }),
-      loadCrocellLayers(ctx, this.layers, this.intensity),
+      loadCrocellLayers(ctx, this.layers, dynamicsFor(this.intensity).accentTier),
     ])
       .then(() => undefined)
       .catch(() => undefined)
@@ -933,7 +933,7 @@ export class RhythmKit {
   setPerformance(styleId: RhythmStyleId, intensity: KitIntensity): void {
     this.styleId = styleId
     this.intensity = intensity
-    this.setBrightness(characterFor(styleId, intensity).brightnessDb)
+    this.setBrightness(0)
   }
 
   setBrightness(db: number): void {
@@ -1052,7 +1052,7 @@ export class RhythmKit {
       this.chokeHats(time)
     }
     if (voice === 'openHat') this.chokeClosed(time)
-    const derived = playOptsForRole(this.styleId, this.intensity, role)
+    const derived = playOptsForRole(this.intensity, role)
     const vel = play.vel ?? derived.vel
     const group = KIT_VOICE_GROUP[voice]
     const groupGain = mixFaderToGain(group, this.mix[group] ?? 0)
@@ -1146,11 +1146,10 @@ export class RhythmKit {
   }
 
   private bufferFor(voice: VoiceId, role: HitRole, play: DrumPlayOpts = {}): AudioBuffer | null {
-    const derived = playOptsForRole(this.styleId, this.intensity, role)
+    const derived = playOptsForRole(this.intensity, role)
     const tier = play.tier ?? derived.tier ?? resolveTier(this.intensity, voice === 'snare' ? role : 'normal')
     let piece = VOICE_PIECE[voice]
-    const rimshot = play.rimshot ?? derived.rimshot ?? useRimshotBackbeat(this.intensity, role)
-    if (voice === 'snare' && rimshot) {
+    if (voice === 'snare' && play.rimshot) {
       piece = 'rimshot_snappy_p2'
     }
     return (
@@ -1161,7 +1160,7 @@ export class RhythmKit {
     )
   }
 
-  private nextRoundRobin(piece: CrocellPiece, tier: KitIntensity): AudioBuffer | null {
+  private nextRoundRobin(piece: CrocellPiece, tier: CrocellTier): AudioBuffer | null {
     const rows = this.layers[piece]
     if (!rows) return null
     const available = pickNearestTier(rows, tier)

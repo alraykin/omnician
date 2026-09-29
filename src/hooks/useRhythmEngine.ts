@@ -250,7 +250,7 @@ export function useRhythmEngine({
       kit.stopAll()
       const start = kit.ctx.currentTime
       const tempo = bpmRef.current
-      const realized = realizeDrumBar(bar, styleRef.current, intensityRef.current)
+      const realized = realizeDrumBar(bar, intensityRef.current)
       for (const ev of realized.hits) {
         if (ev.hit.beat < 0 || ev.hit.beat >= bar.beats) continue
         kit.hit(ev.voice, start + hitTimeInBar(ev.hit, tempo, bar.beatUnit), ev.role, {
@@ -418,7 +418,7 @@ export function useRhythmEngine({
         const bar = playbackBar(barIndex)
         if (!bar) return
         const tempo = playbackBpmRef.current
-        const realized = realizeDrumBar(bar, styleRef.current, intensityRef.current)
+        const realized = realizeDrumBar(bar, intensityRef.current)
         for (const ev of realized.hits) {
           if (ev.hit.beat < 0 || ev.hit.beat >= bar.beats) continue
           const when = barStart + hitTimeInBar(ev.hit, tempo, bar.beatUnit)

@@ -16,7 +16,7 @@ import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { usePlayhead, useRhythmEngine, type PlayheadStore } from '@/hooks/useRhythmEngine'
-import { clampStyleIntensity, snareRoleFromStep, type KitIntensity } from '@/lib/kit-intensity'
+import { snareRoleFromStep, type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
 import {
   CLICK_SOUND_LABELS,
@@ -128,10 +128,6 @@ export function RhythmPage() {
   })
 
   useEffect(() => {
-    setKitIntensity((currentIntensity) => clampStyleIntensity(kitStyleId, currentIntensity))
-  }, [kitStyleId])
-
-  useEffect(() => {
     const resume = () => {
       void ensureKit()
     }
@@ -225,7 +221,6 @@ export function RhythmPage() {
     setDrumBarIndex(0)
     if (id === 'rock-44') setBpm(DEFAULT_BPM)
     setPresetId(preset.id)
-    setKitIntensity((current) => clampStyleIntensity(preset.styleId, current))
     setPickerOpen(false)
   }
 
@@ -740,7 +735,7 @@ export function RhythmPage() {
                 onPaint={onPaintCell}
                 onPreviewVoice={preview}
               />
-              <KitIntensityControl styleId={kitStyleId} value={kitIntensity} onChange={setKitIntensity} />
+              <KitIntensityControl value={kitIntensity} onChange={setKitIntensity} />
               <KitFaders mix={kitMix} onChange={setGroupMix} />
               <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-500">
                 Drums:{' '}
