@@ -73,9 +73,12 @@ function auditSources() {
   assert.doesNotMatch(rhythmPage, /unlockSpeech/)
   const kitSrc = readFileSync('src/lib/rhythm-audio.ts', 'utf8')
   assert.doesNotMatch(kitSrc, /speakPercent/)
+  const stopAllSrc = kitSrc.slice(kitSrc.indexOf('stopAll(): void'), kitSrc.indexOf('private bufferFor'))
+  assert.doesNotMatch(stopAllSrc, /linearRampToValueAtTime\(0\.0001/)
   const labSrc = readFileSync('src/lib/audio-lab.ts', 'utf8')
-  assert.match(labSrc, /schedulePrecountThenEightBars/)
-  assert.match(labSrc, /playAnnounceClip/)
+  assert.match(labSrc, /scheduleSustainedLookahead/)
+  assert.match(labSrc, /startPlaybackProbe/)
+  assert.match(labSrc, /setInterval\(sample, 100\)/)
   assert.doesNotMatch(labSrc, /SpeechSynthesisUtterance|speechSynthesis\.speak/)
   const tunerSrc = readFileSync('src/lib/tuner-session.ts', 'utf8')
   assert.match(tunerSrc, /markCaptureUsed\(\)/)
@@ -85,11 +88,11 @@ function auditSources() {
   )
   assert.doesNotMatch(interruptBlock, /markCaptureUsed/)
   const playTap = audioSrc.slice(audioSrc.indexOf('export function preparePlaybackFromGesture'))
+  assert.match(playTap, /stopMicTracks\(\)/)
   assert.doesNotMatch(
     playTap.slice(0, playTap.indexOf('export function unlockPlaybackFromGesture')),
-    /setAudioSessionType\('playback'\)/,
+    /disposeCaptureContext|stopCaptureHardware/,
   )
-  assert.match(playTap, /stopCaptureHardware\(\)/)
   assert.match(playTap, /unlockPlaybackFromGesture\(\)/)
   const unlockTap = audioSrc.slice(audioSrc.indexOf('export function unlockPlaybackFromGesture'))
   assert.match(unlockTap, /resumeFromGesture\(ctx\)/)

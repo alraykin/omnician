@@ -1104,9 +1104,15 @@ export class RhythmKit {
     this.sources = keep
   }
 
-  /** Cut every scheduled click and drum the instant Stop is pressed. */
+  /** Cut every scheduled click and drum the instant Stop is pressed.
+   *  Do not ramp master toward 0 — a duck on this shared node, or a late
+   *  preview stopAll, fades the next Play about half a second in on iOS. */
   stopAll(): void {
     const now = this.ctx.currentTime
+    if (this.gainRestoreTimer) {
+      window.clearTimeout(this.gainRestoreTimer)
+      this.gainRestoreTimer = 0
+    }
     for (const item of this.sources) {
       try {
         item.node.onended = null
@@ -1123,38 +1129,18 @@ export class RhythmKit {
     this.sources = []
     this.openHat = null
     this.closedHat = null
-    try {
-      this.reverbWet.gain.cancelScheduledValues(now)
-      this.reverbWet.gain.setValueAtTime(Math.max(0.0001, this.reverbWet.gain.value), now)
-      this.reverbWet.gain.linearRampToValueAtTime(0.0001, now + 0.03)
-      this.reverbWet.gain.setValueAtTime(REVERB_RETURN, now + 0.05)
-    } catch {
-      this.reverbWet.gain.setValueAtTime(REVERB_RETURN, now)
-    }
     const restore = this.playbackGain()
     try {
-      this.master.gain.cancelScheduledValues(now)
-      this.master.gain.setValueAtTime(Math.max(0.0001, this.master.gain.value), now)
-      this.master.gain.linearRampToValueAtTime(0.0001, now + 0.004)
-      this.master.gain.setValueAtTime(restore, now + 0.008)
+      this.reverbWet.gain.cancelScheduledValues(now)
+      this.reverbWet.gain.setValueAtTime(REVERB_RETURN, now)
     } catch {
-      this.master.gain.setValueAtTime(restore, now)
+      this.reverbWet.gain.value = REVERB_RETURN
     }
-    if (typeof window !== 'undefined') {
-      if (this.gainRestoreTimer) window.clearTimeout(this.gainRestoreTimer)
-      this.gainRestoreTimer = window.setTimeout(() => {
-        this.gainRestoreTimer = 0
-        const snap = this.playbackGain()
-        const t = this.ctx.currentTime
-        try {
-          this.master.gain.cancelScheduledValues(t)
-          this.master.gain.setValueAtTime(snap, t)
-          this.reverbWet.gain.cancelScheduledValues(t)
-          this.reverbWet.gain.setValueAtTime(REVERB_RETURN, t)
-        } catch {
-          this.master.gain.value = snap
-        }
-      }, 24)
+    try {
+      this.master.gain.cancelScheduledValues(now)
+      this.master.gain.setValueAtTime(restore, now)
+    } catch {
+      this.master.gain.value = restore
     }
   }
 

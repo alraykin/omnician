@@ -94,14 +94,19 @@ export function releaseMicStream(stream: MediaStream | null | undefined): void {
   if (!stream) return
   stopMediaTracks(stream)
   liveStreams.delete(stream)
-  if (liveStreams.size === 0) void disposeCaptureContext()
 }
 
-export function stopCaptureHardware(): void {
+/** Stop mic tracks only. Do not close the capture context — closing it while
+ *  Play is starting fades iOS Web Audio about half a second later. */
+export function stopMicTracks(): void {
   for (const stream of liveStreams) {
     stopMediaTracks(stream)
   }
   liveStreams.clear()
+}
+
+export function stopCaptureHardware(): void {
+  stopMicTracks()
   void disposeCaptureContext()
 }
 
@@ -271,10 +276,9 @@ export function beginCaptureFromGesture(): AudioContext {
  * audioSession — that fade is what killed Play after one or two precount clicks.
  */
 export function preparePlaybackFromGesture(): AudioContext {
-  stopCaptureHardware()
-  // Do not write navigator.audioSession here. play-and-record → auto, or a
-  // later playback promote, fades Web Audio on iPhone after one or two
-  // precount clicks. Lab A only resume()s the same context.
+  stopMicTracks()
+  // Tracks only. Closing capture here (or ramping master to 0) fades Play
+  // ~0.5s in on iPhone — the lab one-shot click never hit that teardown.
   if (captureUsedSincePlayback) {
     lastRecovery = 'after-mic-resume'
     recoveries += 1

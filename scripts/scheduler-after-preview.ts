@@ -83,7 +83,7 @@ console.log('==== frozen currentTime used to schedule only one click ====')
   assert(SCHEDULE_AHEAD_SEC > BEAT * 2, 'live lookahead covers more than one beat at 120 BPM')
 }
 
-console.log('\n==== mic → preview → stop → precount (4) + 8-bar Play ====')
+console.log('\n==== mic → preview → stop → 8-bar lookahead (precount off) ====')
 {
   const preview: number[] = []
   const audio0 = 20
@@ -91,31 +91,8 @@ console.log('\n==== mic → preview → stop → precount (4) + 8-bar Play ===='
   assert(preview.length === 4, 'Listen-style preview queued 4 clicks')
   preview.length = 0
   assert(preview.length === 0, 'preview stopAll cleared those sources before Play')
-  const precount = 4
-  const watch = createClockWatch(audio0, 0)
-  const times: number[] = []
-  let nextTime = audio0 + START_LEAD_SEC
-  let remaining = precount + BEATS
-  let audioTime = audio0
-  const ticks = Math.ceil(((precount + BEATS + 1) * BEAT * 1000) / LOOKAHEAD_MS)
-  for (let i = 0; i < ticks && remaining > 0; i += 1) {
-    const wallMs = i * LOOKAHEAD_MS
-    audioTime = audio0 + wallMs / 1000
-    const result = pumpClickScheduler({
-      nextTime,
-      remaining,
-      audioTime,
-      wallMs,
-      beatSec: BEAT,
-      watch,
-      emit: (when) => {
-        times.push(when)
-      },
-    })
-    nextTime = result.nextTime
-    remaining = result.remaining
-  }
-  assert(times.length === precount + BEATS, `precount + 8 bars scheduled ${times.length}/${precount + BEATS}`)
+  const play = runScheduler({ freezeAfterFirst: false, startAudio: audio0 })
+  assert(play.length === BEATS, `Play after preview scheduled ${play.length}/${BEATS} clicks with a moving clock`)
 }
 
 console.log('\n==== same sequence with currentTime frozen after the first Play note ====')

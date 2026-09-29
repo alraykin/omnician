@@ -29,7 +29,7 @@ const STRATEGIES: { id: LabStrategy; title: string; detail: string }[] = [
   {
     id: 'A',
     title: 'A · Control (after mic stop, same context)',
-    detail: 'Stop mic tracks and close capture. Play resumes the SAME playback context (the path the app now uses).',
+    detail: 'Stop mic tracks and close capture, then wait. Play resumes the SAME playback context.',
   },
   {
     id: 'L',
@@ -38,9 +38,9 @@ const STRATEGIES: { id: LabStrategy; title: string; detail: string }[] = [
   },
   {
     id: 'P',
-    title: 'P · Preview, Announce, precount, then 8-bar Play',
+    title: 'P · After mic: preview, then lookahead Play (the 0.5s fade)',
     detail:
-      'Same mic stop as A. Play previews 4 Listen-style clicks, stops, plays the Kokoro announce clip through Web Audio (not speechSynthesis), counts in 4 precount pips, then 8 bars. Mark Heard only if it does not fade after the first precount clicks.',
+      'Stop mic tracks and leave capture open (what Click/Drums now do). Play does 4 Listen-style preview clicks, stops, then the real lookahead scheduler for 8 bars — no precount. Mark Heard only if it does not fade after ~0.5s. A probe logs playback state and currentTime every 100ms for 2 seconds.',
   },
   {
     id: 'B',
@@ -118,8 +118,8 @@ export function AudioLabPage() {
               A-long
             </span>{' '}
             is A plus five seconds of real click and drum samples. <span className="text-white">P</span> is
-            the live-app sequence: mic, preview clicks, a Web Audio announce clip, 4 precount pips,
-            then 8 bars that must not fade. Then tap{' '}
+            after the mic: preview clicks, then a lookahead scheduler like Drums with Precount off,
+            with a 100ms state/currentTime probe for 2s. Then tap{' '}
             <span className="text-white">Play test click</span> and mark Heard or Silent. Reset
             between letters. Fully quit Safari only after D or Silent switch if the next letter is
             silent, or if Reset leaves playback interrupted.
@@ -239,6 +239,19 @@ export function AudioLabPage() {
             Clear log
           </Button>
         </div>
+
+        <section data-lab-probe>
+          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+            100ms probe (first 2s of lookahead)
+          </h2>
+          {view.probe.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-500">Runs automatically on P Play. Copy log includes it.</p>
+          ) : (
+            <pre className="mt-2 overflow-x-auto rounded-xl border border-white/10 bg-black/40 px-3 py-2 font-mono text-[0.72rem] leading-5 text-slate-200">
+              {view.probe.join('\n')}
+            </pre>
+          )}
+        </section>
 
         <section data-lab-log>
           <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">Results</h2>

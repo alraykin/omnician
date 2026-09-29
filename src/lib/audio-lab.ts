@@ -35,6 +35,8 @@ let htmlUrl: string | null = null
 let clickTimer = 0
 let micTimer = 0
 let lookaheadTimer = 0
+let probeTimer = 0
+let probeLog: string[] = []
 let session = 0
 let longClick: AudioBuffer | null = null
 let longAccent: AudioBuffer | null = null
@@ -233,32 +235,33 @@ function fireOscAt(ctx: AudioContext, time: number): void {
   osc.stop(t + 0.04)
 }
 
-function firePrecountAt(ctx: AudioContext, time: number, strong: boolean): void {
-  const osc = ctx.createOscillator()
-  const gain = ctx.createGain()
-  osc.type = 'square'
-  osc.frequency.value = strong ? 1680 : 1320
-  const immediate = time <= 0
-  const t = immediate ? ctx.currentTime : time
-  gain.gain.setValueAtTime(0.0001, t)
-  gain.gain.exponentialRampToValueAtTime(strong ? 0.55 : 0.32, t + 0.003)
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.028)
-  osc.connect(gain)
-  gain.connect(ctx.destination)
-  osc.start(immediate ? 0 : time)
-  osc.stop(t + 0.035)
+function startPlaybackProbe(ctx: AudioContext, ms = 2000): void {
+  if (probeTimer) window.clearInterval(probeTimer)
+  probeLog = []
+  const begun = performance.now()
+  const sample = () => {
+    const elapsed = (performance.now() - begun) / 1000
+    const sessionApi = safariSession()
+    const line = `${elapsed.toFixed(1)}s  playback=${ctxState(ctx)}  currentTime=${ctx.currentTime.toFixed(3)}  capture=${ctxState(capture)}  session=${sessionApi?.type ?? 'n/a'}`
+    probeLog.push(line)
+    emit()
+    if (performance.now() - begun >= ms) {
+      window.clearInterval(probeTimer)
+      probeTimer = 0
+    }
+  }
+  sample()
+  probeTimer = window.setInterval(sample, 100)
 }
 
-function schedulePrecountThenEightBars(ctx: AudioContext): void {
+function scheduleSustainedLookahead(ctx: AudioContext): void {
   if (lookaheadTimer) window.clearInterval(lookaheadTimer)
   const beat = 0.5
-  const precount = 4
-  const pattern = 32
-  const total = precount + pattern
+  const total = 32
   const watch = createClockWatch(ctx.currentTime, performance.now())
   let nextTime = ctx.currentTime + START_LEAD_SEC
   let remaining = total
-  let index = 0
+  startPlaybackProbe(ctx, 2000)
   const tick = () => {
     const result = pumpClickScheduler({
       nextTime,
@@ -267,11 +270,7 @@ function schedulePrecountThenEightBars(ctx: AudioContext): void {
       wallMs: performance.now(),
       beatSec: beat,
       watch,
-      emit: (when) => {
-        if (index < precount) firePrecountAt(ctx, when, index === 0)
-        else fireOscAt(ctx, when)
-        index += 1
-      },
+      emit: (when) => fireOscAt(ctx, when),
     })
     nextTime = result.nextTime
     remaining = result.remaining
@@ -280,21 +279,12 @@ function schedulePrecountThenEightBars(ctx: AudioContext): void {
       lookaheadTimer = 0
       phase = 'mark'
       status =
-        'Did you hear a spoken percent (or skip if the clip was missing), 4 precount pips, then 8 bars that kept going? Mark Heard only if it did not fade after the first precount clicks.'
+        'Did the click keep going past 0.5s (8 bars), or did it fade after a beat? Mark Heard only if it did not fade. The 100ms probe is in the log.'
       emit()
     }
   }
   tick()
   lookaheadTimer = window.setInterval(tick, LOOKAHEAD_MS)
-}
-
-async function playAnnounceClip(ctx: AudioContext): Promise<void> {
-  try {
-    const buffer = await decodeUrl(ctx, '/rhythm/announce/af_heart/070.mp3')
-    fireBuffer(ctx, buffer, ctx.currentTime + 0.03, 0.46)
-  } catch (error) {
-    noteError(error, 'P.announce')
-  }
 }
 
 function playPreviewThenEightBars(ctx: AudioContext): void {
@@ -304,14 +294,14 @@ function playPreviewThenEightBars(ctx: AudioContext): void {
   const beat = 0.5
   const start = ctx.currentTime + 0.03
   for (let i = 0; i < 4; i += 1) fireOscAt(ctx, start + i * beat)
-  status = 'Previewing 4 clicks (like Listen 1×). Then Announce + precount + 8-bar Play — Web Audio only, no session write.'
+  status =
+    'Previewing 4 one-shot clicks (like Listen 1×). Then the real lookahead scheduler — same as Drums with Precount off.'
   emit()
   clickTimer = window.setTimeout(() => {
     clickTimer = 0
-    status = 'Preview stopped. Playing Kokoro announce through Web Audio, 4 precount pips, then 8 bars…'
+    status = 'Preview stopped. Playing 8 bars on the lookahead scheduler. Probe logs state + currentTime every 100ms for 2s.'
     emit()
-    void playAnnounceClip(ctx)
-    schedulePrecountThenEightBars(ctx)
+    scheduleSustainedLookahead(ctx)
   }, 4 * beat * 1000 + 80)
 }
 
@@ -534,6 +524,11 @@ function finishMicStop(id: number, chosen: LabStrategy): void {
     setSessionType('playback')
     lastRecovery = 'D-session-playback'
     status = 'Mic stopped, audioSession set to playback. Tap Play test click (new context).'
+  } else if (chosen === 'P') {
+    stopTracks(stream, true)
+    stream = null
+    status =
+      'Tracks stopped. Capture left open (closing it during Play fades ~0.5s on iPhone). Tap Play for preview then the lookahead scheduler.'
   } else {
     stopTracks(stream, true)
     stream = null
@@ -578,7 +573,7 @@ async function runAfterMic(id: number, chosen: LabStrategy, pending: Promise<Med
     phase = 'mic'
     status =
       chosen === 'P'
-        ? 'Mic is live for about 3 seconds. Then Play previews 4 clicks, plays a Web Audio announce clip, counts in 4 precount pips, and runs 8 bars. It must not fade after the first pips.'
+        ? 'Mic is live for about 3 seconds. Then Play: 4 preview clicks, stop, then the lookahead scheduler (Drums with Precount off). A probe logs state and currentTime every 100ms for 2s.'
         : 'Mic is live for about 3 seconds…'
     emit()
 
@@ -676,7 +671,7 @@ export function playTestClickFromTap(): void {
       return
     }
     if (chosen === 'P') {
-      status = 'Mic stopped. Preview, then Announce + precount + 8 bars (Web Audio announce clip)…'
+      status = 'Mic stopped. Preview 4 clicks, then lookahead Play with a 100ms probe…'
       playPreviewThenEightBars(ctx)
       return
     }
@@ -723,6 +718,9 @@ export function hardReset(announce = true): void {
   clickTimer = 0
   if (lookaheadTimer) window.clearInterval(lookaheadTimer)
   lookaheadTimer = 0
+  if (probeTimer) window.clearInterval(probeTimer)
+  probeTimer = 0
+  probeLog = []
   disconnectCaptureGraph()
   stopTracks(stream, true)
   stream = null
@@ -754,10 +752,12 @@ export function clearLabLog(): void {
 }
 
 export function labLogText(): string {
-  if (log.length === 0) return 'No results yet.'
-  return log
-    .map((row) => `${row.at}  ${row.strategy}  ${row.verdict.toUpperCase()}  ${row.note}`)
-    .join('\n')
+  const rows =
+    log.length === 0
+      ? 'No results yet.'
+      : log.map((row) => `${row.at}  ${row.strategy}  ${row.verdict.toUpperCase()}  ${row.note}`).join('\n')
+  if (probeLog.length === 0) return rows
+  return `${rows}\n\nprobe (100ms × 2s)\n${probeLog.join('\n')}`
 }
 
 export function getLabView(): {
@@ -765,6 +765,7 @@ export function getLabView(): {
   strategy: LabStrategy | null
   status: string
   log: LabLogRow[]
+  probe: string[]
   canPlay: boolean
   canMark: boolean
 } {
@@ -773,6 +774,7 @@ export function getLabView(): {
     strategy,
     status,
     log: [...log],
+    probe: [...probeLog],
     canPlay: phase === 'ready' || phase === 'mark',
     canMark: phase === 'playing' || phase === 'mark',
   }
