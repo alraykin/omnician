@@ -40,21 +40,19 @@ export function RhythmTempoCard({
       className="relative isolate z-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 pl-2 sm:pl-4"
     >
       <div className="grid grid-cols-[minmax(0,1fr)_9.25rem] items-start gap-x-1.5 gap-y-1.5 pt-6 pr-7 pb-2 sm:gap-x-2 sm:pt-5 sm:pr-8">
-        <div className="flex min-w-0 flex-col items-stretch">
-          <div className="flex min-w-0 items-stretch">
-            <div className="w-max min-w-0 max-w-[calc(100%-2.35rem)]">
-              <SpeedBuilderPanel value={speedBuilder} baseBpm={bpm} onChange={onSpeedBuilder} />
-            </div>
-            <div className="relative z-20 flex min-w-[2.15rem] shrink-0 items-stretch self-stretch px-0.5">
-              <VolumeFader db={volumeDb} onChange={onVolume} />
-            </div>
+        <div className="flex min-w-0 items-stretch">
+          <div className="w-max min-w-0 max-w-[calc(100%-2.6rem)]">
+            <SpeedBuilderPanel value={speedBuilder} baseBpm={bpm} onChange={onSpeedBuilder} />
+            <SpeedBuilderToggles
+              className="mt-1.5 w-full"
+              value={speedBuilder}
+              onChange={onSpeedBuilder}
+              precountAlways={precountAlways}
+            />
           </div>
-          <SpeedBuilderToggles
-            className="mt-1.5 w-full"
-            value={speedBuilder}
-            onChange={onSpeedBuilder}
-            precountAlways={precountAlways}
-          />
+          <div className="relative z-20 ml-2 flex min-w-[2.15rem] flex-1 items-stretch justify-end self-stretch pr-0.5 sm:ml-3">
+            <VolumeFader db={volumeDb} onChange={onVolume} />
+          </div>
         </div>
         <div className="relative z-10 flex w-[9.25rem] max-w-full flex-col gap-1.5 justify-self-end">
           <BpmWheel
