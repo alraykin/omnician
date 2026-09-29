@@ -31,6 +31,15 @@ export function ListenTempoSheet({
   const [snap, setSnap] = useState<ListenSnapshot | null>(null)
   const [picked, setPicked] = useState<number | null>(null)
   const [previewBpm, setPreviewBpm] = useState<number | null>(null)
+  const [heldEstimate, setHeldEstimate] = useState<TempoEstimate | null>(seed)
+  const ignoreBackdropUntil = useRef(0)
+  const backdropPointer = useRef(0)
+
+  const closeSheet = () => {
+    stopListenTempoPreview()
+    void listenerRef.current?.cancel()
+    onClose()
+  }
 
   useEffect(() => {
     if (!open) {
@@ -38,11 +47,13 @@ export function ListenTempoSheet({
       void listenerRef.current?.cancel()
       setPicked(null)
       setPreviewBpm(null)
+      setHeldEstimate(seed)
       return
     }
     const unsub = listenerRef.current?.subscribe(setSnap)
     if (seed) {
       listenerRef.current?.showEstimate(seed, 'file')
+      setHeldEstimate(seed)
     }
     return () => {
       unsub?.()
@@ -52,13 +63,15 @@ export function ListenTempoSheet({
   useEffect(() => {
     if (snap?.phase === 'result' && snap.estimate) {
       setPicked(snap.estimate.bpm)
+      setHeldEstimate(snap.estimate)
     }
   }, [snap])
 
   if (!open) return null
 
-  const estimate = snap?.estimate ?? seed
-  const phase = snap?.phase ?? (seed ? 'result' : 'listening')
+  const estimate = snap?.estimate ?? heldEstimate ?? seed
+  const phase = snap?.phase ?? (estimate ? 'result' : seed ? 'result' : 'listening')
+  const showResult = Boolean(estimate) && phase !== 'listening' && phase !== 'analyzing'
   const chosen = picked ?? estimate?.bpm ?? null
 
   const sbNote =
@@ -84,39 +97,51 @@ export function ListenTempoSheet({
         type="button"
         className="absolute inset-0 cursor-default"
         aria-label="Close listen"
-        onClick={() => {
-          stopListenTempoPreview()
-          void listenerRef.current?.cancel()
-          onClose()
+        onPointerDown={(event) => {
+          if (event.target !== event.currentTarget) return
+          backdropPointer.current = event.pointerId
+        }}
+        onPointerUp={(event) => {
+          if (event.pointerId !== backdropPointer.current) return
+          backdropPointer.current = 0
+          if (event.target !== event.currentTarget) return
+          if (performance.now() < ignoreBackdropUntil.current) return
+          closeSheet()
+        }}
+        onPointerCancel={() => {
+          backdropPointer.current = 0
         }}
       />
-      <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/12 bg-[#141A28] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.55)] sm:p-6">
+      <div
+        className="relative z-10 w-full max-w-md rounded-3xl border border-white/12 bg-[#141A28] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.55)] sm:p-6"
+        onPointerDown={(event) => {
+          event.stopPropagation()
+          ignoreBackdropUntil.current = performance.now() + 800
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
               Tempo listen
             </p>
             <h2 id="listen-tempo-title" className="text-lg font-bold text-white">
-              {phase === 'listening'
+              {showResult
+                ? 'Detected tempo'
+                : phase === 'listening'
                 ? 'Listening for a beat…'
                 : phase === 'analyzing'
                   ? 'Finding the tempo…'
-                  : phase === 'result'
-                    ? 'Detected tempo'
-                    : phase === 'error'
-                      ? 'Could not listen'
-                      : 'Listen for tempo'}
+                  : phase === 'error'
+                    ? 'Could not listen'
+                    : 'Listen for tempo'}
             </h2>
           </div>
           <button
             type="button"
             className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300"
             aria-label="Cancel"
-            {...activateOnPointer(() => {
-              stopListenTempoPreview()
-              void listenerRef.current?.cancel()
-              onClose()
-            })}
+            {...activateOnPointer(() => closeSheet())}
           >
             <X className="size-4" />
           </button>
@@ -154,13 +179,14 @@ export function ListenTempoSheet({
           </div>
         ) : null}
 
-        {phase === 'result' && estimate ? (
+        {showResult && estimate ? (
           <ResultBody
             estimate={estimate}
             chosen={chosen}
             previewBpm={previewBpm}
             onChoose={setPicked}
             onPreview={(bpm) => {
+              ignoreBackdropUntil.current = performance.now() + 800
               if (previewBpm === bpm) {
                 stopListenTempoPreview()
                 setPreviewBpm(null)
@@ -178,7 +204,7 @@ export function ListenTempoSheet({
         ) : null}
 
         <div className="mt-5 flex flex-col gap-2">
-          {phase === 'result' && chosen ? (
+          {showResult && chosen ? (
             <Button
               type="button"
               data-listen-use
@@ -201,6 +227,7 @@ export function ListenTempoSheet({
                 stopListenTempoPreview()
                 setPreviewBpm(null)
                 setPicked(null)
+                setHeldEstimate(null)
                 const micPromise = requestRawMic()
                 void listenerRef.current?.startMic(micPromise)
               })}
@@ -221,11 +248,7 @@ export function ListenTempoSheet({
           <button
             type="button"
             className="mt-1 text-center text-xs font-semibold text-slate-500"
-            {...activateOnPointer(() => {
-              stopListenTempoPreview()
-              void listenerRef.current?.cancel()
-              onClose()
-            })}
+            {...activateOnPointer(() => closeSheet())}
           >
             Cancel
           </button>
@@ -329,12 +352,20 @@ function AltChip({
   playing: boolean
   onPick: () => void
 }) {
+  const tap = activateOnPointer(onPick)
   return (
     <button
       type="button"
       data-listen-alt={label}
       data-listen-preview={playing ? 'on' : 'off'}
-      {...activateOnPointer(onPick)}
+      onPointerDown={(event) => {
+        event.stopPropagation()
+        tap.onPointerDown?.(event)
+      }}
+      onClick={(event) => {
+        event.stopPropagation()
+        tap.onClick?.(event)
+      }}
       className={cn(
         'min-w-[4.8rem] rounded-2xl border px-3 py-2 text-center touch-manipulation',
         playing

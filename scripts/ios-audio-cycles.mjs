@@ -39,7 +39,10 @@ function auditSources() {
   assert.doesNotMatch(audioSrc, /setAudioSessionType\('playback'\)/)
   assert.doesNotMatch(audioSrc, /setAudioSessionType\('play-and-record'\)/)
   assert.doesNotMatch(audioSrc, /armPlaybackSessionOnce/)
-  assert.match(audioSrc, /setAudioSessionType\('auto'\)/)
+  assert.match(audioSrc, /stopCaptureHardware/)
+  const recoverBlock = audioSrc.slice(audioSrc.indexOf('function recoverPlaybackAfterCapture'))
+  assert.match(recoverBlock, /stopCaptureHardware\(\)/)
+  assert.doesNotMatch(recoverBlock.slice(0, 800), /releaseAllCapture\(\)/)
   assert.match(audioSrc, /session\.type !== 'play-and-record'/)
   assert.match(audioSrc, /captureUsedSincePlayback/)
   assert.match(audioSrc, /recoverPlaybackAfterCapture/)
@@ -164,6 +167,16 @@ async function main() {
       const chip = page.locator(`[data-listen-alt="${alt}"]`).first()
       await chip.evaluate((node) => node.click())
       await page.waitForTimeout(120)
+      assert.equal(
+        await page.locator('[data-listen-panel="open"]').count(),
+        1,
+        `Listen sheet stayed open after ${alt}`,
+      )
+      assert.equal(
+        await page.locator('[data-listen-result="ready"]').count(),
+        1,
+        `Listen result stayed after ${alt}`,
+      )
     }
   }
 

@@ -1,6 +1,6 @@
 import type { AudioDebugSnapshot } from '@/lib/audio-context'
 
-export type LabStrategy = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'S'
+export type LabStrategy = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'S'
 
 export type LabPhase = 'idle' | 'mic' | 'ready' | 'playing' | 'mark'
 
@@ -383,6 +383,13 @@ async function runAfterMic(id: number, chosen: LabStrategy, pending: Promise<Med
 
     const micCtx = chosen === 'E' ? ensurePlayback() : ensureCapture()
     wireMic(micCtx, next)
+    if (chosen === 'H') {
+      phase = 'ready'
+      status =
+        'Mic is still live. Tap Play test click NOW — this checks whether Web Audio can play during capture.'
+      emit()
+      return
+    }
     phase = 'mic'
     status = 'Mic is live for about 3 seconds…'
     emit()
@@ -433,7 +440,10 @@ export function playTestClickFromTap(): void {
   if (!chosen || chosen === 'S') return
   lastError = 'none'
   phase = 'playing'
-  status = 'Playing 8 clicks…'
+  status =
+    chosen === 'H'
+      ? 'Playing 8 clicks WHILE the mic is still live…'
+      : 'Playing 8 clicks…'
   emit()
 
   if (chosen === 'F') {
@@ -441,7 +451,7 @@ export function playTestClickFromTap(): void {
     return
   }
 
-  if (chosen === 'C' || chosen === 'E' || chosen === 'G') {
+  if (chosen === 'C' || chosen === 'E' || chosen === 'G' || chosen === 'H') {
     const ctx = chosen === 'E' ? ensurePlayback() : playback && ctxState(playback) !== 'closed' ? playback : ensurePlayback()
     resumeNow(ctx)
     scheduleWebClicks(ctx)
@@ -471,7 +481,7 @@ export function markVerdict(verdict: LabVerdict): void {
   })
   phase = 'idle'
   status =
-    strategy === 'G'
+    strategy === 'G' || strategy === 'H'
       ? `${strategy} marked ${verdict === 'heard' ? 'Heard' : 'Silent'}. Tap Reset to turn the mic off, then pick the next letter.`
       : verdict === 'heard'
         ? `${strategy} marked Heard. Reset if you want a clean run, then pick the next letter.`

@@ -99,11 +99,16 @@ export function releaseMicStream(stream: MediaStream | null | undefined): void {
   if (liveStreams.size === 0) void disposeCaptureContext()
 }
 
-export function releaseAllCapture(): void {
+export function stopCaptureHardware(): void {
   for (const stream of liveStreams) {
     stopMediaTracks(stream)
   }
   liveStreams.clear()
+  void disposeCaptureContext()
+}
+
+export function releaseAllCapture(): void {
+  stopCaptureHardware()
   for (const release of hiddenReleasers) {
     try {
       release()
@@ -111,7 +116,6 @@ export function releaseAllCapture(): void {
       // releaser must not throw
     }
   }
-  void disposeCaptureContext()
 }
 
 export function onHiddenReleaseCapture(release: () => void): () => void {
@@ -309,7 +313,9 @@ function recoverPlaybackAfterCapture(): AudioContext {
       // listener must not throw
     }
   }
-  releaseAllCapture()
+  // Stop the mic graph only. Do not run pagehide releasers — those cancel Listen
+  // and would close the tempo sheet when ½× / 1× / 2× preview recovers playback.
+  stopCaptureHardware()
   restoreSessionAfterCapture()
   const old = playback
   playback = null

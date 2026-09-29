@@ -21,9 +21,14 @@ import { activateOnPointer, cn } from '@/lib/utils'
 
 const STRATEGIES: { id: LabStrategy; title: string; detail: string }[] = [
   {
+    id: 'H',
+    title: 'H · Play while the mic is still live',
+    detail: 'Starts the mic and leaves it on. Tap Play test click during capture — do not assume this works; mark what you hear.',
+  },
+  {
     id: 'A',
-    title: 'A · Control (today’s Click path)',
-    detail: 'Stop mic tracks, close the capture context, then Play makes a brand-new playback context immediately.',
+    title: 'A · Control (after mic stop, new context)',
+    detail: 'Stop mic tracks, close the capture context, then Play makes a brand-new playback context immediately. Same moment as tapping ½× after Listen finishes.',
   },
   {
     id: 'B',
@@ -95,11 +100,12 @@ export function AudioLabPage() {
           </p>
           <h1 className="mt-1 text-3xl font-bold text-white">Audio lab</h1>
           <p className="mt-3 text-sm leading-6 text-slate-400">
-            This page does not change Click, Tuner, or Listen. Each letter starts the mic for about 3
-            seconds, then you tap <span className="text-white">Play test click</span> and mark whether
-            you heard 8 clicks. Stay on this page. Use Reset between letters. Fully quit Safari only
-            after D or Silent switch if the next letter is silent on the first click, or if Reset
-            leaves playback interrupted.
+            We do <span className="text-white">not</span> assume the click can play while the mic is
+            on. Start with <span className="text-white">H</span> (Play test click while capture is
+            live). A–G stop the mic first — that is the moment Listen’s ½× / 1× / 2× preview goes
+            silent. Then tap <span className="text-white">Play test click</span> and mark Heard or
+            Silent. Reset between letters. Fully quit Safari only after D or Silent switch if the
+            next letter is silent, or if Reset leaves playback interrupted.
           </p>
         </div>
 
