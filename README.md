@@ -132,7 +132,7 @@ When Cloudflare credentials are in the environment, publish with:
 npm run deploy
 ```
 
-That script builds the app, then runs `wrangler deploy`. It needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Do not put those values in the repo. They belong in Cursor **Cloud Agents → Secrets** (token as a **Runtime Secret**, account ID as an **Environment Variable**). The first real deploy also attaches `omnician.app` and `www.omnician.app`.
+That script builds the app, then runs `wrangler deploy`. It needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Do not put those values in the repo. They belong in Cursor **Cloud Agents → Secrets** (token as a **Runtime Secret**, account ID as an **Environment Variable**). After a change lands on `main`, run `npm run deploy` so **omnician.app** updates. Do not add a `public/_redirects` SPA rewrite — Wrangler already serves `/tuner` and `/rhythm` with `not_found_handling: "single-page-application"`.
 
 ---
 
