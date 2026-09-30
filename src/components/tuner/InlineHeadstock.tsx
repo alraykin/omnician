@@ -74,7 +74,7 @@ function metrics(count: number, bass: boolean) {
       neckH: bass ? 118 : 108,
       shaft: 18,
       inset: bass ? 20 : 18,
-      dome: 118,
+      dome: 168,
     }
   }
   if (count <= 6) {
@@ -87,7 +87,7 @@ function metrics(count: number, bass: boolean) {
       neckH: 104,
       shaft: 16,
       inset: 17,
-      dome: 112,
+      dome: 176,
     }
   }
   if (count === 7) {
@@ -100,7 +100,7 @@ function metrics(count: number, bass: boolean) {
       neckH: 100,
       shaft: 15,
       inset: 16,
-      dome: 108,
+      dome: 172,
     }
   }
   if (count === 8) {
@@ -113,7 +113,7 @@ function metrics(count: number, bass: boolean) {
       neckH: 96,
       shaft: 14,
       inset: 15,
-      dome: 104,
+      dome: 168,
     }
   }
   return {
@@ -125,12 +125,8 @@ function metrics(count: number, bass: boolean) {
     neckH: 92,
     shaft: 13,
     inset: 14,
-    dome: 100,
+      dome: 162,
   }
-}
-
-function leftEdgeX(y: number, postXTip: number, firstY: number, inset: number): number {
-  return postXTip + (y - firstY) * INLINE_EDGE_TAN - inset
 }
 
 function layoutInline(
@@ -146,32 +142,42 @@ function layoutInline(
   const height = nutY + m.neckH
 
   const labelW = 28
-  const sidePad = 10
-  const postXTip = sidePad + labelW + m.button + m.shaft + m.inset + 6
-  const leftNut = leftEdgeX(nutY, postXTip, m.firstY, m.inset)
-  const postSpan = (count - 1) * m.gap * INLINE_EDGE_TAN
-  const nutWidth = Math.max(50, postSpan + 14)
-  const nutLeft = postXTip + postSpan / 2 + 7 - nutWidth / 2
-
-  const joinY = m.firstY - 26
-  const leftJoin = leftEdgeX(joinY, postXTip, m.firstY, m.inset)
-  const rightJoin = leftJoin + m.dome
-  const swoopY = nutY - 16
-  const swoopX = nutLeft + nutWidth + 9
-  const viewW = Math.max(rightJoin + 28, nutLeft + nutWidth + 36)
+  const sidePad = 12
+  const leftPad = sidePad + labelW + m.button + m.shaft + 4
+  const joinY = m.firstY - 28
+  const tipY = joinY - 36
+  const rise = nutY - joinY
+  const leftJoin = leftPad
+  const leftNut = leftJoin + rise * INLINE_EDGE_TAN
+  const postSpan = Math.max(1, (count - 1) * m.gap * INLINE_EDGE_TAN)
+  const nutWidth = Math.max(72, postSpan + 24)
+  const nutLeft = leftNut
+  const nutRight = nutLeft + nutWidth
+  const rightJoin = Math.max(leftJoin + m.dome, nutRight + 28)
+  const swoopY = nutY - 20
+  const swoopX = nutRight + 8
+  const viewW = Math.max(rightJoin + 32, nutRight + 40)
 
   const pegs: InlinePeg[] = ordered.map((string, index) => {
     const postY = m.firstY + index * m.gap
-    const postX = postXTip + index * m.gap * INLINE_EDGE_TAN
-    const edgeX = leftEdgeX(postY, postXTip, m.firstY, m.inset)
+    const edgeX = leftJoin + (postY - joinY) * INLINE_EDGE_TAN
+    const postX = edgeX + m.inset
     const buttonX = edgeX - m.shaft - m.button / 2
+    const t = count === 1 ? 0.5 : index / (count - 1)
+    // Match post X as closely as the nut width allows so runs stay nearly straight.
+    const postMin = leftJoin + (m.firstY - joinY) * INLINE_EDGE_TAN + m.inset
+    const postMax = leftJoin + (lastY - joinY) * INLINE_EDGE_TAN + m.inset
+    const mapped = postMin + t * (postMax - postMin)
+    const innerL = nutLeft + 6
+    const innerR = nutLeft + nutWidth - 6
+    const nutX = Math.min(innerR, Math.max(innerL, mapped))
     return {
       string,
       postX,
       postY,
       buttonX,
       buttonY: postY,
-      nutX: postX,
+      nutX,
       nutY,
       edgeX,
       button: m.button,
@@ -181,7 +187,7 @@ function layoutInline(
 
   const outline = v4Outline({
     nutLeft,
-    nutWidth,
+    nutRight,
     nutY,
     leftNut,
     leftJoin,
@@ -189,19 +195,19 @@ function layoutInline(
     joinY,
     swoopX,
     swoopY,
-    tipY: joinY - 34,
+    tipY,
   })
   const inset = v4Outline({
-    nutLeft: nutLeft + 1.2,
-    nutWidth: nutWidth - 2.4,
+    nutLeft: nutLeft + 1.4,
+    nutRight: nutRight - 1.4,
     nutY,
-    leftNut: leftNut + 6,
-    leftJoin: leftJoin + 6,
-    rightJoin: rightJoin - 6,
-    joinY: joinY + 3,
+    leftNut: leftNut + 5.5,
+    leftJoin: leftJoin + 5.5,
+    rightJoin: rightJoin - 5.5,
+    joinY: joinY + 2,
     swoopX: swoopX - 5,
     swoopY: swoopY - 2,
-    tipY: joinY - 28,
+    tipY: tipY + 6,
   })
 
   return {
@@ -213,15 +219,15 @@ function layoutInline(
     neckH: m.neckH,
     outline,
     inset,
-    wordX: (rightJoin + swoopX) / 2 + 10,
-    wordY: (joinY + swoopY) / 2 + 8,
+    wordX: (rightJoin + swoopX) / 2 + 6,
+    wordY: (joinY + swoopY) / 2 + 10,
     pegs,
   }
 }
 
 function v4Outline(p: {
   nutLeft: number
-  nutWidth: number
+  nutRight: number
   nutY: number
   leftNut: number
   leftJoin: number
@@ -231,16 +237,15 @@ function v4Outline(p: {
   swoopY: number
   tipY: number
 }): string {
-  const nutR = p.nutLeft + p.nutWidth
-  const rx = Math.max(18, (p.rightJoin - p.leftJoin) / 2)
-  const ry = p.joinY - p.tipY
+  const rx = Math.max(20, (p.rightJoin - p.leftJoin) / 2)
+  const ry = Math.max(22, p.joinY - p.tipY)
   return [
-    `M ${p.nutLeft} ${p.nutY}`,
-    `L ${p.leftNut} ${p.nutY}`,
+    `M ${p.leftNut} ${p.nutY}`,
     `L ${p.leftJoin} ${p.joinY}`,
     `A ${rx} ${ry} 0 0 1 ${p.rightJoin} ${p.joinY}`,
     `L ${p.swoopX} ${p.swoopY}`,
-    `Q ${nutR + 2} ${p.nutY - 3} ${nutR} ${p.nutY}`,
+    `Q ${p.nutRight + 7} ${p.nutY - 5} ${p.nutRight} ${p.nutY}`,
+    `L ${p.leftNut} ${p.nutY}`,
     'Z',
   ].join(' ')
 }
@@ -389,14 +394,15 @@ export function InlineHeadstock({
           OMNICIAN
         </text>
 
-        <line
-          x1={drawn.nutLeft}
-          y1={drawn.nutY}
-          x2={drawn.nutLeft + drawn.nutWidth}
-          y2={drawn.nutY}
+        <rect
+          x={drawn.nutLeft - 1.2}
+          y={drawn.nutY - 3.4}
+          width={drawn.nutWidth + 2.4}
+          height="6.8"
+          rx="2.4"
+          fill={INK}
           stroke={LAVENDER}
-          strokeWidth="3.2"
-          strokeLinecap="round"
+          strokeWidth="2.6"
         />
 
         {rest.map((peg) => {
