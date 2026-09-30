@@ -58,12 +58,13 @@ export function SplitHeadstock({
       id="headstock"
       data-split-headstock
       data-split-shape="paddle-a"
-      className="relative mx-auto w-full max-w-[24rem]"
+      className="relative h-full w-full"
     >
       <svg
         viewBox="140 170 920 1180"
         data-split-viewbox={`${SPLIT_VIEW_W}x${SPLIT_VIEW_H}`}
-        className="mx-auto block h-auto w-full"
+        className="mx-auto block h-full w-full"
+        preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label="Split headstock"
       >

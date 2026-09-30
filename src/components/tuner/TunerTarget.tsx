@@ -52,18 +52,18 @@ export function TunerTarget({ cents, inTune, active }: TunerTargetProps) {
   const live = active && cents !== null
 
   return (
-    <div className="flex w-full flex-1 flex-col" aria-hidden>
+    <div className="flex w-full flex-col" aria-hidden>
       <div
         data-tuner-target
         className={cn(
-          'relative min-h-[15.5rem] w-full flex-1 overflow-hidden rounded-3xl bg-[#070A12] ring-1 sm:min-h-[18rem] wide:min-h-[12rem] wide:flex-none',
+          'relative h-[6rem] w-full overflow-hidden rounded-2xl bg-[#070A12] ring-1 sm:h-[6.75rem]',
           locked ? 'omni-hold-glow ring-emerald-400/70' : 'ring-white/8',
         )}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-between px-4 text-[0.65rem] font-medium uppercase tracking-wider text-slate-500">
+        <div className="pointer-events-none absolute inset-x-0 top-1.5 z-10 flex justify-between px-4 text-[0.6rem] font-medium uppercase tracking-wider text-slate-500">
           <span>Flat</span>
-          <span className={cn(locked ? 'text-emerald-300' : 'text-purple-300')}>
-            {locked ? 'Locked' : 'Target'}
+          <span className={cn('min-h-[1em]', locked ? 'text-emerald-300' : 'text-transparent')}>
+            {locked ? 'Locked' : ''}
           </span>
           <span>Sharp</span>
         </div>
@@ -95,7 +95,7 @@ export function TunerTarget({ cents, inTune, active }: TunerTargetProps) {
 
           <span
             className={cn(
-              'absolute left-1/2 top-0 size-[3.15rem] -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] transition-colors',
+              'absolute left-1/2 top-0 size-[2.85rem] -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] transition-colors',
               locked
                 ? 'border-emerald-400 bg-emerald-400/35 shadow-[0_0_28px_rgba(52,211,153,0.7)]'
                 : 'border-[#A855F7]/80 bg-[#A855F7]/10',
@@ -106,7 +106,7 @@ export function TunerTarget({ cents, inTune, active }: TunerTargetProps) {
             ref={ballRef}
             data-target-ball
             className={cn(
-              'absolute top-0 size-[2.55rem] -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors',
+              'absolute top-0 size-[2.3rem] -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors',
               !live && 'opacity-35',
               locked
                 ? 'bg-emerald-300 shadow-[0_0_28px_rgba(52,211,153,0.95)]'
@@ -116,7 +116,7 @@ export function TunerTarget({ cents, inTune, active }: TunerTargetProps) {
           />
         </div>
 
-        <div className="pointer-events-none absolute inset-x-[8%] bottom-3 flex justify-between text-[0.65rem] text-slate-500">
+        <div className="pointer-events-none absolute inset-x-[8%] bottom-1.5 flex justify-between text-[0.6rem] text-slate-500">
           <span
             className="absolute -translate-x-1/2"
             style={{ left: `${50 - REACH * 100}%` }}

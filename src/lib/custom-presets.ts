@@ -27,7 +27,7 @@ export type TunerPrefs = {
 }
 
 export function parseDisplayMode(value: unknown): TunerDisplayMode {
-  return value === 'target' ? 'target' : 'strobe'
+  return value === 'strobe' ? 'strobe' : 'target'
 }
 
 export function parseLayoutMode(value: unknown): TunerLayoutMode {
@@ -113,7 +113,7 @@ export function loadTunerPrefs(): TunerPrefs {
     instrumentId: 'guitar-6',
     a4Hz: A4_HZ,
     autoString: true,
-    displayMode: 'strobe',
+    displayMode: 'target',
     layoutMode: 'headstock',
   }
   if (typeof localStorage === 'undefined') return fallback

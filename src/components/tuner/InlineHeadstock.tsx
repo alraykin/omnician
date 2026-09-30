@@ -63,12 +63,13 @@ export function InlineHeadstock({
       id="inline-headstock"
       data-inline-headstock
       data-inline-shape="v4-svg"
-      className="relative mx-auto w-full max-w-[24rem]"
+      className="relative h-full w-full"
     >
       <svg
         viewBox="240 160 720 1240"
         data-inline-viewbox={`${INLINE_VIEW_W}x${INLINE_VIEW_H}`}
-        className="mx-auto block h-auto w-full"
+        className="mx-auto block h-full w-full"
+        preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label="Inline headstock"
       >

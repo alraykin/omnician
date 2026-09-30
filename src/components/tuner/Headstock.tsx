@@ -55,28 +55,36 @@ export function Headstock({
         </label>
       </div>
 
-      {effectiveLayout === 'inline' ? (
-        <InlineHeadstock
-          strings={strings}
-          config={config}
-          selectedId={selectedId}
-          tunedIds={tunedIds}
-          inTune={inTune}
-          live={live}
-          onTapPeg={onTapPeg}
-        />
-      ) : (
-        <SplitHeadstock
-          strings={strings}
-          config={config}
-          selectedId={selectedId}
-          tunedIds={tunedIds}
-          inTune={inTune}
-          live={live}
-          onTapPeg={onTapPeg}
-        />
-      )}
-      <p className="mt-2 text-center text-[0.65rem] leading-4 text-slate-500">
+      <div
+        data-headstock-stage
+        data-headstock-layout={effectiveLayout}
+        className="relative mx-auto h-[17.75rem] w-full max-w-[16rem] overflow-hidden sm:h-[20rem] sm:max-w-[18rem] wide:h-[22.5rem] wide:max-w-[20rem]"
+      >
+        <div className="absolute inset-0 flex items-center justify-center">
+          {effectiveLayout === 'inline' ? (
+            <InlineHeadstock
+              strings={strings}
+              config={config}
+              selectedId={selectedId}
+              tunedIds={tunedIds}
+              inTune={inTune}
+              live={live}
+              onTapPeg={onTapPeg}
+            />
+          ) : (
+            <SplitHeadstock
+              strings={strings}
+              config={config}
+              selectedId={selectedId}
+              tunedIds={tunedIds}
+              inTune={inTune}
+              live={live}
+              onTapPeg={onTapPeg}
+            />
+          )}
+        </div>
+      </div>
+      <p className="mt-1.5 hidden text-center text-[0.65rem] leading-4 text-slate-500 sm:block">
         Tap a peg to hear its pitch and set the target. Hold a string in tune to
         lock it green — it stays green until you tap that peg or change the tuning.
       </p>

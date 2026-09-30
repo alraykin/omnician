@@ -39,6 +39,6 @@ assert.ok(Math.abs(centsBetween(440, 69, 415)) > 90)
 
 assert.equal(parseDisplayMode('target'), 'target')
 assert.equal(parseDisplayMode('strobe'), 'strobe')
-assert.equal(parseDisplayMode('nope'), 'strobe')
+assert.equal(parseDisplayMode('nope'), 'target')
 
 console.log('a4-reference: 16 checks ok')

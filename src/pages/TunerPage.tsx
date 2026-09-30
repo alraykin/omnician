@@ -7,8 +7,6 @@ import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
 import { Headstock } from '@/components/tuner/Headstock'
 import { InputPicker } from '@/components/tuner/InputPicker'
 import { TunerDebugOverlay } from '@/components/tuner/TunerDebugOverlay'
-import { TunerDisplayToggle } from '@/components/tuner/TunerDisplayToggle'
-import { TunerGauge } from '@/components/tuner/TunerGauge'
 import { TunerTarget } from '@/components/tuner/TunerTarget'
 import { TuningSheet } from '@/components/tuner/TuningSheet'
 import { useCustomTunings } from '@/hooks/useCustomTunings'
@@ -17,7 +15,6 @@ import {
   loadTunerPrefs,
   parseLayoutMode,
   saveTunerPrefs,
-  type TunerDisplayMode,
   type TunerLayoutMode,
 } from '@/lib/custom-presets'
 import {
@@ -82,13 +79,6 @@ export function TunerPage() {
       if (query === '1') return true
     }
     return prefs.autoString
-  })
-  const [displayMode, setDisplayMode] = useState<TunerDisplayMode>(() => {
-    if (typeof window !== 'undefined') {
-      const query = new URLSearchParams(window.location.search).get('display')
-      if (query === 'strobe' || query === 'target') return query
-    }
-    return prefs.displayMode
   })
   const [layoutMode, setLayoutMode] = useState<TunerLayoutMode>(() => {
     if (typeof window !== 'undefined') {
@@ -161,10 +151,10 @@ export function TunerPage() {
       instrumentId: activeInstrument,
       a4Hz,
       autoString,
-      displayMode,
+      displayMode: 'target',
       layoutMode,
     })
-  }, [activeInstrument, a4Hz, autoString, current.id, displayMode, layoutMode])
+  }, [activeInstrument, a4Hz, autoString, current.id, layoutMode])
 
   useEffect(() => {
     const query =
@@ -363,12 +353,12 @@ export function TunerPage() {
           <A4ReferenceControl a4Hz={a4Hz} onChange={setA4Hz} />
         </div>
 
-        <div className="mt-4">
+        <div className="mt-2">
           <button
             type="button"
             data-tuning-change
             onClick={() => setPickerOpen(true)}
-            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-[#141A28] px-4 py-3 text-left"
+            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-[#141A28] px-4 py-2.5 text-left"
           >
             <span>
               <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
@@ -387,7 +377,7 @@ export function TunerPage() {
 
         <section
           className={cn(
-            'relative mt-4 flex min-h-0 flex-1 flex-col items-center overflow-hidden rounded-3xl border px-4 py-4 sm:px-6 sm:py-5 wide:grid wide:grid-cols-2 wide:items-start wide:gap-6',
+            'relative mt-2 flex min-h-0 flex-1 flex-col items-center overflow-x-hidden rounded-3xl border px-3 py-2 sm:px-6 sm:py-4',
             celebrate
               ? 'omni-all-tuned-screen border-emerald-300/80 bg-emerald-500/16'
               : inTune && live
@@ -400,79 +390,10 @@ export function TunerPage() {
           data-all-tuned={celebrate ? '1' : '0'}
           data-tuned-count={tunedIds.size}
         >
-          <div className="flex min-h-0 w-full flex-1 flex-col items-center">
-          <NoteDisplay
-            live={live}
-            inTune={inTune}
-            sharpName={
-              instrumentMode && activeString
-                ? activeString.label
-                : (reading?.sharpName ?? (demo.cents !== null ? demo.sharpName : undefined))
-            }
-            flatName={
-              instrumentMode && activeString
-                ? activeString.label
-                : (reading?.flatName ?? (demo.cents !== null ? demo.flatName : undefined))
-            }
-            isNatural={
-              instrumentMode && activeString
-                ? !/[♯#♭b]/.test(activeString.label)
-                : (reading?.isNatural ?? (demo.cents !== null ? demo.isNatural : undefined))
-            }
-            octave={
-              instrumentMode && activeString
-                ? activeString.octave
-                : (reading?.octave ?? (demo.cents !== null ? demo.octave : undefined))
-            }
-            target={
-              instrumentMode && activeString
-                ? `${activeString.label}${activeString.octave} · ${activeString.stringNo}${ordinal(activeString.stringNo)}`
-                : null
-            }
-          />
-
-          <p
-            className={cn(
-              'mt-2 text-lg font-semibold tabular-nums',
-              !live && 'text-slate-500',
-              live && inTune && 'text-emerald-300',
-              live && !inTune && displayCents !== null && displayCents < 0 &&
-                'text-sky-300',
-              live && !inTune && displayCents !== null && displayCents > 0 &&
-                'text-orange-300',
-            )}
-          >
-            {live && displayCents !== null
-              ? formatCents(displayCents, inTune, targetLabel)
-              : '— cents'}
-          </p>
-
-          <div className="mt-3 w-full max-w-md">
-            <TunerDisplayToggle mode={displayMode} onChange={setDisplayMode} />
-          </div>
-
-          <div className="mt-2 flex min-h-0 w-full flex-1 flex-col">
-            {displayMode === 'target' ? (
-              <TunerTarget
-                cents={displayCents}
-                inTune={inTune}
-                active={live}
-              />
-            ) : (
-              <TunerGauge
-                cents={displayCents}
-                readout={live && rawCents !== null ? rawCents : null}
-                inTune={inTune}
-                active={live}
-              />
-            )}
-          </div>
-          </div>
-
           {instrumentMode ? (
             <div
               className={cn(
-                'relative mt-4 w-full wide:mt-2',
+                'relative w-full',
                 celebrate && (demo.glow ? 'omni-all-tuned-hold' : 'omni-all-tuned'),
               )}
             >
@@ -480,54 +401,110 @@ export function TunerPage() {
                 <div className="omni-all-tuned-veil" aria-hidden data-all-tuned-veil />
               ) : null}
               <div className="relative z-10">
-              <Headstock
-                strings={strings}
-                config={activeInstrument}
-                selectedId={activeString?.id ?? null}
-                tunedIds={tunedIds}
-                inTune={inTune}
-                live={live}
-                autoString={autoString}
-                onAutoChange={(value) => {
-                  setAutoString(value)
-                  setAutoId(value ? (activeString?.id ?? null) : null)
-                }}
-                onTapPeg={(string) => {
-                  playReferenceTone(midiToFreq(string.midi, a4Hz), family.id)
-                  const index = strings.findIndex((item) => item.id === string.id)
-                  if (index >= 0) setFocusIndex(index)
-                  if (autoString) setAutoId(string.id)
-                  setTunedIds((currentIds) => {
-                    if (!currentIds.has(string.id)) return currentIds
-                    const nextIds = new Set(currentIds)
-                    nextIds.delete(string.id)
-                    return nextIds
-                  })
-                  if (holdRef.current?.id === string.id) {
-                    window.clearTimeout(holdRef.current.timer)
-                    holdRef.current = null
-                  }
-                }}
-                layoutMode={layoutMode}
-                onLayoutChange={setLayoutMode}
-              />
+                <Headstock
+                  strings={strings}
+                  config={activeInstrument}
+                  selectedId={activeString?.id ?? null}
+                  tunedIds={tunedIds}
+                  inTune={inTune}
+                  live={live}
+                  autoString={autoString}
+                  onAutoChange={(value) => {
+                    setAutoString(value)
+                    setAutoId(value ? (activeString?.id ?? null) : null)
+                  }}
+                  onTapPeg={(string) => {
+                    playReferenceTone(midiToFreq(string.midi, a4Hz), family.id)
+                    const index = strings.findIndex((item) => item.id === string.id)
+                    if (index >= 0) setFocusIndex(index)
+                    if (autoString) setAutoId(string.id)
+                    setTunedIds((currentIds) => {
+                      if (!currentIds.has(string.id)) return currentIds
+                      const nextIds = new Set(currentIds)
+                      nextIds.delete(string.id)
+                      return nextIds
+                    })
+                    if (holdRef.current?.id === string.id) {
+                      window.clearTimeout(holdRef.current.timer)
+                      holdRef.current = null
+                    }
+                  }}
+                  layoutMode={layoutMode}
+                  onLayoutChange={setLayoutMode}
+                />
               </div>
             </div>
           ) : (
-            <p className="mt-4 w-full text-center text-sm leading-6 text-slate-500 wide:mt-2">
+            <p className="w-full text-center text-sm leading-6 text-slate-500">
               Listening for the nearest note. Set the reference with A4 above.
             </p>
           )}
 
+          <div className="mt-1.5 flex w-full flex-col items-center">
+            <NoteDisplay
+              live={live}
+              inTune={inTune}
+              sharpName={
+                instrumentMode && activeString
+                  ? activeString.label
+                  : (reading?.sharpName ?? (demo.cents !== null ? demo.sharpName : undefined))
+              }
+              flatName={
+                instrumentMode && activeString
+                  ? activeString.label
+                  : (reading?.flatName ?? (demo.cents !== null ? demo.flatName : undefined))
+              }
+              isNatural={
+                instrumentMode && activeString
+                  ? !/[♯#♭b]/.test(activeString.label)
+                  : (reading?.isNatural ?? (demo.cents !== null ? demo.isNatural : undefined))
+              }
+              octave={
+                instrumentMode && activeString
+                  ? activeString.octave
+                  : (reading?.octave ?? (demo.cents !== null ? demo.octave : undefined))
+              }
+              target={
+                instrumentMode && activeString
+                  ? `${activeString.label}${activeString.octave} · ${activeString.stringNo}${ordinal(activeString.stringNo)}`
+                  : null
+              }
+            />
+
+            <p
+              className={cn(
+                'mt-0.5 text-sm font-semibold tabular-nums sm:text-base',
+                !live && 'text-slate-500',
+                live && inTune && 'text-emerald-300',
+                live && !inTune && displayCents !== null && displayCents < 0 &&
+                  'text-sky-300',
+                live && !inTune && displayCents !== null && displayCents > 0 &&
+                  'text-orange-300',
+              )}
+            >
+              {live && displayCents !== null
+                ? formatCents(displayCents, inTune, targetLabel)
+                : '— cents'}
+            </p>
+
+            <div className="mt-1.5 w-full max-w-md">
+              <TunerTarget
+                cents={displayCents}
+                inTune={inTune}
+                active={live}
+              />
+            </div>
+          </div>
+
           <p
             className={cn(
-              'mt-4 min-h-10 text-center text-sm leading-6 wide:col-span-2',
+              'mt-2 text-center text-xs leading-5 sm:min-h-8 sm:text-sm sm:leading-6',
               needsGesture || status === 'denied' ? 'text-slate-500' : 'text-slate-400',
             )}
           >
             {statusMessage(status, live, instrumentMode, autoString, needsGesture)}
           </p>
-          <div className="w-full wide:col-span-2">
+          <div className="w-full">
             <InputPicker />
             {showDebug ? <TunerDebugOverlay debug={debug} /> : null}
           </div>
@@ -594,10 +571,10 @@ function NoteDisplay({
   if (!live || !sharpName) {
     return (
       <div className="text-center">
-        <div className="text-5xl font-extrabold tracking-tight text-white/25 sm:text-6xl">
+        <div className="text-[2.15rem] font-extrabold leading-none tracking-tight text-white/25 sm:text-5xl">
           —
         </div>
-        <p className="mt-1 text-sm text-slate-500">Waiting for a note</p>
+        <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">Waiting for a note</p>
       </div>
     )
   }
@@ -606,12 +583,12 @@ function NoteDisplay({
     <div className="text-center">
       <div
         className={cn(
-          'relative inline-flex items-start text-5xl font-extrabold tracking-tight sm:text-6xl',
+          'relative inline-flex items-start text-[2.15rem] font-extrabold leading-none tracking-tight sm:text-5xl',
           inTune ? 'text-emerald-300' : 'text-white',
         )}
       >
         {sharpName}
-        <span className="ml-1 align-super text-2xl font-semibold text-slate-400 sm:text-3xl">
+        <span className="ml-1 align-super text-lg font-semibold text-slate-400 sm:text-2xl">
           {octave}
         </span>
         {inTune ? (
@@ -620,7 +597,7 @@ function NoteDisplay({
           </span>
         ) : null}
       </div>
-      <p className="mt-1 text-sm text-slate-400">
+      <p className="mt-0.5 text-xs text-slate-400 sm:text-sm">
         {isNatural ? 'Natural' : `${sharpName} / ${flatName}`}
         {target ? ` · ${target}` : ''}
       </p>
@@ -668,7 +645,7 @@ function statusMessage(
   }
   return instrumentMode
     ? 'Auto is off. The red peg is locked — play that string, or tap another peg to change the target.'
-    : 'Play a steady note. The strobe crawls with true cents; green lock is ±1.0 ¢ and never hides the number.'
+    : 'Play a steady note. The needle follows true cents; green lock is ±1.0 ¢ and never hides the number.'
 }
 
 function ordinal(value: number): string {
