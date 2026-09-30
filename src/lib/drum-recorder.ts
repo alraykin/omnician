@@ -15,6 +15,7 @@ import {
 } from '@/lib/rhythm'
 
 export const RECORD_TIP_KEY = 'omnician.drums.record-tip.v1'
+export const RECORD_CLICK_KEY = 'omnician.drums.record-click.v1'
 
 export type QuantizeId = 'smart' | '8' | '16' | '8t' | '16t' | 'off'
 
@@ -109,6 +110,26 @@ export function loadRecordTipDismissed(): boolean {
 export function dismissRecordTip(): void {
   try {
     localStorage.setItem(RECORD_TIP_KEY, '1')
+  } catch {
+    // Private mode.
+  }
+}
+
+/** Recorder guide click: default on. Stored on this device only. */
+export function loadRecordClick(): boolean {
+  if (typeof localStorage === 'undefined') return true
+  try {
+    const raw = localStorage.getItem(RECORD_CLICK_KEY)
+    if (raw == null) return true
+    return raw !== '0'
+  } catch {
+    return true
+  }
+}
+
+export function saveRecordClick(on: boolean): void {
+  try {
+    localStorage.setItem(RECORD_CLICK_KEY, on ? '1' : '0')
   } catch {
     // Private mode.
   }

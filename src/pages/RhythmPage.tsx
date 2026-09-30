@@ -44,6 +44,7 @@ import {
   type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
+import { loadRecordClick } from '@/lib/drum-recorder'
 import { onCaptureStarting, preparePlaybackFromGesture } from '@/lib/audio-context'
 import { requestRawMic } from '@/lib/mic-capture'
 import { playWheelTick } from '@/lib/rhythm-audio'
@@ -107,6 +108,7 @@ export function RhythmPage() {
   })
   const [recording, setRecording] = useState(false)
   const [recordCountIn, setRecordCountIn] = useState(true)
+  const [recordGuideClick, setRecordGuideClick] = useState(() => loadRecordClick())
   const recorderLoopRef = useRef<(() => void) | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [accentEdit, setAccentEdit] = useState(false)
@@ -167,6 +169,7 @@ export function RhythmPage() {
     },
     loopBarIndex: null,
     recordCycle: recording,
+    recordClick: recording && recordGuideClick,
     forcePrecount: recording ? recordCountIn : undefined,
     onBarLoop: () => {
       recorderLoopRef.current?.()
@@ -1129,6 +1132,8 @@ export function RhythmPage() {
           onLoopRef={recorderLoopRef}
           countIn={recordCountIn}
           onCountIn={setRecordCountIn}
+          clickOn={recordGuideClick}
+          onClickOn={setRecordGuideClick}
           demo={recorderDemo}
         />
       ) : null}

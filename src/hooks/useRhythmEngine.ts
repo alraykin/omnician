@@ -144,6 +144,7 @@ export function useRhythmEngine({
   onTempoCue,
   loopBarIndex = null,
   recordCycle = false,
+  recordClick = false,
   forcePrecount,
   onBarLoop,
 }: {
@@ -162,6 +163,8 @@ export function useRhythmEngine({
   loopBarIndex?: number | null
   /** Recorder plays every bar in order, then loops from bar 1. */
   recordCycle?: boolean
+  /** Metronome click on each beat while the recorder is looping (not written into the grid). */
+  recordClick?: boolean
   /** Recorder count-in: true force on, false force off, undefined = existing Drums/SB rules. */
   forcePrecount?: boolean
   onBarLoop?: () => void
@@ -195,6 +198,7 @@ export function useRhythmEngine({
   const onTempoCueRef = useRef(onTempoCue)
   const loopBarRef = useRef(loopBarIndex)
   const recordCycleRef = useRef(recordCycle)
+  const recordClickRef = useRef(recordClick)
   const forcePrecountRef = useRef(forcePrecount)
   const onBarLoopRef = useRef(onBarLoop)
   const playbackBpmRef = useRef(bpm)
@@ -222,6 +226,7 @@ export function useRhythmEngine({
   onTempoCueRef.current = onTempoCue
   loopBarRef.current = loopBarIndex
   recordCycleRef.current = recordCycle
+  recordClickRef.current = recordClick
   forcePrecountRef.current = forcePrecount
   onBarLoopRef.current = onBarLoop
 
@@ -721,7 +726,18 @@ export function useRhythmEngine({
           }
 
           if (clickMode) scheduleClickPulse(barIndex, bar, step, playTime, slotTime)
-          else scheduleDrumStep(barIndex, step, slotTime)
+          else {
+            scheduleDrumStep(barIndex, step, slotTime)
+            if (
+              recordCycleRef.current &&
+              recordClickRef.current &&
+              sbPhaseRef.current === 'pattern' &&
+              isBeatStep(step, bar.subdivision)
+            ) {
+              const beat = beatIndexForStep(step, bar.beats, bar.subdivision)
+              kit.click(playTime, beat === 0 ? 2 : 0, clickRef.current, true)
+            }
+          }
 
           const nextStep = step + 1
           if (nextStep >= length) {

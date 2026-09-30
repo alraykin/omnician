@@ -17,6 +17,8 @@ import {
   totalQuantizeError,
   tripletsClearlyBetter,
   voiceForRecorderKey,
+  loadRecordClick,
+  saveRecordClick,
 } from '../src/lib/drum-recorder.ts'
 import { emptyPattern, makeBar, setHit, stepsInBar } from '../src/lib/rhythm.ts'
 
@@ -147,5 +149,21 @@ const rebuilt = requantizePassTo(
 )
 assert.equal(rebuilt.bar.subdivision, 6)
 assert.equal(rebuilt.hits[0]?.step, 4)
+
+const store = new Map<string, string>()
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value)
+    },
+  },
+})
+assert.equal(loadRecordClick(), true)
+saveRecordClick(false)
+assert.equal(loadRecordClick(), false)
+saveRecordClick(true)
+assert.equal(loadRecordClick(), true)
 
 console.log('drum-recorder: ok')

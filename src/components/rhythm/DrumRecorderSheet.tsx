@@ -23,6 +23,7 @@ import {
   offsetInBar,
   placeQuantizedHit,
   requantizePassTo,
+  saveRecordClick,
   usedVoices,
   voiceForRecorderKey,
   type PassHit,
@@ -71,6 +72,8 @@ type DrumRecorderSheetProps = {
   onLoopRef: MutableRefObject<(() => void) | null>
   countIn: boolean
   onCountIn: (value: boolean) => void
+  clickOn: boolean
+  onClickOn: (value: boolean) => void
   demo?: DrumRecorderDemo
 }
 
@@ -92,6 +95,8 @@ export function DrumRecorderSheet({
   onLoopRef,
   countIn,
   onCountIn,
+  clickOn,
+  onClickOn,
   demo,
 }: DrumRecorderSheetProps) {
   const playhead = usePlayhead(playheadStore)
@@ -396,24 +401,20 @@ export function DrumRecorderSheet({
               }
             />
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 rec-fit:gap-1.5">
               <ModeSwitch mode={mode} onChange={setMode} />
-              <label className="ml-auto flex items-center gap-2 text-xs font-semibold text-slate-300">
-                Count-in
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={countIn}
-                  data-count-in={countIn ? '1' : '0'}
-                  onClick={() => onCountIn(!countIn)}
-                  className={cn(
-                    'inline-flex h-7 w-12 items-center rounded-full p-0.5 rec-fit:h-8 rec-fit:w-[3.25rem]',
-                    countIn ? 'justify-end bg-[#A855F7]' : 'justify-start bg-white/15',
-                  )}
-                >
-                  <span className="block size-6 rounded-full bg-white" />
-                </button>
-              </label>
+              <div className="ml-auto flex shrink-0 items-center gap-2 rec-fit:gap-1.5">
+                <RecSwitch
+                  label="Click"
+                  testId="record-click"
+                  on={clickOn}
+                  onChange={(next) => {
+                    onClickOn(next)
+                    saveRecordClick(next)
+                  }}
+                />
+                <RecSwitch label="Count-in" testId="count-in" on={countIn} onChange={onCountIn} />
+              </div>
             </div>
 
             <div>
@@ -723,6 +724,38 @@ function MiniLoopGrid({
   )
 }
 
+function RecSwitch({
+  label,
+  testId,
+  on,
+  onChange,
+}: {
+  label: string
+  testId: string
+  on: boolean
+  onChange: (value: boolean) => void
+}) {
+  return (
+    <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+      {label}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        data-count-in={testId === 'count-in' ? (on ? '1' : '0') : undefined}
+        data-record-click={testId === 'record-click' ? (on ? '1' : '0') : undefined}
+        onClick={() => onChange(!on)}
+        className={cn(
+          'inline-flex h-7 w-11 items-center rounded-full p-0.5 rec-fit:h-8 rec-fit:w-12',
+          on ? 'justify-end bg-[#A855F7]' : 'justify-start bg-white/15',
+        )}
+      >
+        <span className="block size-6 rounded-full bg-white" />
+      </button>
+    </label>
+  )
+}
+
 function ModeSwitch({
   mode,
   onChange,
@@ -734,7 +767,7 @@ function ModeSwitch({
     <div
       role="radiogroup"
       aria-label="Record mode"
-      className="grid min-w-[11rem] grid-cols-2 rounded-full bg-white/6 p-1 ring-1 ring-white/10"
+      className="grid min-w-[11rem] grid-cols-2 rounded-full bg-white/6 p-1 ring-1 ring-white/10 rec-fit:min-w-[8.25rem]"
     >
       {(['overdub', 'replace'] as const).map((id) => (
         <button
