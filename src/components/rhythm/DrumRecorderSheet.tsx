@@ -2,12 +2,15 @@ import { RotateCcw, Trash2, X } from 'lucide-react'
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type MutableRefObject,
   type PointerEvent as ReactPointerEvent,
+  type TouchEvent as ReactTouchEvent,
 } from 'react'
+import { createPortal } from 'react-dom'
 
 import { DrumPadIcon } from '@/components/rhythm/DrumPadIcon'
 import { Button } from '@/components/ui/button'
@@ -122,6 +125,7 @@ export function DrumRecorderSheet({
   const touched = useRef(new Map<number, Set<VoiceId>>())
   const undoStack = useRef<RhythmBar[][]>([])
   const passStart = useRef<RhythmBar[]>(bars.map(cloneBar))
+  const overlayRef = useRef<HTMLDivElement>(null)
   const barsRef = useRef(bars)
   barsRef.current = bars
   const barRef = useRef(bar)
@@ -230,6 +234,75 @@ export function DrumRecorderSheet({
     }
   }, [onLoop, onLoopRef])
 
+  useEffect(() => {
+    if (!open) return
+    const frame = document.querySelector<HTMLElement>('[data-app-frame]')
+    const html = document.documentElement
+    const body = document.body
+    const prev = {
+      bodyOverflow: body.style.overflow,
+      bodyTouch: body.style.touchAction,
+      htmlOverflow: html.style.overflow,
+      htmlOverscroll: html.style.overscrollBehavior,
+      framePointer: frame?.style.pointerEvents ?? '',
+    }
+    body.style.overflow = 'hidden'
+    body.style.touchAction = 'none'
+    html.style.overflow = 'hidden'
+    html.style.overscrollBehavior = 'none'
+    if (frame) {
+      frame.setAttribute('inert', '')
+      frame.setAttribute('aria-hidden', 'true')
+      frame.style.pointerEvents = 'none'
+    }
+    return () => {
+      body.style.overflow = prev.bodyOverflow
+      body.style.touchAction = prev.bodyTouch
+      html.style.overflow = prev.htmlOverflow
+      html.style.overscrollBehavior = prev.htmlOverscroll
+      if (frame) {
+        frame.removeAttribute('inert')
+        frame.removeAttribute('aria-hidden')
+        frame.style.pointerEvents = prev.framePointer
+      }
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const blockOutside = (event: Event) => {
+      const root = overlayRef.current
+      const node = event.target
+      if (root && node instanceof Node && root.contains(node)) return
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const opts: AddEventListenerOptions = { capture: true, passive: false }
+    document.addEventListener('pointerdown', blockOutside, opts)
+    document.addEventListener('touchstart', blockOutside, opts)
+    document.addEventListener('click', blockOutside, opts)
+    return () => {
+      document.removeEventListener('pointerdown', blockOutside, opts)
+      document.removeEventListener('touchstart', blockOutside, opts)
+      document.removeEventListener('click', blockOutside, opts)
+    }
+  }, [open])
+
+  useLayoutEffect(() => {
+    if (!open) return
+    const root = overlayRef.current
+    if (!root) return
+    const blockGhost = (event: TouchEvent) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      if (target.closest('[data-drum-pad], [data-drum-recorder-backdrop]')) {
+        event.preventDefault()
+      }
+    }
+    root.addEventListener('touchstart', blockGhost, { passive: false })
+    return () => root.removeEventListener('touchstart', blockGhost)
+  }, [open])
+
   const undoPass = useCallback(() => {
     const prev = undoStack.current.pop()
     const snapshot = prev ?? passStart.current
@@ -308,18 +381,37 @@ export function DrumRecorderSheet({
   const grid = patternToGrid(bar.pattern, bar.beats, bar.subdivision)
   const meter = meterLabel(bar.beats, bar.beatUnit)
   const looping = playing && !playhead.precount
+  const countBeatNumber = Math.max(1, countBeat)
 
-  return (
+  const captureBackdrop = (event: ReactPointerEvent<HTMLDivElement> | ReactTouchEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  const sheet = (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-0 rec-wide:items-center rec-wide:p-4"
+      ref={overlayRef}
+      className="fixed inset-0 z-[90] flex items-end justify-center bg-black/70 p-0 rec-wide:items-center rec-wide:p-4"
       data-drum-recorder
+      data-drum-recorder-backdrop
       data-recording={liveRecording ? '1' : '0'}
       data-bars-count={barsCount}
+      onPointerDown={captureBackdrop}
+      onTouchStart={captureBackdrop}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return
+        event.preventDefault()
+        event.stopPropagation()
+      }}
     >
       <div
         role="dialog"
+        aria-modal="true"
         aria-labelledby="drum-recorder-title"
         className="flex max-h-[min(94svh,52rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.6rem] border border-white/10 bg-[#0F1422] pb-[max(0.45rem,env(safe-area-inset-bottom,0px))] rec-wide:max-h-[min(90svh,46rem)] rec-wide:max-w-[68rem] rec-wide:rounded-3xl rec-wide:pb-0 rec-fit:max-h-[100svh] rec-fit:rounded-none rec-fit:border-0 rec-fit:pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]"
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-3 px-4 pb-2 pt-3 sm:px-5 rec-fit:px-3 rec-fit:pb-1 rec-fit:pt-2">
           <div className="min-w-0">
@@ -378,7 +470,9 @@ export function DrumRecorderSheet({
               }
               step={playhead.step}
               steps={steps}
+              beats={bar.beats}
               precount={countOverlay}
+              countBeat={countBeatNumber}
               onToggleRecord={onToggleRecord}
               onUndo={undoPass}
               onClear={() => setClearAsk(true)}
@@ -494,20 +588,6 @@ export function DrumRecorderSheet({
             className="relative mt-2 shrink-0 rec-wide:mt-0 rec-fit:mt-1 rec-fit:min-h-0 rec-fit:flex-1 rec-fit:overflow-hidden"
           >
             <PadGrid keysOn={keysOn} lit={lit} onStrike={strike} />
-            {countOverlay ? (
-              <div
-                data-count-in-overlay
-                className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-[#070A12]/80 backdrop-blur-[2px]"
-              >
-                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                  Count-in
-                </p>
-                <p className="text-[4.5rem] font-extrabold leading-none tabular-nums text-white rec-fit:text-[3.6rem] rec-wide:text-[6.5rem]">
-                  {Math.max(1, countBeat)}
-                </p>
-                <p className="mt-1 text-sm text-slate-400">Recording starts on the 1</p>
-              </div>
-            ) : null}
           </div>
         </div>
       </div>
@@ -532,6 +612,8 @@ export function DrumRecorderSheet({
       ) : null}
     </div>
   )
+
+  return createPortal(sheet, document.body)
 }
 
 function TransportCard({
@@ -543,7 +625,9 @@ function TransportCard({
   beat,
   step,
   steps,
+  beats,
   precount,
+  countBeat,
   onToggleRecord,
   onUndo,
   onClear,
@@ -556,15 +640,19 @@ function TransportCard({
   beat: number
   step: number
   steps: number
+  beats: number
   precount: boolean
+  countBeat: number
   onToggleRecord: () => void
   onUndo: () => void
   onClear: () => void
 }) {
   const progress = precount || beat < 0 || steps < 1 ? 0 : Math.min(1, (step + 0.5) / steps)
+  const shownCount = Math.max(1, countBeat)
   return (
     <div
       data-recorder-transport
+      data-count-in-active={precount ? '1' : '0'}
       className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A28] px-3 py-2 sm:py-3 rec-fit:gap-2 rec-fit:px-2 rec-fit:py-1.5"
     >
       <button
@@ -590,16 +678,36 @@ function TransportCard({
       </button>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#FF2D55]/15 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-[0.12em] text-[#FF4D6D]">
-            <span className="size-1.5 rounded-full bg-[#FF4D6D]" />
-            Rec
+          <span
+            data-count-in-pill={precount ? String(shownCount) : undefined}
+            className="inline-flex items-center gap-1 rounded-full bg-[#FF2D55]/15 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-[0.12em] text-[#FF4D6D]"
+          >
+            <span className={cn('size-1.5 rounded-full bg-[#FF4D6D]', precount && 'omni-count-dot')} />
+            {precount ? `Count-in ${shownCount}` : 'Rec'}
           </span>
+          {precount ? (
+            <span data-count-beats className="inline-flex items-center gap-1" aria-hidden>
+              {Array.from({ length: Math.max(1, beats) }, (_, index) => (
+                <span
+                  key={index}
+                  className={cn(
+                    'size-1.5 rounded-full',
+                    index === shownCount - 1
+                      ? 'bg-white omni-count-dot'
+                      : index < shownCount - 1
+                        ? 'bg-[#FF4D6D]'
+                        : 'bg-white/20',
+                  )}
+                />
+              ))}
+            </span>
+          ) : null}
           <span className="text-sm font-semibold text-white rec-fit:text-xs">
             Pass {pass} · {mode === 'overdub' ? 'Overdub' : 'Replace'}
           </span>
         </div>
         <p className="mt-0.5 text-xs text-slate-400 rec-fit:text-[0.7rem]" data-rec-bar={`${barIndex + 1}/${barsCount}`}>
-          Bar {barIndex + 1} of {barsCount} · Beat {beat >= 0 ? beat + 1 : '—'}
+          Bar {barIndex + 1} of {barsCount} · Beat {precount ? shownCount : beat >= 0 ? beat + 1 : '—'}
           {recording && !precount ? ' · looping' : precount ? ' · count-in' : ''}
         </p>
         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10 rec-fit:mt-1 rec-fit:h-1">
@@ -798,8 +906,22 @@ function PadGrid({
   lit: Partial<Record<VoiceId, number>>
   onStrike: (voice: VoiceId) => void
 }) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const block = (event: TouchEvent) => {
+      event.preventDefault()
+    }
+    root.addEventListener('touchstart', block, { passive: false })
+    return () => root.removeEventListener('touchstart', block)
+  }, [])
   return (
-    <div data-pad-grid className="grid h-full min-h-0 grid-cols-4 gap-1.5 sm:gap-2 rec-fit:gap-1 rec-fit:grid-rows-4">
+    <div
+      ref={rootRef}
+      data-pad-grid
+      className="grid h-full min-h-0 grid-cols-4 gap-1.5 sm:gap-2 rec-fit:gap-1 rec-fit:grid-rows-4"
+    >
       {DRUM_PADS.map((pad) => (
         <DrumPad
           key={pad.voice}
@@ -834,11 +956,19 @@ function DrumPad({
   onStrike: (voice: VoiceId) => void
 }) {
   const caps = Array.isArray(keyCap) ? keyCap : [keyCap]
+  const lastAt = useRef(0)
+  const strikeOnce = () => {
+    const now = performance.now()
+    if (now - lastAt.current < 40) return
+    lastAt.current = now
+    onStrike(voice)
+  }
   const hit = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return
     event.preventDefault()
+    event.stopPropagation()
     event.currentTarget.setPointerCapture(event.pointerId)
-    onStrike(voice)
+    strikeOnce()
   }
   return (
     <button
@@ -846,9 +976,18 @@ function DrumPad({
       data-drum-pad={voice}
       data-pad-active={active ? '1' : '0'}
       onPointerDown={hit}
+      onTouchStart={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        strikeOnce()
+      }}
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+      }}
       onContextMenu={(event) => event.preventDefault()}
       className={cn(
-        'relative flex min-h-[3.55rem] max-[500px]:min-h-[2.75rem] touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#141A28] text-[#E9D5FF] sm:min-h-[5.4rem] rec-fit:h-full rec-fit:min-h-11 rec-fit:rounded-xl rec-fit:max-[500px]:min-h-11',
+        'relative flex min-h-[3.55rem] max-[500px]:min-h-[2.75rem] select-none flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#141A28] text-[#E9D5FF] [touch-action:none] sm:min-h-[5.4rem] rec-fit:h-full rec-fit:min-h-11 rec-fit:rounded-xl rec-fit:max-[500px]:min-h-11',
         wide &&
           'col-span-2 min-h-[4.15rem] max-[500px]:min-h-[3.15rem] sm:min-h-[6rem] rec-fit:min-h-11 rec-fit:max-[500px]:min-h-11',
         active && 'omni-pad-hit border-[#A855F7] bg-[#A855F7]/20 text-white',
