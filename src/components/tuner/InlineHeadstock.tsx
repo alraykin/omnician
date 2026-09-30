@@ -2,9 +2,11 @@ import { ArrowLeftRight } from 'lucide-react'
 
 import { usesCloverPegs } from '@/lib/headstock'
 import {
+  INLINE_NECK_FADE,
   INLINE_NUT,
   INLINE_VIEW_H,
   INLINE_VIEW_W,
+  INLINE_WORDMARK,
   layoutInline,
   type InlinePeg,
 } from '@/lib/inline-layout'
@@ -85,29 +87,36 @@ export function InlineHeadstock({
             </feMerge>
           </filter>
           <linearGradient
-            id="omnician-inline-neck-fade"
+            id="omnician-inline-drop-fade"
             x1="0"
             y1={drawn.nutY}
             x2="0"
-            y2={INLINE_VIEW_H}
-            gradientUnits="userSpaceOnUse"
-          >
-            <stop offset="0%" stopColor={LAVENDER} stopOpacity="0.95" />
-            <stop offset="55%" stopColor={LAVENDER} stopOpacity="0.45" />
-            <stop offset="100%" stopColor={LAVENDER} stopOpacity="0" />
-          </linearGradient>
-          <linearGradient
-            id="omnician-inline-string-fade"
-            x1="0"
-            y1={drawn.nutY}
-            x2="0"
-            y2={INLINE_VIEW_H}
+            y2={drawn.nutY + INLINE_NECK_FADE}
             gradientUnits="userSpaceOnUse"
           >
             <stop offset="0%" stopColor="white" stopOpacity="1" />
-            <stop offset="70%" stopColor="white" stopOpacity="0.55" />
+            <stop offset="45%" stopColor="white" stopOpacity="0.55" />
             <stop offset="100%" stopColor="white" stopOpacity="0" />
           </linearGradient>
+          <mask
+            id="omnician-inline-neck-mask"
+            maskUnits="userSpaceOnUse"
+            x="0"
+            y={drawn.nutY - 2}
+            width={INLINE_VIEW_W}
+            height={INLINE_NECK_FADE + 4}
+          >
+            <rect
+              x="0"
+              y={drawn.nutY - 2}
+              width={INLINE_VIEW_W}
+              height={INLINE_NECK_FADE + 4}
+              fill="url(#omnician-inline-drop-fade)"
+            />
+          </mask>
+          <clipPath id="omnician-inline-body-clip" clipPathUnits="userSpaceOnUse">
+            <path d={drawn.outline} />
+          </clipPath>
         </defs>
 
         <path
@@ -121,39 +130,26 @@ export function InlineHeadstock({
           filter="url(#omnician-inline-body-glow)"
         />
 
-        <line
-          x1={drawn.neckLeft}
-          y1={drawn.nutY}
-          x2={drawn.neckLeft}
-          y2={INLINE_VIEW_H}
-          stroke="url(#omnician-inline-neck-fade)"
-          strokeWidth={BODY_STROKE}
-          strokeLinecap="round"
-        />
-        <line
-          x1={drawn.neckRight}
-          y1={drawn.nutY}
-          x2={drawn.neckRight}
-          y2={INLINE_VIEW_H}
-          stroke="url(#omnician-inline-neck-fade)"
-          strokeWidth={BODY_STROKE}
-          strokeLinecap="round"
-        />
-        {Array.from({ length: 3 }, (_, index) => {
-          const t = (index + 1) / 4
-          return (
-            <line
-              key={t}
-              x1={drawn.neckLeft}
-              y1={drawn.nutY + drawn.neckH * t}
-              x2={drawn.neckRight}
-              y2={drawn.nutY + drawn.neckH * t}
-              stroke={LAVENDER}
-              strokeWidth="1.8"
-              opacity={0.42 - index * 0.1}
-            />
-          )
-        })}
+        <g mask="url(#omnician-inline-neck-mask)" data-inline-neck-fade>
+          <line
+            x1={drawn.neckLeft}
+            y1={drawn.nutY}
+            x2={drawn.neckLeft}
+            y2={drawn.nutY + INLINE_NECK_FADE}
+            stroke={LAVENDER}
+            strokeWidth={BODY_STROKE}
+            strokeLinecap="round"
+          />
+          <line
+            x1={drawn.neckRight}
+            y1={drawn.nutY}
+            x2={drawn.neckRight}
+            y2={drawn.nutY + INLINE_NECK_FADE}
+            stroke={LAVENDER}
+            strokeWidth={BODY_STROKE}
+            strokeLinecap="round"
+          />
+        </g>
 
         <path
           data-inline-outline
@@ -172,21 +168,18 @@ export function InlineHeadstock({
           data-inline-truss
         />
 
-        <text
-          x={drawn.wordX}
-          y={drawn.wordY}
-          fill={LAVENDER}
-          opacity="0.4"
-          fontSize="22"
-          fontWeight="600"
-          letterSpacing="6"
-          textAnchor="middle"
-          dominantBaseline="middle"
-          transform={`rotate(-90 ${drawn.wordX} ${drawn.wordY})`}
-          fontFamily="Outfit, ui-sans-serif, system-ui, sans-serif"
-        >
-          OMNICIAN
-        </text>
+        <image
+          href={INLINE_WORDMARK.src}
+          x={INLINE_WORDMARK.cx - INLINE_WORDMARK.length / 2}
+          y={INLINE_WORDMARK.cy - INLINE_WORDMARK.thickness / 2}
+          width={INLINE_WORDMARK.length}
+          height={INLINE_WORDMARK.thickness}
+          transform={`rotate(-90 ${INLINE_WORDMARK.cx} ${INLINE_WORDMARK.cy})`}
+          opacity={INLINE_WORDMARK.opacity}
+          preserveAspectRatio="xMidYMid meet"
+          clipPath="url(#omnician-inline-body-clip)"
+          data-inline-wordmark
+        />
 
         <rect
           x={INLINE_NUT.x}
@@ -251,7 +244,6 @@ function StringRun({
   color: string
   width: number
 }) {
-  const lit = color === GREEN || color === RED
   return (
     <g stroke={color} fill="none" strokeLinecap="round">
       <line
@@ -261,14 +253,16 @@ function StringRun({
         y2={peg.postY}
         strokeWidth={width}
       />
-      <line
-        x1={peg.nutX}
-        y1={peg.nutY}
-        x2={peg.nutX}
-        y2={INLINE_VIEW_H - 8}
-        stroke={lit ? color : 'url(#omnician-inline-string-fade)'}
-        strokeWidth={width}
-      />
+      <g mask="url(#omnician-inline-neck-mask)">
+        <line
+          x1={peg.nutX}
+          y1={peg.nutY}
+          x2={peg.nutX}
+          y2={peg.nutY + INLINE_NECK_FADE}
+          stroke={color}
+          strokeWidth={width}
+        />
+      </g>
     </g>
   )
 }

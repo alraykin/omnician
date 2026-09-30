@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { layoutModeLabel, parseLayoutMode } from '../src/lib/custom-presets.ts'
 import {
   INLINE_BUTTON_6,
+  INLINE_NECK_FADE,
   INLINE_NUT,
   INLINE_NUT_XS_6,
   INLINE_OUTLINE,
@@ -10,6 +11,7 @@ import {
   INLINE_POST_R_6,
   INLINE_VIEW_H,
   INLINE_VIEW_W,
+  INLINE_WORDMARK,
   inlinePegsFromTip,
   layoutInline,
 } from '../src/lib/inline-layout.ts'
@@ -26,6 +28,9 @@ assert.equal(isTwelveString('guitar-6', 6), false)
 assert.equal(isTwelveString('guitar-6', 12), true)
 assert.equal(INLINE_VIEW_W, 1200)
 assert.equal(INLINE_VIEW_H, 1400)
+assert.equal(INLINE_WORDMARK.src, '/brand/omnician-wordmark.png')
+assert.equal(INLINE_WORDMARK.opacity, 0.8)
+assert.ok(INLINE_NECK_FADE > 0 && INLINE_NECK_FADE < 120)
 assert.match(INLINE_OUTLINE, /^M550\.40 1235\.00/)
 assert.match(INLINE_OUTLINE, /785\.60 1235\.00 Z$/)
 

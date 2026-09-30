@@ -24,6 +24,19 @@ export const INLINE_NECK = { left: 550.4, right: 785.6, top: 1235 }
 export const INLINE_NUT_Y = 1235
 export const INLINE_WORD = { x: 815.5, y: 666.6 }
 
+/** Real /brand wordmark, rotated nut→tip on the treble side. */
+export const INLINE_WORDMARK = {
+  src: '/brand/omnician-wordmark.png',
+  cx: 818,
+  cy: 690,
+  length: 600,
+  thickness: 216,
+  opacity: 0.8,
+} as const
+
+/** Neck and strings fade out this far below the nut. */
+export const INLINE_NECK_FADE = 56
+
 /** Low E → high E on the approved 6-string. */
 export const INLINE_NUT_XS_6 = [571.1, 609.9, 648.6, 687.4, 726.1, 764.9] as const
 export const INLINE_POSTS_6 = [

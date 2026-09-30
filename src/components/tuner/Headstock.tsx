@@ -563,7 +563,7 @@ export function Headstock({
   const neckWidth = drawn.guitarShape ? drawn.nutWidth : drawn.nutWidth + 8
   const active = drawn.pegs.find((peg) => peg.string.id === selectedId) ?? null
   const rest = drawn.pegs.filter((peg) => peg.string.id !== selectedId)
-  const fretCount = config === 'banjo' ? 6 : 3
+  const neckFade = config === 'banjo' ? 48 : 36
 
   return (
     <div className="w-full" data-twelve-inline={twelveString ? 'off' : 'ok'}>
@@ -635,29 +635,33 @@ export function Headstock({
               </feMerge>
             </filter>
             <linearGradient
-              id="omnician-neck-fade"
+              id="omnician-drop-fade"
               x1="0"
               y1={drawn.nutY}
               x2="0"
-              y2={drawn.nutY + drawn.neckH}
-              gradientUnits="userSpaceOnUse"
-            >
-              <stop offset="0%" stopColor={LAVENDER} stopOpacity="0.95" />
-              <stop offset="55%" stopColor={LAVENDER} stopOpacity="0.45" />
-              <stop offset="100%" stopColor={LAVENDER} stopOpacity="0" />
-            </linearGradient>
-            <linearGradient
-              id="omnician-string-fade"
-              x1="0"
-              y1={drawn.nutY}
-              x2="0"
-              y2={drawn.nutY + drawn.neckH}
+              y2={drawn.nutY + neckFade}
               gradientUnits="userSpaceOnUse"
             >
               <stop offset="0%" stopColor="white" stopOpacity="1" />
-              <stop offset="70%" stopColor="white" stopOpacity="0.55" />
+              <stop offset="45%" stopColor="white" stopOpacity="0.55" />
               <stop offset="100%" stopColor="white" stopOpacity="0" />
             </linearGradient>
+            <mask
+              id="omnician-neck-mask"
+              maskUnits="userSpaceOnUse"
+              x="0"
+              y={drawn.nutY - 2}
+              width={drawn.viewW}
+              height={neckFade + 4}
+            >
+              <rect
+                x="0"
+                y={drawn.nutY - 2}
+                width={drawn.viewW}
+                height={neckFade + 4}
+                fill="url(#omnician-drop-fade)"
+              />
+            </mask>
           </defs>
 
           <path
@@ -677,39 +681,26 @@ export function Headstock({
             filter="url(#omnician-body-glow)"
           />
 
-          <line
-            x1={neckLeft}
-            y1={drawn.nutY}
-            x2={neckLeft}
-            y2={drawn.nutY + drawn.neckH}
-            stroke="url(#omnician-neck-fade)"
-            strokeWidth={BODY_STROKE}
-            strokeLinecap="round"
-          />
-          <line
-            x1={neckLeft + neckWidth}
-            y1={drawn.nutY}
-            x2={neckLeft + neckWidth}
-            y2={drawn.nutY + drawn.neckH}
-            stroke="url(#omnician-neck-fade)"
-            strokeWidth={BODY_STROKE}
-            strokeLinecap="round"
-          />
-          {Array.from({ length: fretCount }, (_, index) => {
-            const t = (index + 1) / (fretCount + 1)
-            return (
-              <line
-                key={t}
-                x1={neckLeft}
-                y1={drawn.nutY + drawn.neckH * t}
-                x2={neckLeft + neckWidth}
-                y2={drawn.nutY + drawn.neckH * t}
-                stroke={LAVENDER}
-                strokeWidth="1.15"
-                opacity={0.42 - index * 0.1}
-              />
-            )
-          })}
+          <g mask="url(#omnician-neck-mask)" data-split-neck-fade>
+            <line
+              x1={neckLeft}
+              y1={drawn.nutY}
+              x2={neckLeft}
+              y2={drawn.nutY + neckFade}
+              stroke={LAVENDER}
+              strokeWidth={BODY_STROKE}
+              strokeLinecap="round"
+            />
+            <line
+              x1={neckLeft + neckWidth}
+              y1={drawn.nutY}
+              x2={neckLeft + neckWidth}
+              y2={drawn.nutY + neckFade}
+              stroke={LAVENDER}
+              strokeWidth={BODY_STROKE}
+              strokeLinecap="round"
+            />
+          </g>
 
           <path
             d={guitarBatwing(
@@ -802,7 +793,7 @@ export function Headstock({
                         ? 1.55
                         : 1.45
                 }
-                toNeck={drawn.height}
+                toNeck={drawn.nutY + neckFade}
               />
             )
           })}
@@ -838,7 +829,7 @@ export function Headstock({
                         : 2.05
                       : 2.15
                 }
-                toNeck={drawn.height}
+                toNeck={drawn.nutY + neckFade}
               />
               <Peg
                 peg={active}
@@ -874,7 +865,6 @@ function StringRun({
   width: number
   toNeck: number
 }) {
-  const lit = color === GREEN || color === RED
   return (
     <g stroke={color} fill="none" strokeLinecap="round" strokeLinejoin="round">
       {peg.side === 'fifth' ? (
@@ -894,14 +884,16 @@ function StringRun({
             y2={peg.postY}
             strokeWidth={width}
           />
-          <line
-            x1={peg.nutX}
-            y1={peg.nutY}
-            x2={peg.nutX}
-            y2={toNeck - 4}
-            stroke={lit ? color : 'url(#omnician-string-fade)'}
-            strokeWidth={width}
-          />
+          <g mask="url(#omnician-neck-mask)">
+            <line
+              x1={peg.nutX}
+              y1={peg.nutY}
+              x2={peg.nutX}
+              y2={toNeck}
+              stroke={color}
+              strokeWidth={width}
+            />
+          </g>
         </>
       )}
     </g>
