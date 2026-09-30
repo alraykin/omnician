@@ -293,11 +293,12 @@ export function DrumRecorderSheet({
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-0 wide:items-center wide:p-4"
       data-drum-recorder
       data-recording={liveRecording ? '1' : '0'}
+      data-bars-count={barsCount}
     >
       <div
         role="dialog"
         aria-labelledby="drum-recorder-title"
-        className="flex max-h-[min(92svh,52rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.6rem] border border-white/10 bg-[#0F1422] pb-[max(0.6rem,env(safe-area-inset-bottom,0px))] wide:max-h-[min(90svh,46rem)] wide:max-w-[68rem] wide:rounded-3xl wide:pb-0"
+        className="flex max-h-[min(94svh,52rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.6rem] border border-white/10 bg-[#0F1422] pb-[max(0.6rem,env(safe-area-inset-bottom,0px))] wide:max-h-[min(90svh,46rem)] wide:max-w-[68rem] wide:rounded-3xl wide:pb-0"
       >
         <header className="flex items-start justify-between gap-3 px-4 pb-2 pt-3 sm:px-5">
           <div className="min-w-0">
@@ -305,8 +306,7 @@ export function DrumRecorderSheet({
               Record beat
             </h2>
             <p className="mt-0.5 truncate text-xs text-slate-400">
-              {beatName} · Bar {barIndex + 1}
-              {barsCount > 1 ? ` of ${barsCount}` : ''} · {bpm} BPM · {meter}
+              {beatName} · Bar {barIndex + 1} · {bpm} BPM · {meter}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -340,14 +340,20 @@ export function DrumRecorderSheet({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-5 wide:grid wide:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] wide:gap-5">
-          <div className="flex flex-col gap-3">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-3 sm:px-5 wide:grid wide:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] wide:gap-5 wide:overflow-y-auto wide:pb-5">
+          <div className="flex min-h-0 flex-col gap-2 overflow-y-auto wide:gap-3 wide:overflow-visible">
             <TransportCard
               recording={liveRecording}
               pass={pass}
               mode={mode}
               barIndex={barIndex}
-              beat={looping ? playhead.beat : -1}
+              beat={
+                demo?.hits && demo.hits.length > 0
+                  ? Math.floor(demo.hits[0].step / Math.max(1, steps / Math.max(1, bar.beats)))
+                  : looping
+                    ? playhead.beat
+                    : -1
+              }
               step={playhead.step}
               steps={steps}
               precount={countOverlay}
@@ -455,13 +461,13 @@ export function DrumRecorderSheet({
               <div className="flex flex-wrap gap-1.5">
                 <KeyHint keys="Enter" label="Rec / Stop" />
                 <KeyHint keys="Tab" label="Overdub / Replace" />
-                <KeyHint keys="⌘/Ctrl Z" label="Undo pass" />
+                <KeyHint keys="Cmd/Ctrl Z" label="Undo pass" />
                 <KeyHint keys="Esc" label="Done" />
               </div>
             </div>
           </div>
 
-          <div className="relative mt-3 wide:mt-0">
+          <div className="relative mt-2 shrink-0 wide:mt-0">
             <PadGrid keysOn={keysOn} lit={lit} onStrike={strike} />
             {countOverlay ? (
               <div
@@ -532,7 +538,7 @@ function TransportCard({
   return (
     <div
       data-recorder-transport
-      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A28] px-3 py-3"
+      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A28] px-3 py-2 sm:py-3"
     >
       <button
         type="button"
@@ -545,7 +551,7 @@ function TransportCard({
           onToggleRecord()
         }}
         className={cn(
-          'relative flex size-16 shrink-0 items-center justify-center rounded-full bg-[#FF2D55] text-white shadow-[0_0_24px_rgba(255,45,85,0.45)]',
+          'relative flex size-14 shrink-0 items-center justify-center rounded-full bg-[#FF2D55] text-white shadow-[0_0_24px_rgba(255,45,85,0.45)] sm:size-16',
           recording && 'omni-rec-pulse',
         )}
       >
@@ -732,7 +738,7 @@ function PadGrid({
   onStrike: (voice: VoiceId) => void
 }) {
   return (
-    <div data-pad-grid className="grid grid-cols-4 gap-2">
+    <div data-pad-grid className="grid grid-cols-4 gap-1.5 sm:gap-2">
       {DRUM_PADS.map((pad) => (
         <DrumPad
           key={pad.voice}
@@ -781,8 +787,8 @@ function DrumPad({
       onPointerDown={hit}
       onContextMenu={(event) => event.preventDefault()}
       className={cn(
-        'relative flex min-h-[4.25rem] touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#141A28] text-[#E9D5FF] sm:min-h-[5.4rem]',
-        wide && 'col-span-2 min-h-[4.85rem] sm:min-h-[6rem]',
+        'relative flex min-h-[3.55rem] touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#141A28] text-[#E9D5FF] sm:min-h-[5.4rem]',
+        wide && 'col-span-2 min-h-[4.15rem] sm:min-h-[6rem]',
         active && 'omni-pad-hit border-[#A855F7] bg-[#A855F7]/20 text-white',
       )}
     >
