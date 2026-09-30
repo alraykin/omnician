@@ -359,6 +359,7 @@ export type PassHit = {
   offsetSec: number
   step: number
   subdivision: SubdivisionId
+  barIndex?: number
 }
 
 export function mergeHit(

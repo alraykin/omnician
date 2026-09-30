@@ -50,21 +50,22 @@ export type DrumRecorderDemo = {
   pass?: number
   mode?: RecordMode
   hits?: ReadonlyArray<{ voice: VoiceId; step: number }>
+  barIndex?: number
 }
 
 type DrumRecorderSheetProps = {
   open: boolean
   onClose: () => void
-  bar: RhythmBar
+  bars: readonly RhythmBar[]
   barIndex: number
-  barsCount: number
   bpm: number
   beatName: string
   recording: boolean
   playing: boolean
   playheadStore: PlayheadStore
   getClock: () => TransportClock
-  onChangeBar: (next: RhythmBar) => void
+  onChangeBar: (index: number, next: RhythmBar) => void
+  onReplaceBars: (bars: RhythmBar[]) => void
   onToggleRecord: () => void
   onPreview: (voice: VoiceId) => void
   onLoopRef: MutableRefObject<(() => void) | null>
@@ -76,9 +77,8 @@ type DrumRecorderSheetProps = {
 export function DrumRecorderSheet({
   open,
   onClose,
-  bar,
+  bars,
   barIndex,
-  barsCount,
   bpm,
   beatName,
   recording,
@@ -86,6 +86,7 @@ export function DrumRecorderSheet({
   playheadStore,
   getClock,
   onChangeBar,
+  onReplaceBars,
   onToggleRecord,
   onPreview,
   onLoopRef,
@@ -94,6 +95,12 @@ export function DrumRecorderSheet({
   demo,
 }: DrumRecorderSheetProps) {
   const playhead = usePlayhead(playheadStore)
+  const barsCount = bars.length
+  const shownBarIndex = Math.min(
+    barsCount - 1,
+    Math.max(0, demo?.barIndex ?? (recording && playing ? playhead.bar : barIndex)),
+  )
+  const bar = bars[shownBarIndex] ?? bars[0]
   const [mode, setMode] = useState<RecordMode>(demo?.mode ?? 'overdub')
   const [quantize, setQuantize] = useState<QuantizeId>('smart')
   const [keysOn, setKeysOn] = useState(() => demo?.keysOn ?? true)
@@ -107,11 +114,15 @@ export function DrumRecorderSheet({
   const [clearAsk, setClearAsk] = useState(false)
   const held = useRef(new Set<VoiceId>())
   const thisPass = useRef<PassHit[]>([])
-  const touched = useRef(new Set<VoiceId>())
-  const undoStack = useRef<RhythmBar[]>([])
-  const passStart = useRef(cloneBar(bar))
+  const touched = useRef(new Map<number, Set<VoiceId>>())
+  const undoStack = useRef<RhythmBar[][]>([])
+  const passStart = useRef<RhythmBar[]>(bars.map(cloneBar))
+  const barsRef = useRef(bars)
+  barsRef.current = bars
   const barRef = useRef(bar)
   barRef.current = bar
+  const shownRef = useRef(shownBarIndex)
+  shownRef.current = shownBarIndex
 
   const liveRecording = recording || Boolean(demo?.recording)
   const countOverlay = Boolean(demo?.countIn) || (recording && playhead.precount)
@@ -130,7 +141,8 @@ export function DrumRecorderSheet({
   const thisPassSteps = useMemo(() => {
     const map = new Map<VoiceId, Set<number>>()
     for (const hit of thisPass.current) {
-      if (hit.subdivision !== bar.subdivision) continue
+      if ((hit.barIndex ?? shownBarIndex) !== shownBarIndex) continue
+      if (!bar || hit.subdivision !== bar.subdivision) continue
       const set = map.get(hit.voice) ?? new Set<number>()
       set.add(hit.step)
       map.set(hit.voice, set)
@@ -142,7 +154,7 @@ export function DrumRecorderSheet({
     }
     return map
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bar, demoPassSteps, liveRecording, pass, lit])
+  }, [bar, demoPassSteps, liveRecording, pass, lit, shownBarIndex])
 
   const glow = useCallback((voice: VoiceId) => {
     const token = Date.now()
@@ -160,10 +172,15 @@ export function DrumRecorderSheet({
       if (!recording || getClock().precount) return
 
       const clock = getClock()
-      const current = barRef.current
-      if (!(clock.barDur > 0)) return
+      const targetIndex = clock.barIndex
+      const current = barsRef.current[targetIndex]
+      if (!current || !(clock.barDur > 0)) return
       const offset = offsetInBar(clock.captureTime, clock.barStart, clock.barDur)
-      const raws = thisPass.current.map((hit) => hit.offsetSec).concat(offset)
+      const raws = thisPass.current
+        .filter((hit) => (hit.barIndex ?? targetIndex) === targetIndex)
+        .map((hit) => hit.offsetSec)
+        .concat(offset)
+      const voices = touched.current.get(targetIndex) ?? new Set<VoiceId>()
       const placed = placeQuantizedHit(
         current,
         offset,
@@ -171,22 +188,22 @@ export function DrumRecorderSheet({
         quantize,
         voice,
         mode,
-        touched.current,
+        voices,
         raws,
       )
-      touched.current = placed.voicesTouched
-      thisPass.current = [...thisPass.current, placed.hit]
+      touched.current.set(targetIndex, placed.voicesTouched)
+      thisPass.current = [...thisPass.current, { ...placed.hit, barIndex: targetIndex }]
       barRef.current = placed.bar
-      onChangeBar(placed.bar)
+      onChangeBar(targetIndex, placed.bar)
       if (placed.offerTriplets) setPrompt({ subdivision: placed.tripletSubdivision })
     },
     [getClock, glow, mode, onChangeBar, onPreview, quantize, recording],
   )
 
   const beginPass = useCallback(() => {
-    passStart.current = cloneBar(barRef.current)
+    passStart.current = barsRef.current.map(cloneBar)
     thisPass.current = []
-    touched.current = new Set()
+    touched.current = new Map()
   }, [])
 
   useEffect(() => {
@@ -196,7 +213,7 @@ export function DrumRecorderSheet({
 
   const onLoop = useCallback(() => {
     if (!recording) return
-    undoStack.current = [...undoStack.current, cloneBar(passStart.current)]
+    undoStack.current = [...undoStack.current, passStart.current.map(cloneBar)]
     setPass((n) => n + 1)
     beginPass()
   }, [beginPass, recording])
@@ -210,26 +227,22 @@ export function DrumRecorderSheet({
 
   const undoPass = useCallback(() => {
     const prev = undoStack.current.pop()
-    if (!prev) {
-      onChangeBar(cloneBar(passStart.current))
-      thisPass.current = []
-      touched.current = new Set()
-      return
-    }
-    setPass((n) => Math.max(1, n - 1))
+    const snapshot = prev ?? passStart.current
+    setPass((n) => (prev ? Math.max(1, n - 1) : n))
     thisPass.current = []
-    touched.current = new Set()
-    passStart.current = cloneBar(prev)
-    onChangeBar(cloneBar(prev))
-  }, [onChangeBar])
+    touched.current = new Map()
+    passStart.current = snapshot.map(cloneBar)
+    onReplaceBars(snapshot.map(cloneBar))
+  }, [onReplaceBars])
 
   const clearBar = () => {
-    undoStack.current = [...undoStack.current, cloneBar(barRef.current)]
-    const next = cloneBar(barRef.current)
+    if (!bar) return
+    undoStack.current = [...undoStack.current, barsRef.current.map(cloneBar)]
+    const next = cloneBar(bar)
     next.pattern = emptyPattern()
-    thisPass.current = []
-    touched.current = new Set()
-    onChangeBar(next)
+    thisPass.current = thisPass.current.filter((hit) => (hit.barIndex ?? shownBarIndex) !== shownBarIndex)
+    touched.current.delete(shownBarIndex)
+    onChangeBar(shownBarIndex, next)
     setClearAsk(false)
   }
 
@@ -279,9 +292,12 @@ export function DrumRecorderSheet({
     }
   }, [onClose, onToggleRecord, open, strike, undoPass])
 
-  if (!open) return null
+  if (!open || !bar) return null
 
-  const extraVoices = new Set<VoiceId>([...thisPassSteps.keys(), ...touched.current])
+  const extraVoices = new Set<VoiceId>([
+    ...thisPassSteps.keys(),
+    ...(touched.current.get(shownBarIndex) ?? []),
+  ])
   const rows = usedVoices(bar.pattern, extraVoices)
   const steps = stepsInBar(bar)
   const grid = patternToGrid(bar.pattern, bar.beats, bar.subdivision)
@@ -298,15 +314,15 @@ export function DrumRecorderSheet({
       <div
         role="dialog"
         aria-labelledby="drum-recorder-title"
-        className="flex max-h-[min(94svh,52rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.6rem] border border-white/10 bg-[#0F1422] pb-[max(0.6rem,env(safe-area-inset-bottom,0px))] rec-wide:max-h-[min(90svh,46rem)] rec-wide:max-w-[68rem] rec-wide:rounded-3xl rec-wide:pb-0"
+        className="flex max-h-[min(94svh,52rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.6rem] border border-white/10 bg-[#0F1422] pb-[max(0.45rem,env(safe-area-inset-bottom,0px))] rec-wide:max-h-[min(90svh,46rem)] rec-wide:max-w-[68rem] rec-wide:rounded-3xl rec-wide:pb-0 rec-fit:max-h-[100svh] rec-fit:rounded-none rec-fit:border-0 rec-fit:pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]"
       >
-        <header className="flex items-start justify-between gap-3 px-4 pb-2 pt-3 sm:px-5">
+        <header className="flex items-start justify-between gap-3 px-4 pb-2 pt-3 sm:px-5 rec-fit:px-3 rec-fit:pb-1 rec-fit:pt-2">
           <div className="min-w-0">
-            <h2 id="drum-recorder-title" className="text-lg font-bold tracking-tight text-white sm:text-xl">
+            <h2 id="drum-recorder-title" className="text-lg font-bold tracking-tight text-white sm:text-xl rec-fit:text-base">
               Record beat
             </h2>
-            <p className="mt-0.5 truncate text-xs text-slate-400">
-              {beatName} · Bar {barIndex + 1} · {bpm} BPM · {meter}
+            <p className="mt-0.5 truncate text-xs text-slate-400 rec-fit:text-[0.7rem]">
+              {beatName} · Bar {shownBarIndex + 1} of {barsCount} · {bpm} BPM · {meter}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -326,7 +342,7 @@ export function DrumRecorderSheet({
                 <span className="block size-6 rounded-full bg-white" />
               </button>
             </label>
-            <Button type="button" size="sm" className="h-9 rounded-full px-4" onClick={onClose}>
+            <Button type="button" size="sm" className="h-9 rounded-full px-4 rec-fit:h-11 rec-fit:px-4" onClick={onClose}>
               Done
             </Button>
             <button
@@ -340,13 +356,14 @@ export function DrumRecorderSheet({
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-3 sm:px-5 rec-wide:grid rec-wide:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] rec-wide:gap-5 rec-wide:pb-5">
-          <div className="flex flex-col gap-2 rec-wide:gap-3">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-3 sm:px-5 rec-wide:grid rec-wide:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] rec-wide:gap-5 rec-wide:pb-5 rec-fit:overflow-hidden rec-fit:px-3 rec-fit:pb-2">
+          <div data-rec-controls className="flex min-h-0 flex-1 flex-col gap-2 rec-wide:gap-3 rec-fit:gap-1.5 rec-fit:flex-none">
             <TransportCard
               recording={liveRecording}
               pass={pass}
               mode={mode}
-              barIndex={barIndex}
+              barIndex={shownBarIndex}
+              barsCount={barsCount}
               beat={
                 demo?.hits && demo.hits.length > 0
                   ? Math.floor(demo.hits[0].step / Math.max(1, steps / Math.max(1, bar.beats)))
@@ -363,7 +380,8 @@ export function DrumRecorderSheet({
             />
 
             <MiniLoopGrid
-              barIndex={barIndex}
+              barIndex={shownBarIndex}
+              barsCount={barsCount}
               beats={bar.beats}
               rows={rows}
               steps={steps}
@@ -389,7 +407,7 @@ export function DrumRecorderSheet({
                   data-count-in={countIn ? '1' : '0'}
                   onClick={() => onCountIn(!countIn)}
                   className={cn(
-                    'inline-flex h-7 w-12 items-center rounded-full p-0.5',
+                    'inline-flex h-7 w-12 items-center rounded-full p-0.5 rec-fit:h-8 rec-fit:w-[3.25rem]',
                     countIn ? 'justify-end bg-[#A855F7]' : 'justify-start bg-white/15',
                   )}
                 >
@@ -399,7 +417,7 @@ export function DrumRecorderSheet({
             </div>
 
             <div>
-              <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500 rec-fit:mb-1">
                 Quantize
               </p>
               <div className="flex flex-wrap gap-1.5" data-quantize={quantize}>
@@ -410,7 +428,7 @@ export function DrumRecorderSheet({
                     data-quantize-chip={chip.id}
                     onClick={() => setQuantize(chip.id)}
                     className={cn(
-                      'h-8 rounded-full px-3 text-xs font-semibold',
+                      'h-8 rounded-full px-3 text-xs font-semibold rec-fit:h-11',
                       quantize === chip.id
                         ? 'bg-[#A855F7] text-white'
                         : 'border border-white/12 bg-white/4 text-slate-300',
@@ -435,15 +453,18 @@ export function DrumRecorderSheet({
                     className="h-8"
                     onClick={() => {
                       const rebuilt = requantizePassTo(
-                        passStart.current,
-                        thisPass.current,
+                        passStart.current[shownBarIndex] ?? bar,
+                        thisPass.current.filter((hit) => (hit.barIndex ?? shownBarIndex) === shownBarIndex),
                         getClock().barDur || 2,
                         prompt.subdivision,
                         mode,
                       )
-                      thisPass.current = rebuilt.hits
+                      thisPass.current = [
+                        ...thisPass.current.filter((hit) => (hit.barIndex ?? shownBarIndex) !== shownBarIndex),
+                        ...rebuilt.hits.map((hit) => ({ ...hit, barIndex: shownBarIndex })),
+                      ]
                       barRef.current = rebuilt.bar
-                      onChangeBar(rebuilt.bar)
+                      onChangeBar(shownBarIndex, rebuilt.bar)
                       setPrompt(null)
                     }}
                   >
@@ -467,7 +488,10 @@ export function DrumRecorderSheet({
             </div>
           </div>
 
-          <div className="relative mt-2 shrink-0 rec-wide:mt-0">
+          <div
+            data-pad-wrap
+            className="relative mt-2 shrink-0 rec-wide:mt-0 rec-fit:mt-1 rec-fit:min-h-0 rec-fit:flex-1 rec-fit:overflow-hidden"
+          >
             <PadGrid keysOn={keysOn} lit={lit} onStrike={strike} />
             {countOverlay ? (
               <div
@@ -477,7 +501,7 @@ export function DrumRecorderSheet({
                 <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-400">
                   Count-in
                 </p>
-                <p className="text-[6.5rem] font-extrabold leading-none tabular-nums text-white">
+                <p className="text-[4.5rem] font-extrabold leading-none tabular-nums text-white rec-fit:text-[3.6rem] rec-wide:text-[6.5rem]">
                   {Math.max(1, countBeat)}
                 </p>
                 <p className="mt-1 text-sm text-slate-400">Recording starts on the 1</p>
@@ -514,6 +538,7 @@ function TransportCard({
   pass,
   mode,
   barIndex,
+  barsCount,
   beat,
   step,
   steps,
@@ -526,6 +551,7 @@ function TransportCard({
   pass: number
   mode: RecordMode
   barIndex: number
+  barsCount: number
   beat: number
   step: number
   steps: number
@@ -538,7 +564,7 @@ function TransportCard({
   return (
     <div
       data-recorder-transport
-      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A28] px-3 py-2 sm:py-3"
+      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A28] px-3 py-2 sm:py-3 rec-fit:gap-2 rec-fit:px-2 rec-fit:py-1.5"
     >
       <button
         type="button"
@@ -551,14 +577,14 @@ function TransportCard({
           onToggleRecord()
         }}
         className={cn(
-          'relative flex size-14 shrink-0 items-center justify-center rounded-full bg-[#FF2D55] text-white shadow-[0_0_24px_rgba(255,45,85,0.45)] sm:size-16',
+          'relative flex size-14 shrink-0 items-center justify-center rounded-full bg-[#FF2D55] text-white shadow-[0_0_24px_rgba(255,45,85,0.45)] sm:size-16 rec-fit:size-11',
           recording && 'omni-rec-pulse',
         )}
       >
         {recording ? (
-          <span className="size-5 rounded-sm bg-white" />
+          <span className="size-5 rounded-sm bg-white rec-fit:size-4" />
         ) : (
-          <span className="size-5 rounded-full bg-white" />
+          <span className="size-5 rounded-full bg-white rec-fit:size-4" />
         )}
       </button>
       <div className="min-w-0 flex-1">
@@ -567,27 +593,27 @@ function TransportCard({
             <span className="size-1.5 rounded-full bg-[#FF4D6D]" />
             Rec
           </span>
-          <span className="text-sm font-semibold text-white">
+          <span className="text-sm font-semibold text-white rec-fit:text-xs">
             Pass {pass} · {mode === 'overdub' ? 'Overdub' : 'Replace'}
           </span>
         </div>
-        <p className="mt-0.5 text-xs text-slate-400">
-          Bar {barIndex + 1} of 1 · Beat {beat >= 0 ? beat + 1 : '—'}
+        <p className="mt-0.5 text-xs text-slate-400 rec-fit:text-[0.7rem]" data-rec-bar={`${barIndex + 1}/${barsCount}`}>
+          Bar {barIndex + 1} of {barsCount} · Beat {beat >= 0 ? beat + 1 : '—'}
           {recording && !precount ? ' · looping' : precount ? ' · count-in' : ''}
         </p>
-        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10 rec-fit:mt-1 rec-fit:h-1">
           <div
             className="h-full rounded-full bg-[#FF4D6D]"
             style={{ width: `${Math.round(progress * 100)}%` }}
           />
         </div>
       </div>
-      <div className="flex shrink-0 flex-col gap-1.5">
+      <div className="flex shrink-0 flex-col gap-1.5 rec-fit:gap-1">
         <button
           type="button"
           aria-label="Undo pass"
           onClick={onUndo}
-          className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300"
+          className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300 rec-fit:size-11"
         >
           <RotateCcw className="size-4" />
         </button>
@@ -595,7 +621,7 @@ function TransportCard({
           type="button"
           aria-label="Clear bar"
           onClick={onClear}
-          className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300"
+          className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300 rec-fit:size-11"
         >
           <Trash2 className="size-4" />
         </button>
@@ -606,6 +632,7 @@ function TransportCard({
 
 function MiniLoopGrid({
   barIndex,
+  barsCount,
   beats,
   rows,
   steps,
@@ -614,6 +641,7 @@ function MiniLoopGrid({
   playheadStep,
 }: {
   barIndex: number
+  barsCount: number
   beats: number
   rows: VoiceId[]
   steps: number
@@ -624,10 +652,10 @@ function MiniLoopGrid({
   const shown = rows.length > 0 ? rows : (['kick', 'snare'] as VoiceId[])
   const beatCount = Math.max(1, beats)
   return (
-    <div data-mini-loop className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-3 py-2.5">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-          Loop · Bar {barIndex + 1}
+    <div data-mini-loop className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-3 py-2.5 rec-fit:px-2 rec-fit:py-1.5 rec-fit:rounded-xl">
+      <div className="mb-2 flex items-center justify-between gap-2 rec-fit:mb-1">
+        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500 rec-fit:tracking-[0.12em]">
+          Loop · Bar {barIndex + 1} of {barsCount}
         </p>
         <p className="flex items-center gap-2 text-[0.6rem] font-semibold text-slate-500">
           <span className="inline-flex items-center gap-1">
@@ -662,7 +690,7 @@ function MiniLoopGrid({
             {shown.map((voice) => (
               <div
                 key={voice}
-                className="grid h-4"
+                className="grid h-4 rec-fit:h-3"
                 style={{ gridTemplateColumns: `repeat(${Math.max(1, steps)}, minmax(0, 1fr))` }}
               >
                 {Array.from({ length: Math.max(1, steps) }, (_, step) => {
@@ -717,7 +745,7 @@ function ModeSwitch({
           data-record-mode={id}
           onClick={() => onChange(id)}
           className={cn(
-            'h-8 rounded-full px-3 text-xs font-semibold',
+            'h-8 rounded-full px-3 text-xs font-semibold rec-fit:h-11 rec-fit:px-2.5 rec-fit:text-[0.7rem]',
             mode === id ? 'bg-[#A855F7] text-white' : 'text-slate-400',
           )}
         >
@@ -738,7 +766,7 @@ function PadGrid({
   onStrike: (voice: VoiceId) => void
 }) {
   return (
-    <div data-pad-grid className="grid grid-cols-4 gap-1.5 sm:gap-2">
+    <div data-pad-grid className="grid h-full min-h-0 grid-cols-4 gap-1.5 sm:gap-2 rec-fit:gap-1 rec-fit:grid-rows-4">
       {DRUM_PADS.map((pad) => (
         <DrumPad
           key={pad.voice}
@@ -787,8 +815,9 @@ function DrumPad({
       onPointerDown={hit}
       onContextMenu={(event) => event.preventDefault()}
       className={cn(
-        'relative flex min-h-[3.55rem] max-[500px]:min-h-[2.7rem] touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#141A28] text-[#E9D5FF] sm:min-h-[5.4rem]',
-        wide && 'col-span-2 min-h-[4.15rem] max-[500px]:min-h-[3.15rem] sm:min-h-[6rem]',
+        'relative flex min-h-[3.55rem] max-[500px]:min-h-[2.75rem] touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#141A28] text-[#E9D5FF] sm:min-h-[5.4rem] rec-fit:h-full rec-fit:min-h-11 rec-fit:rounded-xl rec-fit:max-[500px]:min-h-11',
+        wide &&
+          'col-span-2 min-h-[4.15rem] max-[500px]:min-h-[3.15rem] sm:min-h-[6rem] rec-fit:min-h-11 rec-fit:max-[500px]:min-h-11',
         active && 'omni-pad-hit border-[#A855F7] bg-[#A855F7]/20 text-white',
       )}
     >
@@ -806,7 +835,7 @@ function DrumPad({
         </span>
       ) : null}
       <DrumPadIcon voice={voice} />
-      <span className="mt-1 text-[0.7rem] font-semibold text-slate-200">{label}</span>
+      <span className="mt-1 text-[0.7rem] font-semibold text-slate-200 rec-fit:mt-0.5 rec-fit:text-[0.62rem]">{label}</span>
     </button>
   )
 }

@@ -6,6 +6,8 @@ import {
   createUserBeat,
   deleteUserBeat,
   makeBlankBar,
+  makeBlankBeat,
+  NEW_BEAT_BARS,
   renameUserBeat,
   upsertUserBeat,
 } from '../src/lib/user-beats.ts'
@@ -14,6 +16,13 @@ const blank = makeBlankBar({ beats: 4, beatUnit: 4, subdivision: 4 })
 assert.equal(blank.beats, 4)
 assert.equal(blank.pattern.kick.length, 0)
 assert.equal(blank.pattern.snare.length, 0)
+
+const beat = makeBlankBeat()
+assert.equal(beat.length, NEW_BEAT_BARS)
+assert.equal(beat[0]?.beats, 4)
+assert.equal(beat[0]?.beatUnit, 4)
+assert.equal(beat[0]?.subdivision, 4)
+assert.equal(beat.every((bar) => bar.pattern.kick.length === 0), true)
 
 const filled = makeBar(4, 4, 4, setHit(emptyPattern(), 'kick', 0, 4, 4, true))
 assert.equal(barsEqual([blank], [blank]), true)

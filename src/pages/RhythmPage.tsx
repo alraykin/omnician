@@ -55,7 +55,8 @@ import {
   deleteUserBeat,
   findUserBeat,
   loadUserBeats,
-  makeBlankBar,
+  makeBlankBeat,
+  NEW_BEAT_BPM,
   renameUserBeat,
   saveUserBeats,
   upsertUserBeat,
@@ -164,7 +165,8 @@ export function RhythmPage() {
     onTempoCue: (cue) => {
       setTempoCue(cue)
     },
-    loopBarIndex: recording ? drumBarIndex : null,
+    loopBarIndex: null,
+    recordCycle: recording,
     forcePrecount: recording ? recordCountIn : undefined,
     onBarLoop: () => {
       recorderLoopRef.current?.()
@@ -453,6 +455,10 @@ export function RhythmPage() {
       keysOn: query.get('keys') === '1' ? true : query.get('keys') === '0' ? false : undefined,
       pass: rec ? 2 : 1,
       hits,
+      barIndex: (() => {
+        const raw = Number(query.get('recBar'))
+        return Number.isFinite(raw) && raw >= 1 ? raw - 1 : undefined
+      })(),
     }
   }, [])
 
@@ -484,18 +490,27 @@ export function RhythmPage() {
     }
     preparePlaybackFromGesture()
     void ensureKit()
+    setDrumBarIndex(0)
     setRecording(true)
     setPlaying(true)
   }, [ensureKit, halt, recording])
 
   const patchRecordBar = useCallback(
-    (next: RhythmBar) => {
+    (index: number, next: RhythmBar) => {
       setDrumBars((currentBars) =>
-        currentBars.map((item, index) => (index === drumBarIndex ? next : item)),
+        currentBars.map((item, itemIndex) => (itemIndex === index ? next : item)),
       )
       if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
     },
-    [draftNew, drumBarIndex, matched?.id, presetId, userBeatId],
+    [draftNew, matched?.id, presetId, userBeatId],
+  )
+
+  const replaceRecordBars = useCallback(
+    (next: RhythmBar[]) => {
+      setDrumBars(next.map(cloneBar))
+      if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
+    },
+    [draftNew, matched?.id, presetId, userBeatId],
   )
 
   const persistBeats = (next: UserBeat[]) => {
@@ -504,20 +519,21 @@ export function RhythmPage() {
   }
 
   const startNewBeat = useCallback(() => {
-    const source = drumBars[drumBarIndex] ?? drumBars[0]
-    if (!source) return
     if (playing) {
       halt('new-beat')
       setPlaying(false)
       setRecording(false)
     }
-    setDrumBars([makeBlankBar(source)])
+    setBpm(NEW_BEAT_BPM)
+    setDrumBars(makeBlankBeat())
     setDrumBarIndex(0)
     setPresetId(null)
     setUserBeatId(null)
     setDraftNew(true)
+    setRecordCountIn(true)
+    setSpeedBuilder((current) => ({ ...current, precount: true }))
     setPickerOpen(false)
-  }, [drumBarIndex, drumBars, halt, playing])
+  }, [halt, playing])
 
   const openSave = (asNew = false) => {
     setSaveAsNew(asNew || !savedUser)
@@ -1098,9 +1114,8 @@ export function RhythmPage() {
         <DrumRecorderSheet
           open={recorderOpen}
           onClose={closeRecorder}
-          bar={drumBars[drumBarIndex] ?? current}
+          bars={drumBars}
           barIndex={drumBarIndex}
-          barsCount={drumBars.length}
           bpm={bpm}
           beatName={beatName}
           recording={recording}
@@ -1108,6 +1123,7 @@ export function RhythmPage() {
           playheadStore={playheadStore}
           getClock={getTransportClock}
           onChangeBar={patchRecordBar}
+          onReplaceBars={replaceRecordBars}
           onToggleRecord={toggleRecord}
           onPreview={preview}
           onLoopRef={recorderLoopRef}

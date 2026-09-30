@@ -170,3 +170,11 @@ export function deleteUserBeat(beats: readonly UserBeat[], id: string): UserBeat
 export function makeBlankBar(from: Pick<RhythmBar, 'beats' | 'beatUnit' | 'subdivision'>): RhythmBar {
   return makeBar(from.beats, from.beatUnit, from.subdivision)
 }
+
+/** New beat: 4 empty bars of 4/4 on a 16th grid. */
+export const NEW_BEAT_BARS = 4
+export const NEW_BEAT_BPM = 120
+
+export function makeBlankBeat(): RhythmBar[] {
+  return Array.from({ length: NEW_BEAT_BARS }, () => makeBar(4, 4, 4))
+}

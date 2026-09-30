@@ -60,6 +60,7 @@ export type TransportClock = {
   captureTime: number
   barStart: number
   barDur: number
+  barIndex: number
   precount: boolean
   playing: boolean
   outputLatency: number
@@ -142,6 +143,7 @@ export function useRhythmEngine({
   speedBuilder = DEFAULT_SPEED_BUILDER,
   onTempoCue,
   loopBarIndex = null,
+  recordCycle = false,
   forcePrecount,
   onBarLoop,
 }: {
@@ -156,8 +158,10 @@ export function useRhythmEngine({
   kitStyle?: RhythmStyleId
   speedBuilder?: SpeedBuilder
   onTempoCue?: (cue: SpeedBuilderCue) => void
-  /** When set, the scheduler stays on this bar (drum recorder 1-bar loop). */
+  /** When set, the scheduler stays on this bar (legacy 1-bar loop). */
   loopBarIndex?: number | null
+  /** Recorder plays every bar in order, then loops from bar 1. */
+  recordCycle?: boolean
   /** Recorder count-in: true force on, false force off, undefined = existing Drums/SB rules. */
   forcePrecount?: boolean
   onBarLoop?: () => void
@@ -190,6 +194,7 @@ export function useRhythmEngine({
   const speedBuilderRef = useRef(speedBuilder)
   const onTempoCueRef = useRef(onTempoCue)
   const loopBarRef = useRef(loopBarIndex)
+  const recordCycleRef = useRef(recordCycle)
   const forcePrecountRef = useRef(forcePrecount)
   const onBarLoopRef = useRef(onBarLoop)
   const playbackBpmRef = useRef(bpm)
@@ -216,6 +221,7 @@ export function useRhythmEngine({
   speedBuilderRef.current = speedBuilder
   onTempoCueRef.current = onTempoCue
   loopBarRef.current = loopBarIndex
+  recordCycleRef.current = recordCycle
   forcePrecountRef.current = forcePrecount
   onBarLoopRef.current = onBarLoop
 
@@ -391,14 +397,14 @@ export function useRhythmEngine({
       setHoldUntilCycle(false)
       stepRef.current = 0
       const loopStart = loopBarRef.current
-      barRef.current = loopStart ?? 0
+      barRef.current = recordCycleRef.current ? 0 : (loopStart ?? 0)
       armedBarRef.current = null
       freezeResumeRef.current = false
       clockWatchRef.current = createClockWatch(kit.ctx.currentTime, performance.now())
       nextTimeRef.current = kit.ctx.currentTime + START_LEAD_SEC
 
       const sb = speedBuilderRef.current
-      const looping = loopBarRef.current != null
+      const looping = loopBarRef.current != null || recordCycleRef.current
       const sbStart = sb.enabled && !looping
       sbSessionRef.current = sbStart
       sbPctRef.current = sb.fromPct
@@ -432,7 +438,7 @@ export function useRhythmEngine({
       }
 
       const playbackBar = (index: number): RhythmBar | undefined => {
-        if (loopBarRef.current != null) {
+        if (loopBarRef.current != null || recordCycleRef.current) {
           return pendingBarsRef.current[index] ?? liveBarsRef.current[index]
         }
         const liveSeq = liveBarsRef.current
@@ -733,7 +739,14 @@ export function useRhythmEngine({
             } else if (wrapped === 0) {
               commitPendingCycle()
               barRef.current = 0
-              if (advanceSpeedBuilder(barEnd)) {
+              if (recordCycleRef.current) {
+                onBarLoopRef.current?.()
+                if (forcePrecountRef.current === true) {
+                  beginPrecount()
+                  nextTimeRef.current = barEnd
+                  continue
+                }
+              } else if (advanceSpeedBuilder(barEnd)) {
                 nextTimeRef.current = barEnd
                 continue
               }
@@ -819,10 +832,11 @@ export function useRhythmEngine({
     const captureTime = ctx ? captureAudioTime(ctx) : 0
     const locked = loopBarRef.current
     const sequence = pendingBarsRef.current
+    const len = Math.max(1, sequence.length)
     const index =
       locked != null
-        ? ((locked % Math.max(1, sequence.length)) + sequence.length) % Math.max(1, sequence.length)
-        : barRef.current
+        ? ((locked % len) + len) % len
+        : ((barRef.current % len) + len) % len
     const bar = sequence[index] ?? sequence[0]
     const bpmNow = playbackBpmRef.current
     return {
@@ -830,6 +844,7 @@ export function useRhythmEngine({
       captureTime,
       barStart: barStartRef.current,
       barDur: bar ? barDurationSec(bar.beats, bpmNow, bar.beatUnit) : 0,
+      barIndex: index,
       precount: sbPhaseRef.current === 'precount',
       playing: playingRef.current,
       outputLatency:
