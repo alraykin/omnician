@@ -113,7 +113,7 @@ export function TunerPage() {
   const autoPendingRef = useRef<{ id: string; hits: number } | null>(null)
   const holdRef = useRef<{ id: string; timer: number } | null>(null)
   const celebratedRef = useRef(demo.glow)
-  const seededRef = useRef(false)
+  const initialTuningRef = useRef<string | null>(null)
 
   const { status, reading, needsGesture, debug } = useTuner(a4Hz)
 
@@ -176,12 +176,9 @@ export function TunerPage() {
     )
     setFocusIndex(focus ?? 0)
     setAutoId(null)
-    if (!seededRef.current && seeded.size > 0) {
-      seededRef.current = true
-      setTunedIds(seeded)
-    } else {
-      setTunedIds(new Set())
-    }
+    if (initialTuningRef.current === null) initialTuningRef.current = current.id
+    const firstTuning = current.id === initialTuningRef.current
+    setTunedIds(firstTuning && seeded.size > 0 ? seeded : new Set())
     inTuneRef.current = false
     setInTune(false)
     if (holdRef.current) {
