@@ -10,7 +10,7 @@ import {
 } from '@/lib/inline-layout'
 import type { InstrumentString } from '@/lib/notes'
 import type { InstrumentId } from '@/lib/presets'
-import type { TunerLayoutMode } from '@/lib/custom-presets'
+import { layoutModeLabel, type TunerLayoutMode } from '@/lib/custom-presets'
 import {
   PEG_GREEN,
   PEG_INK,
@@ -381,7 +381,7 @@ export function LayoutStylePill({
   layoutMode: TunerLayoutMode
   onToggle: () => void
 }) {
-  const label = layoutMode === 'inline' ? 'Inline' : 'Headstock'
+  const label = layoutModeLabel(layoutMode)
   return (
     <button
       type="button"

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-import { parseLayoutMode } from '../src/lib/custom-presets.ts'
+import { layoutModeLabel, parseLayoutMode } from '../src/lib/custom-presets.ts'
 import {
   INLINE_BUTTON_6,
   INLINE_NUT,
@@ -19,6 +19,8 @@ import { findBuiltinPreset } from '../src/lib/presets.ts'
 assert.equal(parseLayoutMode('inline'), 'inline')
 assert.equal(parseLayoutMode('headstock'), 'headstock')
 assert.equal(parseLayoutMode('nope'), 'headstock')
+assert.equal(layoutModeLabel('inline'), 'Inline')
+assert.equal(layoutModeLabel('headstock'), 'Split')
 assert.equal(isTwelveString('guitar-12', 12), true)
 assert.equal(isTwelveString('guitar-6', 6), false)
 assert.equal(isTwelveString('guitar-6', 12), true)

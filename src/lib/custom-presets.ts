@@ -34,6 +34,10 @@ export function parseLayoutMode(value: unknown): TunerLayoutMode {
   return value === 'inline' ? 'inline' : 'headstock'
 }
 
+export function layoutModeLabel(mode: TunerLayoutMode): string {
+  return mode === 'inline' ? 'Inline' : 'Split'
+}
+
 const MIN_MIDI = 12
 const MAX_MIDI = 96
 const MIN_A4 = 415
