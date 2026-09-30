@@ -13,11 +13,15 @@ import {
   inlinePegsFromTip,
   layoutInline,
 } from '../src/lib/inline-layout.ts'
+import { isTwelveString } from '../src/lib/headstock.ts'
 import { findBuiltinPreset } from '../src/lib/presets.ts'
 
 assert.equal(parseLayoutMode('inline'), 'inline')
 assert.equal(parseLayoutMode('headstock'), 'headstock')
 assert.equal(parseLayoutMode('nope'), 'headstock')
+assert.equal(isTwelveString('guitar-12', 12), true)
+assert.equal(isTwelveString('guitar-6', 6), false)
+assert.equal(isTwelveString('guitar-6', 12), true)
 assert.equal(INLINE_VIEW_W, 1200)
 assert.equal(INLINE_VIEW_H, 1400)
 assert.match(INLINE_OUTLINE, /^M550\.40 1235\.00/)

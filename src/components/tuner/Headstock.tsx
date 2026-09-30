@@ -1,5 +1,6 @@
 import { InlineHeadstock, LayoutStylePill } from '@/components/tuner/InlineHeadstock'
 import {
+  isTwelveString,
   layoutPegs,
   pegLetter,
   usesCloverPegs,
@@ -554,6 +555,8 @@ export function Headstock({
   onLayoutChange,
 }: HeadstockProps) {
   const clover = usesCloverPegs(config)
+  const twelveString = isTwelveString(config, strings.length)
+  const effectiveLayout = twelveString ? 'headstock' : layoutMode
   const slots = layoutPegs(strings, config)
   const drawn = layout(slots, config, clover)
   const neckLeft = drawn.guitarShape ? drawn.nutLeft : drawn.nutLeft - 4
@@ -563,21 +566,25 @@ export function Headstock({
   const fretCount = config === 'banjo' ? 6 : 3
 
   return (
-    <div className="w-full">
+    <div className="w-full" data-twelve-inline={twelveString ? 'off' : 'ok'}>
       <div className="mb-1 flex items-center justify-between gap-3">
-        <LayoutStylePill
-          layoutMode={layoutMode}
-          onToggle={() =>
-            onLayoutChange(layoutMode === 'inline' ? 'headstock' : 'inline')
-          }
-        />
+        {twelveString ? (
+          <span data-layout-toggle-hidden="twelve" />
+        ) : (
+          <LayoutStylePill
+            layoutMode={layoutMode}
+            onToggle={() =>
+              onLayoutChange(layoutMode === 'inline' ? 'headstock' : 'inline')
+            }
+          />
+        )}
         <label className="flex items-center gap-2 text-xs font-semibold text-slate-300">
           Auto strings
           <AutoSwitch on={autoString} onChange={onAutoChange} />
         </label>
       </div>
 
-      {layoutMode === 'inline' ? (
+      {effectiveLayout === 'inline' ? (
         <InlineHeadstock
           strings={strings}
           config={config}

@@ -20,6 +20,13 @@ export function usesCloverPegs(config: InstrumentId): boolean {
   return config.startsWith('bass')
 }
 
+export function isTwelveString(
+  config: InstrumentId,
+  stringCount: number,
+): boolean {
+  return config === 'guitar-12' || stringCount === 12
+}
+
 export function usesGuitarShape(config: InstrumentId): boolean {
   return (
     config.startsWith('guitar-') ||
