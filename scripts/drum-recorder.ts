@@ -19,8 +19,12 @@ import {
   voiceForRecorderKey,
   loadRecordClick,
   saveRecordClick,
+  usedVoices,
+  usedVoicesInPatterns,
+  DRUM_PAD_SLOTS,
+  DRUM_PADS,
 } from '../src/lib/drum-recorder.ts'
-import { emptyPattern, makeBar, setHit, stepsInBar } from '../src/lib/rhythm.ts'
+import { emptyPattern, makeBar, setHit, stepsInBar, VOICES } from '../src/lib/rhythm.ts'
 
 const bar4 = makeBar(4, 4, 4)
 const barDur = 2 // 120 BPM 4/4
@@ -165,5 +169,41 @@ saveRecordClick(false)
 assert.equal(loadRecordClick(), false)
 saveRecordClick(true)
 assert.equal(loadRecordClick(), true)
+
+assert.equal(DRUM_PAD_SLOTS.length, 15)
+assert.equal(DRUM_PAD_SLOTS[2], null, 'top-center spare slot')
+assert.deepEqual(
+  DRUM_PADS.map((pad) => pad.voice),
+  [
+    'splash',
+    'stack',
+    'china',
+    'rideBell',
+    'crash',
+    'rim',
+    'highTom',
+    'midTom',
+    'floorTom',
+    'openHat',
+    'closedHat',
+    'snare',
+    'kick',
+    'ride',
+  ],
+)
+
+const empty = emptyPattern()
+assert.deepEqual(usedVoices(empty), [])
+const withTom = setHit(empty, 'highTom', 0, 4, 4, true)
+assert.deepEqual(usedVoices(withTom), ['highTom'])
+const withKickTom = setHit(withTom, 'kick', 0, 4, 4, true)
+assert.deepEqual(usedVoices(withKickTom), ['kick', 'highTom'], 'kit order, kick before tom')
+const barA = makeBar(4, 4, 4)
+barA.pattern = setHit(emptyPattern(), 'crash', 0, 4, 4, true)
+const barB = makeBar(4, 4, 4)
+barB.pattern = setHit(emptyPattern(), 'snare', 4, 4, 4, true)
+assert.deepEqual(usedVoicesInPatterns([barA.pattern, barB.pattern]), ['snare', 'crash'])
+assert.deepEqual(usedVoicesInPatterns([barA.pattern], new Set(['highTom'])), ['highTom', 'crash'])
+assert.deepEqual(VOICES.slice(0, 3), ['kick', 'snare', 'rim'])
 
 console.log('drum-recorder: ok')

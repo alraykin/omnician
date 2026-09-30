@@ -7,6 +7,7 @@ import {
   setHit,
   stepsInBar,
   stepsPerBeat,
+  VOICES,
   type HitPos,
   type Pattern,
   type RhythmBar,
@@ -35,27 +36,29 @@ export type PadKeyCap = string | readonly string[]
 export type DrumPadSpec = {
   voice: VoiceId
   label: string
-  wide?: boolean
   key: PadKeyCap
 }
 
-/** 4×4 pad grid from the approved mockup. Kick and Snare are double-width. */
-export const DRUM_PADS: readonly DrumPadSpec[] = [
-  { voice: 'crash', label: 'Crash', key: 'E' },
+/** 5×3 pad grid from the v3 mockup. Slot 3 (top-center) is an empty spare. */
+export const DRUM_PAD_SLOTS: readonly (DrumPadSpec | null)[] = [
   { voice: 'splash', label: 'Splash', key: 'W' },
-  { voice: 'china', label: 'China', key: 'Q' },
   { voice: 'stack', label: 'Catch', key: 'A' },
+  null,
+  { voice: 'china', label: 'China', key: 'Q' },
+  { voice: 'rideBell', label: 'Ride Bell', key: 'U' },
+  { voice: 'crash', label: 'Crash', key: 'E' },
+  { voice: 'rim', label: 'Rimshot', key: 'G' },
   { voice: 'highTom', label: 'Tom 1', key: 'K' },
   { voice: 'midTom', label: 'Tom 2', key: 'L' },
   { voice: 'floorTom', label: 'Fl Tom', key: ';' },
-  { voice: 'rideBell', label: 'Ride Bell', key: 'U' },
   { voice: 'openHat', label: 'HH Open', key: 'S' },
   { voice: 'closedHat', label: 'HH Closed', key: 'D' },
-  { voice: 'rim', label: 'Rimshot', key: 'G' },
+  { voice: 'snare', label: 'Snare', key: ['F', 'J'] },
+  { voice: 'kick', label: 'Kick', key: 'Space' },
   { voice: 'ride', label: 'Ride', key: 'H' },
-  { voice: 'kick', label: 'Kick', wide: true, key: 'Space' },
-  { voice: 'snare', label: 'Snare', wide: true, key: ['F', 'J'] },
 ]
+
+export const DRUM_PADS: readonly DrumPadSpec[] = DRUM_PAD_SLOTS.filter((slot): slot is DrumPadSpec => slot != null)
 
 const KEY_TO_VOICE: Record<string, VoiceId> = {
   Space: 'kick',
@@ -418,35 +421,14 @@ export function applyPassHit(
 }
 
 export function usedVoices(pattern: Pattern, extra?: ReadonlySet<VoiceId>): VoiceId[] {
-  const out: VoiceId[] = []
-  const seen = new Set<VoiceId>()
-  const consider = (voice: VoiceId) => {
-    if (seen.has(voice)) return
-    if ((pattern[voice] ?? []).length > 0 || extra?.has(voice)) {
-      seen.add(voice)
-      out.push(voice)
-    }
-  }
-  // Mini-grid order follows the kit list (kick first) so the loop reads like the main grid.
-  for (const voice of [
-    'kick',
-    'snare',
-    'rim',
-    'closedHat',
-    'openHat',
-    'highTom',
-    'midTom',
-    'floorTom',
-    'ride',
-    'rideBell',
-    'crash',
-    'stack',
-    'splash',
-    'china',
-  ] as const) {
-    consider(voice)
-  }
-  return out
+  return usedVoicesInPatterns([pattern], extra)
+}
+
+/** Lanes in main-grid kit order, for any bar that already has notes plus extra (this pass). */
+export function usedVoicesInPatterns(patterns: readonly Pattern[], extra?: ReadonlySet<VoiceId>): VoiceId[] {
+  return VOICES.filter(
+    (voice) => extra?.has(voice) || patterns.some((pattern) => (pattern[voice] ?? []).length > 0),
+  )
 }
 
 export function hitsToStepSet(

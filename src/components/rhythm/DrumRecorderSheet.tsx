@@ -8,6 +8,7 @@ import {
   useState,
   type MutableRefObject,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   type TouchEvent as ReactTouchEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
@@ -21,13 +22,13 @@ import {
 } from '@/hooks/useRhythmEngine'
 import { preparePlaybackFromGesture } from '@/lib/audio-context'
 import {
-  DRUM_PADS,
+  DRUM_PAD_SLOTS,
   QUANTIZE_CHIPS,
   offsetInBar,
   placeQuantizedHit,
   requantizePassTo,
   saveRecordClick,
-  usedVoices,
+  usedVoicesInPatterns,
   voiceForRecorderKey,
   type PassHit,
   type QuantizeId,
@@ -120,6 +121,8 @@ export function DrumRecorderSheet({
   })
   const [prompt, setPrompt] = useState<null | { subdivision: SubdivisionId }>(null)
   const [clearAsk, setClearAsk] = useState(false)
+  const [freshAt, setFreshAt] = useState<Partial<Record<VoiceId, number>>>({})
+  const knownLanes = useRef<Set<VoiceId>>(new Set())
   const held = useRef(new Set<VoiceId>())
   const thisPass = useRef<PassHit[]>([])
   const touched = useRef(new Map<number, Set<VoiceId>>())
@@ -173,11 +176,22 @@ export function DrumRecorderSheet({
     }, 160)
   }, [])
 
+  const revealLane = useCallback((voice: VoiceId) => {
+    if (knownLanes.current.has(voice)) return
+    knownLanes.current.add(voice)
+    const token = Date.now()
+    setFreshAt((current) => ({ ...current, [voice]: token }))
+    window.setTimeout(() => {
+      setFreshAt((current) => (current[voice] === token ? { ...current, [voice]: 0 } : current))
+    }, 2400)
+  }, [])
+
   const strike = useCallback(
     (voice: VoiceId) => {
       preparePlaybackFromGesture()
       onPreview(voice)
       glow(voice)
+      revealLane(voice)
       if (!recording || getClock().precount) return
 
       const clock = getClock()
@@ -206,7 +220,7 @@ export function DrumRecorderSheet({
       onChangeBar(targetIndex, placed.bar)
       if (placed.offerTriplets) setPrompt({ subdivision: placed.tripletSubdivision })
     },
-    [getClock, glow, mode, onChangeBar, onPreview, quantize, recording],
+    [getClock, glow, mode, onChangeBar, onPreview, quantize, recording, revealLane],
   )
 
   const beginPass = useCallback(() => {
@@ -214,6 +228,12 @@ export function DrumRecorderSheet({
     thisPass.current = []
     touched.current = new Map()
   }, [])
+
+  useEffect(() => {
+    if (!open) return
+    knownLanes.current = new Set(usedVoicesInPatterns(barsRef.current.map((item) => item.pattern)))
+    setFreshAt({})
+  }, [open])
 
   useEffect(() => {
     if (!recording) return
@@ -373,10 +393,17 @@ export function DrumRecorderSheet({
   if (!open || !bar) return null
 
   const extraVoices = new Set<VoiceId>([
+    ...thisPass.current.map((hit) => hit.voice),
     ...thisPassSteps.keys(),
     ...(touched.current.get(shownBarIndex) ?? []),
+    ...(Object.entries(freshAt)
+      .filter(([, token]) => token)
+      .map(([voice]) => voice) as VoiceId[]),
   ])
-  const rows = usedVoices(bar.pattern, extraVoices)
+  const rows = usedVoicesInPatterns(
+    bars.map((item) => item.pattern),
+    extraVoices,
+  )
   const steps = stepsInBar(bar)
   const grid = patternToGrid(bar.pattern, bar.beats, bar.subdivision)
   const meter = meterLabel(bar.beats, bar.beatUnit)
@@ -392,7 +419,7 @@ export function DrumRecorderSheet({
   const sheet = (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[90] flex items-end justify-center bg-black/70 p-0 rec-wide:items-center rec-wide:p-4"
+      className="fixed inset-0 z-[90] flex items-stretch justify-center bg-black/70 p-0 rec-wide:items-center rec-wide:p-4"
       data-drum-recorder
       data-drum-recorder-backdrop
       data-recording={liveRecording ? '1' : '0'}
@@ -409,16 +436,16 @@ export function DrumRecorderSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="drum-recorder-title"
-        className="flex max-h-[min(94svh,52rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.6rem] border border-white/10 bg-[#0F1422] pb-[max(0.45rem,env(safe-area-inset-bottom,0px))] rec-wide:max-h-[min(90svh,46rem)] rec-wide:max-w-[68rem] rec-wide:rounded-3xl rec-wide:pb-0 rec-fit:max-h-[100svh] rec-fit:rounded-none rec-fit:border-0 rec-fit:pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]"
+        className="flex h-[100svh] max-h-[100svh] w-full max-w-lg flex-col overflow-hidden rounded-none border-0 bg-[#0F1422] pb-[max(0.4rem,env(safe-area-inset-bottom,0px))] rec-wide:h-auto rec-wide:max-h-[min(90svh,52rem)] rec-wide:rounded-3xl rec-wide:border rec-wide:border-white/10 rec-wide:pb-0"
         onPointerDown={(event) => event.stopPropagation()}
         onTouchStart={(event) => event.stopPropagation()}
       >
-        <header className="flex items-start justify-between gap-3 px-4 pb-2 pt-3 sm:px-5 rec-fit:px-3 rec-fit:pb-1 rec-fit:pt-2">
+        <header className="flex shrink-0 items-start justify-between gap-3 px-4 pb-2 pt-3 sm:px-5">
           <div className="min-w-0">
-            <h2 id="drum-recorder-title" className="text-lg font-bold tracking-tight text-white sm:text-xl rec-fit:text-base">
+            <h2 id="drum-recorder-title" className="text-lg font-bold tracking-tight text-white sm:text-xl">
               Record beat
             </h2>
-            <p className="mt-0.5 truncate text-xs text-slate-400 rec-fit:text-[0.7rem]">
+            <p className="mt-0.5 truncate text-xs text-slate-400">
               {beatName} · Bar {shownBarIndex + 1} of {barsCount} · {bpm} BPM · {meter}
             </p>
           </div>
@@ -439,7 +466,7 @@ export function DrumRecorderSheet({
                 <span className="block size-6 rounded-full bg-white" />
               </button>
             </label>
-            <Button type="button" size="sm" className="h-9 rounded-full px-4 rec-fit:h-11 rec-fit:px-4" onClick={onClose}>
+            <Button type="button" size="sm" className="h-9 rounded-full px-4" onClick={onClose}>
               Done
             </Button>
             <button
@@ -453,8 +480,8 @@ export function DrumRecorderSheet({
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-3 sm:px-5 rec-wide:grid rec-wide:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] rec-wide:gap-5 rec-wide:pb-5 rec-fit:overflow-hidden rec-fit:px-3 rec-fit:pb-2">
-          <div data-rec-controls className="flex min-h-0 flex-1 flex-col gap-2 rec-wide:gap-3 rec-fit:gap-1.5 rec-fit:flex-none">
+        <div data-rec-body className="flex min-h-0 flex-1 flex-col gap-2 px-3 pb-2 sm:px-5 sm:pb-3">
+          <div data-rec-controls className="flex shrink-0 flex-col gap-2">
             <TransportCard
               recording={liveRecording}
               pass={pass}
@@ -478,27 +505,10 @@ export function DrumRecorderSheet({
               onClear={() => setClearAsk(true)}
             />
 
-            <MiniLoopGrid
-              barIndex={shownBarIndex}
-              barsCount={barsCount}
-              beats={bar.beats}
-              rows={rows}
-              steps={steps}
-              grid={grid}
-              thisPass={thisPassSteps}
-              playheadStep={
-                demo?.hits && demo.hits.length > 0
-                  ? demo.hits[0].step
-                  : playing && !playhead.precount
-                    ? playhead.step
-                    : -1
-              }
-            />
-
-            <div className="flex flex-wrap items-center gap-2 rec-fit:gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               <ModeSwitch mode={mode} onChange={setMode} />
-              <div className="ml-auto flex shrink-0 items-center gap-2 rec-fit:gap-1.5">
-                <RecSwitch
+              <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5">
+                <RecChip
                   label="Click"
                   testId="record-click"
                   on={clickOn}
@@ -506,33 +516,38 @@ export function DrumRecorderSheet({
                     onClickOn(next)
                     saveRecordClick(next)
                   }}
+                  icon={<ClickGlyph />}
                 />
-                <RecSwitch label="Count-in" testId="count-in" on={countIn} onChange={onCountIn} />
+                <RecChip
+                  label="Count-in"
+                  testId="count-in"
+                  on={countIn}
+                  onChange={onCountIn}
+                  icon={<CountGlyph />}
+                />
               </div>
             </div>
 
-            <div>
-              <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500 rec-fit:mb-1">
+            <div className="flex flex-wrap items-center gap-1.5" data-quantize={quantize}>
+              <p className="mr-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Quantize
               </p>
-              <div className="flex flex-wrap gap-1.5" data-quantize={quantize}>
-                {QUANTIZE_CHIPS.map((chip) => (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    data-quantize-chip={chip.id}
-                    onClick={() => setQuantize(chip.id)}
-                    className={cn(
-                      'h-8 rounded-full px-3 text-xs font-semibold rec-fit:h-11',
-                      quantize === chip.id
-                        ? 'bg-[#A855F7] text-white'
-                        : 'border border-white/12 bg-white/4 text-slate-300',
-                    )}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
+              {QUANTIZE_CHIPS.map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  data-quantize-chip={chip.id}
+                  onClick={() => setQuantize(chip.id)}
+                  className={cn(
+                    'h-8 rounded-full px-2.5 text-xs font-semibold',
+                    quantize === chip.id
+                      ? 'bg-[#A855F7] text-white'
+                      : 'border border-white/12 bg-white/4 text-slate-300',
+                  )}
+                >
+                  {chip.label}
+                </button>
+              ))}
             </div>
 
             {prompt ? (
@@ -571,23 +586,35 @@ export function DrumRecorderSheet({
                 </div>
               </div>
             ) : null}
-
-            <div className="hidden flex-col gap-1.5 text-[0.7rem] text-slate-500 rec-wide:flex">
-              <p>Count-in (1 bar)</p>
-              <div className="flex flex-wrap gap-1.5">
-                <KeyHint keys="Enter" label="Rec / Stop" />
-                <KeyHint keys="Tab" label="Overdub / Replace" />
-                <KeyHint keys="Cmd/Ctrl Z" label="Undo pass" />
-                <KeyHint keys="Esc" label="Done" />
-              </div>
-            </div>
           </div>
 
-          <div
-            data-pad-wrap
-            className="relative mt-2 shrink-0 rec-wide:mt-0 rec-fit:mt-1 rec-fit:min-h-0 rec-fit:flex-1 rec-fit:overflow-hidden"
-          >
+          <MiniLoopGrid
+            barIndex={shownBarIndex}
+            barsCount={barsCount}
+            beats={bar.beats}
+            rows={rows}
+            steps={steps}
+            grid={grid}
+            thisPass={thisPassSteps}
+            freshAt={freshAt}
+            playheadStep={
+              demo?.hits && demo.hits.length > 0
+                ? demo.hits[0].step
+                : playing && !playhead.precount
+                  ? playhead.step
+                  : -1
+            }
+          />
+
+          <div data-pad-wrap className="shrink-0">
             <PadGrid keysOn={keysOn} lit={lit} onStrike={strike} />
+          </div>
+
+          <div className="hidden shrink-0 flex-wrap gap-1.5 text-[0.7rem] text-slate-500 rec-wide:flex">
+            <KeyHint keys="Enter" label="Rec / Stop" />
+            <KeyHint keys="Tab" label="Overdub / Replace" />
+            <KeyHint keys="Cmd/Ctrl Z" label="Undo pass" />
+            <KeyHint keys="Esc" label="Done" />
           </div>
         </div>
       </div>
@@ -653,7 +680,7 @@ function TransportCard({
     <div
       data-recorder-transport
       data-count-in-active={precount ? '1' : '0'}
-      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A28] px-3 py-2 sm:py-3 rec-fit:gap-2 rec-fit:px-2 rec-fit:py-1.5"
+      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A28] px-3 py-2"
     >
       <button
         type="button"
@@ -666,14 +693,14 @@ function TransportCard({
           onToggleRecord()
         }}
         className={cn(
-          'relative flex size-14 shrink-0 items-center justify-center rounded-full bg-[#FF2D55] text-white shadow-[0_0_24px_rgba(255,45,85,0.45)] sm:size-16 rec-fit:size-11',
+          'relative flex size-12 shrink-0 items-center justify-center rounded-full bg-[#FF2D55] text-white shadow-[0_0_24px_rgba(255,45,85,0.45)] sm:size-14',
           recording && 'omni-rec-pulse',
         )}
       >
         {recording ? (
-          <span className="size-5 rounded-sm bg-white rec-fit:size-4" />
+          <span className="size-4 rounded-sm bg-white" />
         ) : (
-          <span className="size-5 rounded-full bg-white rec-fit:size-4" />
+          <span className="size-4 rounded-full bg-white" />
         )}
       </button>
       <div className="min-w-0 flex-1">
@@ -702,27 +729,27 @@ function TransportCard({
               ))}
             </span>
           ) : null}
-          <span className="text-sm font-semibold text-white rec-fit:text-xs">
+          <span className="text-sm font-semibold text-white">
             Pass {pass} · {mode === 'overdub' ? 'Overdub' : 'Replace'}
           </span>
         </div>
-        <p className="mt-0.5 text-xs text-slate-400 rec-fit:text-[0.7rem]" data-rec-bar={`${barIndex + 1}/${barsCount}`}>
+        <p className="mt-0.5 text-xs text-slate-400" data-rec-bar={`${barIndex + 1}/${barsCount}`}>
           Bar {barIndex + 1} of {barsCount} · Beat {precount ? shownCount : beat >= 0 ? beat + 1 : '—'}
           {recording && !precount ? ' · looping' : precount ? ' · count-in' : ''}
         </p>
-        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10 rec-fit:mt-1 rec-fit:h-1">
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
           <div
             className="h-full rounded-full bg-[#FF4D6D]"
             style={{ width: `${Math.round(progress * 100)}%` }}
           />
         </div>
       </div>
-      <div className="flex shrink-0 flex-col gap-1.5 rec-fit:gap-1">
+      <div className="flex shrink-0 flex-col gap-1.5">
         <button
           type="button"
           aria-label="Undo pass"
           onClick={onUndo}
-          className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300 rec-fit:size-11"
+          className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300"
         >
           <RotateCcw className="size-4" />
         </button>
@@ -730,7 +757,7 @@ function TransportCard({
           type="button"
           aria-label="Clear bar"
           onClick={onClear}
-          className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300 rec-fit:size-11"
+          className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300"
         >
           <Trash2 className="size-4" />
         </button>
@@ -747,6 +774,7 @@ function MiniLoopGrid({
   steps,
   grid,
   thisPass,
+  freshAt,
   playheadStep,
 }: {
   barIndex: number
@@ -756,14 +784,18 @@ function MiniLoopGrid({
   steps: number
   grid: Record<VoiceId, boolean[]>
   thisPass: Map<VoiceId, Set<number>>
+  freshAt: Partial<Record<VoiceId, number>>
   playheadStep: number
 }) {
-  const shown = rows.length > 0 ? rows : (['kick', 'snare'] as VoiceId[])
   const beatCount = Math.max(1, beats)
   return (
-    <div data-mini-loop className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-3 py-2.5 rec-fit:px-2 rec-fit:py-1.5 rec-fit:rounded-xl">
-      <div className="mb-2 flex items-center justify-between gap-2 rec-fit:mb-1">
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500 rec-fit:tracking-[0.12em]">
+    <div
+      data-rec-lanes
+      data-mini-loop
+      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#141A28]/80 px-3 py-2"
+    >
+      <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2">
+        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
           Loop · Bar {barIndex + 1} of {barsCount}
         </p>
         <p className="flex items-center gap-2 text-[0.6rem] font-semibold text-slate-500">
@@ -775,92 +807,120 @@ function MiniLoopGrid({
           </span>
         </p>
       </div>
-      <div className="flex gap-2">
-        <div className="flex w-[4.6rem] shrink-0 flex-col justify-around py-0.5">
-          {shown.map((voice) => (
-            <p key={voice} className="truncate text-[0.62rem] font-semibold leading-4 text-slate-400">
-              {VOICE_LABELS[voice]}
-            </p>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div
+          className="mb-1 ml-[4.7rem] grid shrink-0 text-center text-[0.58rem] font-semibold text-slate-500"
+          style={{ gridTemplateColumns: `repeat(${beatCount}, minmax(0, 1fr))` }}
+        >
+          {Array.from({ length: beatCount }, (_, beat) => (
+            <span key={beat}>{beat + 1}</span>
           ))}
         </div>
-        <div className="relative min-w-0 flex-1">
-          <div
-            className="mb-1 grid text-center text-[0.58rem] font-semibold text-slate-500"
-            style={{ gridTemplateColumns: `repeat(${beatCount}, minmax(0, 1fr))` }}
-          >
-            {Array.from({ length: beatCount }, (_, beat) => (
-              <span key={beat}>{beat + 1}</span>
-            ))}
-          </div>
-          <div
-            className="grid gap-y-1"
-            style={{ gridTemplateRows: `repeat(${shown.length}, minmax(0, 1fr))` }}
-          >
-            {shown.map((voice) => (
+        <div className="relative flex min-h-0 flex-1 flex-col gap-px overflow-hidden">
+          {rows.map((voice) => {
+            const isNew = Boolean(freshAt[voice])
+            return (
               <div
                 key={voice}
-                className="grid h-4 rec-fit:h-3"
-                style={{ gridTemplateColumns: `repeat(${Math.max(1, steps)}, minmax(0, 1fr))` }}
+                data-lane={voice}
+                data-lane-new={isNew ? '1' : '0'}
+                className="flex min-h-[10px] max-h-7 min-w-0 flex-[1_1_22px] items-center gap-2"
               >
-                {Array.from({ length: Math.max(1, steps) }, (_, step) => {
-                  const passHit = thisPass.get(voice)?.has(step)
-                  const earlier = Boolean(grid[voice]?.[step]) && !passHit
-                  return (
-                    <span
-                      key={step}
-                      data-mini-cell={`${voice}:${step}`}
-                      className={cn(
-                        'mx-[1px] rounded-[2px]',
-                        passHit ? 'bg-[#FF4D6D]' : earlier ? 'bg-[#A855F7]' : 'bg-white/8',
-                      )}
-                    />
-                  )
-                })}
+                <p className="flex w-[4.6rem] shrink-0 items-center gap-1 truncate text-[0.62rem] font-semibold text-slate-400">
+                  <span className="truncate">{VOICE_LABELS[voice]}</span>
+                  {isNew ? (
+                    <span className="rounded bg-[#A855F7] px-1 py-px text-[0.52rem] font-bold uppercase tracking-wide text-white">
+                      New
+                    </span>
+                  ) : null}
+                </p>
+                <div
+                  className="grid h-full min-h-[10px] min-w-0 flex-1"
+                  style={{ gridTemplateColumns: `repeat(${Math.max(1, steps)}, minmax(0, 1fr))` }}
+                >
+                  {Array.from({ length: Math.max(1, steps) }, (_, step) => {
+                    const passHit = thisPass.get(voice)?.has(step)
+                    const earlier = Boolean(grid[voice]?.[step]) && !passHit
+                    return (
+                      <span
+                        key={step}
+                        data-mini-cell={`${voice}:${step}`}
+                        className={cn(
+                          'mx-[1px] h-full min-h-[10px] rounded-[2px]',
+                          passHit ? 'bg-[#FF4D6D]' : earlier ? 'bg-[#A855F7]' : 'bg-white/8',
+                        )}
+                      />
+                    )
+                  })}
+                </div>
               </div>
-            ))}
-          </div>
+            )
+          })}
           {playheadStep >= 0 ? (
             <span
               data-mini-playhead
-              className="pointer-events-none absolute top-5 bottom-0 w-px bg-white/80"
-              style={{ left: `${((playheadStep + 0.5) / Math.max(1, steps)) * 100}%` }}
+              className="pointer-events-none absolute bottom-0 top-0 w-px bg-white/80"
+              style={{ left: `calc(4.7rem + ((${playheadStep + 0.5} / ${Math.max(1, steps)}) * (100% - 4.7rem)))` }}
             />
           ) : null}
         </div>
       </div>
+      <p className="mt-1.5 shrink-0 truncate text-center text-[0.62rem] text-slate-600">
+        + a lane appears the first time you hit a new drum
+      </p>
     </div>
   )
 }
 
-function RecSwitch({
+function RecChip({
   label,
   testId,
   on,
   onChange,
+  icon,
 }: {
   label: string
   testId: string
   on: boolean
   onChange: (value: boolean) => void
+  icon: ReactNode
 }) {
   return (
-    <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      data-count-in={testId === 'count-in' ? (on ? '1' : '0') : undefined}
+      data-record-click={testId === 'record-click' ? (on ? '1' : '0') : undefined}
+      onClick={() => onChange(!on)}
+      className={cn(
+        'inline-flex h-9 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold',
+        on ? 'border-[#A855F7] bg-[#A855F7]/18 text-white' : 'border-white/12 bg-white/4 text-slate-400',
+      )}
+    >
+      {icon}
       {label}
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        data-count-in={testId === 'count-in' ? (on ? '1' : '0') : undefined}
-        data-record-click={testId === 'record-click' ? (on ? '1' : '0') : undefined}
-        onClick={() => onChange(!on)}
-        className={cn(
-          'inline-flex h-7 w-11 items-center rounded-full p-0.5 rec-fit:h-8 rec-fit:w-12',
-          on ? 'justify-end bg-[#A855F7]' : 'justify-start bg-white/15',
-        )}
-      >
-        <span className="block size-6 rounded-full bg-white" />
-      </button>
-    </label>
+      <span className={cn('size-1.5 rounded-full', on ? 'bg-[#A855F7]' : 'bg-white/25')} />
+    </button>
+  )
+}
+
+function ClickGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+      <rect x="4.5" y="2.5" width="7" height="11" rx="1.4" />
+      <path d="M8 5.5v3.2l2 1.2" />
+    </svg>
+  )
+}
+
+function CountGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+      <rect x="2.5" y="4" width="3.2" height="8" rx="0.8" />
+      <rect x="6.4" y="4" width="3.2" height="8" rx="0.8" />
+      <rect x="10.3" y="4" width="3.2" height="8" rx="0.8" />
+    </svg>
   )
 }
 
@@ -875,7 +935,7 @@ function ModeSwitch({
     <div
       role="radiogroup"
       aria-label="Record mode"
-      className="grid min-w-[11rem] grid-cols-2 rounded-full bg-white/6 p-1 ring-1 ring-white/10 rec-fit:min-w-[8.25rem]"
+      className="grid min-w-[9.5rem] grid-cols-2 rounded-full bg-white/6 p-1 ring-1 ring-white/10"
     >
       {(['overdub', 'replace'] as const).map((id) => (
         <button
@@ -886,7 +946,7 @@ function ModeSwitch({
           data-record-mode={id}
           onClick={() => onChange(id)}
           className={cn(
-            'h-8 rounded-full px-3 text-xs font-semibold rec-fit:h-11 rec-fit:px-2.5 rec-fit:text-[0.7rem]',
+            'h-8 rounded-full px-3 text-xs font-semibold',
             mode === id ? 'bg-[#A855F7] text-white' : 'text-slate-400',
           )}
         >
@@ -917,23 +977,22 @@ function PadGrid({
     return () => root.removeEventListener('touchstart', block)
   }, [])
   return (
-    <div
-      ref={rootRef}
-      data-pad-grid
-      className="grid h-full min-h-0 grid-cols-4 gap-1.5 sm:gap-2 rec-fit:gap-1 rec-fit:grid-rows-4"
-    >
-      {DRUM_PADS.map((pad) => (
-        <DrumPad
-          key={pad.voice}
-          voice={pad.voice}
-          label={pad.label}
-          wide={pad.wide}
-          keyCap={pad.key}
-          keysOn={keysOn}
-          active={Boolean(lit[pad.voice])}
-          onStrike={onStrike}
-        />
-      ))}
+    <div ref={rootRef} data-pad-grid>
+      {DRUM_PAD_SLOTS.map((slot, index) =>
+        slot ? (
+          <DrumPad
+            key={slot.voice}
+            voice={slot.voice}
+            label={slot.label}
+            keyCap={slot.key}
+            keysOn={keysOn}
+            active={Boolean(lit[slot.voice])}
+            onStrike={onStrike}
+          />
+        ) : (
+          <div key={`spare-${index}`} data-pad-spare className="rec-pad-spare" />
+        ),
+      )}
     </div>
   )
 }
@@ -941,7 +1000,6 @@ function PadGrid({
 function DrumPad({
   voice,
   label,
-  wide,
   keyCap,
   keysOn,
   active,
@@ -949,7 +1007,6 @@ function DrumPad({
 }: {
   voice: VoiceId
   label: string
-  wide?: boolean
   keyCap: string | readonly string[]
   keysOn: boolean
   active: boolean
@@ -987,27 +1044,25 @@ function DrumPad({
       }}
       onContextMenu={(event) => event.preventDefault()}
       className={cn(
-        'relative flex min-h-[3.55rem] max-[500px]:min-h-[2.75rem] select-none flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#141A28] text-[#E9D5FF] [touch-action:none] sm:min-h-[5.4rem] rec-fit:h-full rec-fit:min-h-11 rec-fit:rounded-xl rec-fit:max-[500px]:min-h-11',
-        wide &&
-          'col-span-2 min-h-[4.15rem] max-[500px]:min-h-[3.15rem] sm:min-h-[6rem] rec-fit:min-h-11 rec-fit:max-[500px]:min-h-11',
+        'relative flex select-none flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#141A28] text-[#E9D5FF] [touch-action:none]',
         active && 'omni-pad-hit border-[#A855F7] bg-[#A855F7]/20 text-white',
       )}
     >
       {active ? <span className="omni-pad-ripple" /> : null}
       {keysOn ? (
-        <span className="absolute left-1.5 top-1.5 hidden gap-0.5 rec-wide:flex">
+        <span className="absolute left-1 top-1 hidden gap-0.5 rec-wide:flex">
           {caps.map((cap) => (
             <span
               key={cap}
-              className="rounded bg-white/10 px-1 py-px text-[0.58rem] font-bold uppercase tracking-wide text-slate-300"
+              className="rounded bg-white/10 px-1 py-px text-[0.5rem] font-bold uppercase tracking-wide text-slate-300"
             >
               {cap}
             </span>
           ))}
         </span>
       ) : null}
-      <DrumPadIcon voice={voice} />
-      <span className="mt-1 text-[0.7rem] font-semibold text-slate-200 rec-fit:mt-0.5 rec-fit:text-[0.62rem]">{label}</span>
+      <DrumPadIcon voice={voice} className="size-6" />
+      <span className="mt-0.5 text-[0.62rem] font-semibold leading-none text-slate-200">{label}</span>
     </button>
   )
 }
