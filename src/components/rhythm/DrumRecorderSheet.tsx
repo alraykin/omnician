@@ -340,8 +340,8 @@ export function DrumRecorderSheet({
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-3 sm:px-5 rec-wide:grid rec-wide:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] rec-wide:gap-5 rec-wide:overflow-y-auto rec-wide:pb-5">
-          <div className="flex min-h-0 flex-col gap-2 overflow-y-auto rec-wide:gap-3 rec-wide:overflow-visible">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-3 sm:px-5 rec-wide:grid rec-wide:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] rec-wide:gap-5 rec-wide:pb-5">
+          <div className="flex flex-col gap-2 rec-wide:gap-3">
             <TransportCard
               recording={liveRecording}
               pass={pass}
@@ -787,8 +787,8 @@ function DrumPad({
       onPointerDown={hit}
       onContextMenu={(event) => event.preventDefault()}
       className={cn(
-        'relative flex min-h-[3.55rem] touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#141A28] text-[#E9D5FF] sm:min-h-[5.4rem]',
-        wide && 'col-span-2 min-h-[4.15rem] sm:min-h-[6rem]',
+        'relative flex min-h-[3.55rem] max-[500px]:min-h-[2.7rem] touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#141A28] text-[#E9D5FF] sm:min-h-[5.4rem]',
+        wide && 'col-span-2 min-h-[4.15rem] max-[500px]:min-h-[3.15rem] sm:min-h-[6rem]',
         active && 'omni-pad-hit border-[#A855F7] bg-[#A855F7]/20 text-white',
       )}
     >
