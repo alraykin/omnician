@@ -404,10 +404,26 @@ export function TunerPage() {
           <NoteDisplay
             live={live}
             inTune={inTune}
-            sharpName={reading?.sharpName ?? (demo.cents !== null ? demo.sharpName : undefined)}
-            flatName={reading?.flatName ?? (demo.cents !== null ? demo.flatName : undefined)}
-            isNatural={reading?.isNatural ?? (demo.cents !== null ? demo.isNatural : undefined)}
-            octave={reading?.octave ?? (demo.cents !== null ? demo.octave : undefined)}
+            sharpName={
+              instrumentMode && activeString
+                ? activeString.label
+                : (reading?.sharpName ?? (demo.cents !== null ? demo.sharpName : undefined))
+            }
+            flatName={
+              instrumentMode && activeString
+                ? activeString.label
+                : (reading?.flatName ?? (demo.cents !== null ? demo.flatName : undefined))
+            }
+            isNatural={
+              instrumentMode && activeString
+                ? !/[♯#♭b]/.test(activeString.label)
+                : (reading?.isNatural ?? (demo.cents !== null ? demo.isNatural : undefined))
+            }
+            octave={
+              instrumentMode && activeString
+                ? activeString.octave
+                : (reading?.octave ?? (demo.cents !== null ? demo.octave : undefined))
+            }
             target={
               instrumentMode && activeString
                 ? `${activeString.label}${activeString.octave} · ${activeString.stringNo}${ordinal(activeString.stringNo)}`
