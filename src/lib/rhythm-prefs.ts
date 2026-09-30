@@ -71,6 +71,7 @@ export type RhythmPrefs = {
   kitIntensity: KitIntensity
   speedBuilder: SpeedBuilder
   volumeDb: number
+  userBeatId: string | null
 }
 
 function fallback(): RhythmPrefs {
@@ -87,6 +88,7 @@ function fallback(): RhythmPrefs {
     kitIntensity: DEFAULT_KIT_INTENSITY,
     speedBuilder: { ...DEFAULT_SPEED_BUILDER },
     volumeDb: DEFAULT_MASTER_VOLUME_DB,
+    userBeatId: null,
   }
 }
 
@@ -183,6 +185,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
       kitIntensity?: unknown
       speedBuilder?: unknown
       volumeDb?: unknown
+      userBeatId?: unknown
     }
 
     const split = Array.isArray(row.clickBars) || Array.isArray(row.drumBars)
@@ -218,6 +221,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
       ),
       speedBuilder: parseSpeedBuilder(row.speedBuilder),
       volumeDb: parseMasterVolumeDb(row.volumeDb),
+      userBeatId: typeof row.userBeatId === 'string' && row.userBeatId.length > 0 ? row.userBeatId : null,
     }
   } catch {
     return base
@@ -240,6 +244,7 @@ export function saveRhythmPrefs(prefs: RhythmPrefs): void {
       kitIntensity: clampKitIntensity(prefs.kitIntensity),
       speedBuilder: parseSpeedBuilder(prefs.speedBuilder),
       volumeDb: parseMasterVolumeDb(prefs.volumeDb),
+      userBeatId: prefs.userBeatId,
     }),
   )
 }

@@ -1,4 +1,4 @@
-import { ChevronDown, Play, Square } from 'lucide-react'
+import { Check, ChevronDown, Pencil, Play, Plus, Square, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
@@ -31,9 +31,11 @@ import {
   cycleBeatAccent,
   defaultBeatAccents,
   meterLabel,
+  makeBar,
   setBarSubdivision,
   setBeatSubdivision,
   setHit,
+  emptyPattern,
   updateBarMeter,
   type BeatUnit,
   type ClickSoundId,
@@ -47,6 +49,18 @@ import { requestRawMic } from '@/lib/mic-capture'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
+import {
+  barsEqual,
+  createUserBeat,
+  deleteUserBeat,
+  findUserBeat,
+  loadUserBeats,
+  makeBlankBar,
+  renameUserBeat,
+  saveUserBeats,
+  upsertUserBeat,
+  type UserBeat,
+} from '@/lib/user-beats'
 import { type SpeedBuilder, type SpeedBuilderCue } from '@/lib/speed-builder'
 import { detectTempo, synthesizeClickTrack, type TempoEstimate } from '@/lib/tempo-detect'
 import { stopListenTempoPreview } from '@/lib/listen-preview'
@@ -75,6 +89,12 @@ export function RhythmPage() {
   const [clickBarIndex, setClickBarIndex] = useState(prefs.clickBarIndex)
   const [drumBarIndex, setDrumBarIndex] = useState(prefs.drumBarIndex)
   const [presetId, setPresetId] = useState<string | null>(prefs.presetId)
+  const [userBeatId, setUserBeatId] = useState<string | null>(prefs.userBeatId)
+  const [draftNew, setDraftNew] = useState(false)
+  const [userBeats, setUserBeats] = useState<UserBeat[]>(() => loadUserBeats())
+  const [saveOpen, setSaveOpen] = useState(false)
+  const [saveAsNew, setSaveAsNew] = useState(false)
+  const [saveName, setSaveName] = useState('')
   const [kitMix, setKitMix] = useState<KitMix>(prefs.kitMix)
   const [volumeDb, setVolumeDb] = useState(prefs.volumeDb)
   const [kitIntensity, setKitIntensity] = useState<KitIntensity>(prefs.kitIntensity)
@@ -103,15 +123,26 @@ export function RhythmPage() {
   const setBarIndex = mode === 'click' ? setClickBarIndex : setDrumBarIndex
 
   const current = bars[Math.min(barIndex, bars.length - 1)] ?? bars[0]
-  const matched = current ? matchPreset(current) : null
-  const edited = Boolean(matched === null && presetId)
+  const matched = current && !userBeatId && !draftNew ? matchPreset(current) : null
+  const edited = Boolean(matched === null && presetId && !userBeatId && !draftNew)
   const savedPreset = presetId ? findPreset(presetId) : undefined
+  const savedUser = userBeatId ? findUserBeat(userBeatId, userBeats) : undefined
+  const userDirty = Boolean(
+    savedUser && (!barsEqual(drumBars, savedUser.bars) || savedUser.bpm !== bpm),
+  )
   const kitStyleId: RhythmStyleId = matched?.styleId ?? savedPreset?.styleId ?? 'rock'
-  const beatName = matched
-    ? matched.name
-    : savedPreset
-      ? `${savedPreset.name} · edited`
-      : 'Custom beat'
+  const beatName = savedUser
+    ? userDirty
+      ? `${savedUser.name} · edited`
+      : savedUser.name
+    : draftNew
+      ? 'New beat'
+      : matched
+        ? matched.name
+        : savedPreset
+          ? `${savedPreset.name} · edited`
+          : 'Custom beat'
+  const needsSave = draftNew || userDirty || edited
 
   useEffect(() => {
     if (mode !== 'click' || pickerBeat === null) return
@@ -174,6 +205,7 @@ export function RhythmPage() {
         volumeDb,
         kitIntensity,
         speedBuilder,
+        userBeatId,
       })
     }, 220)
     return () => window.clearTimeout(id)
@@ -191,6 +223,7 @@ export function RhythmPage() {
     mode,
     presetId,
     speedBuilder,
+    userBeatId,
   ])
 
   useEffect(() => {
@@ -237,6 +270,8 @@ export function RhythmPage() {
       setKitIntensity(defaultIntensityForStyle(preset.styleId))
     }
     setPresetId(preset.id)
+    setUserBeatId(null)
+    setDraftNew(false)
     setPickerOpen(false)
   }
 
@@ -328,9 +363,9 @@ export function RhythmPage() {
           index === targetBar ? { ...item, pattern: nextPattern } : item,
         )
       })
-      if (changed) setPresetId(matched?.id ?? presetId)
+      if (changed && !draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
     },
-    [drumBars, matched?.id, presetId, preview],
+    [draftNew, drumBars, matched?.id, presetId, preview, userBeatId],
   )
 
   const chooseDrumBar = (index: number) => {
@@ -458,10 +493,102 @@ export function RhythmPage() {
       setDrumBars((currentBars) =>
         currentBars.map((item, index) => (index === drumBarIndex ? next : item)),
       )
-      setPresetId(matched?.id ?? presetId)
+      if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
     },
-    [drumBarIndex, matched?.id, presetId],
+    [draftNew, drumBarIndex, matched?.id, presetId, userBeatId],
   )
+
+  const persistBeats = (next: UserBeat[]) => {
+    setUserBeats(next)
+    saveUserBeats(next)
+  }
+
+  const startNewBeat = useCallback(() => {
+    const source = drumBars[drumBarIndex] ?? drumBars[0]
+    if (!source) return
+    if (playing) {
+      halt('new-beat')
+      setPlaying(false)
+      setRecording(false)
+    }
+    setDrumBars([makeBlankBar(source)])
+    setDrumBarIndex(0)
+    setPresetId(null)
+    setUserBeatId(null)
+    setDraftNew(true)
+    setPickerOpen(false)
+  }, [drumBarIndex, drumBars, halt, playing])
+
+  const openSave = (asNew = false) => {
+    setSaveAsNew(asNew || !savedUser)
+    setSaveName(asNew ? '' : (savedUser?.name ?? ''))
+    setSaveOpen(true)
+  }
+
+  const commitSave = () => {
+    const name = saveName.trim()
+    if (!name) return
+    const nextBeat =
+      savedUser && !saveAsNew
+        ? { ...savedUser, name, bpm, bars: drumBars.map(cloneBar), updatedAt: Date.now() }
+        : createUserBeat(name, bpm, drumBars)
+    persistBeats(upsertUserBeat(userBeats, nextBeat))
+    setUserBeatId(nextBeat.id)
+    setPresetId(null)
+    setDraftNew(false)
+    setSaveOpen(false)
+  }
+
+  const loadUser = (id: string) => {
+    const beat = findUserBeat(id, userBeats)
+    if (!beat) return
+    if (playing) {
+      halt('load-user-beat')
+      setPlaying(false)
+    }
+    setDrumBars(beat.bars.map(cloneBar))
+    setDrumBarIndex(0)
+    setBpm(beat.bpm)
+    setUserBeatId(beat.id)
+    setPresetId(null)
+    setDraftNew(false)
+    setPickerOpen(false)
+  }
+
+  const renameSaved = (id: string, name: string) => {
+    persistBeats(renameUserBeat(userBeats, id, name))
+  }
+
+  const deleteSaved = (id: string) => {
+    persistBeats(deleteUserBeat(userBeats, id))
+    if (userBeatId === id) {
+      setUserBeatId(null)
+      setDraftNew(true)
+    }
+  }
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search)
+    if (query.get('myBeats') === '1') {
+      let pattern = emptyPattern()
+      pattern = setHit(pattern, 'kick', 0, 4, 4, true)
+      pattern = setHit(pattern, 'kick', 8, 4, 4, true)
+      pattern = setHit(pattern, 'snare', 4, 4, 4, true)
+      pattern = setHit(pattern, 'snare', 12, 4, 4, true)
+      const demo = createUserBeat('Practice groove', 120, [makeBar(4, 4, 4, pattern)], 'ub-demo-practice')
+      persistBeats(upsertUserBeat(loadUserBeats(), demo))
+    }
+    if (query.get('newBeat') === '1') startNewBeat()
+    if (query.get('save') === '1') {
+      startNewBeat()
+      setSaveAsNew(true)
+      setSaveName('')
+      setSaveOpen(true)
+    }
+    if (query.get('library') === '1') setPickerOpen(true)
+    // Seed demo UI from the URL once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (!current) return null
 
@@ -786,21 +913,46 @@ export function RhythmPage() {
               </TransportDock>
             </div>
             <section className="flex h-fit min-h-0 min-w-0 flex-1 flex-col" data-rhythm-stack="stage">
-              <button
-                type="button"
-                onClick={() => setPickerOpen(true)}
-                className="mb-2 flex w-full items-center justify-between rounded-xl border border-white/10 bg-[#141A28] px-3 py-2 text-left"
-              >
-                <span>
-                  <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
-                    Beat library
+              <div className="mb-2 flex items-stretch gap-1.5">
+                <button
+                  type="button"
+                  data-beat-library
+                  onClick={() => setPickerOpen(true)}
+                  className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-white/10 bg-[#141A28] px-3 py-2 text-left"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[#C084FC]">
+                      Beat library
+                    </span>
+                    <span className="mt-0.5 block truncate text-sm font-semibold text-white">
+                      {beatName}
+                    </span>
                   </span>
-                  <span className="mt-0.5 block text-sm font-semibold text-white">
-                    {edited && matched === null ? beatName : matched?.name ?? beatName}
-                  </span>
-                </span>
-                <span className="text-xs font-semibold text-slate-400">Change</span>
-              </button>
+                  <span className="ml-2 shrink-0 text-xs font-semibold text-slate-400">Change</span>
+                </button>
+                {needsSave ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    data-save-beat
+                    onClick={() => openSave(false)}
+                    className="h-11 shrink-0 self-center px-3"
+                  >
+                    Save
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  data-new-beat
+                  onClick={startNewBeat}
+                  className="h-11 shrink-0 self-center gap-1 px-2.5"
+                >
+                  <Plus className="size-3.5" />
+                  New
+                </Button>
+              </div>
               <div className="mb-2 rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5">
                 <BarStrip
                   store={playheadStore}
@@ -878,10 +1030,68 @@ export function RhythmPage() {
       {pickerOpen ? (
         <PresetSheet
           current={current}
-          selectedId={matched?.id ?? presetId}
+          selectedId={userBeatId || draftNew ? null : (matched?.id ?? presetId)}
+          selectedUserId={userBeatId}
+          userBeats={userBeats}
           onClose={() => setPickerOpen(false)}
           onSelect={loadPreset}
+          onLoadUser={loadUser}
+          onRename={renameSaved}
+          onDelete={deleteSaved}
         />
+      ) : null}
+
+      {saveOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-4 sm:items-center">
+          <form
+            role="dialog"
+            aria-labelledby="save-beat-title"
+            data-save-dialog
+            className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0F1422] p-5"
+            onSubmit={(event) => {
+              event.preventDefault()
+              commitSave()
+            }}
+          >
+            <h2 id="save-beat-title" className="text-xl font-bold tracking-tight text-white">
+              {saveAsNew || !savedUser ? 'Save beat' : 'Save changes'}
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Saved on this phone or computer only — no account needed.
+            </p>
+            <label className="mt-4 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Name
+              <input
+                autoFocus
+                value={saveName}
+                maxLength={40}
+                placeholder="My groove"
+                onChange={(event) => setSaveName(event.target.value)}
+                className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-semibold text-white outline-none placeholder:text-slate-600 focus:border-[#A855F7]"
+              />
+            </label>
+            <Button type="submit" className="mt-4 w-full" disabled={!saveName.trim()} data-save-confirm>
+              {saveAsNew || !savedUser ? 'Save' : 'Update'}
+            </Button>
+            {savedUser && !saveAsNew ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 w-full"
+                data-save-as-new
+                onClick={() => {
+                  setSaveAsNew(true)
+                  if (!saveName.trim()) setSaveName(savedUser.name)
+                }}
+              >
+                Save as new
+              </Button>
+            ) : null}
+            <Button type="button" variant="outline" className="mt-2 w-full" onClick={() => setSaveOpen(false)}>
+              Cancel
+            </Button>
+          </form>
+        </div>
       ) : null}
 
       {mode === 'drums' ? (
@@ -892,7 +1102,7 @@ export function RhythmPage() {
           barIndex={drumBarIndex}
           barsCount={drumBars.length}
           bpm={bpm}
-          beatName={edited && matched === null ? beatName : (matched?.name ?? beatName)}
+          beatName={beatName}
           recording={recording}
           playing={playing}
           playheadStore={playheadStore}
@@ -1061,13 +1271,23 @@ function TransportReadout({
 function PresetSheet({
   current,
   selectedId,
+  selectedUserId,
+  userBeats,
   onClose,
   onSelect,
+  onLoadUser,
+  onRename,
+  onDelete,
 }: {
   current: RhythmBar
   selectedId: string | null
+  selectedUserId: string | null
+  userBeats: UserBeat[]
   onClose: () => void
   onSelect: (id: string) => void
+  onLoadUser: (id: string) => void
+  onRename: (id: string, name: string) => void
+  onDelete: (id: string) => void
 }) {
   const selected = selectedId ? findPreset(selectedId) : undefined
   const local = RHYTHM_STYLES.filter((style) =>
@@ -1087,6 +1307,13 @@ function PresetSheet({
         <h2 id="rhythm-presets-title" className="text-xl font-bold tracking-tight text-white">
           Beat library
         </h2>
+        <MyBeatsSection
+          beats={userBeats}
+          selectedId={selectedUserId}
+          onLoad={onLoadUser}
+          onRename={onRename}
+          onDelete={onDelete}
+        />
         <PresetGroup
           title={`For ${meterLabel(current.beats, current.beatUnit)}`}
           styles={local}
@@ -1100,6 +1327,163 @@ function PresetSheet({
           Close
         </Button>
       </div>
+    </div>
+  )
+}
+
+function MyBeatsSection({
+  beats,
+  selectedId,
+  onLoad,
+  onRename,
+  onDelete,
+}: {
+  beats: UserBeat[]
+  selectedId: string | null
+  onLoad: (id: string) => void
+  onRename: (id: string, name: string) => void
+  onDelete: (id: string) => void
+}) {
+  return (
+    <section className="mt-4" data-my-beats>
+      <h3 className="px-1 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-[#C084FC]">
+        My beats
+      </h3>
+      {beats.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-white/10 px-3 py-3 text-sm text-slate-500">
+          Nothing saved yet. Tap + New, then Save.
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          {beats.map((beat) => (
+            <MyBeatRow
+              key={beat.id}
+              beat={beat}
+              selected={beat.id === selectedId}
+              onLoad={onLoad}
+              onRename={onRename}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function MyBeatRow({
+  beat,
+  selected,
+  onLoad,
+  onRename,
+  onDelete,
+}: {
+  beat: UserBeat
+  selected: boolean
+  onLoad: (id: string) => void
+  onRename: (id: string, name: string) => void
+  onDelete: (id: string) => void
+}) {
+  const [renaming, setRenaming] = useState(false)
+  const [name, setName] = useState(beat.name)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const commitRename = () => {
+    const next = name.trim()
+    if (next) onRename(beat.id, next)
+    else setName(beat.name)
+    setRenaming(false)
+  }
+
+  return (
+    <div
+      data-user-beat={beat.id}
+      className={cn(
+        'rounded-2xl border px-2.5 py-2',
+        selected ? 'border-[#A855F7]/50 bg-[#A855F7]/10' : 'border-white/10 bg-white/3',
+      )}
+    >
+      {confirmDelete ? (
+        <div className="flex items-center gap-2" data-delete-confirm>
+          <p className="min-w-0 flex-1 text-sm font-semibold text-white">Delete “{beat.name}”?</p>
+          <Button type="button" size="sm" className="h-8 px-2.5" onClick={() => onDelete(beat.id)}>
+            Delete
+          </Button>
+          <Button type="button" size="sm" variant="outline" className="h-8 px-2.5" onClick={() => setConfirmDelete(false)}>
+            Cancel
+          </Button>
+        </div>
+      ) : renaming ? (
+        <div className="flex items-center gap-1.5">
+          <input
+            autoFocus
+            value={name}
+            maxLength={40}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') commitRename()
+              if (event.key === 'Escape') {
+                setName(beat.name)
+                setRenaming(false)
+              }
+            }}
+            className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-2 text-sm font-semibold text-white outline-none focus:border-[#A855F7]"
+          />
+          <button
+            type="button"
+            aria-label="Save name"
+            className="flex size-8 items-center justify-center rounded-lg bg-[#A855F7] text-white"
+            onClick={commitRename}
+          >
+            <Check className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            aria-label="Cancel rename"
+            className="flex size-8 items-center justify-center rounded-lg border border-white/10 text-slate-400"
+            onClick={() => {
+              setName(beat.name)
+              setRenaming(false)
+            }}
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onLoad(beat.id)}
+            className="min-w-0 flex-1 py-0.5 text-left"
+          >
+            <span className="block truncate text-sm font-semibold text-white">{beat.name}</span>
+            <span className="block text-[0.7rem] text-slate-500">
+              {beat.bpm} BPM · {beat.bars.length} {beat.bars.length === 1 ? 'bar' : 'bars'}
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-label={`Rename ${beat.name}`}
+            data-rename-beat={beat.id}
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white/8 hover:text-white"
+            onClick={() => {
+              setName(beat.name)
+              setRenaming(true)
+            }}
+          >
+            <Pencil className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            aria-label={`Delete ${beat.name}`}
+            data-delete-beat={beat.id}
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white/8 hover:text-rose-300"
+            onClick={() => setConfirmDelete(true)}
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
