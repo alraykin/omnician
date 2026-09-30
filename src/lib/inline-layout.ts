@@ -61,7 +61,7 @@ type Metrics = {
 function metrics(count: number, bass: boolean): Metrics {
   if (bass || count <= 4) {
     return {
-      button: bass ? 20 : 18,
+      button: bass ? 22 : 20,
       postR: bass ? 6 : 5.2,
       gap: bass ? 50 : 46,
       tail: 38,
@@ -74,9 +74,9 @@ function metrics(count: number, bass: boolean): Metrics {
   }
   if (count <= 6) {
     return {
-      button: 18,
-      postR: 5.2,
-      gap: 42,
+      button: 20,
+      postR: 5.4,
+      gap: 44,
       tail: 36,
       neckH: 120,
       shaft: 12,
@@ -130,9 +130,9 @@ export function layoutInline(
   const leftPad = sidePad + checkW + labelW + m.button + m.shaft + 2
 
   const nutWidth = m.nutWidth
-  const bodyW = nutWidth + 16
-  const domeR = bodyW * 0.5
-  const aboveFirst = 14
+  const bodyW = nutWidth + 12
+  const domeR = bodyW * 0.46
+  const aboveFirst = 26
   const tipY = 12
   const joinY = tipY + domeR
   const firstY = joinY + aboveFirst
