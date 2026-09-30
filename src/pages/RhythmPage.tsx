@@ -935,7 +935,7 @@ function TransportDock({
       className={className}
     >
       <div className="mb-1.5 text-[0.7rem] text-slate-200">{children}</div>
-      <div className="flex items-stretch gap-2">
+      <div className={cn('flex items-center gap-2', extra && 'pr-0.5')}>
         <Button
           type="button"
           size="lg"

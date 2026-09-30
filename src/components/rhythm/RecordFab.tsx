@@ -27,7 +27,7 @@ export function RecordFab({
   }
 
   return (
-    <div className="relative shrink-0" data-record-fab>
+    <div className="relative shrink-0 p-[3px]" data-record-fab>
       {tip ? (
         <button
           type="button"
@@ -50,7 +50,7 @@ export function RecordFab({
         data-record-open
         aria-label="Record your own beat"
         {...activateOnPointer(open)}
-        className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#141A28] ring-[3px] ring-[#FF4D6D] touch-manipulation shadow-[0_0_18px_rgba(255,77,109,0.35)]"
+        className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#141A28] ring-[3px] ring-[#FF4D6D] touch-manipulation shadow-[0_0_10px_rgba(255,77,109,0.55)]"
       >
         <span className="size-3.5 rounded-full bg-[#FF4D6D] shadow-[0_0_10px_rgba(255,77,109,0.95)]" />
       </button>
