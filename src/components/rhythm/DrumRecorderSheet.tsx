@@ -290,7 +290,7 @@ export function DrumRecorderSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-0 wide:items-center wide:p-4"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-0 rec-wide:items-center rec-wide:p-4"
       data-drum-recorder
       data-recording={liveRecording ? '1' : '0'}
       data-bars-count={barsCount}
@@ -298,7 +298,7 @@ export function DrumRecorderSheet({
       <div
         role="dialog"
         aria-labelledby="drum-recorder-title"
-        className="flex max-h-[min(94svh,52rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.6rem] border border-white/10 bg-[#0F1422] pb-[max(0.6rem,env(safe-area-inset-bottom,0px))] wide:max-h-[min(90svh,46rem)] wide:max-w-[68rem] wide:rounded-3xl wide:pb-0"
+        className="flex max-h-[min(94svh,52rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.6rem] border border-white/10 bg-[#0F1422] pb-[max(0.6rem,env(safe-area-inset-bottom,0px))] rec-wide:max-h-[min(90svh,46rem)] rec-wide:max-w-[68rem] rec-wide:rounded-3xl rec-wide:pb-0"
       >
         <header className="flex items-start justify-between gap-3 px-4 pb-2 pt-3 sm:px-5">
           <div className="min-w-0">
@@ -310,7 +310,7 @@ export function DrumRecorderSheet({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <label className="hidden items-center gap-2 text-xs font-semibold text-slate-300 wide:flex">
+            <label className="hidden items-center gap-2 text-xs font-semibold text-slate-300 rec-wide:flex">
               Keys on
               <button
                 type="button"
@@ -332,7 +332,7 @@ export function DrumRecorderSheet({
             <button
               type="button"
               aria-label="Close recorder"
-              className="hidden size-9 items-center justify-center rounded-full border border-white/12 text-slate-300 wide:flex"
+              className="hidden size-9 items-center justify-center rounded-full border border-white/12 text-slate-300 rec-wide:flex"
               onClick={onClose}
             >
               <X className="size-4" />
@@ -340,8 +340,8 @@ export function DrumRecorderSheet({
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-3 sm:px-5 wide:grid wide:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] wide:gap-5 wide:overflow-y-auto wide:pb-5">
-          <div className="flex min-h-0 flex-col gap-2 overflow-y-auto wide:gap-3 wide:overflow-visible">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-3 sm:px-5 rec-wide:grid rec-wide:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] rec-wide:gap-5 rec-wide:overflow-y-auto rec-wide:pb-5">
+          <div className="flex min-h-0 flex-col gap-2 overflow-y-auto rec-wide:gap-3 rec-wide:overflow-visible">
             <TransportCard
               recording={liveRecording}
               pass={pass}
@@ -456,7 +456,7 @@ export function DrumRecorderSheet({
               </div>
             ) : null}
 
-            <div className="hidden flex-col gap-1.5 text-[0.7rem] text-slate-500 wide:flex">
+            <div className="hidden flex-col gap-1.5 text-[0.7rem] text-slate-500 rec-wide:flex">
               <p>Count-in (1 bar)</p>
               <div className="flex flex-wrap gap-1.5">
                 <KeyHint keys="Enter" label="Rec / Stop" />
@@ -467,7 +467,7 @@ export function DrumRecorderSheet({
             </div>
           </div>
 
-          <div className="relative mt-2 shrink-0 wide:mt-0">
+          <div className="relative mt-2 shrink-0 rec-wide:mt-0">
             <PadGrid keysOn={keysOn} lit={lit} onStrike={strike} />
             {countOverlay ? (
               <div
@@ -794,7 +794,7 @@ function DrumPad({
     >
       {active ? <span className="omni-pad-ripple" /> : null}
       {keysOn ? (
-        <span className="absolute left-1.5 top-1.5 hidden gap-0.5 wide:flex">
+        <span className="absolute left-1.5 top-1.5 hidden gap-0.5 rec-wide:flex">
           {caps.map((cap) => (
             <span
               key={cap}

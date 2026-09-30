@@ -14,6 +14,17 @@
   }
 }
 
+/* Recorder two-column window: desktop, or landscape with enough height.
+   Short phone landscape keeps the stacked bottom sheet so Kick/Snare stay reachable. */
+@custom-variant rec-wide {
+  @media (min-width: 1024px) {
+    @slot;
+  }
+  @media (orientation: landscape) and (min-width: 640px) and (min-height: 600px) {
+    @slot;
+  }
+}
+
 @theme inline {
   --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
