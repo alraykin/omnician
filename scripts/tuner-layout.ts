@@ -2,8 +2,14 @@ import assert from 'node:assert/strict'
 
 import { parseLayoutMode } from '../src/lib/custom-presets.ts'
 import {
-  INLINE_EDGE_DEG,
-  INLINE_EDGE_TAN,
+  INLINE_BUTTON_6,
+  INLINE_NUT,
+  INLINE_NUT_XS_6,
+  INLINE_OUTLINE,
+  INLINE_POSTS_6,
+  INLINE_POST_R_6,
+  INLINE_VIEW_H,
+  INLINE_VIEW_W,
   inlinePegsFromTip,
   layoutInline,
 } from '../src/lib/inline-layout.ts'
@@ -12,7 +18,10 @@ import { findBuiltinPreset } from '../src/lib/presets.ts'
 assert.equal(parseLayoutMode('inline'), 'inline')
 assert.equal(parseLayoutMode('headstock'), 'headstock')
 assert.equal(parseLayoutMode('nope'), 'headstock')
-assert.equal(INLINE_EDGE_DEG, 16)
+assert.equal(INLINE_VIEW_W, 1200)
+assert.equal(INLINE_VIEW_H, 1400)
+assert.match(INLINE_OUTLINE, /^M550\.40 1235\.00/)
+assert.match(INLINE_OUTLINE, /785\.60 1235\.00 Z$/)
 
 const guitar6 = findBuiltinPreset('guitar-6-standard')
 assert.ok(guitar6)
@@ -39,63 +48,45 @@ const b4 = inlinePegsFromTip(bass4.strings)
 assert.equal(b4[0]?.label, 'G')
 assert.equal(b4.at(-1)?.label, 'E')
 
-function checkPaddle(id: string, config: 'guitar-6' | 'guitar-7' | 'guitar-8' | 'bass-4') {
-  const preset = findBuiltinPreset(id)
-  assert.ok(preset, id)
-  const drawn = layoutInline(preset.strings, config)
-  const rise = drawn.nutY - drawn.joinY
-  const run = drawn.leftAtJoin - drawn.leftAtNut
-  const deg = (Math.atan2(run, rise) * 180) / Math.PI
-  assert.ok(Math.abs(deg - 16) < 1.2, `${id} left edge ${deg.toFixed(2)}°`)
-  const bodyW = drawn.rightAtNut - drawn.leftAtNut
-  const rightDeg =
-    (Math.atan2(drawn.rightAtJoin - drawn.rightAtNut, rise) * 180) / Math.PI
-  assert.ok(Math.abs(rightDeg - 16) < 1.2, `${id} right edge ${rightDeg.toFixed(2)}°`)
-  assert.ok(
-    Math.abs(drawn.domeWidth - bodyW) < 1.5,
-    `${id} dome should be the rounded end of the slim paddle (${drawn.domeWidth} vs ${bodyW})`,
-  )
-  assert.ok(
-    bodyW < drawn.nutWidth + 24,
-    `${id} body should stay only a bit wider than the nut (${bodyW} vs nut ${drawn.nutWidth})`,
-  )
-
-  const tip = drawn.pegs[0]
-  const nutPeg = drawn.pegs.at(-1)
-  assert.ok(tip && nutPeg)
-  assert.ok(tip.postY < nutPeg.postY, `${id} tip post should be above the nut post`)
-  assert.ok(tip.postX > nutPeg.postX, `${id} high string post should sit further right`)
-  assert.ok(nutPeg.nutX < tip.nutX, `${id} low string should leave the nut on the left`)
-
-  const nuts = drawn.pegs.map((peg) => peg.nutX)
-  const gaps = nuts.slice(1).map((x, i) => Math.abs(x - (nuts[i] ?? 0)))
-  const mean = gaps.reduce((a, b) => a + b, 0) / Math.max(1, gaps.length)
-  for (const gap of gaps) {
-    assert.ok(Math.abs(gap - mean) < 1.2, `${id} nut spacing should be even`)
-  }
-
-  for (const peg of drawn.pegs) {
-    const dx = peg.postX - peg.nutX
-    const dy = peg.nutY - peg.postY
-    assert.ok(dy > 8, `${id} ${peg.string.id} should run up to its post`)
-    assert.ok(Math.abs(dx) < dy * 0.55, `${id} ${peg.string.id} should run nearly straight`)
-    assert.ok(peg.button >= 15, `${id} buttons too small (${peg.button})`)
-  }
-
-  const expectedTan = (drawn.leftAtJoin - drawn.leftAtNut) / rise
-  assert.ok(Math.abs(expectedTan - INLINE_EDGE_TAN) < 0.01, `${id} tan`)
-}
-
-checkPaddle('guitar-6-standard', 'guitar-6')
-checkPaddle('guitar-7', 'guitar-7')
-checkPaddle('guitar-8', 'guitar-8')
-checkPaddle('bass-4', 'bass-4')
-
 const six = layoutInline(guitar6.strings, 'guitar-6')
-assert.equal(six.pegs[0]?.string.label, 'E')
-assert.equal(six.pegs[0]?.string.stringNo, 1)
-assert.equal(six.pegs.at(-1)?.string.stringNo, 6)
-assert.ok(six.pegs[0] && six.pegs.at(-1))
-assert.ok(six.pegs[0].button >= 17)
+assert.equal(six.outline, INLINE_OUTLINE)
+assert.equal(six.viewW, 1200)
+assert.equal(six.height, 1400)
+assert.equal(six.pegs.length, 6)
+assert.equal(six.nutLeft, INLINE_NUT.x)
+assert.equal(six.nutWidth, INLINE_NUT.w)
+
+six.pegs.forEach((peg, index) => {
+  const post = INLINE_POSTS_6[index]
+  const nutX = INLINE_NUT_XS_6[index]
+  assert.ok(post && nutX != null)
+  assert.ok(Math.abs(peg.postX - post.x) < 0.05, `post x ${index}`)
+  assert.ok(Math.abs(peg.postY - post.y) < 0.05, `post y ${index}`)
+  assert.ok(Math.abs(peg.nutX - nutX) < 0.05, `nut x ${index}`)
+  assert.equal(peg.postR, INLINE_POST_R_6)
+  assert.ok(Math.abs(peg.buttonX - (INLINE_BUTTON_6.x + INLINE_BUTTON_6.dx * index)) < 0.05)
+  assert.ok(Math.abs(peg.buttonY - (INLINE_BUTTON_6.y + INLINE_BUTTON_6.dy * index)) < 0.05)
+  assert.equal(peg.buttonW, INLINE_BUTTON_6.w)
+  assert.equal(peg.buttonH, INLINE_BUTTON_6.h)
+})
+assert.equal(six.pegs[0]?.string.stringNo, 6)
+assert.equal(six.pegs.at(-1)?.string.stringNo, 1)
+
+const seven = layoutInline(guitar7.strings, 'guitar-7')
+assert.equal(seven.outline, INLINE_OUTLINE)
+assert.equal(seven.pegs.length, 7)
+assert.equal(seven.pegs[0]?.postX, six.pegs[0]?.postX)
+assert.equal(seven.pegs.at(-1)?.postX, six.pegs.at(-1)?.postX)
+
+const eight = layoutInline(guitar8.strings, 'guitar-8')
+assert.equal(eight.outline, INLINE_OUTLINE)
+assert.equal(eight.pegs.length, 8)
+
+const bass = layoutInline(bass4.strings, 'bass-4')
+assert.equal(bass.outline, INLINE_OUTLINE)
+assert.equal(bass.pegs.length, 4)
+assert.ok(bass.pegs[0] && bass.pegs[0].postR > INLINE_POST_R_6)
+assert.equal(bass.pegs[0]?.string.label, 'E')
+assert.equal(bass.pegs.at(-1)?.string.label, 'G')
 
 console.log('tuner-layout: ok')

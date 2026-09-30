@@ -2,6 +2,9 @@ import { ArrowLeftRight } from 'lucide-react'
 
 import { usesCloverPegs } from '@/lib/headstock'
 import {
+  INLINE_NUT,
+  INLINE_VIEW_H,
+  INLINE_VIEW_W,
   layoutInline,
   type InlinePeg,
 } from '@/lib/inline-layout'
@@ -22,12 +25,12 @@ import {
 } from '@/lib/peg-style'
 import { cn } from '@/lib/utils'
 
-const BODY_STROKE = 3.5
 const WHITE = PEG_WHITE
 const LAVENDER = PEG_LAVENDER
 const GREEN = PEG_GREEN
 const RED = PEG_RED
 const INK = PEG_INK
+const BODY_STROKE = 5.6
 
 type InlineHeadstockProps = {
   strings: readonly InstrumentString[]
@@ -57,25 +60,26 @@ export function InlineHeadstock({
     <div
       id="inline-headstock"
       data-inline-headstock
-      data-inline-shape="v4"
+      data-inline-shape="v4-svg"
       className="relative mx-auto w-full max-w-[24rem]"
     >
       <svg
-        viewBox={`0 0 ${drawn.viewW} ${drawn.height}`}
+        viewBox="240 160 720 1240"
+        data-inline-viewbox={`${INLINE_VIEW_W}x${INLINE_VIEW_H}`}
         className="mx-auto block h-auto w-full"
         role="img"
         aria-label="Inline headstock"
       >
         <defs>
           <filter id="omnician-inline-peg-glow" x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur stdDeviation="2.4" result="blur" />
+            <feGaussianBlur stdDeviation="3.2" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <filter id="omnician-inline-body-glow" x="-12%" y="-8%" width="124%" height="120%">
-            <feGaussianBlur stdDeviation="3.2" result="blur" />
+          <filter id="omnician-inline-body-glow" x="-18%" y="-10%" width="136%" height="124%">
+            <feGaussianBlur stdDeviation="6" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
             </feMerge>
@@ -85,7 +89,7 @@ export function InlineHeadstock({
             x1="0"
             y1={drawn.nutY}
             x2="0"
-            y2={drawn.nutY + drawn.neckH}
+            y2={INLINE_VIEW_H}
             gradientUnits="userSpaceOnUse"
           >
             <stop offset="0%" stopColor={LAVENDER} stopOpacity="0.95" />
@@ -97,7 +101,7 @@ export function InlineHeadstock({
             x1="0"
             y1={drawn.nutY}
             x2="0"
-            y2={drawn.nutY + drawn.neckH}
+            y2={INLINE_VIEW_H}
             gradientUnits="userSpaceOnUse"
           >
             <stop offset="0%" stopColor="white" stopOpacity="1" />
@@ -110,27 +114,27 @@ export function InlineHeadstock({
           d={drawn.outline}
           fill="none"
           stroke={PEG_PURPLE}
-          strokeWidth="12"
+          strokeWidth="18"
           strokeLinejoin="round"
           strokeLinecap="round"
-          opacity="0.3"
+          opacity="0.28"
           filter="url(#omnician-inline-body-glow)"
         />
 
         <line
-          x1={drawn.nutLeft}
+          x1={drawn.neckLeft}
           y1={drawn.nutY}
-          x2={drawn.nutLeft}
-          y2={drawn.nutY + drawn.neckH}
+          x2={drawn.neckLeft}
+          y2={INLINE_VIEW_H}
           stroke="url(#omnician-inline-neck-fade)"
           strokeWidth={BODY_STROKE}
           strokeLinecap="round"
         />
         <line
-          x1={drawn.nutLeft + drawn.nutWidth}
+          x1={drawn.neckRight}
           y1={drawn.nutY}
-          x2={drawn.nutLeft + drawn.nutWidth}
-          y2={drawn.nutY + drawn.neckH}
+          x2={drawn.neckRight}
+          y2={INLINE_VIEW_H}
           stroke="url(#omnician-inline-neck-fade)"
           strokeWidth={BODY_STROKE}
           strokeLinecap="round"
@@ -140,18 +144,19 @@ export function InlineHeadstock({
           return (
             <line
               key={t}
-              x1={drawn.nutLeft}
+              x1={drawn.neckLeft}
               y1={drawn.nutY + drawn.neckH * t}
-              x2={drawn.nutLeft + drawn.nutWidth}
+              x2={drawn.neckRight}
               y2={drawn.nutY + drawn.neckH * t}
               stroke={LAVENDER}
-              strokeWidth="1.15"
+              strokeWidth="1.8"
               opacity={0.42 - index * 0.1}
             />
           )
         })}
 
         <path
+          data-inline-outline
           d={drawn.outline}
           fill={INK}
           stroke={LAVENDER}
@@ -159,40 +164,39 @@ export function InlineHeadstock({
           strokeLinejoin="round"
           strokeLinecap="round"
         />
+
         <path
-          d={drawn.inset}
-          fill="none"
-          stroke={LAVENDER}
-          strokeWidth="1.2"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          opacity="0.45"
+          d={drawn.truss}
+          fill={LAVENDER}
+          opacity="0.14"
+          data-inline-truss
         />
 
         <text
           x={drawn.wordX}
           y={drawn.wordY}
           fill={LAVENDER}
-          opacity="0.38"
-          fontSize="8"
+          opacity="0.4"
+          fontSize="22"
           fontWeight="600"
-          letterSpacing="2.6"
+          letterSpacing="6"
           textAnchor="middle"
-          transform={`rotate(90 ${drawn.wordX} ${drawn.wordY})`}
+          dominantBaseline="middle"
+          transform={`rotate(-90 ${drawn.wordX} ${drawn.wordY})`}
           fontFamily="Outfit, ui-sans-serif, system-ui, sans-serif"
         >
           OMNICIAN
         </text>
 
         <rect
-          x={drawn.nutLeft - 1.2}
-          y={drawn.nutY - 3.4}
-          width={drawn.nutWidth + 2.4}
-          height="6.8"
-          rx="2.4"
+          x={INLINE_NUT.x}
+          y={INLINE_NUT.y}
+          width={INLINE_NUT.w}
+          height={INLINE_NUT.h}
+          rx="6"
           fill={INK}
           stroke={LAVENDER}
-          strokeWidth="2.6"
+          strokeWidth="4"
         />
 
         {rest.map((peg) => {
@@ -202,8 +206,7 @@ export function InlineHeadstock({
               key={`s-${peg.string.id}`}
               peg={peg}
               color={tone === 'sticky' ? GREEN : WHITE}
-              width={clover ? 2.4 : 1.5}
-              toNeck={drawn.height}
+              width={clover ? 4.2 : 2.6}
             />
           )
         })}
@@ -225,8 +228,7 @@ export function InlineHeadstock({
                   pegTone(active.string.id, selectedId, tunedIds, inTune, live),
                 ) ?? WHITE
               }
-              width={clover ? 3.1 : 2.15}
-              toNeck={drawn.height}
+              width={clover ? 5.4 : 3.8}
             />
             <Peg
               peg={active}
@@ -244,12 +246,10 @@ function StringRun({
   peg,
   color,
   width,
-  toNeck,
 }: {
   peg: InlinePeg
   color: string
   width: number
-  toNeck: number
 }) {
   const lit = color === GREEN || color === RED
   return (
@@ -265,7 +265,7 @@ function StringRun({
         x1={peg.nutX}
         y1={peg.nutY}
         x2={peg.nutX}
-        y2={toNeck - 4}
+        y2={INLINE_VIEW_H - 8}
         stroke={lit ? color : 'url(#omnician-inline-string-fade)'}
         strokeWidth={width}
       />
@@ -285,9 +285,9 @@ function Peg({
   const { fill, stroke, text } = pegColors(tone)
   const glow = tone === 'red' || tone === 'green' || tone === 'sticky' || tone === 'selected'
   const lit = tone !== 'idle'
-  const half = peg.button / 2
   const locked = tone === 'green' || tone === 'sticky'
   const letter = peg.string.label
+  const shaftY = peg.buttonY + peg.buttonH / 2
 
   return (
     <g
@@ -307,7 +307,7 @@ function Peg({
       filter={glow ? 'url(#omnician-inline-peg-glow)' : undefined}
     >
       {lit ? (
-        <circle cx={peg.postX} cy={peg.postY} r={peg.postR + 3.6} fill={stroke} opacity="0.22" />
+        <circle cx={peg.postX} cy={peg.postY} r={peg.postR + 8} fill={stroke} opacity="0.22" />
       ) : null}
       <circle
         cx={peg.postX}
@@ -315,43 +315,43 @@ function Peg({
         r={peg.postR}
         fill={lit ? stroke : INK}
         stroke={stroke}
-        strokeWidth={lit ? 2.3 : 1.9}
+        strokeWidth={lit ? 4.2 : 3.4}
       />
       <line
-        x1={peg.buttonX + half}
-        y1={peg.buttonY}
-        x2={peg.edgeX}
-        y2={peg.buttonY}
+        x1={peg.buttonX + peg.buttonW}
+        y1={shaftY}
+        x2={peg.postX - peg.postR}
+        y2={shaftY}
         stroke={stroke}
-        strokeWidth={lit ? 2.6 : 2.1}
+        strokeWidth={lit ? 4.4 : 3.6}
         strokeLinecap="round"
       />
       <rect
-        x={peg.buttonX - half}
-        y={peg.buttonY - half}
-        width={peg.button}
-        height={peg.button}
-        rx={3.8}
+        x={peg.buttonX}
+        y={peg.buttonY}
+        width={peg.buttonW}
+        height={peg.buttonH}
+        rx={peg.buttonRx}
         fill={fill}
         stroke={stroke}
-        strokeWidth={tone === 'red' ? 2.7 : 2.2}
+        strokeWidth={tone === 'red' ? 4.6 : 3.8}
       />
       <line
-        x1={peg.buttonX - half * 0.36}
-        y1={peg.buttonY}
-        x2={peg.buttonX + half * 0.36}
-        y2={peg.buttonY}
+        x1={peg.buttonX + peg.buttonW * 0.32}
+        y1={shaftY}
+        x2={peg.buttonX + peg.buttonW * 0.68}
+        y2={shaftY}
         stroke={text}
-        strokeWidth={Math.max(1.8, peg.button * 0.12)}
+        strokeWidth={Math.max(2.8, peg.buttonH * 0.1)}
         strokeLinecap="round"
         opacity={tone === 'idle' ? 0.7 : 1}
       />
       <text
-        x={peg.buttonX - half - 9}
-        y={peg.buttonY + 4.4}
+        x={peg.buttonX - 16}
+        y={shaftY + 8}
         textAnchor="end"
         fill={locked ? GREEN : tone === 'red' ? RED : WHITE}
-        fontSize={peg.button >= 17 ? 14 : 13}
+        fontSize="28"
         fontWeight="700"
         fontFamily="Outfit, ui-sans-serif, system-ui, sans-serif"
       >
@@ -359,11 +359,11 @@ function Peg({
       </text>
       {locked ? (
         <text
-          x={peg.buttonX - half - 24}
-          y={peg.buttonY + 4.6}
+          x={peg.buttonX - 48}
+          y={shaftY + 9}
           textAnchor="end"
           fill={GREEN}
-          fontSize="14"
+          fontSize="28"
           fontWeight="700"
           fontFamily="Outfit, ui-sans-serif, system-ui, sans-serif"
         >
