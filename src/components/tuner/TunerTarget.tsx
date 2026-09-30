@@ -56,7 +56,7 @@ export function TunerTarget({ cents, inTune, active }: TunerTargetProps) {
       <div
         data-tuner-target
         className={cn(
-          'relative h-[6rem] w-full overflow-hidden rounded-2xl bg-[#070A12] ring-1 sm:h-[6.75rem]',
+          'relative h-[6.5rem] w-full overflow-hidden rounded-2xl bg-[#070A12] ring-1 sm:h-[7rem]',
           locked ? 'omni-hold-glow ring-emerald-400/70' : 'ring-white/8',
         )}
       >
@@ -116,15 +116,15 @@ export function TunerTarget({ cents, inTune, active }: TunerTargetProps) {
           />
         </div>
 
-        <div className="pointer-events-none absolute inset-x-[8%] bottom-1.5 flex justify-between text-[0.6rem] text-slate-500">
+        <div className="pointer-events-none absolute inset-x-[8%] bottom-2 h-4 text-[0.6rem] leading-4 text-slate-500">
           <span
-            className="absolute -translate-x-1/2"
+            className="absolute top-0 -translate-x-1/2"
             style={{ left: `${50 - REACH * 100}%` }}
           >
             −50¢
           </span>
           <span
-            className="absolute -translate-x-1/2"
+            className="absolute top-0 -translate-x-1/2"
             style={{ left: `${50 + REACH * 100}%` }}
           >
             +50¢
