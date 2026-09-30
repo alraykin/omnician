@@ -10,6 +10,7 @@
     "test:pitch": "npx --yes tsx scripts/pitch-accuracy.ts",
     "test:tempo": "npx --yes tsx scripts/tempo-accuracy.ts",
     "test:intensity": "npx --yes tsx scripts/intensity-loudness.ts && npx --yes tsx scripts/measure-intensity-loudness.ts --assert",
+    "test:sticky": "npx --yes tsx scripts/sticky-tune.ts",
     "test:a4": "npx --yes tsx scripts/a4-reference.ts",
     "test:scheduler": "npx --yes tsx scripts/scheduler-after-preview.ts",
     "preview": "vite preview",

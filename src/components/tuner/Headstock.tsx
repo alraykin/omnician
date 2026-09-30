@@ -78,12 +78,12 @@ function toneFor(
   inTune: boolean,
   live: boolean,
 ): Tone {
+  if (tunedIds.has(id)) return 'sticky'
   if (id === selectedId) {
     if (live && inTune) return 'green'
     if (live) return 'red'
     return 'selected'
   }
-  if (tunedIds.has(id)) return 'sticky'
   return 'idle'
 }
 
@@ -97,7 +97,7 @@ function colors(tone: Tone): { fill: string; stroke: string; text: string } {
 }
 
 function activeColor(tone: Tone): string | null {
-  if (tone === 'green') return GREEN
+  if (tone === 'green' || tone === 'sticky') return GREEN
   if (tone === 'red') return RED
   return null
 }
@@ -849,8 +849,8 @@ export function Headstock({
       </div>
       )}
       <p className="mt-2 text-center text-[0.65rem] leading-4 text-slate-500">
-        Tap a peg to hear its pitch and set the target. The active string turns red
-        until it locks green.
+        Tap a peg to hear its pitch and set the target. Hold a string in tune to
+        lock it green — it stays green until you tap that peg or change the tuning.
       </p>
     </div>
   )
@@ -913,7 +913,7 @@ function Peg({
   onClick: () => void
 }) {
   const { fill, stroke, text } = colors(tone)
-  const glow = tone === 'red' || tone === 'green' || tone === 'selected'
+  const glow = tone === 'red' || tone === 'green' || tone === 'sticky' || tone === 'selected'
   const dir = peg.side === 'right' ? -1 : 1
   const r = peg.hexR
   const shaftInner = peg.buttonX + dir * r * 0.72
@@ -937,6 +937,8 @@ function Peg({
         }
       }}
       className="cursor-pointer"
+      data-peg-tone={tone}
+      data-string-id={peg.string.id}
       filter={glow ? 'url(#omnician-peg-glow)' : undefined}
     >
       <Post

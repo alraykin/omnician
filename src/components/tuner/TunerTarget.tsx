@@ -106,11 +106,11 @@ export function TunerTarget({ cents, inTune, active }: TunerTargetProps) {
             ref={ballRef}
             data-target-ball
             className={cn(
-              'absolute top-0 size-[1.35rem] -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors',
+              'absolute top-0 size-[2.55rem] -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors',
               !live && 'opacity-35',
               locked
-                ? 'bg-emerald-300 shadow-[0_0_22px_rgba(52,211,153,0.95)]'
-                : 'bg-[#E9D5FF] shadow-[0_0_16px_rgba(168,85,247,0.7)]',
+                ? 'bg-emerald-300 shadow-[0_0_28px_rgba(52,211,153,0.95)]'
+                : 'bg-[#E9D5FF] shadow-[0_0_22px_rgba(168,85,247,0.75)]',
             )}
             style={{ left: '50%' }}
           />

@@ -21,13 +21,19 @@ import {
   type TunerLayoutMode,
 } from '@/lib/custom-presets'
 import {
-  GREEN_CLEAR_CENTS,
   IN_TUNE_CENTS,
   IN_TUNE_EXIT_CENTS,
   STRING_HYSTERESIS_CENTS,
+  STICKY_HOLD_MS,
   formatTenths,
 } from '@/lib/feel'
-import { playInTuneChime } from '@/lib/in-tune-chime'
+import { playAllTunedSting, playInTuneChime } from '@/lib/in-tune-chime'
+import {
+  allStringsSticky,
+  indexForStringNo,
+  parseFocusStringNo,
+  seedTunedIds,
+} from '@/lib/sticky-tune'
 import { centsBetween, midiToFreq, trackString } from '@/lib/notes'
 import {
   customToPreset,
@@ -69,7 +75,14 @@ export function TunerPage() {
     return prefs.instrumentId
   })
   const [a4Hz, setA4Hz] = useState(prefs.a4Hz)
-  const [autoString, setAutoString] = useState(prefs.autoString)
+  const [autoString, setAutoString] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const query = new URLSearchParams(window.location.search).get('auto')
+      if (query === '0') return false
+      if (query === '1') return true
+    }
+    return prefs.autoString
+  })
   const [displayMode, setDisplayMode] = useState<TunerDisplayMode>(() => {
     if (typeof window !== 'undefined') {
       const query = new URLSearchParams(window.location.search).get('display')
@@ -94,9 +107,13 @@ export function TunerPage() {
   const [autoId, setAutoId] = useState<string | null>(null)
   const [tunedIds, setTunedIds] = useState<Set<string>>(() => new Set())
   const [inTune, setInTune] = useState(false)
+  const [celebrate, setCelebrate] = useState(() => demo.glow)
   const [showDebug, setShowDebug] = useState(false)
   const inTuneRef = useRef(false)
   const autoPendingRef = useRef<{ id: string; hits: number } | null>(null)
+  const holdRef = useRef<{ id: string; timer: number } | null>(null)
+  const celebratedRef = useRef(demo.glow)
+  const seededRef = useRef(false)
 
   const { status, reading, needsGesture, debug } = useTuner(a4Hz)
 
@@ -150,18 +167,38 @@ export function TunerPage() {
   }, [activeInstrument, a4Hz, autoString, current.id, displayMode, layoutMode])
 
   useEffect(() => {
-    setFocusIndex(0)
+    const query =
+      typeof window === 'undefined' ? null : new URLSearchParams(window.location.search)
+    const seeded = seedTunedIds(current.strings, query?.get('tuned') ?? null)
+    const focus = indexForStringNo(
+      current.strings,
+      parseFocusStringNo(query?.get('string') ?? null),
+    )
+    setFocusIndex(focus ?? 0)
     setAutoId(null)
-    setTunedIds(new Set())
+    if (!seededRef.current && seeded.size > 0) {
+      seededRef.current = true
+      setTunedIds(seeded)
+    } else {
+      setTunedIds(new Set())
+    }
     inTuneRef.current = false
     setInTune(false)
-  }, [current.id])
+    if (holdRef.current) {
+      window.clearTimeout(holdRef.current.timer)
+      holdRef.current = null
+    }
+    if (!demo.glow) {
+      celebratedRef.current = false
+      setCelebrate(false)
+    }
+  }, [current.id, demo.glow])
 
   const strings = current.strings
   const instrumentMode = strings.length > 0
   const safeFocus = Math.min(focusIndex, Math.max(0, strings.length - 1))
   const lockedString = instrumentMode ? strings[safeFocus] ?? null : null
-  const live = demo !== null || (status === 'listening' && reading !== null)
+  const live = demo.cents !== null || (status === 'listening' && reading !== null)
 
   const tracked = useMemo(() => {
     if (!reading || !instrumentMode) return null
@@ -217,11 +254,19 @@ export function TunerPage() {
   }, [activeString?.id])
 
   useEffect(() => {
+    const clearHold = () => {
+      if (holdRef.current) {
+        window.clearTimeout(holdRef.current.timer)
+        holdRef.current = null
+      }
+    }
+
     if (!live || rawCents === null) {
       if (inTuneRef.current) {
         inTuneRef.current = false
         setInTune(false)
       }
+      clearHold()
       return
     }
 
@@ -237,13 +282,30 @@ export function TunerPage() {
     }
 
     if (!instrumentMode) {
+      clearHold()
       if (crossedIn) playInTuneChime()
       return
     }
-    if (!activeString) return
+    if (!activeString) {
+      clearHold()
+      return
+    }
     const id = activeString.id
+    if (tunedIds.has(id)) {
+      clearHold()
+      return
+    }
 
-    if (next && abs <= IN_TUNE_CENTS && !tunedIds.has(id)) {
+    const holding = next && abs <= IN_TUNE_CENTS
+    if (!holding) {
+      clearHold()
+      return
+    }
+    if (holdRef.current?.id === id) return
+
+    clearHold()
+    const timer = window.setTimeout(() => {
+      holdRef.current = null
       playInTuneChime()
       setTunedIds((currentIds) => {
         if (currentIds.has(id)) return currentIds
@@ -251,18 +313,32 @@ export function TunerPage() {
         nextIds.add(id)
         return nextIds
       })
+    }, STICKY_HOLD_MS)
+    holdRef.current = { id, timer }
+  }, [activeString, instrumentMode, live, rawCents, tunedIds])
+
+  useEffect(() => {
+    return () => {
+      if (holdRef.current) {
+        window.clearTimeout(holdRef.current.timer)
+        holdRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!instrumentMode || !allStringsSticky(strings, tunedIds)) {
+      if (!demo.glow) celebratedRef.current = false
       return
     }
-
-    if (tunedIds.has(id) && abs > GREEN_CLEAR_CENTS) {
-      setTunedIds((currentIds) => {
-        if (!currentIds.has(id)) return currentIds
-        const nextIds = new Set(currentIds)
-        nextIds.delete(id)
-        return nextIds
-      })
-    }
-  }, [activeString, instrumentMode, live, rawCents, tunedIds])
+    if (celebratedRef.current) return
+    celebratedRef.current = true
+    playAllTunedSting()
+    setCelebrate(true)
+    if (demo.glow) return
+    const timer = window.setTimeout(() => setCelebrate(false), 2800)
+    return () => window.clearTimeout(timer)
+  }, [demo.glow, instrumentMode, strings, tunedIds])
 
   const displayCents = rawCents
   const targetLabel = activeString
@@ -314,23 +390,27 @@ export function TunerPage() {
 
         <section
           className={cn(
-            'mt-4 flex min-h-0 flex-1 flex-col items-center rounded-3xl border px-4 py-4 sm:px-6 sm:py-5 wide:grid wide:grid-cols-2 wide:items-start wide:gap-6',
-            inTune && live
-              ? 'border-emerald-400/50 bg-emerald-500/10'
-              : 'border-white/10 bg-[#141A28]/80',
+            'relative mt-4 flex min-h-0 flex-1 flex-col items-center overflow-hidden rounded-3xl border px-4 py-4 sm:px-6 sm:py-5 wide:grid wide:grid-cols-2 wide:items-start wide:gap-6',
+            celebrate
+              ? 'omni-all-tuned-screen border-emerald-300/80 bg-emerald-500/16'
+              : inTune && live
+                ? 'border-emerald-400/50 bg-emerald-500/10'
+                : 'border-white/10 bg-[#141A28]/80',
           )}
           aria-live="polite"
           data-tuner-status={status}
           data-tuner-gesture={needsGesture ? 'needed' : 'ready'}
+          data-all-tuned={celebrate ? '1' : '0'}
+          data-tuned-count={tunedIds.size}
         >
           <div className="flex min-h-0 w-full flex-1 flex-col items-center">
           <NoteDisplay
             live={live}
             inTune={inTune}
-            sharpName={reading?.sharpName ?? demo?.sharpName}
-            flatName={reading?.flatName ?? demo?.flatName}
-            isNatural={reading?.isNatural ?? demo?.isNatural}
-            octave={reading?.octave ?? demo?.octave}
+            sharpName={reading?.sharpName ?? (demo.cents !== null ? demo.sharpName : undefined)}
+            flatName={reading?.flatName ?? (demo.cents !== null ? demo.flatName : undefined)}
+            isNatural={reading?.isNatural ?? (demo.cents !== null ? demo.isNatural : undefined)}
+            octave={reading?.octave ?? (demo.cents !== null ? demo.octave : undefined)}
             target={
               instrumentMode && activeString
                 ? `${activeString.label}${activeString.octave} · ${activeString.stringNo}${ordinal(activeString.stringNo)}`
@@ -377,7 +457,16 @@ export function TunerPage() {
           </div>
 
           {instrumentMode ? (
-            <div className="mt-4 w-full wide:mt-2">
+            <div
+              className={cn(
+                'relative mt-4 w-full wide:mt-2',
+                celebrate && (demo.glow ? 'omni-all-tuned-hold' : 'omni-all-tuned'),
+              )}
+            >
+              {celebrate ? (
+                <div className="omni-all-tuned-veil" aria-hidden data-all-tuned-veil />
+              ) : null}
+              <div className="relative z-10">
               <Headstock
                 strings={strings}
                 config={activeInstrument}
@@ -395,10 +484,21 @@ export function TunerPage() {
                   const index = strings.findIndex((item) => item.id === string.id)
                   if (index >= 0) setFocusIndex(index)
                   if (autoString) setAutoId(string.id)
+                  setTunedIds((currentIds) => {
+                    if (!currentIds.has(string.id)) return currentIds
+                    const nextIds = new Set(currentIds)
+                    nextIds.delete(string.id)
+                    return nextIds
+                  })
+                  if (holdRef.current?.id === string.id) {
+                    window.clearTimeout(holdRef.current.timer)
+                    holdRef.current = null
+                  }
                 }}
                 layoutMode={layoutMode}
                 onLayoutChange={setLayoutMode}
               />
+              </div>
             </div>
           ) : (
             <p className="mt-4 w-full text-center text-sm leading-6 text-slate-500 wide:mt-2">
@@ -566,18 +666,47 @@ function ordinal(value: number): string {
 }
 
 function readTunerDemo(): {
-  cents: number
+  cents: number | null
   sharpName: string
   flatName: string
   isNatural: boolean
   octave: number
-} | null {
-  if (typeof window === 'undefined') return null
+  glow: boolean
+} {
+  if (typeof window === 'undefined') {
+    return {
+      cents: null,
+      sharpName: 'A',
+      flatName: 'A',
+      isNatural: true,
+      octave: 4,
+      glow: false,
+    }
+  }
   const query = new URLSearchParams(window.location.search)
+  const glow = query.get('glow') === '1'
   const raw = query.get('cents')
-  if (raw == null || raw === '') return null
+  if (raw == null || raw === '') {
+    return {
+      cents: null,
+      sharpName: 'A',
+      flatName: 'A',
+      isNatural: true,
+      octave: 4,
+      glow,
+    }
+  }
   const cents = Number(raw)
-  if (!Number.isFinite(cents)) return null
+  if (!Number.isFinite(cents)) {
+    return {
+      cents: null,
+      sharpName: 'A',
+      flatName: 'A',
+      isNatural: true,
+      octave: 4,
+      glow,
+    }
+  }
   const sharpName = (query.get('note') || 'A').slice(0, 2)
   const octaveRaw = Number(query.get('oct') || 4)
   return {
@@ -586,5 +715,6 @@ function readTunerDemo(): {
     flatName: sharpName,
     isNatural: !/[♯#♭b]/.test(sharpName),
     octave: Number.isFinite(octaveRaw) ? octaveRaw : 4,
+    glow,
   }
 }

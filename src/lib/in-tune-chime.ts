@@ -64,3 +64,37 @@ export function playInTuneChime(): void {
   head(audio, filter, 1046.5, start + 0.16, 0.55, 'sine', 0.07)
   head(audio, filter, 523.25 * 2.01, start + 0.02, 0.7, 'sine', 0.035)
 }
+
+let lastAllTunedAt = 0
+const ALL_TUNED_COOLDOWN_MS = 2500
+
+/** One-shot all-strings-green flourish: warm rising major, soft and not harsh. */
+export function playAllTunedSting(): void {
+  const nowMs = performance.now()
+  if (nowMs - lastAllTunedAt < ALL_TUNED_COOLDOWN_MS) return
+  lastAllTunedAt = nowMs
+
+  const audio = getAudio()
+  if (!audio) return
+
+  const start = audio.currentTime + 0.08
+  const master = audio.createGain()
+  master.gain.value = 1.02
+  const filter = audio.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = 2800
+  filter.Q.value = 0.5
+  filter.connect(master)
+  master.connect(audio.destination)
+
+  // G3 pad + C–E–G–B–D rise. Sine-heavy, rolled off, longer decay.
+  head(audio, filter, 196.0, start, 1.45, 'sine', 0.09)
+  head(audio, filter, 261.63, start, 1.35, 'sine', 0.1)
+  head(audio, filter, 329.63, start + 0.05, 1.25, 'sine', 0.07)
+  head(audio, filter, 392.0, start + 0.08, 1.15, 'sine', 0.14)
+  head(audio, filter, 523.25, start + 0.16, 1.1, 'sine', 0.16)
+  head(audio, filter, 659.25, start + 0.24, 1.0, 'triangle', 0.09)
+  head(audio, filter, 783.99, start + 0.32, 0.95, 'sine', 0.1)
+  head(audio, filter, 987.77, start + 0.4, 0.82, 'sine', 0.07)
+  head(audio, filter, 1174.66, start + 0.48, 0.62, 'sine', 0.045)
+}

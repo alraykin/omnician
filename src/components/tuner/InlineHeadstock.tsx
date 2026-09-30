@@ -493,7 +493,7 @@ function Peg({
   onClick: () => void
 }) {
   const { fill, stroke, text } = pegColors(tone)
-  const glow = tone === 'red' || tone === 'green' || tone === 'selected'
+  const glow = tone === 'red' || tone === 'green' || tone === 'sticky' || tone === 'selected'
   const lit = tone !== 'idle'
   const half = peg.button / 2
   const locked = tone === 'green' || tone === 'sticky'
@@ -504,6 +504,7 @@ function Peg({
       role="button"
       tabIndex={0}
       data-inline-string={peg.string.id}
+      data-peg-tone={tone}
       aria-label={`String ${peg.string.stringNo}, ${letter}${locked ? ', in tune' : ''}`}
       onClick={onClick}
       onKeyDown={(event) => {

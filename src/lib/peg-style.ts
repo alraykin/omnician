@@ -14,12 +14,14 @@ export function pegTone(
   inTune: boolean,
   live: boolean,
 ): PegTone {
+  // Once locked, a peg stays green for the rest of the session — even if this
+  // string is selected and the live reading is off-pitch.
+  if (tunedIds.has(id)) return 'sticky'
   if (id === selectedId) {
     if (live && inTune) return 'green'
     if (live) return 'red'
     return 'selected'
   }
-  if (tunedIds.has(id)) return 'sticky'
   return 'idle'
 }
 
@@ -33,7 +35,7 @@ export function pegColors(tone: PegTone): { fill: string; stroke: string; text: 
 }
 
 export function pegActiveColor(tone: PegTone): string | null {
-  if (tone === 'green') return PEG_GREEN
+  if (tone === 'green' || tone === 'sticky') return PEG_GREEN
   if (tone === 'red') return PEG_RED
   return null
 }

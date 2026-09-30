@@ -2,8 +2,8 @@
 export const IN_TUNE_CENTS = 1
 export const IN_TUNE_EXIT_CENTS = 1.8
 export const STRING_HYSTERESIS_CENTS = 32
-/** Peg stays green until this string is clearly off, not on small wobbles. */
-export const GREEN_CLEAR_CENTS = 32
+/** Hold inside ±1¢ this long before the peg sticks green for the session. */
+export { STICKY_HOLD_MS } from './sticky-tune'
 
 export const TUNER_FEEL = {
   inTuneCents: IN_TUNE_CENTS,
