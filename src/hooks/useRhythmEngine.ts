@@ -15,6 +15,7 @@ import {
   watchClock,
   type ClockWatch,
 } from '@/lib/lookahead-scheduler'
+import { captureAudioTime } from '@/lib/drum-recorder'
 import { getOrCreateRhythmKit, type RhythmKit } from '@/lib/rhythm-audio'
 import {
   barDurationSec,
@@ -52,6 +53,16 @@ export type Playhead = {
   accent: AccentLevel
   subdivision: boolean
   precount: boolean
+}
+
+export type TransportClock = {
+  audioTime: number
+  captureTime: number
+  barStart: number
+  barDur: number
+  precount: boolean
+  playing: boolean
+  outputLatency: number
 }
 
 const IDLE_PLAYHEAD: Playhead = { bar: 0, step: -1, beat: -1, accent: 0, subdivision: false, precount: false }
@@ -130,6 +141,9 @@ export function useRhythmEngine({
   kitStyle = DEFAULT_INTENSITY_STYLE,
   speedBuilder = DEFAULT_SPEED_BUILDER,
   onTempoCue,
+  loopBarIndex = null,
+  forcePrecount,
+  onBarLoop,
 }: {
   playing: boolean
   bpm: number
@@ -142,6 +156,11 @@ export function useRhythmEngine({
   kitStyle?: RhythmStyleId
   speedBuilder?: SpeedBuilder
   onTempoCue?: (cue: SpeedBuilderCue) => void
+  /** When set, the scheduler stays on this bar (drum recorder 1-bar loop). */
+  loopBarIndex?: number | null
+  /** Recorder count-in: true force on, false force off, undefined = existing Drums/SB rules. */
+  forcePrecount?: boolean
+  onBarLoop?: () => void
 }) {
   const [holdUntilCycle, setHoldUntilCycle] = useState(false)
   const [liveBpm, setLiveBpm] = useState(bpm)
@@ -170,6 +189,9 @@ export function useRhythmEngine({
   const styleRef = useRef(kitStyle)
   const speedBuilderRef = useRef(speedBuilder)
   const onTempoCueRef = useRef(onTempoCue)
+  const loopBarRef = useRef(loopBarIndex)
+  const forcePrecountRef = useRef(forcePrecount)
+  const onBarLoopRef = useRef(onBarLoop)
   const playbackBpmRef = useRef(bpm)
   const sbPctRef = useRef(speedBuilder.fromPct)
   const sbPhaseRef = useRef<'pattern' | 'precount'>('pattern')
@@ -193,6 +215,9 @@ export function useRhythmEngine({
   styleRef.current = kitStyle
   speedBuilderRef.current = speedBuilder
   onTempoCueRef.current = onTempoCue
+  loopBarRef.current = loopBarIndex
+  forcePrecountRef.current = forcePrecount
+  onBarLoopRef.current = onBarLoop
 
   if (!playing || liveModeRef.current !== mode) {
     liveModeRef.current = mode
@@ -365,14 +390,16 @@ export function useRhythmEngine({
       liveBarsRef.current = pendingBarsRef.current
       setHoldUntilCycle(false)
       stepRef.current = 0
-      barRef.current = 0
+      const loopStart = loopBarRef.current
+      barRef.current = loopStart ?? 0
       armedBarRef.current = null
       freezeResumeRef.current = false
       clockWatchRef.current = createClockWatch(kit.ctx.currentTime, performance.now())
       nextTimeRef.current = kit.ctx.currentTime + START_LEAD_SEC
 
       const sb = speedBuilderRef.current
-      const sbStart = sb.enabled
+      const looping = loopBarRef.current != null
+      const sbStart = sb.enabled && !looping
       sbSessionRef.current = sbStart
       sbPctRef.current = sb.fromPct
       sbRepeatRef.current = 0
@@ -388,7 +415,13 @@ export function useRhythmEngine({
         })
         if (sb.announce) kit.announce(nextTimeRef.current, sb.fromPct)
       }
-      sbPhaseRef.current = shouldStartPrecount(liveModeRef.current, sb) ? 'precount' : 'pattern'
+      const wantPrecount =
+        forcePrecountRef.current === true
+          ? true
+          : forcePrecountRef.current === false
+            ? false
+            : shouldStartPrecount(liveModeRef.current, sb)
+      sbPhaseRef.current = wantPrecount ? 'precount' : 'pattern'
       precountBeatRef.current = 0
 
       const commitPendingCycle = () => {
@@ -399,6 +432,9 @@ export function useRhythmEngine({
       }
 
       const playbackBar = (index: number): RhythmBar | undefined => {
+        if (loopBarRef.current != null) {
+          return pendingBarsRef.current[index] ?? liveBarsRef.current[index]
+        }
         const liveSeq = liveBarsRef.current
         const live = liveSeq[index] ?? liveSeq[0]
         if (!live) return pendingBarsRef.current[index]
@@ -495,8 +531,12 @@ export function useRhythmEngine({
       }
 
       const currentBarIndex = () => {
+        const locked = loopBarRef.current
         const sequence = liveBarsRef.current
         if (sequence.length === 0) return 0
+        if (locked != null) {
+          return ((locked % sequence.length) + sequence.length) % sequence.length
+        }
         return ((barRef.current % sequence.length) + sequence.length) % sequence.length
       }
 
@@ -633,14 +673,18 @@ export function useRhythmEngine({
           const playTime = noteStartTime(slotTime, observed.frozen)
 
           if (sbPhaseRef.current === 'precount') {
-            const first = playbackBar(0) ?? sequence[0]
+            const locked = loopBarRef.current
+            const first =
+              playbackBar(locked ?? 0) ??
+              sequence[locked ?? 0] ??
+              sequence[0]
             if (!first) return
             const beat = precountBeatRef.current
             const strong = beat === 0
             kit.precount(playTime, strong)
             cuesRef.current.push({
               time: slotTime,
-              bar: 0,
+              bar: locked ?? 0,
               step: 0,
               beat,
               accent: strong ? 2 : 0,
@@ -652,12 +696,12 @@ export function useRhythmEngine({
             if (precountBeatRef.current >= first.beats) {
               sbPhaseRef.current = 'pattern'
               stepRef.current = 0
-              barRef.current = 0
+              barRef.current = locked ?? 0
             }
             continue
           }
 
-          const barIndex = ((barRef.current % sequence.length) + sequence.length) % sequence.length
+          const barIndex = currentBarIndex()
           const bar = playbackBar(barIndex)
           if (!bar) return
           const clickMode = liveModeRef.current === 'click'
@@ -675,12 +719,18 @@ export function useRhythmEngine({
 
           const nextStep = step + 1
           if (nextStep >= length) {
-            const wrapped = (barIndex + 1) % sequence.length
+            const locked = loopBarRef.current
+            const wrapped = locked != null ? barIndex : (barIndex + 1) % sequence.length
             const barEnd = clickMode
               ? slotTime - (pulse?.offsetSec ?? 0) + barDurationSec(bar.beats, tempo, bar.beatUnit)
               : slotTime + stepDurationSec(tempo, bar.subdivision, bar.beatUnit)
             stepRef.current = 0
-            if (wrapped === 0) {
+            if (locked != null) {
+              commitPendingCycle()
+              barRef.current = wrapped
+              armedBarRef.current = null
+              onBarLoopRef.current?.()
+            } else if (wrapped === 0) {
               commitPendingCycle()
               barRef.current = 0
               if (advanceSpeedBuilder(barEnd)) {
@@ -762,6 +812,33 @@ export function useRhythmEngine({
     }
   }, [stopScheduler])
 
+  const getTransportClock = useCallback((): TransportClock => {
+    const kit = kitRef.current
+    const ctx = kit?.ctx
+    const audioTime = ctx?.currentTime ?? 0
+    const captureTime = ctx ? captureAudioTime(ctx) : 0
+    const locked = loopBarRef.current
+    const sequence = pendingBarsRef.current
+    const index =
+      locked != null
+        ? ((locked % Math.max(1, sequence.length)) + sequence.length) % Math.max(1, sequence.length)
+        : barRef.current
+    const bar = sequence[index] ?? sequence[0]
+    const bpmNow = playbackBpmRef.current
+    return {
+      audioTime,
+      captureTime,
+      barStart: barStartRef.current,
+      barDur: bar ? barDurationSec(bar.beats, bpmNow, bar.beatUnit) : 0,
+      precount: sbPhaseRef.current === 'precount',
+      playing: playingRef.current,
+      outputLatency:
+        ctx && typeof ctx.outputLatency === 'number' && ctx.outputLatency > 0
+          ? ctx.outputLatency
+          : ctx?.baseLatency ?? 0,
+    }
+  }, [])
+
   return {
     playheadStore,
     preview,
@@ -772,5 +849,6 @@ export function useRhythmEngine({
     holdUntilCycle,
     liveBpm,
     halt: stopScheduler,
+    getTransportClock,
   }
 }

@@ -677,6 +677,44 @@ body {
   animation: omni-beat-pulse 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+@keyframes omni-rec-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 77, 109, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(255, 77, 109, 0);
+  }
+}
+
+.omni-rec-pulse {
+  animation: omni-rec-pulse 1.05s ease-out infinite;
+}
+
+@keyframes omni-pad-ripple {
+  0% {
+    transform: scale(0.35);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.85);
+    opacity: 0;
+  }
+}
+
+.omni-pad-ripple {
+  position: absolute;
+  inset: 12%;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.45);
+  pointer-events: none;
+  animation: omni-pad-ripple 280ms ease-out forwards;
+}
+
+.omni-pad-hit {
+  box-shadow: 0 0 22px rgba(168, 85, 247, 0.45);
+}
+
 [data-grid-cell].is-now {
   box-shadow: 0 0 0 2px rgba(248, 250, 252, 0.88);
   z-index: 1;

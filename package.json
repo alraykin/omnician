@@ -13,6 +13,7 @@
     "test:sticky": "npx --yes tsx scripts/sticky-tune.ts",
     "test:a4": "npx --yes tsx scripts/a4-reference.ts",
     "test:scheduler": "npx --yes tsx scripts/scheduler-after-preview.ts",
+    "test:recorder": "npx --yes tsx scripts/drum-recorder.ts",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-cloudflare.sh"
   },

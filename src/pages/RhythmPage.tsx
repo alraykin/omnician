@@ -7,6 +7,8 @@ import { BarStrip } from '@/components/rhythm/BarStrip'
 import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
 import { CompactMeter } from '@/components/rhythm/CompactMeter'
 import { DrumBarStage } from '@/components/rhythm/DrumBarStage'
+import { DrumRecorderSheet, type DrumRecorderDemo } from '@/components/rhythm/DrumRecorderSheet'
+import { RecordFab } from '@/components/rhythm/RecordFab'
 import { KitFaders } from '@/components/rhythm/KitFaders'
 import { ListenTempoSheet } from '@/components/rhythm/ListenTempo'
 import { RhythmTempoCard } from '@/components/rhythm/RhythmTempoCard'
@@ -77,6 +79,14 @@ export function RhythmPage() {
   const [volumeDb, setVolumeDb] = useState(prefs.volumeDb)
   const [kitIntensity, setKitIntensity] = useState<KitIntensity>(prefs.kitIntensity)
   const [playing, setPlaying] = useState(false)
+  const [recorderOpen, setRecorderOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const query = new URLSearchParams(window.location.search)
+    return query.get('recorder') === '1' || Boolean(query.get('rec'))
+  })
+  const [recording, setRecording] = useState(false)
+  const [recordCountIn, setRecordCountIn] = useState(true)
+  const recorderLoopRef = useRef<(() => void) | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [accentEdit, setAccentEdit] = useState(false)
   const [pickerBeat, setPickerBeat] = useState<number | null>(null)
@@ -108,7 +118,7 @@ export function RhythmPage() {
     if (!current || pickerBeat >= current.beats) setPickerBeat(null)
   }, [current, mode, pickerBeat])
 
-  const { playheadStore, preview, previewClick, previewBar, previewClickBar, ensureKit, holdUntilCycle, liveBpm, halt } =
+  const { playheadStore, preview, previewClick, previewBar, previewClickBar, ensureKit, holdUntilCycle, liveBpm, halt, getTransportClock } =
     useRhythmEngine({
     playing,
     bpm,
@@ -122,6 +132,11 @@ export function RhythmPage() {
     speedBuilder,
     onTempoCue: (cue) => {
       setTempoCue(cue)
+    },
+    loopBarIndex: recording ? drumBarIndex : null,
+    forcePrecount: recording ? recordCountIn : undefined,
+    onBarLoop: () => {
+      recorderLoopRef.current?.()
     },
   })
 
@@ -367,6 +382,7 @@ export function RhythmPage() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (recorderOpen) return
       if (event.code !== 'Space' && event.key !== ' ') return
       const target = event.target
       if (
@@ -380,11 +396,87 @@ export function RhythmPage() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [startStop])
+  }, [recorderOpen, startStop])
+
+  const recorderDemo = useMemo((): DrumRecorderDemo | undefined => {
+    if (typeof window === 'undefined') return undefined
+    const query = new URLSearchParams(window.location.search)
+    const rec = query.get('rec')
+    if (!rec && query.get('keys') !== '1' && query.get('hits') !== '1') return undefined
+    const hits =
+      query.get('hits') === '1'
+        ? [
+            { voice: 'snare' as const, step: 4 },
+            { voice: 'snare' as const, step: 12 },
+            { voice: 'kick' as const, step: 8 },
+          ]
+        : undefined
+    return {
+      recording: rec === '1' || rec === 'count',
+      countIn: rec === 'count',
+      countBeat: rec === 'count' ? 3 : undefined,
+      keysOn: query.get('keys') === '1' ? true : query.get('keys') === '0' ? false : undefined,
+      pass: rec ? 2 : 1,
+      hits,
+    }
+  }, [])
+
+  const openRecorder = useCallback(() => {
+    if (mode !== 'drums') setMode('drums')
+    if (playing) {
+      halt('recorder-open')
+      setPlaying(false)
+    }
+    setRecording(false)
+    setRecorderOpen(true)
+  }, [halt, mode, playing])
+
+  const closeRecorder = useCallback(() => {
+    if (recording || playing) {
+      halt('recorder-done')
+      setPlaying(false)
+    }
+    setRecording(false)
+    setRecorderOpen(false)
+  }, [halt, playing, recording])
+
+  const toggleRecord = useCallback(() => {
+    if (recording) {
+      halt('recorder-stop')
+      setPlaying(false)
+      setRecording(false)
+      return
+    }
+    preparePlaybackFromGesture()
+    void ensureKit()
+    setRecording(true)
+    setPlaying(true)
+  }, [ensureKit, halt, recording])
+
+  const patchRecordBar = useCallback(
+    (next: RhythmBar) => {
+      setDrumBars((currentBars) =>
+        currentBars.map((item, index) => (index === drumBarIndex ? next : item)),
+      )
+      setPresetId(matched?.id ?? presetId)
+    },
+    [drumBarIndex, matched?.id, presetId],
+  )
 
   if (!current) return null
 
   const liveMeter = meterLabel(current.beats, current.beatUnit)
+
+  const recordControl =
+    mode === 'drums' ? (
+      <RecordFab
+        onOpen={openRecorder}
+        showTip={
+          typeof window !== 'undefined' &&
+          new URLSearchParams(window.location.search).get('tip') === '1'
+        }
+      />
+    ) : null
 
   return (
     <AppChrome
@@ -679,6 +771,7 @@ export function RhythmPage() {
                 playing={playing}
                 onToggle={() => void startStop()}
                 holdUntilCycle={holdUntilCycle}
+                extra={recordControl}
               >
                 <TransportReadout
                   store={playheadStore}
@@ -767,6 +860,7 @@ export function RhythmPage() {
           playing={playing}
           onToggle={() => void startStop()}
           holdUntilCycle={holdUntilCycle}
+          extra={recordControl}
         >
           <TransportReadout
             store={playheadStore}
@@ -789,6 +883,29 @@ export function RhythmPage() {
           onSelect={loadPreset}
         />
       ) : null}
+
+      {mode === 'drums' ? (
+        <DrumRecorderSheet
+          open={recorderOpen}
+          onClose={closeRecorder}
+          bar={drumBars[drumBarIndex] ?? current}
+          barIndex={drumBarIndex}
+          barsCount={drumBars.length}
+          bpm={bpm}
+          beatName={edited && matched === null ? beatName : (matched?.name ?? beatName)}
+          recording={recording}
+          playing={playing}
+          playheadStore={playheadStore}
+          getClock={getTransportClock}
+          onChangeBar={patchRecordBar}
+          onToggleRecord={toggleRecord}
+          onPreview={preview}
+          onLoopRef={recorderLoopRef}
+          countIn={recordCountIn}
+          onCountIn={setRecordCountIn}
+          demo={recorderDemo}
+        />
+      ) : null}
     </AppChrome>
   )
 }
@@ -799,6 +916,7 @@ function TransportDock({
   className,
   holdUntilCycle,
   place,
+  extra,
   children,
 }: {
   playing: boolean
@@ -806,6 +924,7 @@ function TransportDock({
   className?: string
   holdUntilCycle: boolean
   place: 'inline' | 'sticky'
+  extra?: ReactNode
   children: ReactNode
 }) {
   return (
@@ -816,20 +935,23 @@ function TransportDock({
       className={className}
     >
       <div className="mb-1.5 text-[0.7rem] text-slate-200">{children}</div>
-      <Button
-        type="button"
-        size="lg"
-        variant={playing ? 'outline' : 'default'}
-        className={cn(
-          'h-14 w-full touch-manipulation text-base',
-          playing && 'border-white/15 bg-[#141A28] text-white hover:bg-[#1A2033]',
-        )}
-        data-transport="play"
-        {...activateOnPointer(onToggle)}
-      >
-        {playing ? <Square className="size-4 fill-current" /> : <Play className="size-4 fill-current" />}
-        {playing ? 'Stop' : 'Play'}
-      </Button>
+      <div className="flex items-stretch gap-2">
+        <Button
+          type="button"
+          size="lg"
+          variant={playing ? 'outline' : 'default'}
+          className={cn(
+            'h-14 min-w-0 flex-1 touch-manipulation text-base',
+            playing && 'border-white/15 bg-[#141A28] text-white hover:bg-[#1A2033]',
+          )}
+          data-transport="play"
+          {...activateOnPointer(onToggle)}
+        >
+          {playing ? <Square className="size-4 fill-current" /> : <Play className="size-4 fill-current" />}
+          {playing ? 'Stop' : 'Play'}
+        </Button>
+        {extra}
+      </div>
     </div>
   )
 }
