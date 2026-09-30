@@ -16,6 +16,16 @@ import {
   layoutInline,
 } from '../src/lib/inline-layout.ts'
 import { isTwelveString } from '../src/lib/headstock.ts'
+import {
+  SPLIT_NUT,
+  SPLIT_NUT_XS_6,
+  SPLIT_OUTLINE,
+  SPLIT_POSTS_6,
+  SPLIT_POST_INNER_6,
+  SPLIT_POST_R,
+  SPLIT_WORDMARK,
+  layoutSplit,
+} from '../src/lib/split-layout.ts'
 import { findBuiltinPreset } from '../src/lib/presets.ts'
 
 assert.equal(parseLayoutMode('inline'), 'inline')
@@ -100,5 +110,43 @@ assert.equal(bass.pegs.length, 4)
 assert.ok(bass.pegs[0] && bass.pegs[0].postR > INLINE_POST_R_6)
 assert.equal(bass.pegs[0]?.string.label, 'E')
 assert.equal(bass.pegs.at(-1)?.string.label, 'G')
+
+assert.match(SPLIT_OUTLINE, /^M482\.40 1235\.00/)
+assert.match(SPLIT_OUTLINE, /717\.60 1235\.00 Z$/)
+assert.equal(SPLIT_WORDMARK.src, '/brand/omnician-wordmark.png')
+assert.equal(SPLIT_WORDMARK.opacity, 0.8)
+assert.equal(SPLIT_WORDMARK.rotate, -90)
+assert.equal(SPLIT_WORDMARK.cx, 600)
+assert.equal(SPLIT_NUT.w, 248.6)
+assert.equal(SPLIT_POST_R, 22.4)
+
+const split6 = layoutSplit(guitar6.strings, 'guitar-6')
+assert.equal(split6.outline, SPLIT_OUTLINE)
+assert.equal(split6.pegs.length, 6)
+split6.pegs
+  .slice()
+  .sort((a, b) => b.string.stringNo - a.string.stringNo)
+  .forEach((peg, index) => {
+    const post = SPLIT_POSTS_6[index]
+    const inner = SPLIT_POST_INNER_6[index]
+    const nutX = SPLIT_NUT_XS_6[index]
+    assert.ok(post && inner && nutX != null)
+    assert.ok(Math.abs(peg.postX - post.x) < 0.05, `split post x ${index}`)
+    assert.ok(Math.abs(peg.postY - post.y) < 0.05, `split post y ${index}`)
+    assert.ok(Math.abs(peg.innerX - inner.x) < 0.05, `split inner x ${index}`)
+    assert.ok(Math.abs(peg.nutX - nutX) < 0.05, `split nut x ${index}`)
+    assert.equal(peg.postR, SPLIT_POST_R)
+  })
+assert.equal(split6.pegs.find((p) => p.string.stringNo === 6)?.side, 'left')
+assert.equal(split6.pegs.find((p) => p.string.stringNo === 1)?.side, 'right')
+
+const twelve = findBuiltinPreset('guitar-12-standard')
+assert.ok(twelve)
+const split12 = layoutSplit(twelve.strings, 'guitar-12')
+assert.equal(split12.outline, SPLIT_OUTLINE)
+assert.equal(split12.pegs.length, 12)
+assert.equal(split12.pegs.filter((p) => p.side === 'left').length, 6)
+assert.equal(split12.pegs.filter((p) => p.side === 'right').length, 6)
+assert.equal(split12.courses.length, 6)
 
 console.log('tuner-layout: ok')
