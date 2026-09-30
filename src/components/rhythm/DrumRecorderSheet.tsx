@@ -528,8 +528,8 @@ export function DrumRecorderSheet({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5" data-quantize={quantize}>
-              <p className="mr-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <div className="flex flex-nowrap items-center gap-1 overflow-x-auto" data-quantize={quantize}>
+              <p className="mr-0.5 shrink-0 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-slate-500">
                 Quantize
               </p>
               {QUANTIZE_CHIPS.map((chip) => (
@@ -539,7 +539,7 @@ export function DrumRecorderSheet({
                   data-quantize-chip={chip.id}
                   onClick={() => setQuantize(chip.id)}
                   className={cn(
-                    'h-8 rounded-full px-2.5 text-xs font-semibold',
+                    'h-7 shrink-0 rounded-full px-2 text-[0.7rem] font-semibold',
                     quantize === chip.id
                       ? 'bg-[#A855F7] text-white'
                       : 'border border-white/12 bg-white/4 text-slate-300',
