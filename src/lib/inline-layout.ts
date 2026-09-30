@@ -27,11 +27,12 @@ export const INLINE_WORD = { x: 815.5, y: 666.6 }
 /** Real /brand wordmark, rotated nut→tip on the treble side. */
 export const INLINE_WORDMARK = {
   src: '/brand/omnician-wordmark.png',
-  cx: 818,
-  cy: 690,
-  length: 600,
-  thickness: 216,
+  cx: 752,
+  cy: 820,
+  length: 520,
+  thickness: 236,
   opacity: 0.8,
+  rotate: -90,
 } as const
 
 /** Neck and strings fade out this far below the nut. */

@@ -114,9 +114,6 @@ export function InlineHeadstock({
               fill="url(#omnician-inline-drop-fade)"
             />
           </mask>
-          <clipPath id="omnician-inline-body-clip" clipPathUnits="userSpaceOnUse">
-            <path d={drawn.outline} />
-          </clipPath>
         </defs>
 
         <path
@@ -174,10 +171,9 @@ export function InlineHeadstock({
           y={INLINE_WORDMARK.cy - INLINE_WORDMARK.thickness / 2}
           width={INLINE_WORDMARK.length}
           height={INLINE_WORDMARK.thickness}
-          transform={`rotate(-90 ${INLINE_WORDMARK.cx} ${INLINE_WORDMARK.cy})`}
+          transform={`rotate(${INLINE_WORDMARK.rotate} ${INLINE_WORDMARK.cx} ${INLINE_WORDMARK.cy})`}
           opacity={INLINE_WORDMARK.opacity}
           preserveAspectRatio="xMidYMid meet"
-          clipPath="url(#omnician-inline-body-clip)"
           data-inline-wordmark
         />
 
