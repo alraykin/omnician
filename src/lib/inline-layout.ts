@@ -129,28 +129,24 @@ export function layoutInline(
   const sidePad = 14
   const leftPad = sidePad + checkW + labelW + m.button + m.shaft + 2
 
-  const overhangR = 6
+  const nutWidth = m.nutWidth
+  const bodyW = nutWidth + 16
+  const domeR = bodyW * 0.5
   const aboveFirst = 14
-  const firstY = m.domeH + aboveFirst + 8
+  const tipY = 12
+  const joinY = tipY + domeR
+  const firstY = joinY + aboveFirst
   const lastY = firstY + (count - 1) * m.gap
   const nutY = lastY + m.tail
-  const joinY = firstY - aboveFirst
-  const tipY = Math.max(10, joinY - m.domeH)
   const height = nutY + m.neckH
 
-  const rise = nutY - joinY
-  const shift = rise * INLINE_EDGE_TAN
-  const minDome = 30
-  const nutWidth = m.nutWidth
-  const bodyAtNut = Math.max(nutWidth + 14, shift + minDome)
-  const overhangL = bodyAtNut - nutWidth - overhangR
   const leftAtNut = leftPad
-  const nutLeft = leftAtNut + overhangL
+  const rightAtNut = leftAtNut + bodyW
+  const nutLeft = leftAtNut + (bodyW - nutWidth) / 2
   const nutRight = nutLeft + nutWidth
-  const rightAtNut = nutRight + overhangR
   const leftAtJoin = leftEdgeX(leftAtNut, nutY, joinY)
-  const rightAtJoin = rightAtNut
-  const domeWidth = rightAtJoin - leftAtJoin
+  const rightAtJoin = leftAtJoin + bodyW
+  const domeWidth = bodyW
 
   const pegs: InlinePeg[] = ordered.map((string, index) => {
     const postY = firstY + index * m.gap
@@ -230,18 +226,16 @@ function v4Outline(p: {
   joinY: number
   tipY: number
 }): string {
-  const midX = (p.leftAtJoin + p.rightAtJoin) / 2
   const domeW = p.rightAtJoin - p.leftAtJoin
-  const c1x = p.leftAtJoin + domeW * 0.18
-  const c2x = p.rightAtJoin - domeW * 0.18
-  const swoopY = p.nutY - 16
+  const rx = domeW / 2
+  const ry = Math.max(18, p.joinY - p.tipY)
+  const swoopY = p.nutY - 14
   return [
     `M ${p.leftAtNut} ${p.nutY}`,
     `L ${p.leftAtJoin} ${p.joinY}`,
-    `C ${c1x} ${p.tipY + 2}, ${midX} ${p.tipY}, ${c2x} ${p.tipY + 2}`,
-    `C ${p.rightAtJoin} ${p.tipY + 8}, ${p.rightAtJoin} ${p.joinY - 4}, ${p.rightAtJoin} ${p.joinY}`,
+    `A ${rx} ${ry} 0 0 1 ${p.rightAtJoin} ${p.joinY}`,
     `L ${p.rightAtNut} ${swoopY}`,
-    `Q ${p.rightAtNut + 3} ${p.nutY - 5} ${p.rightAtNut} ${p.nutY}`,
+    `Q ${p.rightAtNut + 2.5} ${p.nutY - 4} ${p.rightAtNut} ${p.nutY}`,
     `L ${p.leftAtNut} ${p.nutY}`,
     'Z',
   ].join(' ')

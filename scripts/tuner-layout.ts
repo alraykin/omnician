@@ -47,14 +47,17 @@ function checkPaddle(id: string, config: 'guitar-6' | 'guitar-7' | 'guitar-8' | 
   const run = drawn.leftAtJoin - drawn.leftAtNut
   const deg = (Math.atan2(run, rise) * 180) / Math.PI
   assert.ok(Math.abs(deg - 16) < 1.2, `${id} left edge ${deg.toFixed(2)}°`)
-  assert.ok(drawn.domeWidth >= 28 && drawn.domeWidth <= 72, `${id} dome ${drawn.domeWidth}`)
+  const bodyW = drawn.rightAtNut - drawn.leftAtNut
+  const rightDeg =
+    (Math.atan2(drawn.rightAtJoin - drawn.rightAtNut, rise) * 180) / Math.PI
+  assert.ok(Math.abs(rightDeg - 16) < 1.2, `${id} right edge ${rightDeg.toFixed(2)}°`)
   assert.ok(
-    drawn.rightAtNut - drawn.leftAtNut < drawn.nutWidth + 28,
-    `${id} body should stay only a bit wider than the nut`,
+    Math.abs(drawn.domeWidth - bodyW) < 1.5,
+    `${id} dome should be the rounded end of the slim paddle (${drawn.domeWidth} vs ${bodyW})`,
   )
   assert.ok(
-    drawn.viewW < drawn.nutWidth * 3.2,
-    `${id} viewBox is too wide for a slim paddle (${drawn.viewW} vs nut ${drawn.nutWidth})`,
+    bodyW < drawn.nutWidth + 24,
+    `${id} body should stay only a bit wider than the nut (${bodyW} vs nut ${drawn.nutWidth})`,
   )
 
   const tip = drawn.pegs[0]
