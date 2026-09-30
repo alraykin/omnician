@@ -5,12 +5,13 @@ import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { AudioLabPage } from '@/pages/AudioLabPage'
 import { HomePage } from '@/pages/HomePage'
 import { RhythmPage } from '@/pages/RhythmPage'
+import { SilentLabPage } from '@/pages/SilentLabPage'
 import { TunerPage } from '@/pages/TunerPage'
 
 function AudioDebugGate() {
   const [params] = useSearchParams()
   const { pathname } = useLocation()
-  if (pathname === '/audio-lab') return null
+  if (pathname === '/audio-lab' || pathname === '/lab/silent') return null
   if (params.get('debug') !== 'audio') return null
   return <AudioDebugOverlay />
 }
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/metronome" element={<Navigate to="/rhythm?mode=click" replace />} />
         <Route path="/drum-machine" element={<Navigate to="/rhythm?mode=drums" replace />} />
         <Route path="/audio-lab" element={<AudioLabPage />} />
+        <Route path="/lab/silent" element={<SilentLabPage />} />
         <Route path="/:slug" element={<ComingSoonPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
