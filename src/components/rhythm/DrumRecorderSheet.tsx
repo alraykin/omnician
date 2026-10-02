@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type MutableRefObject,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type TouchEvent as ReactTouchEvent,
@@ -79,6 +80,21 @@ type DrumRecorderSheetProps = {
   clickOn: boolean
   onClickOn: (value: boolean) => void
   demo?: DrumRecorderDemo
+}
+
+/** Pointer-first tap. iOS suppress click after touchstart preventDefault. */
+function press(handler: () => void) {
+  return {
+    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
+      if (event.button !== 0) return
+      event.preventDefault()
+      handler()
+    },
+    onClick: (event: ReactMouseEvent<HTMLElement>) => {
+      if (event.detail !== 0) return
+      handler()
+    },
+  }
 }
 
 export function DrumRecorderSheet({
@@ -261,13 +277,11 @@ export function DrumRecorderSheet({
     const body = document.body
     const prev = {
       bodyOverflow: body.style.overflow,
-      bodyTouch: body.style.touchAction,
       htmlOverflow: html.style.overflow,
       htmlOverscroll: html.style.overscrollBehavior,
       framePointer: frame?.style.pointerEvents ?? '',
     }
     body.style.overflow = 'hidden'
-    body.style.touchAction = 'none'
     html.style.overflow = 'hidden'
     html.style.overscrollBehavior = 'none'
     if (frame) {
@@ -277,7 +291,6 @@ export function DrumRecorderSheet({
     }
     return () => {
       body.style.overflow = prev.bodyOverflow
-      body.style.touchAction = prev.bodyTouch
       html.style.overflow = prev.htmlOverflow
       html.style.overscrollBehavior = prev.htmlOverscroll
       if (frame) {
@@ -315,9 +328,11 @@ export function DrumRecorderSheet({
     const blockGhost = (event: TouchEvent) => {
       const target = event.target
       if (!(target instanceof Element)) return
-      if (target.closest('[data-drum-pad], [data-drum-recorder-backdrop]')) {
+      if (target.closest('[data-drum-pad]')) {
         event.preventDefault()
+        return
       }
+      if (target === root) event.preventDefault()
     }
     root.addEventListener('touchstart', blockGhost, { passive: false })
     return () => root.removeEventListener('touchstart', blockGhost)
@@ -457,7 +472,7 @@ export function DrumRecorderSheet({
                 role="switch"
                 aria-checked={keysOn}
                 data-keys-on={keysOn ? '1' : '0'}
-                onClick={() => setKeysOn((on) => !on)}
+                {...press(() => setKeysOn((on) => !on))}
                 className={cn(
                   'inline-flex h-7 w-12 items-center rounded-full p-0.5',
                   keysOn ? 'justify-end bg-[#A855F7]' : 'justify-start bg-white/15',
@@ -466,14 +481,20 @@ export function DrumRecorderSheet({
                 <span className="block size-6 rounded-full bg-white" />
               </button>
             </label>
-            <Button type="button" size="sm" className="h-9 rounded-full px-4" onClick={onClose}>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 rounded-full px-4"
+              data-recorder-done
+              {...press(onClose)}
+            >
               Done
             </Button>
             <button
               type="button"
               aria-label="Close recorder"
               className="hidden size-9 items-center justify-center rounded-full border border-white/12 text-slate-300 rec-wide:flex"
-              onClick={onClose}
+              {...press(onClose)}
             >
               <X className="size-4" />
             </button>
@@ -537,7 +558,7 @@ export function DrumRecorderSheet({
                   key={chip.id}
                   type="button"
                   data-quantize-chip={chip.id}
-                  onClick={() => setQuantize(chip.id)}
+                  {...press(() => setQuantize(chip.id))}
                   className={cn(
                     'h-7 shrink-0 rounded-full px-2 text-[0.7rem] font-semibold',
                     quantize === chip.id
@@ -561,7 +582,7 @@ export function DrumRecorderSheet({
                     type="button"
                     size="sm"
                     className="h-8"
-                    onClick={() => {
+                    {...press(() => {
                       const rebuilt = requantizePassTo(
                         passStart.current[shownBarIndex] ?? bar,
                         thisPass.current.filter((hit) => (hit.barIndex ?? shownBarIndex) === shownBarIndex),
@@ -576,11 +597,17 @@ export function DrumRecorderSheet({
                       barRef.current = rebuilt.bar
                       onChangeBar(shownBarIndex, rebuilt.bar)
                       setPrompt(null)
-                    }}
+                    })}
                   >
                     Switch
                   </Button>
-                  <Button type="button" size="sm" variant="outline" className="h-8" onClick={() => setPrompt(null)}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    {...press(() => setPrompt(null))}
+                  >
                     Keep current
                   </Button>
                 </div>
@@ -627,10 +654,10 @@ export function DrumRecorderSheet({
               Every hit in the current bar will be removed. You can undo the last pass afterward.
             </p>
             <div className="mt-4 flex gap-2">
-              <Button type="button" className="flex-1" onClick={clearBar}>
+              <Button type="button" className="flex-1" {...press(clearBar)}>
                 Clear
               </Button>
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setClearAsk(false)}>
+              <Button type="button" variant="outline" className="flex-1" {...press(() => setClearAsk(false))}>
                 Cancel
               </Button>
             </div>
@@ -748,7 +775,7 @@ function TransportCard({
         <button
           type="button"
           aria-label="Undo pass"
-          onClick={onUndo}
+          {...press(onUndo)}
           className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300"
         >
           <RotateCcw className="size-4" />
@@ -756,7 +783,7 @@ function TransportCard({
         <button
           type="button"
           aria-label="Clear bar"
-          onClick={onClear}
+          {...press(onClear)}
           className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300"
         >
           <Trash2 className="size-4" />
@@ -892,7 +919,7 @@ function RecChip({
       aria-checked={on}
       data-count-in={testId === 'count-in' ? (on ? '1' : '0') : undefined}
       data-record-click={testId === 'record-click' ? (on ? '1' : '0') : undefined}
-      onClick={() => onChange(!on)}
+      {...press(() => onChange(!on))}
       className={cn(
         'inline-flex h-9 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold',
         on ? 'border-[#A855F7] bg-[#A855F7]/18 text-white' : 'border-white/12 bg-white/4 text-slate-400',
@@ -944,7 +971,7 @@ function ModeSwitch({
           role="radio"
           aria-checked={mode === id}
           data-record-mode={id}
-          onClick={() => onChange(id)}
+          {...press(() => onChange(id))}
           className={cn(
             'h-8 rounded-full px-3 text-xs font-semibold',
             mode === id ? 'bg-[#A855F7] text-white' : 'text-slate-400',
