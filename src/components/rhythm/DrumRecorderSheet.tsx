@@ -1,4 +1,4 @@
-import { RotateCcw, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, RotateCcw, Trash2, X } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -25,7 +25,7 @@ import { preparePlaybackFromGesture } from '@/lib/audio-context'
 import {
   DRUM_PAD_SLOTS,
   QUANTIZE_CHIPS,
-  offsetInBar,
+  offsetInBarForPad,
   placeQuantizedHit,
   requantizePassTo,
   saveRecordClick,
@@ -36,6 +36,7 @@ import {
   type RecordMode,
 } from '@/lib/drum-recorder'
 import {
+  clampBpm,
   cloneBar,
   emptyPattern,
   meterLabel,
@@ -72,7 +73,10 @@ type DrumRecorderSheetProps = {
   getClock: () => TransportClock
   onChangeBar: (index: number, next: RhythmBar) => void
   onReplaceBars: (bars: RhythmBar[]) => void
+  onBpm: (next: number) => void
+  onTapTempo: () => void
   onToggleRecord: () => void
+  onNewBeatAndRecord: () => void
   onPreview: (voice: VoiceId) => void
   onLoopRef: MutableRefObject<(() => void) | null>
   countIn: boolean
@@ -116,7 +120,10 @@ export function DrumRecorderSheet({
   getClock,
   onChangeBar,
   onReplaceBars,
+  onBpm,
+  onTapTempo,
   onToggleRecord,
+  onNewBeatAndRecord,
   onPreview,
   onLoopRef,
   countIn,
@@ -143,6 +150,8 @@ export function DrumRecorderSheet({
   })
   const [prompt, setPrompt] = useState<null | { subdivision: SubdivisionId }>(null)
   const [clearAsk, setClearAsk] = useState(false)
+  const [startAsk, setStartAsk] = useState(false)
+  const [bpmDraft, setBpmDraft] = useState<string | null>(null)
   const [freshAt, setFreshAt] = useState<Partial<Record<VoiceId, number>>>({})
   const knownLanes = useRef<Set<VoiceId>>(new Set())
   const held = useRef(new Set<VoiceId>())
@@ -214,13 +223,13 @@ export function DrumRecorderSheet({
       onPreview(voice)
       glow(voice)
       revealLane(voice)
-      if (!recording || getClock().precount) return
+      if (!recording) return
 
       const clock = getClock()
-      const targetIndex = clock.barIndex
+      const targetIndex = clock.precount ? 0 : clock.barIndex
       const current = barsRef.current[targetIndex]
       if (!current || !(clock.barDur > 0)) return
-      const offset = offsetInBar(clock.captureTime, clock.barStart, clock.barDur)
+      const offset = offsetInBarForPad(clock.audioTime, clock.barStart, clock.barDur)
       const raws = thisPass.current
         .filter((hit) => (hit.barIndex ?? targetIndex) === targetIndex)
         .map((hit) => hit.offsetSec)
@@ -238,6 +247,8 @@ export function DrumRecorderSheet({
       )
       touched.current.set(targetIndex, placed.voicesTouched)
       thisPass.current = [...thisPass.current, { ...placed.hit, barIndex: targetIndex }]
+      const nextBars = barsRef.current.map((item, index) => (index === targetIndex ? placed.bar : item))
+      barsRef.current = nextBars
       barRef.current = placed.bar
       onChangeBar(targetIndex, placed.bar)
       if (placed.offerTriplets) setPrompt({ subdivision: placed.tripletSubdivision })
@@ -252,7 +263,11 @@ export function DrumRecorderSheet({
   }, [])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setStartAsk(false)
+      setBpmDraft(null)
+      return
+    }
     knownLanes.current = new Set(usedVoicesInPatterns(barsRef.current.map((item) => item.pattern)))
     setFreshAt({})
   }, [open])
@@ -354,6 +369,37 @@ export function DrumRecorderSheet({
     onReplaceBars(snapshot.map(cloneBar))
   }, [onReplaceBars])
 
+  const commitBpmDraft = useCallback(() => {
+    if (bpmDraft == null) return
+    const parsed = Number.parseInt(bpmDraft, 10)
+    setBpmDraft(null)
+    if (Number.isFinite(parsed)) onBpm(clampBpm(parsed))
+  }, [bpmDraft, onBpm])
+
+  const requestRecord = useCallback(() => {
+    preparePlaybackFromGesture()
+    if (recording) {
+      onToggleRecord()
+      return
+    }
+    setClearAsk(false)
+    setStartAsk(true)
+  }, [onToggleRecord, recording])
+
+  const startOverCurrent = useCallback(() => {
+    setStartAsk(false)
+    preparePlaybackFromGesture()
+    onToggleRecord()
+  }, [onToggleRecord])
+
+  const startNewTake = useCallback(() => {
+    setStartAsk(false)
+    knownLanes.current = new Set()
+    setFreshAt({})
+    preparePlaybackFromGesture()
+    onNewBeatAndRecord()
+  }, [onNewBeatAndRecord])
+
   const clearBar = () => {
     if (!bar) return
     undoStack.current = [...undoStack.current, barsRef.current.map(cloneBar)]
@@ -369,14 +415,19 @@ export function DrumRecorderSheet({
     if (!open) return
     const down = (event: KeyboardEvent) => {
       if (event.repeat) return
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
       if (event.key === 'Escape') {
         event.preventDefault()
+        if (startAsk) {
+          setStartAsk(false)
+          return
+        }
         onClose()
         return
       }
       if (event.key === 'Enter') {
         event.preventDefault()
-        onToggleRecord()
+        requestRecord()
         return
       }
       if (event.key === 'Tab') {
@@ -409,7 +460,7 @@ export function DrumRecorderSheet({
       window.removeEventListener('keyup', up)
       held.current.clear()
     }
-  }, [onClose, onToggleRecord, open, strike, undoPass])
+  }, [onClose, open, requestRecord, startAsk, strike, undoPass])
 
   if (!open || !bar) return null
 
@@ -467,7 +518,7 @@ export function DrumRecorderSheet({
               Record beat
             </h2>
             <p className="mt-0.5 truncate text-xs text-slate-400">
-              {beatName} · Bar {shownBarIndex + 1} of {barsCount} · {bpm} BPM · {meter}
+              {beatName} · Bar {shownBarIndex + 1} of {barsCount} · {meter}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -509,6 +560,14 @@ export function DrumRecorderSheet({
 
         <div data-rec-body className="flex min-h-0 flex-1 flex-col gap-2 px-3 pb-2 sm:px-5 sm:pb-3">
           <div data-rec-controls className="flex shrink-0 flex-col gap-2">
+            <RecTempo
+              bpm={bpm}
+              draft={bpmDraft}
+              onDraft={setBpmDraft}
+              onCommit={commitBpmDraft}
+              onBpm={onBpm}
+              onTap={onTapTempo}
+            />
             <TransportCard
               recording={liveRecording}
               pass={pass}
@@ -527,7 +586,7 @@ export function DrumRecorderSheet({
               beats={bar.beats}
               precount={countOverlay}
               countBeat={countBeatNumber}
-              onToggleRecord={onToggleRecord}
+              onToggleRecord={requestRecord}
               onUndo={undoPass}
               onClear={() => setClearAsk(true)}
             />
@@ -652,6 +711,34 @@ export function DrumRecorderSheet({
         </div>
       </div>
 
+      {startAsk ? (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 p-6" data-rec-start-ask>
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#141A28] p-4">
+            <p className="text-base font-semibold text-white">Start recording?</p>
+            <p className="mt-1 text-sm text-slate-400">
+              New beat wipes the grid (keeps {bpm} BPM). This beat keeps what you already have.
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <Button type="button" className="h-11 w-full" data-rec-start-new {...press(startNewTake)}>
+                New beat
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full"
+                data-rec-start-current
+                {...press(startOverCurrent)}
+              >
+                This beat
+              </Button>
+              <Button type="button" variant="outline" className="h-10 w-full" {...press(() => setStartAsk(false))}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {clearAsk ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 p-6">
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#141A28] p-4">
@@ -674,6 +761,97 @@ export function DrumRecorderSheet({
   )
 
   return createPortal(sheet, document.body)
+}
+
+function RecTempo({
+  bpm,
+  draft,
+  onDraft,
+  onCommit,
+  onBpm,
+  onTap,
+}: {
+  bpm: number
+  draft: string | null
+  onDraft: (value: string | null) => void
+  onCommit: () => void
+  onBpm: (next: number) => void
+  onTap: () => void
+}) {
+  const editing = draft != null
+  return (
+    <div
+      data-rec-tempo
+      className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#141A28] px-2.5 py-1.5"
+    >
+      <p className="shrink-0 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        Tempo
+      </p>
+      {editing ? (
+        <input
+          data-rec-bpm-input
+          inputMode="numeric"
+          pattern="[0-9]*"
+          aria-label="Tempo BPM"
+          autoFocus
+          value={draft}
+          onChange={(event) => onDraft(event.target.value.replace(/[^\d]/g, '').slice(0, 3))}
+          onBlur={onCommit}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              event.stopPropagation()
+              onCommit()
+            }
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              event.stopPropagation()
+              onDraft(null)
+            }
+          }}
+          className="h-9 w-[3.6rem] rounded-xl border border-[#A855F7] bg-[#0F1422] text-center text-base font-bold tabular-nums text-white outline-none"
+        />
+      ) : (
+        <button
+          type="button"
+          data-rec-bpm
+          aria-label="Edit tempo"
+          {...press(() => onDraft(String(bpm)))}
+          className="h-9 min-w-[3.6rem] rounded-xl bg-white/8 px-2 text-base font-bold tabular-nums text-white"
+        >
+          {bpm}
+        </button>
+      )}
+      <button
+        type="button"
+        data-rec-tap
+        {...press(onTap)}
+        className="h-9 rounded-full border border-white/12 bg-white/4 px-3 text-xs font-semibold text-slate-200"
+      >
+        Tap
+      </button>
+      <div className="ml-auto flex flex-col overflow-hidden rounded-xl border border-white/12">
+        <button
+          type="button"
+          data-rec-bpm-up
+          aria-label="Faster"
+          {...press(() => onBpm(bpm + 1))}
+          className="flex h-5 w-9 items-center justify-center text-slate-200"
+        >
+          <ChevronUp className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          data-rec-bpm-down
+          aria-label="Slower"
+          {...press(() => onBpm(bpm - 1))}
+          className="flex h-5 w-9 items-center justify-center border-t border-white/12 text-slate-200"
+        >
+          <ChevronDown className="size-3.5" />
+        </button>
+      </div>
+    </div>
+  )
 }
 
 function TransportCard({

@@ -378,6 +378,16 @@ export function offsetInBar(captureTime: number, barStart: number, barDur: numbe
   return offset
 }
 
+/** Pad hits just before the bar line belong on beat 1, not wrapped to the last slot. */
+export const PAD_EARLY_SLOP_SEC = 0.12
+
+export function offsetInBarForPad(captureTime: number, barStart: number, barDur: number): number {
+  if (!(barDur > 0)) return 0
+  const raw = captureTime - barStart
+  if (raw < 0 && raw > -PAD_EARLY_SLOP_SEC) return 0
+  return offsetInBar(captureTime, barStart, barDur)
+}
+
 export type PassHit = {
   voice: VoiceId
   offsetSec: number

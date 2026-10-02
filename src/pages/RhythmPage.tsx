@@ -521,13 +521,13 @@ export function RhythmPage() {
     saveUserBeats(next)
   }
 
-  const startNewBeat = useCallback(() => {
+  const startNewBeat = useCallback((opts?: { keepBpm?: boolean }) => {
     if (playing) {
       halt('new-beat')
       setPlaying(false)
       setRecording(false)
     }
-    setBpm(NEW_BEAT_BPM)
+    if (!opts?.keepBpm) setBpm(NEW_BEAT_BPM)
     setDrumBars(makeBlankBeat())
     setDrumBarIndex(0)
     setPresetId(null)
@@ -537,6 +537,15 @@ export function RhythmPage() {
     setSpeedBuilder((current) => ({ ...current, precount: true }))
     setPickerOpen(false)
   }, [halt, playing])
+
+  const startNewBeatAndRecord = useCallback(() => {
+    startNewBeat({ keepBpm: true })
+    preparePlaybackFromGesture()
+    void ensureKit()
+    setDrumBarIndex(0)
+    setRecording(true)
+    setPlaying(true)
+  }, [ensureKit, startNewBeat])
 
   const openSave = (asNew = false) => {
     setSaveAsNew(asNew || !savedUser)
@@ -965,7 +974,7 @@ export function RhythmPage() {
                   size="sm"
                   variant="outline"
                   data-new-beat
-                  onClick={startNewBeat}
+                  onClick={() => startNewBeat()}
                   className="h-11 shrink-0 self-center gap-1 px-2.5"
                 >
                   <Plus className="size-3.5" />
@@ -1127,7 +1136,10 @@ export function RhythmPage() {
           getClock={getTransportClock}
           onChangeBar={patchRecordBar}
           onReplaceBars={replaceRecordBars}
+          onBpm={changeBpm}
+          onTapTempo={tapTempo}
           onToggleRecord={toggleRecord}
+          onNewBeatAndRecord={startNewBeatAndRecord}
           onPreview={preview}
           onLoopRef={recorderLoopRef}
           countIn={recordCountIn}

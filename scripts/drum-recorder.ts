@@ -5,6 +5,7 @@ import {
   captureAudioTime,
   finestEvenSubdivision,
   offsetInBar,
+  offsetInBarForPad,
   placeQuantizedHit,
   quantizeHit,
   quantizeToStep,
@@ -66,6 +67,26 @@ const ctx = { currentTime: 1.2, outputLatency: 0.2, baseLatency: 0.01 }
 assert.equal(captureAudioTime(ctx), 1.0)
 assert.ok(Math.abs(offsetInBar(1.05, 0, 1) - 0.05) < 1e-9)
 assert.ok(Math.abs(offsetInBar(2.05, 0, 1) - 0.05) < 1e-9)
+assert.ok(offsetInBar(0.97, 1, 2) > 1.8, 'plain wrap sends a slightly-early hit to the last slot')
+assert.equal(offsetInBarForPad(0.97, 1, 2), 0, 'pad slop keeps a slightly-early hit on beat 1')
+assert.ok(Math.abs(offsetInBarForPad(1.5, 1, 2) - 0.5) < 1e-9)
+
+let racing = makeBar(4, 4, 4)
+const hitKick = placeQuantizedHit(racing, 0, barDur, '16', 'kick', 'overdub', new Set(), [0])
+racing = hitKick.bar
+const hitSnare = placeQuantizedHit(
+  racing,
+  0.5,
+  barDur,
+  '16',
+  'snare',
+  'overdub',
+  hitKick.voicesTouched,
+  [0, 0.5],
+)
+assert.equal(hitKick.bar.pattern.kick.length, 1)
+assert.equal(hitSnare.bar.pattern.kick.length, 1, 'second pad keeps the first hit')
+assert.equal(hitSnare.bar.pattern.snare.length, 1)
 
 let pattern = emptyPattern()
 const first = applyPassHit(
