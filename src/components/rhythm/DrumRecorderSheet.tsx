@@ -47,7 +47,6 @@ import {
   type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
-import { holdRepeatProps, mergeHoldRepeatClass } from '@/lib/hold-repeat'
 import { cn } from '@/lib/utils'
 
 export type DrumRecorderDemo = {
@@ -836,13 +835,8 @@ function RecTempo({
           type="button"
           data-rec-bpm-up
           aria-label="Faster"
-          className={mergeHoldRepeatClass('flex h-5 w-9 items-center justify-center text-slate-200')}
-          {...holdRepeatProps({
-            direction: 1,
-            tapStep: 1,
-            getValue: () => bpm,
-            setValue: (next) => onBpm(next, true),
-          })}
+          {...press(() => onBpm(bpm + 1))}
+          className="flex h-5 w-9 items-center justify-center text-slate-200"
         >
           <ChevronUp className="size-3.5" />
         </button>
@@ -850,15 +844,8 @@ function RecTempo({
           type="button"
           data-rec-bpm-down
           aria-label="Slower"
-          className={mergeHoldRepeatClass(
-            'flex h-5 w-9 items-center justify-center border-t border-white/12 text-slate-200',
-          )}
-          {...holdRepeatProps({
-            direction: -1,
-            tapStep: 1,
-            getValue: () => bpm,
-            setValue: (next) => onBpm(next, true),
-          })}
+          {...press(() => onBpm(bpm - 1))}
+          className="flex h-5 w-9 items-center justify-center border-t border-white/12 text-slate-200"
         >
           <ChevronDown className="size-3.5" />
         </button>

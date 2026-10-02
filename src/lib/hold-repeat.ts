@@ -1,6 +1,5 @@
 import type { MouseEvent, PointerEvent } from 'react'
 
-import { clampBpm, MAX_BPM, MIN_BPM } from '@/lib/rhythm'
 import { cn } from '@/lib/utils'
 
 /** First extra step after the pointer stays down. */
@@ -31,8 +30,8 @@ type HoldRepeatOptions = {
   tapStep?: number
   getValue: () => number
   setValue: (next: number) => void
-  min?: number
-  max?: number
+  min: number
+  max: number
 }
 
 let activeStop: (() => void) | null = null
@@ -58,8 +57,8 @@ export function holdRepeatProps({
   tapStep = 1,
   getValue,
   setValue,
-  min = MIN_BPM,
-  max = MAX_BPM,
+  min,
+  max,
 }: HoldRepeatOptions) {
   const stopHold = () => {
     stopActive()
@@ -73,7 +72,7 @@ export function holdRepeatProps({
 
     const apply = (heldMs: number) => {
       const delta = holdRepeatStep(heldMs, tapStep) * direction
-      const next = Math.min(max, Math.max(min, clampBpm(value + delta)))
+      const next = Math.min(max, Math.max(min, Math.round(value + delta)))
       if (next === value) {
         stopActive()
         return false
@@ -109,6 +108,8 @@ export function holdRepeatProps({
   return {
     onPointerDown: (event: PointerEvent<HTMLElement>) => {
       if (event.button !== 0) return
+      const target = event.currentTarget
+      if ('disabled' in target && (target as HTMLButtonElement).disabled) return
       event.preventDefault()
       startHold()
     },
@@ -126,7 +127,7 @@ export function holdRepeatProps({
         event.preventDefault()
         return
       }
-      const next = Math.min(max, Math.max(min, clampBpm(getValue() + tapStep * direction)))
+      const next = Math.min(max, Math.max(min, Math.round(getValue() + tapStep * direction)))
       if (next !== getValue()) setValue(next)
     },
   }

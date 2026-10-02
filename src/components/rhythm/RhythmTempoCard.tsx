@@ -4,7 +4,6 @@ import { BpmWheel } from '@/components/rhythm/BpmWheel'
 import { VolumeFader } from '@/components/rhythm/KitFaders'
 import { SpeedBuilderPanel, SpeedBuilderToggles } from '@/components/rhythm/SpeedBuilderPanel'
 import { Button } from '@/components/ui/button'
-import { holdRepeatProps, mergeHoldRepeatClass } from '@/lib/hold-repeat'
 import { type SpeedBuilder } from '@/lib/speed-builder'
 import { activateOnPointer } from '@/lib/utils'
 
@@ -72,14 +71,8 @@ export function RhythmTempoCard({
                 variant="outline"
                 size="sm"
                 aria-label="Slower by 5"
-                data-bpm-down
-                className={mergeHoldRepeatClass('h-7 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation')}
-                {...holdRepeatProps({
-                  direction: -1,
-                  tapStep: 5,
-                  getValue: () => bpm,
-                  setValue: (next) => onBpm(next, true),
-                })}
+                className="h-7 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
+                {...activateOnPointer(() => onBpm(bpm - 5, true))}
               >
                 <Minus className="size-3" />
                 5
@@ -99,14 +92,8 @@ export function RhythmTempoCard({
                 variant="outline"
                 size="sm"
                 aria-label="Faster by 5"
-                data-bpm-up
-                className={mergeHoldRepeatClass('h-7 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation')}
-                {...holdRepeatProps({
-                  direction: 1,
-                  tapStep: 5,
-                  getValue: () => bpm,
-                  setValue: (next) => onBpm(next, true),
-                })}
+                className="h-7 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
+                {...activateOnPointer(() => onBpm(bpm + 5, true))}
               >
                 <Plus className="size-3" />
                 5

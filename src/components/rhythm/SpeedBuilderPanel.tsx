@@ -11,6 +11,7 @@ import {
   sbBpm,
   type SpeedBuilder,
 } from '@/lib/speed-builder'
+import { holdRepeatProps, mergeHoldRepeatClass } from '@/lib/hold-repeat'
 import { activateOnPointer, cn } from '@/lib/utils'
 
 function IntStepper({
@@ -46,9 +47,19 @@ function IntStepper({
       <button
         type="button"
         aria-label={`Decrease ${label}`}
+        data-sb-dec={label}
         disabled={value <= min}
-        {...activateOnPointer(() => onChange(value - 1))}
-        className="flex size-6 touch-manipulation items-center justify-center rounded-md border border-white/12 text-slate-200 disabled:opacity-35"
+        className={mergeHoldRepeatClass(
+          'flex size-6 touch-manipulation items-center justify-center rounded-md border border-white/12 text-slate-200 disabled:opacity-35',
+        )}
+        {...holdRepeatProps({
+          direction: -1,
+          tapStep: 1,
+          min,
+          max,
+          getValue: () => value,
+          setValue: onChange,
+        })}
       >
         <Minus className="size-3" />
       </button>
@@ -86,9 +97,19 @@ function IntStepper({
       <button
         type="button"
         aria-label={`Increase ${label}`}
+        data-sb-inc={label}
         disabled={value >= max}
-        {...activateOnPointer(() => onChange(value + 1))}
-        className="flex size-6 touch-manipulation items-center justify-center rounded-md border border-white/12 text-slate-200 disabled:opacity-35"
+        className={mergeHoldRepeatClass(
+          'flex size-6 touch-manipulation items-center justify-center rounded-md border border-white/12 text-slate-200 disabled:opacity-35',
+        )}
+        {...holdRepeatProps({
+          direction: 1,
+          tapStep: 1,
+          min,
+          max,
+          getValue: () => value,
+          setValue: onChange,
+        })}
       >
         <Plus className="size-3" />
       </button>
