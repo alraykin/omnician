@@ -82,16 +82,22 @@ type DrumRecorderSheetProps = {
   demo?: DrumRecorderDemo
 }
 
-/** Pointer-first tap. iOS suppress click after touchstart preventDefault. */
+/** Pointer-first tap. Survives iOS ghost-click suppression and ignores the leftover click. */
+let lastPressAt = 0
+
 function press(handler: () => void) {
   return {
     onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
       if (event.button !== 0) return
       event.preventDefault()
+      lastPressAt = performance.now()
       handler()
     },
     onClick: (event: ReactMouseEvent<HTMLElement>) => {
-      if (event.detail !== 0) return
+      if (event.detail !== 0 || performance.now() - lastPressAt < 500) {
+        event.preventDefault()
+        return
+      }
       handler()
     },
   }
