@@ -725,9 +725,24 @@ body {
   animation: omni-count-dot 0.32s ease-in-out 2;
 }
 
+[data-bpm-up],
+[data-bpm-down],
+[data-rec-bpm-up],
+[data-rec-bpm-down] {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
 [data-drum-recorder] {
   touch-action: none;
   overscroll-behavior: none;
+}
+
+[data-drum-recorder] [data-rec-bpm-up],
+[data-drum-recorder] [data-rec-bpm-down] {
+  touch-action: manipulation;
 }
 
 [data-drum-recorder] [role='dialog'] {
