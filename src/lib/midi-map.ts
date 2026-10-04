@@ -1,6 +1,6 @@
 import { VOICE_LABELS, VOICES, type VoiceId } from '@/lib/rhythm'
 
-/** Cubase / Yamaha: middle C is C3 = MIDI 60, so C1 = 36. */
+/** Middle C is C3 = MIDI 60, so C1 = 36. */
 export const MIDI_MAP_KEY = 'omnician.drums.midi-map.v1'
 
 export const MIDI_NOTE_MIN = 0
@@ -8,7 +8,7 @@ export const MIDI_NOTE_MAX = 127
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
 
-/** Alex’s default Cubase map (C3 = 60). */
+/** Default drum note map (C3 = 60). */
 export const DEFAULT_MIDI_MAP: Record<VoiceId, number> = {
   kick: 36, // C1
   rim: 37, // C#1

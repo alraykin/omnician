@@ -46,7 +46,7 @@ export const MIN_BPM = 30
 export const MAX_BPM = 300
 export const DEFAULT_BPM = 120
 
-/** Steps per beat — Cubase-style density. Quarter = 1 through septuplets = 7. */
+/** Steps per beat — quarter = 1 through septuplets = 7. */
 export const SUBDIVISIONS = [1, 2, 3, 4, 5, 6, 7] as const
 export type SubdivisionId = (typeof SUBDIVISIONS)[number]
 export const DEFAULT_SUBDIVISION: SubdivisionId = 2

@@ -7,7 +7,6 @@ import {
   cloneMidiMap,
   DEFAULT_MIDI_MAP,
   midiMapRows,
-  midiNoteName,
   type MidiNoteMap,
 } from '@/lib/midi-map'
 import { listenForMidiNote, webMidiSupported } from '@/lib/midi-web'
@@ -54,8 +53,8 @@ export function MidiMapEditor({
   return (
     <div data-midi-map-editor>
       <p className="text-sm leading-5 text-slate-400">
-        Middle C is <span className="text-slate-200">C3</span> (MIDI 60), same as Cubase. Change a
-        drum’s note if your file uses another map.
+        Middle C is <span className="text-slate-200">C3</span> (MIDI 60). Change a drum’s note if
+        your file uses a different map.
       </p>
       <ul className="mt-3 space-y-1">
         {midiMapRows(map).map((row) => (
@@ -124,9 +123,6 @@ export function MidiMapEditor({
       >
         Reset to default
       </Button>
-      <p className="mt-2 text-center text-[0.7rem] text-slate-500">
-        Example: {midiNoteName(60)} is MIDI 60
-      </p>
     </div>
   )
 }
