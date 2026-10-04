@@ -330,6 +330,7 @@ body {
   --kit-fader-slot-w: 0.52rem;
   --kit-fader-cap-w: 1.58rem;
   --kit-fader-cap-h: 0.84rem;
+  --kit-fader-label-gap: 9px;
   margin-top: 0.5rem;
   padding: 0.4rem 0.35rem 0.35rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -441,7 +442,6 @@ body {
   flex: 1 1 auto;
   height: auto;
   min-height: 5.6rem;
-  margin-top: 0.55rem;
 }
 
 @media (min-width: 768px) {
@@ -495,6 +495,7 @@ body {
   align-items: stretch;
   justify-content: center;
   width: 100%;
+  margin-top: var(--kit-fader-label-gap, 9px);
 }
 
 .kit-fader-slot {
@@ -624,6 +625,8 @@ body {
 .kit-fader-zoom-card {
   --kit-fader-track-h: 11.4rem;
   --kit-fader-cap-half: 0.64rem;
+  --kit-fader-cap-h: 1.28rem;
+  --kit-fader-label-gap: 9px;
   display: flex;
   width: 6.4rem;
   flex-direction: column;
@@ -638,7 +641,7 @@ body {
 }
 
 .kit-fader-zoom-name {
-  margin: 0 0 0.45rem;
+  margin: 0 0 var(--kit-fader-label-gap, 9px);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.16em;

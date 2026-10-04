@@ -334,7 +334,10 @@ function FaderThrow({ pos }: { pos: number }) {
       <span className="kit-fader-rail" aria-hidden />
       <span className="kit-fader-fill" style={{ height: `${p * 100}%` }} />
       <span className="kit-fader-zero" aria-hidden />
-      <span className="kit-fader-cap" style={{ top: `calc(${(1 - p) * 100}% - var(--kit-fader-cap-half))` }}>
+      <span
+        className="kit-fader-cap"
+        style={{ top: `calc((1 - ${p}) * (100% - var(--kit-fader-cap-h)))` }}
+      >
         <span className="kit-fader-cap-face" />
       </span>
     </div>
