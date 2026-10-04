@@ -156,41 +156,54 @@ const TOM_RUN: HitMap = {
   floorTom: [13, 14, 15],
 }
 
-const QUARTER_HATS = [0, 4, 8, 12]
-const CHAMELEON_KICK = [0, 7, 8, 10, 12]
-const CHAMELEON_SNARE = [4, 12]
+/** Sextuplet steps: beat.cell → (beat - 1) * 6 + cell. */
+const CHAMELEON_SNARE = [5, 18]
+const CHAMELEON_HATS = [0, 6, 12, 18]
+const CHAMELEON_HATS_NO_1 = [6, 12, 18]
 
-const CHAMELEON_GROOVE: HitMap = {
-  kick: CHAMELEON_KICK,
+const CHAMELEON_BAR2: HitMap = {
+  kick: [0, 9, 14, 15, 20, 21],
   snare: CHAMELEON_SNARE,
-  closedHat: QUARTER_HATS,
+  closedHat: CHAMELEON_HATS,
 }
 
-/** Bar 4 of Chameleon — pocket plus extra kicks on 2 and the e of 4. */
-const CHAMELEON_BAR4: HitMap = {
-  kick: [0, 4, 7, 8, 10, 12, 13],
+const CHAMELEON_BAR3: HitMap = {
+  kick: [0, 9, 14, 15, 21],
   snare: CHAMELEON_SNARE,
-  closedHat: QUARTER_HATS,
+  closedHat: CHAMELEON_HATS,
 }
 
-/** Bar 8 of Chameleon — pocket into snare 16ths, then Tom 1 → Tom 2 → Fl Tom. */
+const CHAMELEON_BAR1: HitMap = {
+  kick: [0, 9, 14, 15, 21],
+  snare: CHAMELEON_SNARE,
+  closedHat: CHAMELEON_HATS_NO_1,
+  crash: [0],
+}
+
+const CHAMELEON_BAR5: HitMap = {
+  kick: [0, 9, 14, 15, 21],
+  snare: CHAMELEON_SNARE,
+  closedHat: CHAMELEON_HATS_NO_1,
+  splash: [0],
+}
+
 const CHAMELEON_FILL: HitMap = {
-  kick: [0, 7, 8, 9, 10],
-  snare: [4, 8, 9, 10, 11],
-  closedHat: [0, 4, 8],
-  highTom: [12, 13],
-  midTom: [14],
-  floorTom: [15],
+  kick: [0, 9, 16, 17],
+  snare: [5, 14, 15, 18, 19],
+  closedHat: CHAMELEON_HATS,
+  highTom: [20, 21],
+  midTom: [22],
+  floorTom: [23],
 }
 
 const CHAMELEON_PHRASE: HitMap[] = [
-  { ...CHAMELEON_GROOVE, crash: [0] },
-  CHAMELEON_GROOVE,
-  CHAMELEON_GROOVE,
-  CHAMELEON_BAR4,
-  { ...CHAMELEON_GROOVE, splash: [0] },
-  CHAMELEON_GROOVE,
-  CHAMELEON_GROOVE,
+  CHAMELEON_BAR1,
+  CHAMELEON_BAR2,
+  CHAMELEON_BAR3,
+  CHAMELEON_BAR2,
+  CHAMELEON_BAR5,
+  CHAMELEON_BAR2,
+  CHAMELEON_BAR3,
   CHAMELEON_FILL,
 ]
 
@@ -280,11 +293,11 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
           'funk',
           'Funk',
           1,
-          '16th-note pocket, splash on 5',
+          'Sextuplet pocket, splash on 5',
           4,
           4,
-          4,
-          { ...CHAMELEON_GROOVE, crash: [0] },
+          6,
+          CHAMELEON_BAR1,
           CHAMELEON_FILL,
         ),
         name: 'Chameleon',

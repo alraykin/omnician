@@ -52,6 +52,7 @@ import { loadMidiMap } from '@/lib/midi-map'
 import {
   DEFAULT_DRUM_INPUT,
   hitForInputSlot,
+  isInputDivision,
   makeBeatBoxesExampleBar,
   normalizeDrumInput,
   type InputDivision,
@@ -303,6 +304,7 @@ export function RhythmPage() {
     setDrumBars(barsForPreset(preset).map(cloneBar))
     setDrumBarIndex(0)
     if (preset.bpm != null) setBpm(preset.bpm)
+    if (isInputDivision(preset.subdivision)) setDrumInput(preset.subdivision)
     if (preset.styleId !== kitStyleId) {
       setKitIntensity(defaultIntensityForStyle(preset.styleId))
     }
