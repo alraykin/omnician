@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Pencil, Play, Plus, Square, Trash2, X } from 'lucide-react'
+import { Check, ChevronDown, FileUp, Pencil, Play, Plus, Settings2, Square, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
@@ -10,6 +10,7 @@ import { DrumBarStage } from '@/components/rhythm/DrumBarStage'
 import { DrumRecorderSheet, type DrumRecorderDemo } from '@/components/rhythm/DrumRecorderSheet'
 import { RecordFab } from '@/components/rhythm/RecordFab'
 import { KitFaders } from '@/components/rhythm/KitFaders'
+import { MidiMapSheet } from '@/components/rhythm/MidiMapSheet'
 import { ListenTempoSheet } from '@/components/rhythm/ListenTempo'
 import { RhythmTempoCard } from '@/components/rhythm/RhythmTempoCard'
 import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
@@ -46,6 +47,8 @@ import {
 } from '@/lib/rhythm'
 import { loadRecordClick } from '@/lib/drum-recorder'
 import { RECORDER_ENABLED } from '@/lib/features'
+import { importMidiFile, importNoteLine } from '@/lib/midi-import'
+import { loadMidiMap, saveMidiMap, type MidiNoteMap } from '@/lib/midi-map'
 import { onCaptureStarting, preparePlaybackFromGesture } from '@/lib/audio-context'
 import { requestRawMic } from '@/lib/mic-capture'
 import { playWheelTick } from '@/lib/rhythm-audio'
@@ -119,6 +122,11 @@ export function RhythmPage() {
   const [listenOpen, setListenOpen] = useState(false)
   const [listenSeed, setListenSeed] = useState<TempoEstimate | null>(null)
   const [tempoNote, setTempoNote] = useState<string | null>(null)
+  const [midiMap, setMidiMap] = useState<MidiNoteMap>(() => loadMidiMap())
+  const [midiMapOpen, setMidiMapOpen] = useState(false)
+  const [importedName, setImportedName] = useState<string | null>(null)
+  const [importNote, setImportNote] = useState<string | null>(null)
+  const midiFileRef = useRef<HTMLInputElement>(null)
   const tapTimes = useRef<number[]>([])
 
   const bars = mode === 'click' ? clickBars : drumBars
@@ -140,7 +148,7 @@ export function RhythmPage() {
       ? `${savedUser.name} · edited`
       : savedUser.name
     : draftNew
-      ? 'New beat'
+      ? (importedName ?? 'New beat')
       : matched
         ? matched.name
         : savedPreset
@@ -278,6 +286,8 @@ export function RhythmPage() {
     setPresetId(preset.id)
     setUserBeatId(null)
     setDraftNew(false)
+    setImportedName(null)
+    setImportNote(null)
     setPickerOpen(false)
   }
 
@@ -535,6 +545,8 @@ export function RhythmPage() {
     setPresetId(null)
     setUserBeatId(null)
     setDraftNew(true)
+    setImportedName(null)
+    setImportNote(null)
     setRecordCountIn(true)
     setSpeedBuilder((current) => ({ ...current, precount: true }))
     setPickerOpen(false)
@@ -551,8 +563,37 @@ export function RhythmPage() {
 
   const openSave = (asNew = false) => {
     setSaveAsNew(asNew || !savedUser)
-    setSaveName(asNew ? '' : (savedUser?.name ?? ''))
+    setSaveName(asNew ? (importedName ?? '') : (savedUser?.name ?? importedName ?? ''))
     setSaveOpen(true)
+  }
+
+  const updateMidiMap = (next: MidiNoteMap) => {
+    setMidiMap(next)
+    saveMidiMap(next)
+  }
+
+  const applyMidiImport = (file: File) => {
+    void file.arrayBuffer().then((buffer) => {
+      try {
+        const result = importMidiFile(buffer, midiMap, file.name)
+        if (playing) {
+          halt('midi-import')
+          setPlaying(false)
+          setRecording(false)
+        }
+        setDrumBars(result.bars.map(cloneBar))
+        setDrumBarIndex(0)
+        setBpm(result.bpm)
+        setPresetId(null)
+        setUserBeatId(null)
+        setDraftNew(true)
+        setImportedName(result.name)
+        setImportNote(importNoteLine(result))
+        setPickerOpen(false)
+      } catch {
+        setImportNote('Couldn’t read that MIDI file.')
+      }
+    })
   }
 
   const commitSave = () => {
@@ -566,6 +607,7 @@ export function RhythmPage() {
     setUserBeatId(nextBeat.id)
     setPresetId(null)
     setDraftNew(false)
+    setImportedName(null)
     setSaveOpen(false)
   }
 
@@ -582,6 +624,8 @@ export function RhythmPage() {
     setUserBeatId(beat.id)
     setPresetId(null)
     setDraftNew(false)
+    setImportedName(null)
+    setImportNote(null)
     setPickerOpen(false)
   }
 
@@ -666,6 +710,11 @@ export function RhythmPage() {
           {tempoNote ? (
             <p className="mt-1.5 text-center text-xs leading-5 text-slate-400" data-tempo-note>
               {tempoNote}
+            </p>
+          ) : null}
+          {importNote && mode === 'drums' ? (
+            <p className="mt-1.5 text-center text-xs leading-5 text-slate-400" data-midi-import-note>
+              {importNote}
             </p>
           ) : null}
 
@@ -943,7 +992,7 @@ export function RhythmPage() {
               </TransportDock>
             </div>
             <section className="flex h-fit min-h-0 min-w-0 flex-1 flex-col" data-rhythm-stack="stage">
-              <div className="mb-2 flex items-stretch gap-1.5">
+              <div className="relative mb-2 flex items-stretch gap-1.5">
                 <button
                   type="button"
                   data-beat-library
@@ -975,6 +1024,28 @@ export function RhythmPage() {
                   type="button"
                   size="sm"
                   variant="outline"
+                  data-import-midi
+                  onClick={() => midiFileRef.current?.click()}
+                  className="h-11 shrink-0 self-center gap-1 px-2.5"
+                >
+                  <FileUp className="size-3.5" />
+                  Import
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  data-midi-map
+                  aria-label="MIDI import mapping"
+                  onClick={() => setMidiMapOpen(true)}
+                  className="h-11 w-11 shrink-0 self-center px-0"
+                >
+                  <Settings2 className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
                   data-new-beat
                   onClick={() => startNewBeat()}
                   className="h-11 shrink-0 self-center gap-1 px-2.5"
@@ -982,6 +1053,18 @@ export function RhythmPage() {
                   <Plus className="size-3.5" />
                   New
                 </Button>
+                <input
+                  ref={midiFileRef}
+                  type="file"
+                  accept=".mid,.midi,audio/midi,audio/x-midi,audio/mid"
+                  data-midi-file
+                  className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    event.target.value = ''
+                    if (file) applyMidiImport(file)
+                  }}
+                />
               </div>
               <div className="mb-2 rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5">
                 <BarStrip
@@ -1069,6 +1152,10 @@ export function RhythmPage() {
           onRename={renameSaved}
           onDelete={deleteSaved}
         />
+      ) : null}
+
+      {midiMapOpen ? (
+        <MidiMapSheet map={midiMap} onChange={updateMidiMap} onClose={() => setMidiMapOpen(false)} />
       ) : null}
 
       {saveOpen ? (

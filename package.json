@@ -16,6 +16,7 @@
     "test:recorder": "npx --yes tsx scripts/drum-recorder.ts",
     "test:hold-repeat": "npx --yes tsx scripts/hold-repeat.ts",
     "test:user-beats": "npx --yes tsx scripts/user-beats.ts",
+    "test:midi-import": "npx --yes tsx scripts/midi-import.ts",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-cloudflare.sh"
   },
