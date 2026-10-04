@@ -40,25 +40,25 @@ export function AppChrome({
       )}
     >
       <div className="stage-glow" aria-hidden />
-      <header
-        className={cn(
-          'relative z-10 mx-auto flex w-full flex-col items-stretch gap-2 wide:flex-row wide:items-center wide:gap-3',
-          shell,
-        )}
-      >
-        <Link
-          to="/"
-          aria-label="Omnician home"
-          className="mx-auto flex justify-center wide:mx-0 wide:shrink-0"
+      {hideTabs ? null : (
+        <header
+          className={cn(
+            'relative z-10 mx-auto flex w-full flex-col items-stretch gap-2 wide:flex-row wide:items-center wide:gap-3',
+            shell,
+          )}
         >
-          <OmnicianWordmark className={cn('w-auto', compact ? 'h-8 sm:h-9' : 'h-9 sm:h-10')} />
-        </Link>
-        {hideTabs ? null : (
+          <Link
+            to="/"
+            aria-label="Omnician home"
+            className="mx-auto flex justify-center wide:mx-0 wide:shrink-0"
+          >
+            <OmnicianWordmark className={cn('w-auto', compact ? 'h-8 sm:h-9' : 'h-9 sm:h-10')} />
+          </Link>
           <div className="min-w-0 flex-1">
             <AppTabBar trailing={headerTrailing} />
           </div>
-        )}
-      </header>
+        </header>
+      )}
       <main
         className={cn(
           'relative z-10 mx-auto flex w-full flex-1 flex-col',
