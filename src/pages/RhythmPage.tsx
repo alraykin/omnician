@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
 import { BarStrip } from '@/components/rhythm/BarStrip'
+import { type BarMenuAction } from '@/components/rhythm/BarMenu'
 import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
 import { CompactMeter } from '@/components/rhythm/CompactMeter'
 import { DrumBarStage } from '@/components/rhythm/DrumBarStage'
@@ -58,6 +59,13 @@ import { onCaptureStarting, preparePlaybackFromGesture } from '@/lib/audio-conte
 import { requestRawMic } from '@/lib/mic-capture'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
+import {
+  autoCompleteBars,
+  needsOverwriteConfirm,
+  nextFillVariant,
+  replaceFillBar,
+  seedBars,
+} from '@/lib/auto-complete'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
 import {
   barsEqual,
@@ -132,6 +140,14 @@ export function RhythmPage() {
   const [importNote, setImportNote] = useState<string | null>(null)
   const midiFileRef = useRef<HTMLInputElement>(null)
   const tapTimes = useRef<number[]>([])
+  const [clipBar, setClipBar] = useState<RhythmBar | null>(null)
+  const [drumUndo, setDrumUndo] = useState<{
+    bars: RhythmBar[]
+    index: number
+    fillVariant: number
+  } | null>(null)
+  const [fillVariant, setFillVariant] = useState(0)
+  const [autoConfirm, setAutoConfirm] = useState(false)
 
   const bars = mode === 'click' ? clickBars : drumBars
   const setBars = mode === 'click' ? setClickBars : setDrumBars
@@ -310,6 +326,99 @@ export function RhythmPage() {
     const next = bars.filter((_, item) => item !== index)
     setBars(next)
     setBarIndex(Math.min(index, next.length - 1))
+  }
+
+  const markDrumEdit = () => {
+    if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
+  }
+
+  const applyDrumBars = (next: RhythmBar[], index: number) => {
+    setDrumBars(next.map(cloneBar))
+    setDrumBarIndex(Math.min(Math.max(0, index), next.length - 1))
+    markDrumEdit()
+  }
+
+  const snapshotDrums = () => {
+    setDrumUndo({ bars: drumBars.map(cloneBar), index: drumBarIndex, fillVariant })
+  }
+
+  const runAutoComplete = () => {
+    if (seedBars(drumBars).length === 0) return
+    snapshotDrums()
+    setFillVariant(0)
+    const next = autoCompleteBars(drumBars, 0)
+    applyDrumBars(next, next.length - 1)
+    setAutoConfirm(false)
+  }
+
+  const requestAutoComplete = () => {
+    if (seedBars(drumBars).length === 0) return
+    if (needsOverwriteConfirm(drumBars)) {
+      setAutoConfirm(true)
+      return
+    }
+    runAutoComplete()
+  }
+
+  const retryFill = () => {
+    if (drumBars.length < MAX_BARS || seedBars(drumBars).length === 0) return
+    snapshotDrums()
+    const nextVariant = nextFillVariant(fillVariant)
+    setFillVariant(nextVariant)
+    applyDrumBars(replaceFillBar(drumBars, nextVariant), MAX_BARS - 1)
+  }
+
+  const undoDrums = () => {
+    if (!drumUndo) return
+    setDrumBars(drumUndo.bars.map(cloneBar))
+    setDrumBarIndex(drumUndo.index)
+    setFillVariant(drumUndo.fillVariant)
+    setDrumUndo(null)
+  }
+
+  const onDrumBarMenu = (index: number, action: BarMenuAction) => {
+    if (action === 'copy') {
+      const bar = drumBars[index]
+      if (bar) setClipBar(cloneBar(bar))
+      return
+    }
+    if (action === 'paste') {
+      if (!clipBar) return
+      applyDrumBars(
+        drumBars.map((bar, item) => (item === index ? cloneBar(clipBar) : bar)),
+        index,
+      )
+      return
+    }
+    if (action === 'duplicate') {
+      if (drumBars.length >= MAX_BARS) return
+      const bar = drumBars[index]
+      if (!bar) return
+      applyDrumBars(
+        [...drumBars.slice(0, index + 1), cloneBar(bar), ...drumBars.slice(index + 1)],
+        index + 1,
+      )
+      return
+    }
+    if (action === 'clear') {
+      const bar = drumBars[index]
+      if (!bar) return
+      const cleared = cloneBar(bar)
+      cleared.pattern = emptyPattern()
+      applyDrumBars(
+        drumBars.map((item, itemIndex) => (itemIndex === index ? cleared : item)),
+        index,
+      )
+      return
+    }
+    if (action === 'delete') {
+      if (drumBars.length <= 1) return
+      const next = drumBars.filter((_, item) => item !== index)
+      applyDrumBars(next, Math.min(index, next.length - 1))
+      return
+    }
+    if (action === 'auto') requestAutoComplete()
+    if (action === 'retry-fill') retryFill()
   }
 
   const changeBpm = (next: number, tick = false) => {
@@ -675,6 +784,26 @@ export function RhythmPage() {
       setDrumInput(DEFAULT_DRUM_INPUT)
       setMode('drums')
     }
+    if (query.get('seed') === 'rock1') {
+      const preset = findPreset('rock-44')
+      if (preset) {
+        const first = barsForPreset(preset)[0]
+        if (first) {
+          if (playing) {
+            halt('rock1-seed')
+            setPlaying(false)
+          }
+          setDrumBars([cloneBar(first)])
+          setDrumBarIndex(0)
+          if (preset.bpm != null) setBpm(preset.bpm)
+          setPresetId(preset.id)
+          setUserBeatId(null)
+          setDraftNew(false)
+          setImportedName(null)
+          setMode('drums')
+        }
+      }
+    }
     // Seed demo UI from the URL once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -1019,6 +1148,48 @@ export function RhythmPage() {
                   onSelect={chooseDrumBar}
                   onAdd={addBar}
                   onRemove={() => removeBar(drumBarIndex)}
+                  menu={{
+                    canPaste: clipBar != null,
+                    canDuplicate: drumBars.length < MAX_BARS,
+                    canDelete: drumBars.length > 1,
+                    canAutoComplete: seedBars(drumBars).length > 0,
+                    canRetryFill: drumBars.length >= MAX_BARS && seedBars(drumBars).length > 0,
+                    onAction: onDrumBarMenu,
+                  }}
+                  tools={
+                    <>
+                      <button
+                        type="button"
+                        data-auto-complete
+                        disabled={seedBars(drumBars).length === 0}
+                        onClick={requestAutoComplete}
+                        className="h-7 rounded-md border border-white/12 px-2 text-[0.7rem] font-semibold text-slate-100 disabled:opacity-40"
+                      >
+                        Auto-complete
+                      </button>
+                      {drumBars.length >= MAX_BARS ? (
+                        <button
+                          type="button"
+                          data-auto-retry-fill
+                          disabled={seedBars(drumBars).length === 0}
+                          onClick={retryFill}
+                          className="h-7 rounded-md border border-white/12 px-2 text-[0.7rem] font-semibold text-slate-100 disabled:opacity-40"
+                        >
+                          Try another fill
+                        </button>
+                      ) : null}
+                      {drumUndo ? (
+                        <button
+                          type="button"
+                          data-auto-undo
+                          onClick={undoDrums}
+                          className="h-7 rounded-md bg-[#A855F7] px-2 text-[0.7rem] font-semibold text-white"
+                        >
+                          Undo
+                        </button>
+                      ) : null}
+                    </>
+                  }
                 />
               </div>
               <DrumBarStage
@@ -1128,6 +1299,37 @@ export function RhythmPage() {
               Cancel
             </Button>
           </form>
+        </div>
+      ) : null}
+
+      {autoConfirm ? (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-4 sm:items-center">
+          <div
+            role="dialog"
+            aria-labelledby="auto-complete-title"
+            data-auto-confirm
+            className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0F1422] p-5"
+          >
+            <h2 id="auto-complete-title" className="text-xl font-bold tracking-tight text-white">
+              Replace bars 2–8?
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Those bars already have notes. Auto-complete will overwrite them with a new 8-bar phrase
+              from this groove.
+            </p>
+            <Button type="button" className="mt-4 w-full" data-auto-confirm-replace onClick={runAutoComplete}>
+              Replace
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-2 w-full"
+              data-auto-confirm-cancel
+              onClick={() => setAutoConfirm(false)}
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       ) : null}
 
