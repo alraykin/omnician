@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { dirname, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
-import type { Plugin } from 'vite'
+import { fileURLToPath } from 'node:url'
+import type { Plugin, ViteDevServer } from 'vite'
 
 const rootDir = dirname(fileURLToPath(import.meta.url))
 const storePath = resolve(rootDir, '.wrangler/factory-local.json')
@@ -86,26 +86,7 @@ async function writeResponse(res: ServerResponse, response: Response): Promise<v
   res.end(Buffer.from(await response.arrayBuffer()))
 }
 
-async function loadFactoryModules(): Promise<{
-  handleFactoryRequest: (
-    request: Request,
-    env: { kv: FactoryKv; password?: string; seed: () => unknown; secure: boolean },
-  ) => Promise<Response>
-  bundledFactoryLibrary: () => unknown
-}> {
-  const apiHref = pathToFileURL(resolve(rootDir, 'src/lib/factory-api.ts')).href
-  const storeHref = pathToFileURL(resolve(rootDir, 'src/lib/factory-store.ts')).href
-  const api = (await import(apiHref)) as {
-    handleFactoryRequest: (
-      request: Request,
-      env: { kv: FactoryKv; password?: string; seed: () => unknown; secure: boolean },
-    ) => Promise<Response>
-  }
-  const store = (await import(storeHref)) as { bundledFactoryLibrary: () => unknown }
-  return { handleFactoryRequest: api.handleFactoryRequest, bundledFactoryLibrary: store.bundledFactoryLibrary }
-}
-
-function attachFactoryApi(server: { middlewares: { use: (fn: (req: IncomingMessage, res: ServerResponse, next: () => void) => void) => void } }) {
+function attachFactoryApi(server: ViteDevServer) {
   const kv = fileKv()
   const vars = loadDevVars()
   server.middlewares.use((req, res, next) => {
@@ -114,13 +95,21 @@ function attachFactoryApi(server: { middlewares: { use: (fn: (req: IncomingMessa
       return
     }
     void (async () => {
-      const { handleFactoryRequest, bundledFactoryLibrary } = await loadFactoryModules()
+      const api = (await server.ssrLoadModule('/src/lib/factory-api.ts')) as {
+        handleFactoryRequest: (
+          request: Request,
+          env: { kv: FactoryKv; password?: string; seed: () => unknown; secure: boolean },
+        ) => Promise<Response>
+      }
+      const store = (await server.ssrLoadModule('/src/lib/factory-store.ts')) as {
+        bundledFactoryLibrary: () => unknown
+      }
       const body = await readBody(req)
       const request = toRequest(req, body)
-      const response = await handleFactoryRequest(request, {
+      const response = await api.handleFactoryRequest(request, {
         kv,
         password: process.env.FACTORY_ADMIN_PASSWORD ?? vars.FACTORY_ADMIN_PASSWORD,
-        seed: bundledFactoryLibrary,
+        seed: store.bundledFactoryLibrary,
         secure: false,
       })
       await writeResponse(res, response)
@@ -136,9 +125,6 @@ export function factoryApiPlugin(): Plugin {
   return {
     name: 'omnician-factory-api',
     configureServer(server) {
-      attachFactoryApi(server)
-    },
-    configurePreviewServer(server) {
       attachFactoryApi(server)
     },
   }

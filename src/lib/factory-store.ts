@@ -8,7 +8,7 @@ import {
 import { barsForPreset, RHYTHM_STYLES, setLiveRhythmStyles } from './rhythm-presets.ts'
 
 export function bundledFactoryLibrary(): FactoryLibrary {
-  return stylesToFactoryLibrary(RHYTHM_STYLES, barsForPreset, new Date(0).toISOString())
+  return stylesToFactoryLibrary(RHYTHM_STYLES, barsForPreset, '2026-09-28T00:00:00.000Z')
 }
 
 export function applyFactoryLibrary(library: FactoryLibrary): void {
