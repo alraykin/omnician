@@ -51,13 +51,14 @@ const rock = findPreset('rock-44')
 assert.ok(rock)
 const rockBars = barsForPreset(rock)
 assert.equal(isHitSoft(rockBars[0]!.pattern.snare.find((hit) => hit.beat === 1)!), false)
-assert.equal(isHitSoft(rockBars[1]!.pattern.snare.find((hit) => hit.beat === 3 && hit.num === 3)!), true, 'Rock 1 bar 2 last-16th ghost')
+assert.equal(isHitSoft(rockBars[1]!.pattern.snare.find((hit) => hit.beat === 3 && hit.num === 3)!), true, 'Backbeat bar 2 last-16th ghost')
 
-const funk = findPreset('funk-44')
-assert.ok(funk)
-const funkBar = barsForPreset(funk)[0]!
-assert.ok(funkBar.pattern.rim.every(isHitSoft), 'Funk 1 rims are authored ghosts')
-assert.ok(funkBar.pattern.snare.every((hit) => !isHitSoft(hit)), 'Funk 1 backbeats stay full')
+const chameleon = findPreset('funk-44')
+assert.ok(chameleon)
+assert.equal(chameleon.name, 'Chameleon')
+const chameleonBar = barsForPreset(chameleon)[0]!
+assert.equal(chameleonBar.pattern.rim.length, 0)
+assert.ok(chameleonBar.pattern.snare.every((hit) => !isHitSoft(hit)), 'Chameleon backbeats stay full')
 
 const marked = markHitsSoft(empty.pattern, 4, 4, { kick: [0] })
 assert.equal(marked.kick.length, 0)

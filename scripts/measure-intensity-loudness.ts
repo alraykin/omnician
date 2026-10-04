@@ -242,7 +242,7 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log('--- Rock 1 groove @ 120 ---')
+  console.log('--- Backbeat groove @ 120 ---')
   const groove: Partial<Record<KitIntensity, { rms: number; lufs: number | null }>> = {}
   for (const level of KIT_INTENSITIES) {
     const buf = await renderGroove(files, level)

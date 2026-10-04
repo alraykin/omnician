@@ -76,6 +76,8 @@ export type RhythmPreset = {
   soft?: HitMap
   fillSoft?: HitMap
   midSoft?: HitMap
+  /** When set, these bars are used as-is instead of the crash / mid / fill loop. */
+  phrase?: HitMap[]
 }
 
 export type RhythmStyle = {
@@ -136,7 +138,7 @@ const ROCK_GROOVE: HitMap = {
   crash: [0],
 }
 
-/** Bar 8 of Rock 1 — kick on 1 + and-of-2, snare on 2, hats through beat 2, open on the and-of-2 and last 16th, then Tom 1 → Tom 2 → Fl Tom. */
+/** Bar 8 of Backbeat — kick on 1 + and-of-2, snare on 2, hats through beat 2, open on the and-of-2 and last 16th, then Tom 1 → Tom 2 → Fl Tom. */
 const ROCK_FILL: HitMap = {
   kick: [0, 7],
   snare: [4],
@@ -154,6 +156,44 @@ const TOM_RUN: HitMap = {
   floorTom: [13, 14, 15],
 }
 
+const QUARTER_HATS = [0, 4, 8, 12]
+const CHAMELEON_KICK = [0, 7, 8, 10, 12]
+const CHAMELEON_SNARE = [4, 12]
+
+const CHAMELEON_GROOVE: HitMap = {
+  kick: CHAMELEON_KICK,
+  snare: CHAMELEON_SNARE,
+  closedHat: QUARTER_HATS,
+}
+
+/** Bar 4 of Chameleon — pocket plus extra kicks on 2 and the e of 4. */
+const CHAMELEON_BAR4: HitMap = {
+  kick: [0, 4, 7, 8, 10, 12, 13],
+  snare: CHAMELEON_SNARE,
+  closedHat: QUARTER_HATS,
+}
+
+/** Bar 8 of Chameleon — pocket into snare 16ths, then Tom 1 → Tom 2 → Fl Tom. */
+const CHAMELEON_FILL: HitMap = {
+  kick: [0, 7, 8, 9, 10],
+  snare: [4, 8, 9, 10, 11],
+  closedHat: [0, 4, 8],
+  highTom: [12, 13],
+  midTom: [14],
+  floorTom: [15],
+}
+
+const CHAMELEON_PHRASE: HitMap[] = [
+  { ...CHAMELEON_GROOVE, crash: [0] },
+  CHAMELEON_GROOVE,
+  CHAMELEON_GROOVE,
+  CHAMELEON_BAR4,
+  { ...CHAMELEON_GROOVE, splash: [0] },
+  CHAMELEON_GROOVE,
+  CHAMELEON_GROOVE,
+  CHAMELEON_FILL,
+]
+
 export const RHYTHM_STYLES: RhythmStyle[] = [
   {
     id: 'rock',
@@ -166,6 +206,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
           closedHat: ROCK_EIGHTH_HATS,
           openHat: [14],
         }),
+        name: 'Backbeat',
         bpm: 88,
         midSoft: { snare: [15] },
       },
@@ -239,28 +280,16 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
           'funk',
           'Funk',
           1,
-          'Gadd-style ghosts + rim',
+          '16th-note pocket, splash on 5',
           4,
           4,
           4,
-          {
-            kick: [0, 3, 8, 10, 14],
-            snare: [4, 12],
-            rim: [2, 6, 7, 11, 13],
-            closedHat: hatsExcept([7, 15]),
-            openHat: [7, 15],
-          },
-          {
-            kick: [0, 3, 10],
-            snare: [4],
-            rim: [6, 7],
-            closedHat: [0, 1, 2, 3, 4, 5],
-            openHat: [15],
-            splash: [15],
-            ...TOM_RUN,
-          },
+          { ...CHAMELEON_GROOVE, crash: [0] },
+          CHAMELEON_FILL,
         ),
-        soft: { rim: [2, 6, 7, 11, 13] },
+        name: 'Chameleon',
+        bpm: 90,
+        phrase: CHAMELEON_PHRASE,
       },
       {
         ...preset(
@@ -1233,6 +1262,11 @@ export function makeGrooveBars(
 }
 
 export function barsForPreset(item: RhythmPreset): RhythmBar[] {
+  if (item.phrase?.length) {
+    return item.phrase.map((hits) =>
+      barFromHits(item.beats, item.beatUnit, item.subdivision, retireVoices(hits), item.accents),
+    )
+  }
   return makeGrooveBars(
     item.beats,
     item.beatUnit,

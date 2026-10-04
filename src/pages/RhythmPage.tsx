@@ -1865,7 +1865,10 @@ function StyleMenu({
             >
               <span>
                 <span className="block text-sm font-semibold">
-                  {item.groove} · {item.blurb}
+                  {item.name}
+                </span>
+                <span className={cn('block text-xs', item.id === selected?.id ? 'text-white/80' : 'text-slate-500')}>
+                  {item.blurb}
                 </span>
               </span>
               <span className={cn('text-xs font-semibold', item.id === selected?.id ? 'text-white/80' : 'text-slate-500')}>

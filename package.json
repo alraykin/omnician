@@ -21,6 +21,7 @@
     "test:auto-complete": "npx --yes tsx scripts/auto-complete.ts",
     "test:ghost-notes": "npx --yes tsx scripts/ghost-notes.ts",
     "test:legal": "npx --yes tsx scripts/legal-markdown.ts",
+    "test:chameleon": "npx --yes tsx scripts/chameleon.ts",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-cloudflare.sh"
   },
