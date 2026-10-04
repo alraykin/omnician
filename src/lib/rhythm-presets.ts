@@ -61,7 +61,7 @@ export type RhythmPreset = {
   id: string
   styleId: RhythmStyleId
   styleName: string
-  groove: 1 | 2 | 3
+  groove: number
   name: string
   blurb: string
   beats: number
@@ -78,6 +78,8 @@ export type RhythmPreset = {
   midSoft?: HitMap
   /** When set, these bars are used as-is instead of the crash / mid / fill loop. */
   phrase?: HitMap[]
+  /** Exact bars from the factory library editor. */
+  bars?: RhythmBar[]
 }
 
 export type RhythmStyle = {
@@ -90,7 +92,7 @@ function preset(
   id: string,
   styleId: RhythmStyleId,
   styleName: string,
-  groove: 1 | 2 | 3,
+  groove: number,
   blurb: string,
   beats: number,
   beatUnit: BeatUnit,
@@ -1194,6 +1196,29 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
 
 export const RHYTHM_PRESETS: RhythmPreset[] = RHYTHM_STYLES.flatMap((style) => style.grooves)
 
+let liveStyles: RhythmStyle[] | null = null
+const liveListeners = new Set<() => void>()
+
+export function getRhythmStyles(): RhythmStyle[] {
+  return liveStyles ?? RHYTHM_STYLES
+}
+
+export function getRhythmPresets(): RhythmPreset[] {
+  return getRhythmStyles().flatMap((style) => style.grooves)
+}
+
+export function setLiveRhythmStyles(styles: RhythmStyle[] | null): void {
+  liveStyles = styles
+  for (const listener of liveListeners) listener()
+}
+
+export function subscribeRhythmStyles(listener: () => void): () => void {
+  liveListeners.add(listener)
+  return () => {
+    liveListeners.delete(listener)
+  }
+}
+
 const LEGACY_PRESET_IDS: Record<string, string> = {
   march: 'five-54',
   'march-24': 'five-54',
@@ -1201,11 +1226,11 @@ const LEGACY_PRESET_IDS: Record<string, string> = {
 
 export function findPreset(id: string): RhythmPreset | undefined {
   const mapped = LEGACY_PRESET_IDS[id] ?? id
-  return RHYTHM_PRESETS.find((item) => item.id === mapped)
+  return getRhythmPresets().find((item) => item.id === mapped) ?? RHYTHM_PRESETS.find((item) => item.id === mapped)
 }
 
 export function findStyle(id: RhythmStyleId): RhythmStyle | undefined {
-  return RHYTHM_STYLES.find((item) => item.id === id)
+  return getRhythmStyles().find((item) => item.id === id) ?? RHYTHM_STYLES.find((item) => item.id === id)
 }
 
 const LOOP_BARS = 8
@@ -1275,6 +1300,7 @@ export function makeGrooveBars(
 }
 
 export function barsForPreset(item: RhythmPreset): RhythmBar[] {
+  if (item.bars?.length) return item.bars.map(cloneBar)
   if (item.phrase?.length) {
     return item.phrase.map((hits) =>
       barFromHits(item.beats, item.beatUnit, item.subdivision, retireVoices(hits), item.accents),
@@ -1296,7 +1322,7 @@ export function barsForPreset(item: RhythmPreset): RhythmBar[] {
 
 export function matchPreset(bar: RhythmBar): RhythmPreset | null {
   return (
-    RHYTHM_PRESETS.find((item) =>
+    getRhythmPresets().find((item) =>
       barsForPreset(item).some(
         (loopBar) =>
           loopBar.beats === bar.beats &&

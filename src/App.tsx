@@ -4,6 +4,7 @@ import { AudioDebugOverlay } from '@/components/AudioDebugOverlay'
 import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { AudioLabPage } from '@/pages/AudioLabPage'
 import { HomePage } from '@/pages/HomePage'
+import { FactoryPage } from '@/pages/FactoryPage'
 import { LegalPage } from '@/pages/LegalPage'
 import { RhythmPage } from '@/pages/RhythmPage'
 import { SettingsPage } from '@/pages/SettingsPage'
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/lab/silent" element={<SilentLabPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/:category" element={<SettingsPage />} />
+        <Route path="/factory" element={<FactoryPage />} />
         <Route path="/privacy" element={<LegalPage id="privacy" />} />
         <Route path="/terms" element={<LegalPage id="terms" />} />
         <Route path="/credits" element={<LegalPage id="credits" />} />

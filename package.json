@@ -22,6 +22,7 @@
     "test:ghost-notes": "npx --yes tsx scripts/ghost-notes.ts",
     "test:legal": "npx --yes tsx scripts/legal-markdown.ts",
     "test:chameleon": "npx --yes tsx scripts/chameleon.ts",
+    "test:factory": "npx --yes tsx scripts/factory-library.ts",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-cloudflare.sh"
   },

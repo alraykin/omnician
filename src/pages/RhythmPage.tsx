@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
+import { FactoryEditorBar, FactoryHistorySheet } from '@/components/FactoryEditorBar'
 import { BarStrip } from '@/components/rhythm/BarStrip'
 import { type BarMenuAction } from '@/components/rhythm/BarMenu'
 import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
@@ -16,6 +17,7 @@ import { RhythmTempoCard } from '@/components/rhythm/RhythmTempoCard'
 import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
+import { useFactoryEditor } from '@/hooks/useFactoryEditor'
 import { usePlayhead, useRhythmEngine, type PlayheadStore } from '@/hooks/useRhythmEngine'
 import { defaultIntensityForStyle, type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
@@ -87,10 +89,11 @@ import { detectTempo, synthesizeClickTrack, type TempoEstimate } from '@/lib/tem
 import { stopListenTempoPreview } from '@/lib/listen-preview'
 import { getTempoListener } from '@/lib/tempo-listen'
 import {
-  RHYTHM_STYLES,
+  getRhythmStyles,
   barsForPreset,
   findPreset,
   matchPreset,
+  subscribeRhythmStyles,
   type RhythmPreset,
   type RhythmStyle,
   type RhythmStyleId,
@@ -150,6 +153,22 @@ export function RhythmPage() {
   } | null>(null)
   const [fillVariant, setFillVariant] = useState(0)
   const [autoConfirm, setAutoConfirm] = useState(false)
+  const [, setStyleTick] = useState(0)
+
+  useEffect(() => subscribeRhythmStyles(() => setStyleTick((value) => value + 1)), [])
+
+  const factory = useFactoryEditor({
+    mode,
+    presetId,
+    bpm,
+    drumBars,
+    setBpm,
+    setDrumBars,
+    setDrumBarIndex,
+    setPresetId,
+    setUserBeatId,
+    setDraftNew,
+  })
 
   const bars = mode === 'click' ? clickBars : drumBars
   const setBars = mode === 'click' ? setClickBars : setDrumBars
@@ -1119,6 +1138,25 @@ export function RhythmPage() {
               </TransportDock>
             </div>
             <section className="flex h-fit min-h-0 min-w-0 flex-1 flex-col" data-rhythm-stack="stage">
+              {factory.visible ? (
+                <FactoryEditorBar
+                  library={factory.library}
+                  selectedId={presetId}
+                  name={factory.name}
+                  styleId={factory.styleId}
+                  dirty={factory.dirty}
+                  saving={factory.saving}
+                  error={factory.error}
+                  onName={factory.onName}
+                  onStyle={factory.onStyle}
+                  onMove={factory.onMove}
+                  onNew={factory.onNew}
+                  onDelete={factory.onDelete}
+                  onSave={() => void factory.onSave()}
+                  onHistory={() => void factory.openHistory()}
+                  onSignOut={() => factory.setAdmin(false)}
+                />
+              ) : null}
               <div className="relative mb-1.5 flex h-10 items-center gap-1">
                 <button
                   type="button"
@@ -1279,6 +1317,14 @@ export function RhythmPage() {
           />
         </TransportDock>
       </div>
+
+      {factory.historyOpen ? (
+        <FactoryHistorySheet
+          versions={factory.versions}
+          onClose={() => factory.setHistoryOpen(false)}
+          onRestore={(id) => void factory.onRestore(id)}
+        />
+      ) : null}
 
       {pickerOpen ? (
         <PresetSheet
@@ -1579,10 +1625,11 @@ function PresetSheet({
   onDelete: (id: string) => void
 }) {
   const selected = selectedId ? findPreset(selectedId) : undefined
-  const local = RHYTHM_STYLES.filter((style) =>
+  const styles = getRhythmStyles()
+  const local = styles.filter((style) =>
     style.grooves.some((item) => item.beats === current.beats && item.beatUnit === current.beatUnit),
   )
-  const others = RHYTHM_STYLES.filter(
+  const others = styles.filter(
     (style) => !style.grooves.some((item) => item.beats === current.beats && item.beatUnit === current.beatUnit),
   )
 

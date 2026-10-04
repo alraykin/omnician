@@ -2,10 +2,18 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "omnician",
   "compatibility_date": "2026-09-28",
-  // Assets-only Worker: Vite's dist/, with SPA fallback so /tuner and /rhythm
-  // (and any future client route) serve index.html instead of a 404.
+  "main": "worker/index.ts",
+  // SPA assets plus /api/factory on the same Worker. Create a KV namespace
+  // named omnician-factory and replace this placeholder id before deploy.
+  "kv_namespaces": [
+    {
+      "binding": "FACTORY",
+      "id": "00000000000000000000000000000000",
+    },
+  ],
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "html_handling": "none",
   },

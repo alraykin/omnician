@@ -138,6 +138,18 @@ npm run deploy
 
 That script builds the app, then runs `wrangler deploy`. It needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Do not put those values in the repo. They belong in Cursor **Cloud Agents → Secrets** (token as a **Runtime Secret**, account ID as an **Environment Variable**). After a change lands on `main`, run `npm run deploy` so **omnician.app** updates. Do not add a `public/_redirects` SPA rewrite — Wrangler already serves `/tuner` and `/rhythm` with `not_found_handling: "single-page-application"`.
 
+The Worker also serves `/api/factory` and stores the built-in Drums library in a KV namespace bound as `FACTORY`. Create that namespace in Cloudflare, put its id in `wrangler.jsonc`, and set the Worker secret `FACTORY_ADMIN_PASSWORD` before a production deploy. There is no factory password in this repo.
+
+---
+
+## Factory editor (built-in Drums library)
+
+The Beat library can be edited without changing code. The app loads `/api/factory/library` at startup, keeps a copy on this device, and uses the bundled grooves (including **Backbeat** and **Chameleon**) if the network request fails.
+
+There is no button for this in the app. Open `/factory`, type the admin password, and you land on Drums with a purple **Factory editor** bar. From there you can load a library beat, edit it in the normal grid, rename it, change its style, reorder, add, or delete (with a confirm). **Save as default** writes the whole library to the server. The last 20 saves can be restored from **Version history**.
+
+Writes need a signed, httpOnly session cookie (30 days). The password is only checked on the server against `FACTORY_ADMIN_PASSWORD`. For local `npm run dev`, that value lives in `.dev.vars` (gitignored). Do not put the real production password in the repo.
+
 iMessage and other link previews use `https://omnician.app/brand/og-card.png` (1200×630). The page title is Omnician; the description is *The ultimate musician’s practice companion.*
 
 ---
