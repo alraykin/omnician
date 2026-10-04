@@ -11,6 +11,8 @@ type AppChromeProps = {
   wide?: boolean
   compact?: boolean
   headerTrailing?: ReactNode
+  /** Home hides the tool switcher. Tuner / Click / Drums keep it. */
+  hideTabs?: boolean
 }
 
 const SHELL = {
@@ -24,6 +26,7 @@ export function AppChrome({
   wide = false,
   compact = false,
   headerTrailing,
+  hideTabs = false,
 }: AppChromeProps) {
   const shell = wide ? SHELL.wide : SHELL.default
   return (
@@ -50,9 +53,11 @@ export function AppChrome({
         >
           <OmnicianWordmark className={cn('w-auto', compact ? 'h-8 sm:h-9' : 'h-9 sm:h-10')} />
         </Link>
-        <div className="min-w-0 flex-1">
-          <AppTabBar trailing={headerTrailing} />
-        </div>
+        {hideTabs ? null : (
+          <div className="min-w-0 flex-1">
+            <AppTabBar trailing={headerTrailing} />
+          </div>
+        )}
       </header>
       <main
         className={cn(

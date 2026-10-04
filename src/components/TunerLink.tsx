@@ -9,6 +9,7 @@ type TunerLinkProps = {
   onClick?: (event: MouseEvent<HTMLAnchorElement>) => void
   'aria-current'?: 'page'
   'data-tab'?: string
+  'data-home-tool'?: string
 }
 
 function modifiedClick(event: MouseEvent<HTMLAnchorElement>): boolean {
