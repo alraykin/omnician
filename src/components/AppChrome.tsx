@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 
 import { AppTabBar } from '@/components/AppTabBar'
-import { OmnicianWordmark } from '@/components/OmnicianMark'
+import { HomeWordmarkLink } from '@/components/HomeWordmarkLink'
 import { cn } from '@/lib/utils'
 
 type AppChromeProps = {
@@ -47,13 +46,7 @@ export function AppChrome({
             shell,
           )}
         >
-          <Link
-            to="/"
-            aria-label="Omnician home"
-            className="mx-auto flex justify-center wide:mx-0 wide:shrink-0"
-          >
-            <OmnicianWordmark className={cn('w-auto', compact ? 'h-8 sm:h-9' : 'h-9 sm:h-10')} />
-          </Link>
+          <HomeWordmarkLink compact={compact} />
           <div className="min-w-0 flex-1">
             <AppTabBar trailing={headerTrailing} />
           </div>

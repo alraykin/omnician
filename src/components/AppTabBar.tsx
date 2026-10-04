@@ -31,7 +31,8 @@ function activeTab(pathname: string, mode: string | null): TabId {
   return 'home'
 }
 
-function onLeave(next: TabId) {
+/** Same teardown as tapping a header tab. Wordmark Home uses this too. */
+export function leaveForTab(next: TabId) {
   getTempoListener().release()
   if (next === 'tuner') return
   leaveTunerPage()
@@ -86,7 +87,7 @@ export function AppTabBar({
                 key={tab.id}
                 data-tab={tab.id}
                 aria-current={active ? 'page' : undefined}
-                onClick={() => onLeave(tab.id)}
+                onClick={() => leaveForTab(tab.id)}
                 className={className}
               >
                 {label}
@@ -99,11 +100,11 @@ export function AppTabBar({
               to={tab.to}
               data-tab={tab.id}
               aria-current={active ? 'page' : undefined}
-              onPointerDown={() => {
+                onPointerDown={() => {
                 tab.prime?.()
-                onLeave(tab.id)
+                leaveForTab(tab.id)
               }}
-              onClick={() => onLeave(tab.id)}
+              onClick={() => leaveForTab(tab.id)}
               className={className}
             >
               {label}

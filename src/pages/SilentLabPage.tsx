@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { OmnicianWordmark } from '@/components/OmnicianMark'
+import { HomeWordmarkLink } from '@/components/HomeWordmarkLink'
 import {
   disposeSilentLab,
   getSilentLabSnapshot,
@@ -78,7 +78,7 @@ export function SilentLabPage() {
   return (
     <div data-silent-lab className="relative min-h-svh overflow-x-hidden px-4 pb-16 pt-3 sm:px-6">
       <header className="relative z-10 mb-5 flex items-center justify-center">
-        <OmnicianWordmark className="h-9 w-auto sm:h-10" />
+        <HomeWordmarkLink />
       </header>
 
       <main className="mx-auto w-full max-w-lg space-y-4">

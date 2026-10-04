@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-
 import { AudioDebugOverlay } from '@/components/AudioDebugOverlay'
-import { OmnicianWordmark } from '@/components/OmnicianMark'
+import { HomeWordmarkLink } from '@/components/HomeWordmarkLink'
 import { Button } from '@/components/ui/button'
 import {
   beginSilentSwitchAfterRunningFromTap,
@@ -100,9 +98,7 @@ export function AudioLabPage() {
     >
       <AudioDebugOverlay getSnapshot={getLabAudioSnapshot} />
       <header className="relative z-10 mb-6 flex items-center justify-center">
-        <Link to="/" aria-label="Omnician home">
-          <OmnicianWordmark className="h-9 w-auto sm:h-10" />
-        </Link>
+        <HomeWordmarkLink />
       </header>
 
       <main className="mx-auto w-full max-w-lg space-y-5 pt-[16.5rem] sm:pt-2">
