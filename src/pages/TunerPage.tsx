@@ -5,7 +5,6 @@ import { AppChrome } from '@/components/AppChrome'
 import { A4ReferenceControl } from '@/components/tuner/A4ReferenceControl'
 import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
 import { Headstock } from '@/components/tuner/Headstock'
-import { InputPicker } from '@/components/tuner/InputPicker'
 import { TunerDebugOverlay } from '@/components/tuner/TunerDebugOverlay'
 import { TunerTarget } from '@/components/tuner/TunerTarget'
 import { TuningSheet } from '@/components/tuner/TuningSheet'
@@ -72,7 +71,7 @@ export function TunerPage() {
     return prefs.instrumentId
   })
   const [a4Hz, setA4Hz] = useState(prefs.a4Hz)
-  const [autoString, setAutoString] = useState(() => {
+  const [autoString] = useState(() => {
     if (typeof window !== 'undefined') {
       const query = new URLSearchParams(window.location.search).get('auto')
       if (query === '0') return false
@@ -80,7 +79,7 @@ export function TunerPage() {
     }
     return prefs.autoString
   })
-  const [layoutMode, setLayoutMode] = useState<TunerLayoutMode>(() => {
+  const [layoutMode] = useState<TunerLayoutMode>(() => {
     if (typeof window !== 'undefined') {
       const query = new URLSearchParams(window.location.search).get('layout')
       if (query === 'inline' || query === 'headstock') return query
@@ -408,11 +407,6 @@ export function TunerPage() {
                   tunedIds={tunedIds}
                   inTune={inTune}
                   live={live}
-                  autoString={autoString}
-                  onAutoChange={(value) => {
-                    setAutoString(value)
-                    setAutoId(value ? (activeString?.id ?? null) : null)
-                  }}
                   onTapPeg={(string) => {
                     playReferenceTone(midiToFreq(string.midi, a4Hz), family.id)
                     const index = strings.findIndex((item) => item.id === string.id)
@@ -430,7 +424,6 @@ export function TunerPage() {
                     }
                   }}
                   layoutMode={layoutMode}
-                  onLayoutChange={setLayoutMode}
                 />
               </div>
             </div>
@@ -505,7 +498,6 @@ export function TunerPage() {
             {statusMessage(status, live, instrumentMode, autoString, needsGesture)}
           </p>
           <div className="w-full">
-            <InputPicker />
             {showDebug ? <TunerDebugOverlay debug={debug} /> : null}
           </div>
         </section>
@@ -641,10 +633,10 @@ function statusMessage(
   }
   if (status === 'listening' && !live) return 'Play a note…'
   if (instrumentMode && autoString) {
-    return 'Auto is listening for the nearest string in this tuning. Tap a peg to hear it, or turn Auto off to lock one string.'
+    return 'Auto is listening for the nearest string in this tuning. Tap a peg to hear it. Turn Auto off in Settings to lock one string.'
   }
   return instrumentMode
-    ? 'Auto is off. The red peg is locked — play that string, or tap another peg to change the target.'
+    ? 'Auto is off in Settings. The red peg is locked — play that string, or tap another peg to change the target.'
     : 'Play a steady note. The needle follows true cents; green lock is ±1.0 ¢ and never hides the number.'
 }
 

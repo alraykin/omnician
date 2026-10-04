@@ -2,8 +2,15 @@ import { useEffect, useState } from 'react'
 
 import { listAudioInputs } from '@/lib/mic-capture'
 import { getTunerInputDeviceId, setTunerInputDevice } from '@/lib/tuner-session'
+import { cn } from '@/lib/utils'
 
-export function InputPicker() {
+export function InputPicker({
+  alwaysShow = false,
+  className,
+}: {
+  alwaysShow?: boolean
+  className?: string
+}) {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selected, setSelected] = useState<string>(getTunerInputDeviceId() ?? '')
 
@@ -22,10 +29,10 @@ export function InputPicker() {
     }
   }, [])
 
-  if (devices.length <= 1) return null
+  if (!alwaysShow && devices.length <= 1) return null
 
   return (
-    <label className="mt-3 flex w-full items-center gap-2 text-left text-xs text-slate-400">
+    <label className={cn('mt-3 flex w-full items-center gap-2 text-left text-xs text-slate-400', className)}>
       <span className="shrink-0 font-semibold uppercase tracking-[0.14em] text-slate-500">
         Input
       </span>

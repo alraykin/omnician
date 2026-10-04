@@ -153,3 +153,9 @@ export function loadTunerPrefs(): TunerPrefs {
 export function saveTunerPrefs(prefs: TunerPrefs): void {
   localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
 }
+
+export function patchTunerPrefs(patch: Partial<TunerPrefs>): TunerPrefs {
+  const next = { ...loadTunerPrefs(), ...patch }
+  saveTunerPrefs(next)
+  return next
+}

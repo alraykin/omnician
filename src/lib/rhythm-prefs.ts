@@ -248,3 +248,9 @@ export function saveRhythmPrefs(prefs: RhythmPrefs): void {
     }),
   )
 }
+
+export function patchRhythmPrefs(patch: Partial<RhythmPrefs>): RhythmPrefs {
+  const next = { ...loadRhythmPrefs(), ...patch }
+  saveRhythmPrefs(next)
+  return next
+}

@@ -1,4 +1,4 @@
-import { Check, ChevronDown, FileUp, Pencil, Play, Plus, Settings2, Square, Trash2, X } from 'lucide-react'
+import { Check, ChevronDown, FileUp, Pencil, Play, Plus, Square, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
@@ -10,7 +10,6 @@ import { DrumBarStage } from '@/components/rhythm/DrumBarStage'
 import { DrumRecorderSheet, type DrumRecorderDemo } from '@/components/rhythm/DrumRecorderSheet'
 import { RecordFab } from '@/components/rhythm/RecordFab'
 import { KitFaders } from '@/components/rhythm/KitFaders'
-import { MidiMapSheet } from '@/components/rhythm/MidiMapSheet'
 import { ListenTempoSheet } from '@/components/rhythm/ListenTempo'
 import { RhythmTempoCard } from '@/components/rhythm/RhythmTempoCard'
 import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
@@ -21,7 +20,6 @@ import { defaultIntensityForStyle, snareRoleFromStep, type KitIntensity } from '
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
 import {
   CLICK_SOUND_LABELS,
-  CLICK_SOUNDS,
   DEFAULT_BPM,
   MAX_BARS,
   SUBDIVISIONS,
@@ -48,7 +46,7 @@ import {
 import { loadRecordClick } from '@/lib/drum-recorder'
 import { RECORDER_ENABLED } from '@/lib/features'
 import { importMidiFile, importNoteLine } from '@/lib/midi-import'
-import { loadMidiMap, saveMidiMap, type MidiNoteMap } from '@/lib/midi-map'
+import { loadMidiMap } from '@/lib/midi-map'
 import { onCaptureStarting, preparePlaybackFromGesture } from '@/lib/audio-context'
 import { requestRawMic } from '@/lib/mic-capture'
 import { playWheelTick } from '@/lib/rhythm-audio'
@@ -89,7 +87,7 @@ export function RhythmPage() {
   const [mode, setMode] = useState<RhythmMode>(
     urlMode === 'drums' || urlMode === 'click' ? urlMode : prefs.mode,
   )
-  const [clickSound, setClickSound] = useState<ClickSoundId>(prefs.clickSound)
+  const [clickSound] = useState<ClickSoundId>(prefs.clickSound)
   const [clickBars, setClickBars] = useState<RhythmBar[]>(prefs.clickBars)
   const [drumBars, setDrumBars] = useState<RhythmBar[]>(prefs.drumBars)
   const [clickBarIndex, setClickBarIndex] = useState(prefs.clickBarIndex)
@@ -122,8 +120,6 @@ export function RhythmPage() {
   const [listenOpen, setListenOpen] = useState(false)
   const [listenSeed, setListenSeed] = useState<TempoEstimate | null>(null)
   const [tempoNote, setTempoNote] = useState<string | null>(null)
-  const [midiMap, setMidiMap] = useState<MidiNoteMap>(() => loadMidiMap())
-  const [midiMapOpen, setMidiMapOpen] = useState(false)
   const [importedName, setImportedName] = useState<string | null>(null)
   const [importNote, setImportNote] = useState<string | null>(null)
   const midiFileRef = useRef<HTMLInputElement>(null)
@@ -567,15 +563,10 @@ export function RhythmPage() {
     setSaveOpen(true)
   }
 
-  const updateMidiMap = (next: MidiNoteMap) => {
-    setMidiMap(next)
-    saveMidiMap(next)
-  }
-
   const applyMidiImport = (file: File) => {
     void file.arrayBuffer().then((buffer) => {
       try {
-        const result = importMidiFile(buffer, midiMap, file.name)
+        const result = importMidiFile(buffer, loadMidiMap(), file.name)
         if (playing) {
           halt('midi-import')
           setPlaying(false)
@@ -875,31 +866,6 @@ export function RhythmPage() {
               />
             </section>
 
-            <div
-              data-section="click-sound"
-              className="grid w-full grid-cols-4 gap-1"
-            >
-              {CLICK_SOUNDS.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  data-click-sound={id}
-                  aria-pressed={clickSound === id}
-                  {...activateOnPointer(() => {
-                    previewClick(id)
-                    setClickSound(id)
-                  })}
-                  className={cn(
-                    'h-8 min-w-0 touch-manipulation rounded-lg px-1 text-[0.7rem] font-semibold sm:text-sm',
-                    clickSound === id
-                      ? 'bg-[#A855F7] text-white'
-                      : 'border border-white/10 bg-white/4 text-slate-200',
-                  )}
-                >
-                  {CLICK_SOUND_LABELS[id]}
-                </button>
-              ))}
-            </div>
             </div>
           </div>
           ) : (
@@ -923,7 +889,6 @@ export function RhythmPage() {
                 onTap={tapTempo}
                 onListen={openListen}
                 onVolume={setVolumeDb}
-                precountAlways
               />
               <section
                 className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5"
@@ -1035,17 +1000,6 @@ export function RhythmPage() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  data-midi-map
-                  aria-label="MIDI import mapping"
-                  onClick={() => setMidiMapOpen(true)}
-                  className="h-10 w-10 shrink-0 px-0"
-                >
-                  <Settings2 className="size-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
                   data-new-beat
                   onClick={() => startNewBeat()}
                   className="h-10 shrink-0 gap-1 px-2 text-xs"
@@ -1092,27 +1046,6 @@ export function RhythmPage() {
                 onChange={setGroupMix}
                 onIntensityChange={setKitIntensity}
               />
-              <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-500 max-[740px]:hidden">
-                Drums:{' '}
-                <a
-                  className="underline decoration-white/20 underline-offset-2 hover:text-slate-300"
-                  href="https://drumgizmo.org/wiki/doku.php?id=kits:crocellkit"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  CrocellKit
-                </a>{' '}
-                by Lars Muldjord &amp; Henry Järvinen,{' '}
-                <a
-                  className="underline decoration-white/20 underline-offset-2 hover:text-slate-300"
-                  href="https://creativecommons.org/licenses/by/4.0/"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  CC BY 4.0
-                </a>{' '}
-                (edited).
-              </p>
             </section>
           </div>
           )}
@@ -1152,10 +1085,6 @@ export function RhythmPage() {
           onRename={renameSaved}
           onDelete={deleteSaved}
         />
-      ) : null}
-
-      {midiMapOpen ? (
-        <MidiMapSheet map={midiMap} onChange={updateMidiMap} onClose={() => setMidiMapOpen(false)} />
       ) : null}
 
       {saveOpen ? (

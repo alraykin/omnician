@@ -4,7 +4,9 @@ import { AudioDebugOverlay } from '@/components/AudioDebugOverlay'
 import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { AudioLabPage } from '@/pages/AudioLabPage'
 import { HomePage } from '@/pages/HomePage'
+import { LegalPage } from '@/pages/LegalPage'
 import { RhythmPage } from '@/pages/RhythmPage'
+import { SettingsPage } from '@/pages/SettingsPage'
 import { SilentLabPage } from '@/pages/SilentLabPage'
 import { TunerPage } from '@/pages/TunerPage'
 
@@ -30,6 +32,12 @@ export default function App() {
         <Route path="/drum-machine" element={<Navigate to="/rhythm?mode=drums" replace />} />
         <Route path="/audio-lab" element={<AudioLabPage />} />
         <Route path="/lab/silent" element={<SilentLabPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings/:category" element={<SettingsPage />} />
+        <Route path="/privacy" element={<LegalPage id="privacy" />} />
+        <Route path="/terms" element={<LegalPage id="terms" />} />
+        <Route path="/credits" element={<LegalPage id="credits" />} />
+        <Route path="/support" element={<LegalPage id="support" />} />
         <Route path="/:slug" element={<ComingSoonPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

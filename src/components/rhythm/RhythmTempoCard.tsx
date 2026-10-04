@@ -2,7 +2,7 @@ import { Minus, Plus, Mic } from 'lucide-react'
 
 import { BpmWheel } from '@/components/rhythm/BpmWheel'
 import { VolumeFader } from '@/components/rhythm/KitFaders'
-import { SpeedBuilderPanel, SpeedBuilderToggles } from '@/components/rhythm/SpeedBuilderPanel'
+import { SpeedBuilderPanel } from '@/components/rhythm/SpeedBuilderPanel'
 import { Button } from '@/components/ui/button'
 import { type SpeedBuilder } from '@/lib/speed-builder'
 import { activateOnPointer } from '@/lib/utils'
@@ -18,7 +18,6 @@ export function RhythmTempoCard({
   onTap,
   onListen,
   onVolume,
-  precountAlways = false,
 }: {
   bpm: number
   liveBpm: number
@@ -30,7 +29,6 @@ export function RhythmTempoCard({
   onTap: () => void
   onListen: () => void
   onVolume: (db: number) => void
-  precountAlways?: boolean
 }) {
   const showLive = playing && speedBuilder.enabled
 
@@ -43,12 +41,6 @@ export function RhythmTempoCard({
         <div className="flex min-w-0 items-stretch">
           <div className="w-max min-w-0 max-w-[calc(100%-2.6rem)]">
             <SpeedBuilderPanel value={speedBuilder} baseBpm={bpm} onChange={onSpeedBuilder} />
-            <SpeedBuilderToggles
-              className="mt-1.5 w-full"
-              value={speedBuilder}
-              onChange={onSpeedBuilder}
-              precountAlways={precountAlways}
-            />
           </div>
           <div className="relative z-20 ml-2 flex min-w-[2.15rem] flex-1 items-stretch justify-end self-stretch pr-0.5 sm:ml-3">
             <VolumeFader db={volumeDb} onChange={onVolume} />
