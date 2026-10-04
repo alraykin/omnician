@@ -10,17 +10,20 @@ export function settingsBackFrom(from: unknown): string {
 
 export function SettingsChrome({
   title,
+  titleAs = 'h1',
   backTo,
   backLabel = 'Back',
   backState,
   children,
 }: {
   title: string
+  titleAs?: 'h1' | 'p'
   backTo: string
   backLabel?: string
   backState?: { from?: string }
   children: ReactNode
 }) {
+  const TitleTag = titleAs
   return (
     <div className="relative min-h-svh overflow-x-hidden px-4 pb-12 pt-3 sm:px-6">
       <div className="stage-glow" aria-hidden />
@@ -34,7 +37,7 @@ export function SettingsChrome({
           <ChevronLeft className="size-5" />
           {backLabel}
         </Link>
-        <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight text-white">{title}</h1>
+        <TitleTag className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight text-white">{title}</TitleTag>
       </header>
       <main className={cn('relative z-10 mx-auto mt-5 w-full max-w-lg')}>{children}</main>
     </div>

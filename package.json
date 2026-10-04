@@ -20,6 +20,7 @@
     "test:beat-boxes": "npx --yes tsx scripts/beat-boxes.ts",
     "test:auto-complete": "npx --yes tsx scripts/auto-complete.ts",
     "test:ghost-notes": "npx --yes tsx scripts/ghost-notes.ts",
+    "test:legal": "npx --yes tsx scripts/legal-markdown.ts",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-cloudflare.sh"
   },

@@ -1,11 +1,17 @@
 import { useLocation } from 'react-router-dom'
 
+import { LegalDoc } from '@/components/LegalDoc'
 import { SettingsChrome, settingsBackFrom } from '@/components/SettingsChrome'
 import { APP_COPYRIGHT, APP_NAME } from '@/lib/app-info'
+import privacyMd from '@/legal/privacy.md?raw'
 
 export type LegalPageId = 'privacy' | 'terms' | 'credits' | 'support'
 
-const PAGES: Record<
+const DOCS: Partial<Record<LegalPageId, string>> = {
+  privacy: privacyMd,
+}
+
+const PLACEHOLDERS: Record<
   LegalPageId,
   { title: string; heading: string; body: string[] }
 > = {
@@ -47,20 +53,31 @@ const PAGES: Record<
 }
 
 export function LegalPage({ id }: { id: LegalPageId }) {
-  const page = PAGES[id]
+  const page = PLACEHOLDERS[id]
+  const markdown = DOCS[id]
   const location = useLocation()
   const from = settingsBackFrom((location.state as { from?: string } | null)?.from)
   return (
-    <SettingsChrome title={page.title} backTo="/settings/about" backLabel="About" backState={{ from }}>
-      <article className="space-y-4" data-legal-page={id}>
-        <h2 className="text-2xl font-bold tracking-tight text-white">{page.heading}</h2>
-        {page.body.map((para) => (
-          <p key={para} className="text-sm leading-6 text-slate-400">
-            {para}
-          </p>
-        ))}
-        <p className="text-xs text-slate-600">{APP_COPYRIGHT}</p>
-      </article>
+    <SettingsChrome
+      title={page.title}
+      titleAs="p"
+      backTo="/settings/about"
+      backLabel="About"
+      backState={{ from }}
+    >
+      {markdown ? (
+        <LegalDoc markdown={markdown} />
+      ) : (
+        <article className="space-y-4" data-legal-page={id}>
+          <h2 className="text-2xl font-bold tracking-tight text-white">{page.heading}</h2>
+          {page.body.map((para) => (
+            <p key={para} className="text-sm leading-6 text-slate-400">
+              {para}
+            </p>
+          ))}
+          <p className="text-xs text-slate-600">{APP_COPYRIGHT}</p>
+        </article>
+      )}
     </SettingsChrome>
   )
 }
