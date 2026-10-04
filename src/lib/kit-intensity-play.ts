@@ -1,7 +1,7 @@
 import {
   dynamicsFor,
   layerBlendFor,
-  snareHitRole,
+  SOFT_VEL_RATIO,
   type CrocellTier,
   type HitRole,
   type IntensityDynamics,
@@ -62,24 +62,12 @@ export function isFillBar(pattern: Record<VoiceId, HitPos[]>): boolean {
   return countToms(pattern) >= 3
 }
 
-function isDownbeat(hit: HitPos): boolean {
-  return hit.num === 0
-}
-
-function velFor(voice: VoiceId, role: HitRole, dyn: IntensityDynamics, hit: HitPos): number {
-  if (voice === 'snare' || voice === 'rim') {
-    if (role === 'ghost') return dyn.ghostVel
-    if (role === 'backbeat') return dyn.accentVel
-    return dyn.normalVel
-  }
-  if (voice === 'kick') {
-    return isDownbeat(hit) ? dyn.accentVel : dyn.normalVel
-  }
-  if (voice === 'closedHat' || voice === 'ride' || voice === 'rideBell') {
-    return isDownbeat(hit) ? dyn.hatVel : dyn.hatVel * 0.82
-  }
-  if (voice === 'openHat') return dyn.hatVel
-  return dyn.accentVel
+function velFor(voice: VoiceId, role: HitRole, dyn: IntensityDynamics): number {
+  const full =
+    voice === 'closedHat' || voice === 'openHat' || voice === 'ride' || voice === 'rideBell'
+      ? dyn.hatVel
+      : dyn.normalVel
+  return role === 'ghost' ? full * SOFT_VEL_RATIO : full
 }
 
 function blendFor(voice: VoiceId, role: HitRole, intensity: KitIntensity): LayerBlend {
@@ -90,9 +78,8 @@ function blendFor(voice: VoiceId, role: HitRole, intensity: KitIntensity): Layer
   return layerBlendFor(intensity, role, 'accent')
 }
 
-function roleFor(voice: VoiceId, hit: HitPos): HitRole {
-  if (voice === 'snare' || voice === 'rim') return snareHitRole(hit)
-  return 'normal'
+function roleFor(_voice: VoiceId, hit: HitPos): HitRole {
+  return hit.soft ? 'ghost' : 'normal'
 }
 
 export function estimateHitEnergy(hit: RealizedHit): number {
@@ -131,7 +118,7 @@ export function realizeDrumBar(
         tier: blend.tier,
         blendTier: blend.blendTier,
         blendMix: blend.blendMix,
-        vel: velFor(voice, role, dyn, hit) * dyn.gain,
+        vel: velFor(voice, role, dyn) * dyn.gain,
         rimshot: false,
       })
     }

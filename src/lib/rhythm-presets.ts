@@ -1,9 +1,11 @@
 import {
   cloneBar,
   makeBar,
+  markHitsSoft,
   patternFromHits,
   patternsEqual,
   type BeatUnit,
+  type Pattern,
   type RhythmBar,
   type SubdivisionId,
   type VoiceId,
@@ -71,6 +73,9 @@ export type RhythmPreset = {
   mid?: HitMap
   pattern: ReturnType<typeof patternFromHits>
   bpm?: number
+  soft?: HitMap
+  fillSoft?: HitMap
+  midSoft?: HitMap
 }
 
 export type RhythmStyle = {
@@ -162,6 +167,7 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
           openHat: [14],
         }),
         bpm: 88,
+        midSoft: { snare: [15] },
       },
       preset(
         'punk-44',
@@ -227,88 +233,97 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
     id: 'funk',
     name: 'Funk',
     grooves: [
-      preset(
-        'funk-44',
-        'funk',
-        'Funk',
-        1,
-        'Gadd-style ghosts + rim',
-        4,
-        4,
-        4,
-        {
-          kick: [0, 3, 8, 10, 14],
-          snare: [4, 12],
-          rim: [2, 6, 7, 11, 13],
-          closedHat: hatsExcept([7, 15]),
-          openHat: [7, 15],
-        },
-        {
-          kick: [0, 3, 10],
-          snare: [4],
-          rim: [6, 7],
-          closedHat: [0, 1, 2, 3, 4, 5],
-          openHat: [15],
-          splash: [15],
-          ...TOM_RUN,
-        },
-      ),
-      preset(
-        'funk-2',
-        'funk',
-        'Funk',
-        2,
-        'Weckl linear pocket + catch',
-        4,
-        4,
-        4,
-        {
-          kick: [0, 6, 8, 13],
-          snare: [4, 12],
-          rim: [2, 7, 11, 15],
-          closedHat: hatsExcept([6, 14]),
-          openHat: [6, 14],
-          stack: [8],
-        },
-        {
-          kick: [0, 6, 8],
-          snare: [4],
-          closedHat: [0, 2, 4, 6],
-          openHat: [15],
-          stack: [8],
-          highTom: [9, 10],
-          midTom: [11],
-          lowTom: [12],
-          floorTom: [13, 14],
-        },
-      ),
-      preset(
-        'funk-3',
-        'funk',
-        'Funk',
-        3,
-        'The One, splash lift',
-        4,
-        4,
-        4,
-        {
-          kick: [0, 7, 10],
-          snare: [4, 12],
-          rim: [2, 6, 11, 13, 14],
-          closedHat: hatsExcept([2, 14]),
-          openHat: [2, 14],
-          splash: [14],
-        },
-        {
-          kick: [0, 10],
-          snare: [4],
-          rim: [6, 7],
-          closedHat: [0, 2, 4],
-          openHat: [15],
-          splash: [15],
-          ...TOM_RUN,
-        },
-      ),
+      {
+        ...preset(
+          'funk-44',
+          'funk',
+          'Funk',
+          1,
+          'Gadd-style ghosts + rim',
+          4,
+          4,
+          4,
+          {
+            kick: [0, 3, 8, 10, 14],
+            snare: [4, 12],
+            rim: [2, 6, 7, 11, 13],
+            closedHat: hatsExcept([7, 15]),
+            openHat: [7, 15],
+          },
+          {
+            kick: [0, 3, 10],
+            snare: [4],
+            rim: [6, 7],
+            closedHat: [0, 1, 2, 3, 4, 5],
+            openHat: [15],
+            splash: [15],
+            ...TOM_RUN,
+          },
+        ),
+        soft: { rim: [2, 6, 7, 11, 13] },
+      },
+      {
+        ...preset(
+          'funk-2',
+          'funk',
+          'Funk',
+          2,
+          'Weckl linear pocket + catch',
+          4,
+          4,
+          4,
+          {
+            kick: [0, 6, 8, 13],
+            snare: [4, 12],
+            rim: [2, 7, 11, 15],
+            closedHat: hatsExcept([6, 14]),
+            openHat: [6, 14],
+            stack: [8],
+          },
+          {
+            kick: [0, 6, 8],
+            snare: [4],
+            closedHat: [0, 2, 4, 6],
+            openHat: [15],
+            stack: [8],
+            highTom: [9, 10],
+            midTom: [11],
+            lowTom: [12],
+            floorTom: [13, 14],
+          },
+        ),
+        soft: { rim: [2, 7, 11, 15] },
+      },
+      {
+        ...preset(
+          'funk-3',
+          'funk',
+          'Funk',
+          3,
+          'The One, splash lift',
+          4,
+          4,
+          4,
+          {
+            kick: [0, 7, 10],
+            snare: [4, 12],
+            rim: [2, 6, 11, 13, 14],
+            closedHat: hatsExcept([2, 14]),
+            openHat: [2, 14],
+            splash: [14],
+          },
+          {
+            kick: [0, 10],
+            snare: [4],
+            rim: [6, 7],
+            closedHat: [0, 2, 4],
+            openHat: [15],
+            splash: [15],
+            ...TOM_RUN,
+          },
+        ),
+        soft: { rim: [2, 6, 11, 13, 14] },
+      },
     ],
   },
   {
@@ -1166,8 +1181,20 @@ function barFromHits(
   subdivision: SubdivisionId,
   hits: HitMap,
   accents?: number[],
+  soft?: HitMap,
 ): RhythmBar {
-  return makeBar(beats, beatUnit, subdivision, patternFromHits(beats, subdivision, hits), accents)
+  let pattern: Pattern = patternFromHits(beats, subdivision, hits)
+  if (soft) pattern = markHitsSoft(pattern, beats, subdivision, retireVoices(soft))
+  return makeBar(beats, beatUnit, subdivision, pattern, accents)
+}
+
+function softForIndex(
+  item: Pick<RhythmPreset, 'soft' | 'fillSoft' | 'midSoft' | 'fill' | 'mid'>,
+  index: number,
+): HitMap | undefined {
+  if (item.fill && index === LOOP_BARS - 1) return item.fillSoft
+  if (item.mid && index % CRASH_EVERY === 1) return item.midSoft
+  return item.soft
 }
 
 function barHitsForIndex(hits: HitMap, fill: HitMap | undefined, mid: HitMap | undefined, index: number): HitMap {
@@ -1189,9 +1216,19 @@ export function makeGrooveBars(
   fill?: HitMap,
   accents?: number[],
   mid?: HitMap,
+  soft?: HitMap,
+  fillSoft?: HitMap,
+  midSoft?: HitMap,
 ): RhythmBar[] {
   return Array.from({ length: LOOP_BARS }, (_, index) =>
-    barFromHits(beats, beatUnit, subdivision, barHitsForIndex(hits, fill, mid, index), accents),
+    barFromHits(
+      beats,
+      beatUnit,
+      subdivision,
+      barHitsForIndex(hits, fill, mid, index),
+      accents,
+      softForIndex({ soft, fillSoft, midSoft, fill, mid }, index),
+    ),
   )
 }
 
@@ -1204,6 +1241,9 @@ export function barsForPreset(item: RhythmPreset): RhythmBar[] {
     item.fill,
     item.accents,
     item.mid,
+    item.soft,
+    item.fillSoft,
+    item.midSoft,
   ).map(cloneBar)
 }
 

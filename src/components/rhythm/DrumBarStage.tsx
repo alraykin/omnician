@@ -13,6 +13,7 @@ export const DrumBarStage = memo(function DrumBarStage({
   input,
   onInput,
   onToggle,
+  onToggleSoft,
   onPreviewVoice,
 }: {
   bars: readonly RhythmBar[]
@@ -29,6 +30,7 @@ export const DrumBarStage = memo(function DrumBarStage({
     on: boolean,
     preview: boolean,
   ) => void
+  onToggleSoft: (barIndex: number, voice: VoiceId, beat: number, slot: number) => void
   onPreviewVoice: (voice: VoiceId) => void
 }) {
   const playhead = usePlayhead(playheadStore)
@@ -47,6 +49,7 @@ export const DrumBarStage = memo(function DrumBarStage({
         barIndex={active}
         playing={playing}
         onToggle={(voice, beat, slot, on, preview) => onToggle(active, voice, beat, slot, on, preview)}
+        onToggleSoft={(voice, beat, slot) => onToggleSoft(active, voice, beat, slot)}
         onPreview={onPreviewVoice}
       />
       <p className="mt-1.5 hidden text-center text-[0.6rem] leading-4 text-slate-500 min-[741px]:block">

@@ -193,9 +193,11 @@ export function clampStyleIntensity(
   return clampKitIntensity(value, styleId)
 }
 
-export function snareHitRole(hit: Pick<HitPos, 'beat' | 'num'>): HitRole {
+export const SOFT_VEL_RATIO = 0.5
+
+export function snareHitRole(hit: Pick<HitPos, 'beat' | 'num' | 'soft'>): HitRole {
+  if (hit.soft) return 'ghost'
   if (hit.num === 0 && hit.beat % 2 === 1) return 'backbeat'
-  if (hit.num !== 0) return 'ghost'
   return 'normal'
 }
 
@@ -217,7 +219,7 @@ export function playOptsForRole(
   const dyn = dynamicsFor(intensity)
   const kind = role === 'ghost' ? 'ghost' : 'accent'
   const blend = layerBlendFor(intensity, role, kind)
-  const vel =
-    role === 'ghost' ? dyn.ghostVel * dyn.gain : role === 'backbeat' ? dyn.accentVel * dyn.gain : dyn.normalVel * dyn.gain
+  const full = role === 'backbeat' ? dyn.accentVel : dyn.normalVel
+  const vel = (role === 'ghost' ? full * SOFT_VEL_RATIO : full) * dyn.gain
   return { ...blend, rimshot: false, vel }
 }

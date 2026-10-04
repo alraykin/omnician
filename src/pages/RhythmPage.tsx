@@ -17,7 +17,7 @@ import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { usePlayhead, useRhythmEngine, type PlayheadStore } from '@/hooks/useRhythmEngine'
-import { defaultIntensityForStyle, snareHitRole, type KitIntensity } from '@/lib/kit-intensity'
+import { defaultIntensityForStyle, type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
 import {
   CLICK_SOUND_LABELS,
@@ -36,6 +36,7 @@ import {
   setHit,
   emptyPattern,
   setHitPos,
+  toggleHitSoft,
   updateBarMeter,
   type BeatUnit,
   type ClickSoundId,
@@ -478,10 +479,7 @@ export function RhythmPage() {
   const onToggleCell = useCallback(
     (targetBar: number, voice: VoiceId, beat: number, slot: number, on: boolean, playPreview: boolean) => {
       const target = hitForInputSlot(beat, slot, drumInput)
-      if (playPreview) {
-        const role = voice === 'snare' ? snareHitRole(target) : 'backbeat'
-        preview(voice, role)
-      }
+      if (playPreview) preview(voice, 'normal')
       let changed = false
       setDrumBars((currentBars) => {
         const bar = currentBars[targetBar]
@@ -495,6 +493,32 @@ export function RhythmPage() {
         )
       })
       if (changed && !draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
+    },
+    [draftNew, drumInput, matched?.id, presetId, preview, userBeatId],
+  )
+
+  const onToggleSoft = useCallback(
+    (targetBar: number, voice: VoiceId, beat: number, slot: number) => {
+      const target = hitForInputSlot(beat, slot, drumInput)
+      let nextSoft = false
+      let changed = false
+      setDrumBars((currentBars) => {
+        const bar = currentBars[targetBar]
+        if (!bar) return currentBars
+        const current = (bar.pattern[voice] ?? []).find((hit) => hit.beat === beat && hit.num * drumInput === slot * hit.den)
+        if (!current) return currentBars
+        nextSoft = !current.soft
+        const nextPattern = toggleHitSoft(bar.pattern, voice, target)
+        if (nextPattern === bar.pattern) return currentBars
+        changed = true
+        return currentBars.map((item, index) =>
+          index === targetBar ? { ...item, pattern: nextPattern } : item,
+        )
+      })
+      if (changed) {
+        preview(voice, nextSoft ? 'ghost' : 'normal')
+        if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
+      }
     },
     [draftNew, drumInput, matched?.id, presetId, preview, userBeatId],
   )
@@ -783,6 +807,24 @@ export function RhythmPage() {
       setImportedName('Beat boxes')
       setDrumInput(DEFAULT_DRUM_INPUT)
       setMode('drums')
+    }
+    if (query.get('ghost') === '1') {
+      const preset = findPreset('rock-44')
+      if (preset) {
+        if (playing) {
+          halt('ghost-demo')
+          setPlaying(false)
+        }
+        setDrumBars(barsForPreset(preset).map(cloneBar))
+        setDrumBarIndex(1)
+        if (preset.bpm != null) setBpm(preset.bpm)
+        setPresetId(preset.id)
+        setUserBeatId(null)
+        setDraftNew(false)
+        setImportedName(null)
+        setMode('drums')
+        setDrumInput(4)
+      }
     }
     if (query.get('seed') === 'rock1') {
       const preset = findPreset('rock-44')
@@ -1200,6 +1242,7 @@ export function RhythmPage() {
                 input={drumInput}
                 onInput={setDrumInput}
                 onToggle={onToggleCell}
+                onToggleSoft={onToggleSoft}
                 onPreviewVoice={preview}
               />
               <KitFaders

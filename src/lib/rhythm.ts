@@ -130,6 +130,18 @@ export type HitPos = {
   beat: number
   num: number
   den: number
+  /** Ghost note — darker on the grid, quieter on playback. */
+  soft?: boolean
+}
+
+export function isHitSoft(hit: Pick<HitPos, 'soft'>): boolean {
+  return hit.soft === true
+}
+
+export function withHitSoft(hit: HitPos, soft: boolean): HitPos {
+  const next = { beat: hit.beat, num: hit.num, den: hit.den } as HitPos
+  if (soft) next.soft = true
+  return next
 }
 
 export type Pattern = Record<VoiceId, HitPos[]>
@@ -231,10 +243,10 @@ function gcd(a: number, b: number): number {
   return x || 1
 }
 
-export function reduceHit(beat: number, num: number, den: number): HitPos {
+export function reduceHit(beat: number, num: number, den: number, soft = false): HitPos {
   const safeDen = den === 0 ? 1 : den
   const g = gcd(num, safeDen)
-  return { beat, num: num / g, den: safeDen / g }
+  return withHitSoft({ beat, num: num / g, den: safeDen / g }, soft)
 }
 
 export function sameHit(a: HitPos, b: HitPos): boolean {
@@ -270,7 +282,8 @@ export function parseVoiceHits(raw: unknown, beats: number, subdivision: Subdivi
   if (isHitRow(raw)) {
     for (const item of raw) {
       if (item.den > 0 && item.beat >= 0 && item.beat < beats) {
-        hits.push(reduceHit(item.beat, item.num, item.den))
+        const row = item as HitPos
+        hits.push(reduceHit(item.beat, item.num, item.den, isHitSoft(row)))
       }
     }
     return hits
@@ -429,7 +442,7 @@ export function setHit(
 }
 
 export function setHitPos(pattern: Pattern, voice: VoiceId, target: HitPos, on: boolean): Pattern {
-  const hit = reduceHit(target.beat, target.num, target.den)
+  const hit = reduceHit(target.beat, target.num, target.den, isHitSoft(target))
   const row = pattern[voice] ?? []
   const index = row.findIndex((item) => sameHit(item, hit))
   if (on && index >= 0) return pattern
@@ -437,6 +450,41 @@ export function setHitPos(pattern: Pattern, voice: VoiceId, target: HitPos, on: 
   const next = clonePattern(pattern)
   if (on) next[voice].push(hit)
   else next[voice].splice(index, 1)
+  return next
+}
+
+export function toggleHitSoft(pattern: Pattern, voice: VoiceId, target: HitPos): Pattern {
+  const hit = reduceHit(target.beat, target.num, target.den)
+  const row = pattern[voice] ?? []
+  const index = row.findIndex((item) => sameHit(item, hit))
+  if (index < 0) return pattern
+  const next = clonePattern(pattern)
+  const current = next[voice][index]
+  if (!current) return pattern
+  next[voice][index] = withHitSoft(current, !isHitSoft(current))
+  return next
+}
+
+export function markHitsSoft(
+  pattern: Pattern,
+  beats: number,
+  subdivision: SubdivisionId,
+  soft: Partial<Record<VoiceId, number[]>>,
+): Pattern {
+  const steps = stepsPerBeat(subdivision)
+  const next = clonePattern(pattern)
+  for (const voice of VOICES) {
+    for (const step of soft[voice] ?? []) {
+      const beat = Math.floor(step / steps)
+      const slot = step % steps
+      if (beat < 0 || beat >= beats) continue
+      const target = reduceHit(beat, slot, steps)
+      const index = next[voice].findIndex((hit) => sameHit(hit, target))
+      if (index >= 0 && next[voice][index]) {
+        next[voice][index] = withHitSoft(next[voice][index]!, true)
+      }
+    }
+  }
   return next
 }
 
@@ -456,7 +504,10 @@ export function patternsEqual(a: Pattern, b: Pattern): boolean {
   return VOICES.every((voice) => {
     const left = [...(a[voice] ?? [])].sort(compareHits)
     const right = [...(b[voice] ?? [])].sort(compareHits)
-    return left.length === right.length && left.every((hit, index) => sameHit(hit, right[index]))
+    return (
+      left.length === right.length &&
+      left.every((hit, index) => sameHit(hit, right[index]!) && isHitSoft(hit) === isHitSoft(right[index]!))
+    )
   })
 }
 

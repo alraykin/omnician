@@ -17,11 +17,13 @@ export const MIDI_IMPORT_MAX_BARS = MAX_BARS
 export const MIDI_IMPORT_DEFAULT_BPM = 120
 export const MIDI_IMPORT_DEFAULT_BEATS = 4
 export const MIDI_IMPORT_DEFAULT_BEAT_UNIT: BeatUnit = 4
+export const MIDI_SOFT_VELOCITY = 70
 
 export type MidiImportHit = {
   voice: VoiceId
   barIndex: number
   offsetSec: number
+  velocity: number
 }
 
 export type MidiImportResult = {
@@ -75,7 +77,7 @@ export function importNotesFromParsed(
     }
     const offsetTick = event.tick - barIndex * barTicks
     const offsetSec = barTicks > 0 ? (offsetTick / barTicks) * barDur : 0
-    placed.push({ voice, barIndex, offsetSec })
+    placed.push({ voice, barIndex, offsetSec, velocity: event.velocity })
   }
 
   const fileBars =
@@ -94,6 +96,7 @@ export function importNotesFromParsed(
     let bar = makeBar(beats, beatUnit, 4)
     for (const hit of hits) {
       const pos = hitFromBarOffset(hit.offsetSec, barDur, beats)
+      if (hit.velocity < MIDI_SOFT_VELOCITY) pos.soft = true
       bar = { ...bar, pattern: mergeVoiceHit(bar.pattern, hit.voice, pos) }
       importedNotes += 1
     }

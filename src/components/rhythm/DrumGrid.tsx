@@ -2,8 +2,10 @@ import { memo, useCallback, useEffect, useRef, type PointerEvent } from 'react'
 
 import { type PlayheadStore } from '@/hooks/useRhythmEngine'
 import { beatBoxView, inputSlotFromX, type InputDivision } from '@/lib/beat-boxes'
+import { BAR_LONG_PRESS_MS } from '@/lib/bar-press'
+import { HOLD_NUDGE_CLASS } from '@/lib/hold-repeat'
 import { VOICE_LABELS, VOICES, type Pattern, type VoiceId } from '@/lib/rhythm'
-import { HOLD_TO_DRAG_MS, TAP_SLOP_PX, accumulatedScroll, activateOnPointer, cn } from '@/lib/utils'
+import { TAP_SLOP_PX, accumulatedScroll, activateOnPointer, cn } from '@/lib/utils'
 
 type DrumGridProps = {
   beats: number
@@ -13,6 +15,7 @@ type DrumGridProps = {
   barIndex: number
   playing: boolean
   onToggle: (voice: VoiceId, beat: number, slot: number, on: boolean, preview: boolean) => void
+  onToggleSoft: (voice: VoiceId, beat: number, slot: number) => void
   onPreview: (voice: VoiceId) => void
 }
 
@@ -33,6 +36,7 @@ type PendingPaint = {
   filled: boolean
   engaged: boolean
   ignored: boolean
+  softened: boolean
 }
 
 function readSlot(
@@ -63,6 +67,7 @@ export const DrumGrid = memo(function DrumGrid({
   barIndex,
   playing,
   onToggle,
+  onToggleSoft,
   onPreview,
 }: DrumGridProps) {
   const paintRef = useRef<PaintStroke | null>(null)
@@ -91,7 +96,8 @@ export const DrumGrid = memo(function DrumGrid({
   const engagePaint = useCallback(
     (preview: boolean) => {
       const pending = pendingRef.current
-      if (!pending || pending.engaged || pending.ignored) return
+      if (!pending || pending.engaged || pending.ignored || pending.softened) return
+      window.clearTimeout(holdTimerRef.current)
       pending.engaged = true
       rootRef.current?.setPointerCapture(pending.pointerId)
       paintRef.current = { voice: pending.voice, on: !pending.filled, lastKey: '' }
@@ -141,11 +147,18 @@ export const DrumGrid = memo(function DrumGrid({
         filled: cell.filled,
         engaged: false,
         ignored: false,
+        softened: false,
       }
       window.clearTimeout(holdTimerRef.current)
-      holdTimerRef.current = window.setTimeout(() => engagePaint(true), HOLD_TO_DRAG_MS)
+      holdTimerRef.current = window.setTimeout(() => {
+        const pending = pendingRef.current
+        if (!pending || pending.engaged || pending.ignored || pending.softened) return
+        if (!pending.filled) return
+        pending.softened = true
+        onToggleSoft(pending.voice, pending.beat, pending.slot)
+      }, BAR_LONG_PRESS_MS)
     },
-    [engagePaint, input],
+    [input, onToggleSoft],
   )
 
   return (
@@ -155,7 +168,9 @@ export const DrumGrid = memo(function DrumGrid({
       data-beat-boxes
       data-bar-index={barIndex}
       data-drum-input={input}
+      onContextMenu={(event) => event.preventDefault()}
       className={cn(
+        HOLD_NUDGE_CLASS,
         'max-w-full touch-manipulation overflow-x-hidden pb-1',
         'max-h-[min(34vh,22rem)] overflow-y-auto overscroll-x-none md:max-h-[min(50vh,32rem)]',
         'wide:!max-h-none wide:overflow-x-clip wide:!overflow-y-visible wide:overscroll-auto',
@@ -190,7 +205,7 @@ export const DrumGrid = memo(function DrumGrid({
       onPointerUp={(event) => {
         const pending = pendingRef.current
         window.clearTimeout(holdTimerRef.current)
-        if (pending && pending.pointerId === event.pointerId && !pending.engaged && !pending.ignored) {
+        if (pending && pending.pointerId === event.pointerId && !pending.engaged && !pending.ignored && !pending.softened) {
           const dist = Math.hypot(event.clientX - pending.x, event.clientY - pending.y)
           const scrolled = Math.abs(accumulatedScroll(rootRef.current) - pending.scroll) > 1
           if (dist <= TAP_SLOP_PX && !scrolled) {
@@ -265,10 +280,13 @@ export const DrumGrid = memo(function DrumGrid({
                     >
                       {view.dots ? (
                         <div className="relative h-5 w-full sm:h-6 md:h-7 wide:!h-5">
-                          {view.dotsAt.map((frac) => (
+                          {view.dotsAt.map((frac, index) => (
                             <span
                               key={frac}
-                              className="absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#A855F7]"
+                              className={cn(
+                                'absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full',
+                                view.dotsSoft[index] ? 'bg-[#A855F7]/55' : 'bg-[#A855F7]',
+                              )}
                               style={{ left: `${frac * 100}%` }}
                             />
                           ))}
@@ -280,11 +298,14 @@ export const DrumGrid = memo(function DrumGrid({
                               key={slot.slot}
                               data-box-slot={slot.slot}
                               data-filled={slot.filled ? '1' : '0'}
+                              data-soft={slot.soft ? '1' : '0'}
                               className={cn(
                                 'h-5 min-w-0 flex-1 sm:h-6 md:h-7 wide:!h-5',
                                 view.division === 1 ? 'rounded-md' : 'rounded-full',
                                 slot.filled
-                                  ? 'bg-[#A855F7]'
+                                  ? slot.soft
+                                    ? 'bg-[#A855F7]/55'
+                                    : 'bg-[#A855F7]'
                                   : view.empty
                                     ? 'border border-dashed border-white/18 bg-transparent'
                                     : 'bg-white/8',

@@ -4,6 +4,7 @@ import {
   hitFraction,
   hitSlot,
   hitTimeInBar,
+  isHitSoft,
   makeBar,
   reduceHit,
   sameHit,
@@ -83,6 +84,7 @@ export function beatHasHit(hits: readonly HitPos[], target: HitPos): boolean {
 export type BeatBoxSlot = {
   slot: number
   filled: boolean
+  soft: boolean
   start: number
   end: number
 }
@@ -95,6 +97,7 @@ export type BeatBoxView = {
   dots: boolean
   slots: BeatBoxSlot[]
   dotsAt: number[]
+  dotsSoft: boolean[]
 }
 
 export function beatBoxView(
@@ -114,10 +117,12 @@ export function beatBoxView(
       slots: Array.from({ length: input }, (_, slot) => ({
         slot,
         filled: false,
+        soft: false,
         start: slot / input,
         end: (slot + 1) / input,
       })),
       dotsAt: [],
+      dotsSoft: [],
     }
   }
   if (exact < 0) {
@@ -129,10 +134,17 @@ export function beatBoxView(
       dots: true,
       slots: [],
       dotsAt: inBeat.map((hit) => hit.num / hit.den).filter((frac) => frac >= 0 && frac < 1),
+      dotsSoft: inBeat.filter((hit) => hit.num / hit.den >= 0 && hit.num / hit.den < 1).map(isHitSoft),
     }
   }
   const filled = new Set(
     inBeat.map((hit) => hitSlot(hit, exact)).filter((slot): slot is number => slot !== null),
+  )
+  const soft = new Set(
+    inBeat
+      .filter(isHitSoft)
+      .map((hit) => hitSlot(hit, exact))
+      .filter((slot): slot is number => slot !== null),
   )
   return {
     beat,
@@ -143,10 +155,12 @@ export function beatBoxView(
     slots: Array.from({ length: exact }, (_, slot) => ({
       slot,
       filled: filled.has(slot),
+      soft: soft.has(slot),
       start: slot / exact,
       end: (slot + 1) / exact,
     })),
     dotsAt: [],
+    dotsSoft: [],
   }
 }
 
@@ -205,7 +219,14 @@ export function hitFromBarOffset(
 
 export function mergeVoiceHit(pattern: Pattern, voice: VoiceId, hit: HitPos): Pattern {
   const next = clonePattern(pattern)
-  if (!next[voice].some((item) => sameHit(item, hit))) next[voice].push(hit)
+  const index = next[voice].findIndex((item) => sameHit(item, hit))
+  if (index < 0) {
+    next[voice].push(hit)
+    return next
+  }
+  if (isHitSoft(hit) && !isHitSoft(next[voice][index]!)) {
+    next[voice][index] = { ...next[voice][index]!, soft: true }
+  }
   return next
 }
 
