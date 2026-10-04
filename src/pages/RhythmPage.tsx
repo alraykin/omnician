@@ -20,7 +20,6 @@ import { defaultIntensityForStyle, snareHitRole, type KitIntensity } from '@/lib
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
 import {
   CLICK_SOUND_LABELS,
-  DEFAULT_BPM,
   MAX_BARS,
   SUBDIVISIONS,
   subdivisionLabel,
@@ -286,7 +285,7 @@ export function RhythmPage() {
     if (!preset) return
     setDrumBars(barsForPreset(preset).map(cloneBar))
     setDrumBarIndex(0)
-    if (id === 'rock-44') setBpm(DEFAULT_BPM)
+    if (preset.bpm != null) setBpm(preset.bpm)
     if (preset.styleId !== kitStyleId) {
       setKitIntensity(defaultIntensityForStyle(preset.styleId))
     }

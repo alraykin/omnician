@@ -70,6 +70,7 @@ export type RhythmPreset = {
   fill?: HitMap
   mid?: HitMap
   pattern: ReturnType<typeof patternFromHits>
+  bpm?: number
 }
 
 export type RhythmStyle = {
@@ -153,12 +154,15 @@ export const RHYTHM_STYLES: RhythmStyle[] = [
     id: 'rock',
     name: 'Rock',
     grooves: [
-      preset('rock-44', 'rock', 'Rock', 1, 'Classic backbeat, open and-of-4', 4, 4, 4, ROCK_GROOVE, ROCK_FILL, {
-        kick: [0, 7, 8, 10],
-        snare: [4, 12, 15],
-        closedHat: ROCK_EIGHTH_HATS,
-        openHat: [14],
-      }),
+      {
+        ...preset('rock-44', 'rock', 'Rock', 1, 'Classic backbeat, open and-of-4', 4, 4, 4, ROCK_GROOVE, ROCK_FILL, {
+          kick: [0, 7, 8, 10],
+          snare: [4, 12, 15],
+          closedHat: ROCK_EIGHTH_HATS,
+          openHat: [14],
+        }),
+        bpm: 88,
+      },
       preset(
         'punk-44',
         'rock',

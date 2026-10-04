@@ -78,7 +78,7 @@ export type RhythmPrefs = {
 
 function fallback(): RhythmPrefs {
   return {
-    bpm: DEFAULT_BPM,
+    bpm: findPreset('rock-44')?.bpm ?? DEFAULT_BPM,
     mode: 'drums',
     clickSound: DEFAULT_CLICK_SOUND,
     clickBars: makeDefaultClickBars(),
