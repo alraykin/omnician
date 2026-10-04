@@ -3,12 +3,12 @@
   "name": "omnician",
   "compatibility_date": "2026-09-28",
   "main": "worker/index.ts",
-  // SPA assets plus /api/factory on the same Worker. Create a KV namespace
-  // named omnician-factory and replace this placeholder id before deploy.
+  // SPA assets plus /api/factory on the same Worker. FACTORY is the
+  // omnician-factory KV namespace that stores the live Drums library.
   "kv_namespaces": [
     {
       "binding": "FACTORY",
-      "id": "00000000000000000000000000000000",
+      "id": "04a8387cddbc4f50993dba65cea13681",
     },
   ],
   "assets": {

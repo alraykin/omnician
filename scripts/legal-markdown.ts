@@ -59,6 +59,14 @@ const privacy = readFileSync(privacyPath, 'utf8')
 assert.equal(hasHiddenLegalNotes(privacy), false)
 assert.equal(privacy.includes('Placeholder'), false)
 assert.match(privacy, /support@omnician\.app/)
+
+const legalPage = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '../src/pages/LegalPage.tsx'),
+  'utf8',
+)
+assert.equal(legalPage.includes('Placeholder'), false)
+assert.match(legalPage, /Coming soon/)
+assert.match(legalPage, /privacyMd/)
 assert.match(privacy, /Raykin Music LLC/)
 
 const blocks = parseLegalMarkdown(privacy)
