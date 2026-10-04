@@ -17,6 +17,7 @@
     "test:hold-repeat": "npx --yes tsx scripts/hold-repeat.ts",
     "test:user-beats": "npx --yes tsx scripts/user-beats.ts",
     "test:midi-import": "npx --yes tsx scripts/midi-import.ts",
+    "test:beat-boxes": "npx --yes tsx scripts/beat-boxes.ts",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-cloudflare.sh"
   },

@@ -1,4 +1,4 @@
-import { mergeHit, quantizeToStep, smartQuantizePlan } from '@/lib/drum-recorder'
+import { hitFromBarOffset, mergeVoiceHit } from '@/lib/beat-boxes'
 import { parseMidi, type ParsedMidi } from '@/lib/midi-file'
 import { voiceForMidiNote, type MidiNoteMap } from '@/lib/midi-map'
 import {
@@ -8,7 +8,6 @@ import {
   clampBpm,
   isBeatUnit,
   makeBar,
-  stepsInBar,
   type BeatUnit,
   type RhythmBar,
   type VoiceId,
@@ -92,15 +91,10 @@ export function importNotesFromParsed(
   let importedNotes = 0
   for (let index = 0; index < barCount; index += 1) {
     const hits = placed.filter((hit) => hit.barIndex === index)
-    const offsets = hits.map((hit) => hit.offsetSec)
-    const seed = makeBar(beats, beatUnit, 4)
-    const plan = smartQuantizePlan(offsets, seed, barDur)
-    const subdivision = plan.offerTriplets ? plan.tripletSubdivision : 4
-    let bar = makeBar(beats, beatUnit, subdivision)
-    const steps = stepsInBar(bar)
+    let bar = makeBar(beats, beatUnit, 4)
     for (const hit of hits) {
-      const step = quantizeToStep(hit.offsetSec, barDur, steps)
-      bar = { ...bar, pattern: mergeHit(bar.pattern, hit.voice, step, bar.beats, subdivision) }
+      const pos = hitFromBarOffset(hit.offsetSec, barDur, beats)
+      bar = { ...bar, pattern: mergeVoiceHit(bar.pattern, hit.voice, pos) }
       importedNotes += 1
     }
     bars.push(bar)

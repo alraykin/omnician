@@ -32,6 +32,7 @@ import {
   parseMasterVolumeDb,
   type KitMix,
 } from '@/lib/kit-mix'
+import { DEFAULT_DRUM_INPUT, normalizeDrumInput, type InputDivision } from '@/lib/beat-boxes'
 import { barsForPreset, findPreset, makeDefaultClickBars, makeDefaultRockBars, matchPreset } from '@/lib/rhythm-presets'
 import { DEFAULT_SPEED_BUILDER, parseSpeedBuilder, type SpeedBuilder } from '@/lib/speed-builder'
 
@@ -72,6 +73,7 @@ export type RhythmPrefs = {
   speedBuilder: SpeedBuilder
   volumeDb: number
   userBeatId: string | null
+  drumInput: InputDivision
 }
 
 function fallback(): RhythmPrefs {
@@ -89,6 +91,7 @@ function fallback(): RhythmPrefs {
     speedBuilder: { ...DEFAULT_SPEED_BUILDER },
     volumeDb: DEFAULT_MASTER_VOLUME_DB,
     userBeatId: null,
+    drumInput: DEFAULT_DRUM_INPUT,
   }
 }
 
@@ -186,6 +189,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
       speedBuilder?: unknown
       volumeDb?: unknown
       userBeatId?: unknown
+      drumInput?: unknown
     }
 
     const split = Array.isArray(row.clickBars) || Array.isArray(row.drumBars)
@@ -222,6 +226,7 @@ export function loadRhythmPrefs(): RhythmPrefs {
       speedBuilder: parseSpeedBuilder(row.speedBuilder),
       volumeDb: parseMasterVolumeDb(row.volumeDb),
       userBeatId: typeof row.userBeatId === 'string' && row.userBeatId.length > 0 ? row.userBeatId : null,
+      drumInput: normalizeDrumInput(row.drumInput),
     }
   } catch {
     return base
@@ -245,6 +250,7 @@ export function saveRhythmPrefs(prefs: RhythmPrefs): void {
       speedBuilder: parseSpeedBuilder(prefs.speedBuilder),
       volumeDb: parseMasterVolumeDb(prefs.volumeDb),
       userBeatId: prefs.userBeatId,
+      drumInput: normalizeDrumInput(prefs.drumInput),
     }),
   )
 }

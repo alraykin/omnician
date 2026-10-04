@@ -12,7 +12,7 @@ import {
   midiNoteName,
   voiceForMidiNote,
 } from '../src/lib/midi-map.ts'
-import { stepsInBar } from '../src/lib/rhythm.ts'
+import { hitFraction } from '../src/lib/rhythm.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const fixtureDir = join(here, '..', 'public', 'test-midi')
@@ -113,9 +113,14 @@ const tripNotes = [0, 1 / 3, 2 / 3, 1, 4 / 3, 5 / 3].map((beat) => ({
 }))
 const triplets = encodeMidi({ ppq: tripPpq, bpm: 120, notes: tripNotes })
 const importedTrip = importMidiFile(triplets, DEFAULT_MIDI_MAP, 'triplets.mid')
-assert.equal(importedTrip.bars[0]?.subdivision, 6, 'Smart quantize upgrades 16ths to triplets')
-assert.equal(stepsInBar(importedTrip.bars[0]!), 24)
 assert.equal(importedTrip.bars[0]?.pattern.kick.length, 6)
+const tripPlaces = (importedTrip.bars[0]?.pattern.kick ?? [])
+  .map((hit) => hitFraction(hit))
+  .sort((a, b) => a - b)
+assert.deepEqual(
+  tripPlaces.map((frac) => Math.round(frac * 3) / 3),
+  [0, 1 / 3, 2 / 3, 1, 4 / 3, 5 / 3],
+)
 
 assert.equal(ticksPerBar(480, 4, 4), 1920)
 assert.equal(ticksPerBar(480, 6, 8), 1440)

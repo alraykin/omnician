@@ -16,7 +16,7 @@ import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { usePlayhead, useRhythmEngine, type PlayheadStore } from '@/hooks/useRhythmEngine'
-import { defaultIntensityForStyle, snareRoleFromStep, type KitIntensity } from '@/lib/kit-intensity'
+import { defaultIntensityForStyle, snareHitRole, type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
 import {
   CLICK_SOUND_LABELS,
@@ -35,6 +35,7 @@ import {
   setBeatSubdivision,
   setHit,
   emptyPattern,
+  setHitPos,
   updateBarMeter,
   type BeatUnit,
   type ClickSoundId,
@@ -47,6 +48,13 @@ import { loadRecordClick } from '@/lib/drum-recorder'
 import { RECORDER_ENABLED } from '@/lib/features'
 import { importMidiFile, importNoteLine } from '@/lib/midi-import'
 import { loadMidiMap } from '@/lib/midi-map'
+import {
+  DEFAULT_DRUM_INPUT,
+  hitForInputSlot,
+  makeBeatBoxesExampleBar,
+  normalizeDrumInput,
+  type InputDivision,
+} from '@/lib/beat-boxes'
 import { onCaptureStarting, preparePlaybackFromGesture } from '@/lib/audio-context'
 import { requestRawMic } from '@/lib/mic-capture'
 import { playWheelTick } from '@/lib/rhythm-audio'
@@ -121,6 +129,7 @@ export function RhythmPage() {
   const [listenSeed, setListenSeed] = useState<TempoEstimate | null>(null)
   const [tempoNote, setTempoNote] = useState<string | null>(null)
   const [importedName, setImportedName] = useState<string | null>(null)
+  const [drumInput, setDrumInput] = useState<InputDivision>(() => normalizeDrumInput(prefs.drumInput))
   const [importNote, setImportNote] = useState<string | null>(null)
   const midiFileRef = useRef<HTMLInputElement>(null)
   const tapTimes = useRef<number[]>([])
@@ -216,6 +225,7 @@ export function RhythmPage() {
         kitIntensity,
         speedBuilder,
         userBeatId,
+        drumInput,
       })
     }, 220)
     return () => window.clearTimeout(id)
@@ -234,6 +244,7 @@ export function RhythmPage() {
     presetId,
     speedBuilder,
     userBeatId,
+    drumInput,
   ])
 
   useEffect(() => {
@@ -356,19 +367,19 @@ export function RhythmPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const onPaintCell = useCallback(
-    (targetBar: number, voice: VoiceId, step: number, on: boolean, playPreview: boolean) => {
+  const onToggleCell = useCallback(
+    (targetBar: number, voice: VoiceId, beat: number, slot: number, on: boolean, playPreview: boolean) => {
+      const target = hitForInputSlot(beat, slot, drumInput)
       if (playPreview) {
-        const bar = drumBars[targetBar]
-        const role =
-          voice === 'snare' && bar ? snareRoleFromStep(step, bar.subdivision) : 'backbeat'
+        const role = voice === 'snare' ? snareHitRole(target) : 'backbeat'
         preview(voice, role)
       }
       let changed = false
       setDrumBars((currentBars) => {
         const bar = currentBars[targetBar]
         if (!bar) return currentBars
-        const nextPattern = setHit(bar.pattern, voice, step, bar.beats, bar.subdivision, on)
+        if (beat < 0 || beat >= bar.beats) return currentBars
+        const nextPattern = setHitPos(bar.pattern, voice, target, on)
         if (nextPattern === bar.pattern) return currentBars
         changed = true
         return currentBars.map((item, index) =>
@@ -377,7 +388,7 @@ export function RhythmPage() {
       })
       if (changed && !draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
     },
-    [draftNew, drumBars, matched?.id, presetId, preview, userBeatId],
+    [draftNew, drumInput, matched?.id, presetId, preview, userBeatId],
   )
 
   const chooseDrumBar = (index: number) => {
@@ -651,6 +662,20 @@ export function RhythmPage() {
       setSaveOpen(true)
     }
     if (query.get('library') === '1') setPickerOpen(true)
+    if (query.get('beatboxes') === '1') {
+      if (playing) {
+        halt('beatboxes-demo')
+        setPlaying(false)
+      }
+      setDrumBars([makeBeatBoxesExampleBar()])
+      setDrumBarIndex(0)
+      setPresetId(null)
+      setUserBeatId(null)
+      setDraftNew(true)
+      setImportedName('Beat boxes')
+      setDrumInput(DEFAULT_DRUM_INPUT)
+      setMode('drums')
+    }
     // Seed demo UI from the URL once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -901,41 +926,6 @@ export function RhythmPage() {
                   onChange={setMeter}
                 />
               </section>
-              <section>
-                <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Subdivision
-                </p>
-                <div className="max-w-full overflow-x-hidden pb-0.5">
-                  <div
-                    role="group"
-                    aria-label="Subdivision"
-                    data-section="subdivision"
-                    className="flex w-full min-w-0 flex-nowrap items-center gap-0.5 sm:gap-1"
-                  >
-                    {SUBDIVISIONS.map((steps) => (
-                      <button
-                        key={steps}
-                        type="button"
-                        aria-label={subdivisionLabel(steps, current.beatUnit)}
-                        title={subdivisionLabel(steps, current.beatUnit)}
-                        aria-pressed={current.subdivision === steps}
-                        data-subdivision={steps}
-                        data-subdivision-label={subdivisionLabel(steps, current.beatUnit)}
-                        {...activateOnPointer(() => setSubdivision(steps))}
-                        className={cn(
-                          'flex h-12 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-14 wide:h-10',
-                          current.subdivision === steps
-                            ? 'bg-[#A855F7] text-white'
-                            : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
-                        )}
-                      >
-                        <SubdivIcon steps={steps} beatUnit={current.beatUnit} className="wide:hidden" />
-                        <SubdivIcon steps={steps} beatUnit={current.beatUnit} compact className="hidden wide:block" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </section>
               <TransportDock
                 place="inline"
                 className="hidden shrink-0 wide:flex wide:flex-col"
@@ -1037,7 +1027,9 @@ export function RhythmPage() {
                 barIndex={drumBarIndex}
                 playing={playing}
                 playheadStore={playheadStore}
-                onPaint={onPaintCell}
+                input={drumInput}
+                onInput={setDrumInput}
+                onToggle={onToggleCell}
                 onPreviewVoice={preview}
               />
               <KitFaders

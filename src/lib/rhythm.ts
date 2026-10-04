@@ -428,6 +428,30 @@ export function setHit(
   return next
 }
 
+export function setHitPos(pattern: Pattern, voice: VoiceId, target: HitPos, on: boolean): Pattern {
+  const hit = reduceHit(target.beat, target.num, target.den)
+  const row = pattern[voice] ?? []
+  const index = row.findIndex((item) => sameHit(item, hit))
+  if (on && index >= 0) return pattern
+  if (!on && index < 0) return pattern
+  const next = clonePattern(pattern)
+  if (on) next[voice].push(hit)
+  else next[voice].splice(index, 1)
+  return next
+}
+
+export function toggleHitPos(pattern: Pattern, voice: VoiceId, target: HitPos): Pattern {
+  const hit = reduceHit(target.beat, target.num, target.den)
+  const row = pattern[voice] ?? []
+  const exists = row.some((item) => sameHit(item, hit))
+  return setHitPos(pattern, voice, hit, !exists)
+}
+
+export function hitFraction(hit: HitPos): number {
+  if (hit.den === 0) return hit.beat
+  return hit.beat + hit.num / hit.den
+}
+
 export function patternsEqual(a: Pattern, b: Pattern): boolean {
   return VOICES.every((voice) => {
     const left = [...(a[voice] ?? [])].sort(compareHits)
