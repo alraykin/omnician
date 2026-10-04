@@ -45,6 +45,7 @@ import {
   type VoiceId,
 } from '@/lib/rhythm'
 import { loadRecordClick } from '@/lib/drum-recorder'
+import { RECORDER_ENABLED } from '@/lib/features'
 import { onCaptureStarting, preparePlaybackFromGesture } from '@/lib/audio-context'
 import { requestRawMic } from '@/lib/mic-capture'
 import { playWheelTick } from '@/lib/rhythm-audio'
@@ -102,7 +103,7 @@ export function RhythmPage() {
   const [kitIntensity, setKitIntensity] = useState<KitIntensity>(prefs.kitIntensity)
   const [playing, setPlaying] = useState(false)
   const [recorderOpen, setRecorderOpen] = useState(() => {
-    if (typeof window === 'undefined') return false
+    if (!RECORDER_ENABLED || typeof window === 'undefined') return false
     const query = new URLSearchParams(window.location.search)
     return query.get('recorder') === '1' || Boolean(query.get('rec'))
   })
@@ -439,7 +440,7 @@ export function RhythmPage() {
   }, [recorderOpen, startStop])
 
   const recorderDemo = useMemo((): DrumRecorderDemo | undefined => {
-    if (typeof window === 'undefined') return undefined
+    if (!RECORDER_ENABLED || typeof window === 'undefined') return undefined
     const query = new URLSearchParams(window.location.search)
     const rec = query.get('rec')
     if (!rec && query.get('keys') !== '1' && query.get('hits') !== '1') return undefined
@@ -466,6 +467,7 @@ export function RhythmPage() {
   }, [])
 
   const openRecorder = useCallback(() => {
+    if (!RECORDER_ENABLED) return
     if (mode !== 'drums') setMode('drums')
     if (playing) {
       halt('recorder-open')
@@ -623,7 +625,7 @@ export function RhythmPage() {
   const liveMeter = meterLabel(current.beats, current.beatUnit)
 
   const recordControl =
-    mode === 'drums' ? (
+    RECORDER_ENABLED && mode === 'drums' ? (
       <RecordFab
         onOpen={openRecorder}
         showTip={
@@ -1122,7 +1124,7 @@ export function RhythmPage() {
         </div>
       ) : null}
 
-      {mode === 'drums' ? (
+      {RECORDER_ENABLED && mode === 'drums' ? (
         <DrumRecorderSheet
           open={recorderOpen}
           onClose={closeRecorder}
