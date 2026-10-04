@@ -59,7 +59,7 @@ export function MidiMapSheet({
         role="dialog"
         aria-labelledby="midi-map-title"
         data-midi-map-sheet
-        className="flex max-h-[90svh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0F1422] p-5"
+        className="flex max-h-[90svh] w-full max-w-lg flex-col rounded-3xl border border-white/10 bg-[#0F1422] p-5"
       >
         <h2 id="midi-map-title" className="text-xl font-bold tracking-tight text-white">
           MIDI import mapping
@@ -68,13 +68,13 @@ export function MidiMapSheet({
           Middle C is <span className="text-slate-200">C3</span> (MIDI 60), same as Cubase. Change a
           drum’s note if your file uses another map.
         </p>
-        <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
-          <ul className="space-y-1.5">
+        <div className="mt-3 max-h-[min(52svh,26rem)] overflow-y-auto pr-1">
+          <ul className="space-y-1 pb-1">
             {midiMapRows(map).map((row) => (
               <li
                 key={row.voice}
                 data-midi-map-row={row.voice}
-                className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/3 px-2.5 py-2"
+                className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/3 px-2.5 py-1.5"
               >
                 <span className="min-w-0 flex-1 text-sm font-semibold text-white">{row.label}</span>
                 <label className="sr-only" htmlFor={`midi-note-${row.voice}`}>
