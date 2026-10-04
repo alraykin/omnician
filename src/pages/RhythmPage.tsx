@@ -992,22 +992,22 @@ export function RhythmPage() {
               </TransportDock>
             </div>
             <section className="flex h-fit min-h-0 min-w-0 flex-1 flex-col" data-rhythm-stack="stage">
-              <div className="relative mb-2 flex items-stretch gap-1.5">
+              <div className="relative mb-1.5 flex h-10 items-center gap-1">
                 <button
                   type="button"
                   data-beat-library
                   onClick={() => setPickerOpen(true)}
-                  className="flex min-w-0 flex-1 items-center justify-between rounded-xl border border-white/10 bg-[#141A28] px-3 py-2 text-left"
+                  className="flex h-10 min-w-0 flex-1 items-center justify-between rounded-xl border border-white/10 bg-[#141A28] px-2.5 text-left"
                 >
                   <span className="min-w-0">
-                    <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[#C084FC]">
+                    <span className="block text-[0.58rem] font-semibold uppercase leading-none tracking-[0.12em] text-[#C084FC]">
                       Beat library
                     </span>
-                    <span className="mt-0.5 block truncate text-sm font-semibold text-white">
+                    <span className="mt-0.5 block truncate text-[0.8rem] font-semibold leading-none text-white">
                       {beatName}
                     </span>
                   </span>
-                  <span className="ml-2 shrink-0 text-xs font-semibold text-slate-400">Change</span>
+                  <span className="ml-1.5 shrink-0 text-[0.7rem] font-semibold text-slate-400">Change</span>
                 </button>
                 {needsSave ? (
                   <Button
@@ -1015,7 +1015,7 @@ export function RhythmPage() {
                     size="sm"
                     data-save-beat
                     onClick={() => openSave(false)}
-                    className="h-11 shrink-0 self-center px-3"
+                    className="h-10 shrink-0 px-2.5 text-xs"
                   >
                     Save
                   </Button>
@@ -1026,7 +1026,7 @@ export function RhythmPage() {
                   variant="outline"
                   data-import-midi
                   onClick={() => midiFileRef.current?.click()}
-                  className="h-11 shrink-0 self-center gap-1 px-2.5"
+                  className="h-10 shrink-0 gap-1 px-2 text-xs"
                 >
                   <FileUp className="size-3.5" />
                   Import
@@ -1038,7 +1038,7 @@ export function RhythmPage() {
                   data-midi-map
                   aria-label="MIDI import mapping"
                   onClick={() => setMidiMapOpen(true)}
-                  className="h-11 w-11 shrink-0 self-center px-0"
+                  className="h-10 w-10 shrink-0 px-0"
                 >
                   <Settings2 className="size-3.5" />
                 </Button>
@@ -1048,7 +1048,7 @@ export function RhythmPage() {
                   variant="outline"
                   data-new-beat
                   onClick={() => startNewBeat()}
-                  className="h-11 shrink-0 self-center gap-1 px-2.5"
+                  className="h-10 shrink-0 gap-1 px-2 text-xs"
                 >
                   <Plus className="size-3.5" />
                   New
@@ -1066,7 +1066,7 @@ export function RhythmPage() {
                   }}
                 />
               </div>
-              <div className="mb-2 rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5">
+              <div className="mb-1.5 rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1">
                 <BarStrip
                   store={playheadStore}
                   bars={drumBars}
@@ -1092,7 +1092,7 @@ export function RhythmPage() {
                 onChange={setGroupMix}
                 onIntensityChange={setKitIntensity}
               />
-              <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-500">
+              <p className="mt-1.5 text-center text-[0.65rem] leading-4 text-slate-500 max-[740px]:hidden">
                 Drums:{' '}
                 <a
                   className="underline decoration-white/20 underline-offset-2 hover:text-slate-300"

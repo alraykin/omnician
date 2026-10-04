@@ -144,7 +144,7 @@ export const DrumGrid = memo(function DrumGrid({
       data-bar-index={barIndex}
       className={cn(
         'max-w-full touch-manipulation overflow-x-hidden pb-1',
-        'max-h-[min(46vh,28rem)] overflow-y-auto overscroll-x-none md:max-h-[min(50vh,32rem)]',
+        'max-h-[min(34vh,22rem)] overflow-y-auto overscroll-x-none md:max-h-[min(50vh,32rem)]',
         'wide:!max-h-none wide:overflow-x-clip wide:!overflow-y-visible wide:overscroll-auto',
       )}
       onPointerDown={startPaint}

@@ -337,6 +337,16 @@ body {
   background: rgba(20, 26, 40, 0.88);
 }
 
+@media (max-width: 639px) and (max-height: 760px) {
+  .kit-fader-bank {
+    --kit-fader-track-h: 3.9rem;
+    --kit-fader-name-h: 0.78rem;
+    --kit-fader-foot-h: 0.95rem;
+    margin-top: 0.3rem;
+    padding: 0.3rem 0.3rem 0.25rem;
+  }
+}
+
 @media (min-width: 768px) and (orientation: portrait) {
   .kit-fader-bank {
     --kit-fader-track-h: 8.8rem;
