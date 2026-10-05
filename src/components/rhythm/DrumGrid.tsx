@@ -110,7 +110,7 @@ function BeatWrapTrack({
       ref={trackRef}
       data-beats-per-row={beatsPerRow}
       {...(labels ? { 'data-beat-labels': '' } : {})}
-      className={cn('grid min-w-0 gap-x-1 gap-y-0.5', className)}
+      className={cn('grid min-w-0 gap-x-1 gap-y-1', className)}
       style={{ gridTemplateColumns: `repeat(${beatsPerRow}, minmax(0, 1fr))` }}
     >
       {children}
@@ -273,7 +273,7 @@ export const DrumGrid = memo(function DrumGrid({
       onContextMenu={(event) => event.preventDefault()}
       className={cn(
         HOLD_NUDGE_CLASS,
-        'max-w-full touch-manipulation overflow-x-hidden overflow-y-visible pb-0.5',
+        'max-w-full touch-manipulation overflow-x-clip overflow-y-clip pb-0.5',
       )}
       onPointerDown={startPaint}
       onClick={(event) => event.preventDefault()}
@@ -322,13 +322,13 @@ export const DrumGrid = memo(function DrumGrid({
           labels
           trackRef={trackRef}
           beatsPerRow={beatsPerRow}
-          className="mb-px text-[0.5rem] font-semibold uppercase tracking-wider text-slate-500 sm:mb-0.5 sm:text-[0.6rem]"
+          className="mb-px gap-y-1 text-[0.55rem] font-semibold uppercase tracking-wider text-slate-500 sm:mb-0.5 sm:text-[0.6rem]"
         >
           {Array.from({ length: beats }, (_, beat) => (
             <span
               key={`beat-${beat}`}
               data-beat-label={beat + 1}
-                className="min-w-0 border border-transparent px-px text-left tabular-nums leading-none"
+                className="min-w-0 border border-transparent px-px py-px text-left tabular-nums leading-none"
             >
               {beat + 1}
             </span>
