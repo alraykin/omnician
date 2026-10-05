@@ -296,14 +296,40 @@ export function parseFactoryLibraryJson(text: string): FactoryValidateResult {
   }
 }
 
-export function emptyFactoryBeat(_styleId: RhythmStyleId, id: string): FactoryBeat {
+export function beatFromPattern(
+  id: string,
+  name: string,
+  bpm: number,
+  bars: RhythmBar[],
+  blurb = '',
+): FactoryBeat {
+  const trimmed = name.trim().slice(0, 40)
   return {
     id,
-    name: 'New factory beat',
-    blurb: '',
-    bpm: 120,
-    bars: Array.from({ length: 4 }, () => serializeBar(makeBar(4, 4, 4))),
+    name: trimmed || 'Untitled',
+    blurb,
+    bpm: clampBpm(bpm),
+    bars: bars.map(serializeBar),
   }
+}
+
+export function factoryPatternKey(bpm: number, bars: FactoryBar[]): string {
+  return JSON.stringify({ bpm, bars })
+}
+
+export function liveFactoryPatternKey(bpm: number, bars: RhythmBar[]): string {
+  return factoryPatternKey(bpm, bars.map(serializeBar))
+}
+
+export function savedFactoryPatternKey(beat: FactoryBeat): string {
+  const bars = beat.bars
+    .map(parseFactoryBar)
+    .filter((bar): bar is RhythmBar => bar !== null)
+  return liveFactoryPatternKey(beat.bpm, bars)
+}
+
+export function emptyFactoryBeat(_styleId: RhythmStyleId, id: string): FactoryBeat {
+  return beatFromPattern(id, 'New factory beat', 120, Array.from({ length: 4 }, () => makeBar(4, 4, 4)))
 }
 
 export function newFactoryBeatId(): string {

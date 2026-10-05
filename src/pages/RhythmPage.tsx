@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
-import { FactoryEditorBar, FactoryHistorySheet } from '@/components/FactoryEditorBar'
+import { FactoryEditorBar, FactoryHistorySheet, FactoryNameSheet } from '@/components/FactoryEditorBar'
+import { ClickSoundPicker } from '@/components/rhythm/ClickSoundPicker'
 import { BarStrip } from '@/components/rhythm/BarStrip'
 import { type BarMenuAction } from '@/components/rhythm/BarMenu'
 import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
@@ -107,7 +108,7 @@ export function RhythmPage() {
   const [mode, setMode] = useState<RhythmMode>(
     urlMode === 'drums' || urlMode === 'click' ? urlMode : prefs.mode,
   )
-  const [clickSound] = useState<ClickSoundId>(prefs.clickSound)
+  const [clickSound, setClickSound] = useState<ClickSoundId>(prefs.clickSound)
   const [clickBars, setClickBars] = useState<RhythmBar[]>(prefs.clickBars)
   const [drumBars, setDrumBars] = useState<RhythmBar[]>(prefs.drumBars)
   const [clickBarIndex, setClickBarIndex] = useState(prefs.clickBarIndex)
@@ -184,17 +185,20 @@ export function RhythmPage() {
     savedUser && (!barsEqual(drumBars, savedUser.bars) || savedUser.bpm !== bpm),
   )
   const kitStyleId: RhythmStyleId = matched?.styleId ?? savedPreset?.styleId ?? 'rock'
-  const beatName = savedUser
-    ? userDirty
-      ? `${savedUser.name} · edited`
-      : savedUser.name
-    : draftNew
-      ? (importedName ?? 'New beat')
-      : matched
-        ? matched.name
-        : savedPreset
-          ? `${savedPreset.name} · edited`
-          : 'Custom beat'
+  const beatName =
+    factory.visible && factory.name
+      ? factory.name
+      : savedUser
+        ? userDirty
+          ? `${savedUser.name} · edited`
+          : savedUser.name
+        : draftNew
+          ? (importedName ?? 'New beat')
+          : matched
+            ? matched.name
+            : savedPreset
+              ? `${savedPreset.name} · edited`
+              : 'Custom beat'
   const needsSave = draftNew || userDirty || edited
 
   useEffect(() => {
@@ -305,15 +309,19 @@ export function RhythmPage() {
     setBars((currentBars) => currentBars.map((bar, item) => (item === index ? next : bar)))
   }
 
+  const markDrumEdit = () => {
+    if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
+  }
+
   const setMeter = (beats: number, beatUnit: BeatUnit) => {
     if (!current) return
     patchBar(barIndex, updateBarMeter(current, beats, beatUnit, current.subdivision))
-    setPresetId(null)
+    if (mode === 'drums') markDrumEdit()
   }
 
   const setSubdivision = (subdivision: SubdivisionId) => {
     setBars((currentBars) => currentBars.map((bar) => setBarSubdivision(bar, subdivision)))
-    setPresetId(null)
+    if (mode === 'drums') markDrumEdit()
     setPickerBeat(null)
   }
 
@@ -348,10 +356,6 @@ export function RhythmPage() {
     const next = bars.filter((_, item) => item !== index)
     setBars(next)
     setBarIndex(Math.min(index, next.length - 1))
-  }
-
-  const markDrumEdit = () => {
-    if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
   }
 
   const applyDrumBars = (next: RhythmBar[], index: number) => {
@@ -939,6 +943,7 @@ export function RhythmPage() {
                 bpm={bpm}
                 liveBpm={liveBpm}
                 playing={playing}
+                mode={mode}
                 speedBuilder={speedBuilder}
                 volumeDb={volumeDb}
                 onSpeedBuilder={setSpeedBuilder}
@@ -958,6 +963,13 @@ export function RhythmPage() {
                   beatUnit={current.beatUnit}
                   onChange={setMeter}
                 />
+              </section>
+
+              <section className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-2">
+                <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Click sound
+                </p>
+                <ClickSoundPicker value={clickSound} onChange={setClickSound} />
               </section>
 
               <section>
@@ -1098,6 +1110,7 @@ export function RhythmPage() {
                 bpm={bpm}
                 liveBpm={liveBpm}
                 playing={playing}
+                mode={mode}
                 speedBuilder={speedBuilder}
                 volumeDb={volumeDb}
                 onSpeedBuilder={setSpeedBuilder}
@@ -1145,16 +1158,20 @@ export function RhythmPage() {
                   name={factory.name}
                   styleId={factory.styleId}
                   dirty={factory.dirty}
+                  canSaveDefault={factory.canSaveDefault}
                   saving={factory.saving}
                   error={factory.error}
-                  onName={factory.onName}
+                  notice={factory.notice}
+                  displayName={beatName}
                   onStyle={factory.onStyle}
                   onMove={factory.onMove}
                   onNew={factory.onNew}
-                  onDelete={factory.onDelete}
-                  onSave={() => void factory.onSave()}
+                  onDelete={() => void factory.onDelete()}
+                  onSaveDefault={() => void factory.onSaveDefault()}
                   onHistory={() => void factory.openHistory()}
                   onSignOut={() => factory.setAdmin(false)}
+                  onOpenSaveNew={() => factory.setPrompt('save-new')}
+                  onOpenRename={() => factory.setPrompt('rename')}
                 />
               ) : null}
               <div className="relative mb-1.5 flex h-10 items-center gap-1">
@@ -1323,6 +1340,20 @@ export function RhythmPage() {
           versions={factory.versions}
           onClose={() => factory.setHistoryOpen(false)}
           onRestore={(id) => void factory.onRestore(id)}
+        />
+      ) : null}
+
+      {factory.prompt ? (
+        <FactoryNameSheet
+          mode={factory.prompt}
+          name={factory.prompt === 'rename' ? factory.name : ''}
+          styleId={factory.styleId}
+          saving={factory.saving}
+          onClose={() => factory.setPrompt(null)}
+          onSubmit={(nextName, nextStyle) => {
+            if (factory.prompt === 'rename') factory.onRename(nextName)
+            else void factory.onSaveAsNew(nextName, nextStyle)
+          }}
         />
       ) : null}
 

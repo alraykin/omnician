@@ -163,10 +163,12 @@ export function SpeedBuilderPanel({
   value,
   baseBpm,
   onChange,
+  precountAlways = false,
 }: {
   value: SpeedBuilder
   baseBpm: number
   onChange: (next: SpeedBuilder) => void
+  precountAlways?: boolean
 }) {
   const patch = (partial: Partial<SpeedBuilder>) => onChange({ ...value, ...partial })
   const fromBpm = sbBpm(baseBpm, value.fromPct)
@@ -225,6 +227,9 @@ export function SpeedBuilderPanel({
           <p className="pl-[3.15rem] whitespace-nowrap text-[0.62rem] tabular-nums text-slate-500" data-sb-range data-sb-repeats={value.repeats}>
             {fromBpm} → {toBpm} BPM
           </p>
+        </div>
+        <div className="mt-1.5">
+          <SpeedBuilderToggles value={value} onChange={onChange} precountAlways={precountAlways} />
         </div>
       </div>
     </div>

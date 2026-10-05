@@ -2,9 +2,12 @@ import { Check } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AppChrome } from '@/components/AppChrome'
+import { SettingSwitch } from '@/components/SettingsChrome'
 import { A4ReferenceControl } from '@/components/tuner/A4ReferenceControl'
 import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
 import { Headstock } from '@/components/tuner/Headstock'
+import { LayoutStylePill } from '@/components/tuner/InlineHeadstock'
+import { InputPicker } from '@/components/tuner/InputPicker'
 import { TunerDebugOverlay } from '@/components/tuner/TunerDebugOverlay'
 import { TunerTarget } from '@/components/tuner/TunerTarget'
 import { TuningSheet } from '@/components/tuner/TuningSheet'
@@ -43,6 +46,7 @@ import {
   type InstrumentId,
 } from '@/lib/presets'
 import { playReferenceTone } from '@/lib/reference-tone'
+import { isTwelveString } from '@/lib/headstock'
 import { armLogoDebugToggle, subscribeTunerDebug } from '@/lib/tuner-debug'
 import {
   enterTunerPage,
@@ -71,7 +75,7 @@ export function TunerPage() {
     return prefs.instrumentId
   })
   const [a4Hz, setA4Hz] = useState(prefs.a4Hz)
-  const [autoString] = useState(() => {
+  const [autoString, setAutoString] = useState(() => {
     if (typeof window !== 'undefined') {
       const query = new URLSearchParams(window.location.search).get('auto')
       if (query === '0') return false
@@ -79,7 +83,7 @@ export function TunerPage() {
     }
     return prefs.autoString
   })
-  const [layoutMode] = useState<TunerLayoutMode>(() => {
+  const [layoutMode, setLayoutMode] = useState<TunerLayoutMode>(() => {
     if (typeof window !== 'undefined') {
       const query = new URLSearchParams(window.location.search).get('layout')
       if (query === 'inline' || query === 'headstock') return query
@@ -373,6 +377,27 @@ export function TunerPage() {
             <span className="text-xs font-semibold text-slate-400">Change</span>
           </button>
         </div>
+
+        <div
+          className="mt-2 flex flex-wrap items-center justify-between gap-2"
+          data-tuner-page-controls
+        >
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+            Auto strings
+            <SettingSwitch label="Auto strings" on={autoString} onChange={setAutoString} />
+          </label>
+          {isTwelveString(activeInstrument, current.strings.length) ? (
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Split
+            </p>
+          ) : (
+            <LayoutStylePill
+              layoutMode={layoutMode}
+              onToggle={() => setLayoutMode((mode) => (mode === 'inline' ? 'headstock' : 'inline'))}
+            />
+          )}
+        </div>
+        <InputPicker />
 
         <section
           className={cn(

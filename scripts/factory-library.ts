@@ -1,14 +1,22 @@
 import assert from 'node:assert/strict'
 
+import { readFileSync } from 'node:fs'
+
 import { handleFactoryRequest, type FactoryKv } from '../src/lib/factory-api.ts'
 import {
+  beatFromPattern,
   factoryBeatCount,
   findFactoryBeat,
+  liveFactoryPatternKey,
   parseFactoryLibraryJson,
+  replaceFactoryBeat,
+  savedFactoryPatternKey,
+  upsertFactoryBeat,
   validateFactoryLibrary,
 } from '../src/lib/factory-library.ts'
 import { signFactorySession, verifyFactorySession } from '../src/lib/factory-session.ts'
 import { bundledFactoryLibrary } from '../src/lib/factory-store.ts'
+import { cloneBar, updateBarMeter } from '../src/lib/rhythm.ts'
 import { barsForPreset, findPreset } from '../src/lib/rhythm-presets.ts'
 
 const bundled = bundledFactoryLibrary()
@@ -109,5 +117,35 @@ const history = await handleFactoryRequest(
 assert.equal(history.status, 200)
 const versions = ((await history.json()) as { versions: Array<{ id: string }> }).versions
 assert.ok(versions.length >= 1)
+
+const backbeatPreset = findPreset('rock-44')
+assert.ok(backbeatPreset)
+const backbeatBars = barsForPreset(backbeatPreset)
+assert.equal(
+  liveFactoryPatternKey(backbeatPreset.bpm ?? 88, backbeatBars),
+  savedFactoryPatternKey(findFactoryBeat(bundled, 'rock-44')!.beat),
+)
+
+const editedBars = backbeatBars.map((bar, index) =>
+  index === 0 ? updateBarMeter(cloneBar(bar), 3, 4, bar.subdivision) : cloneBar(bar),
+)
+const overwritten = beatFromPattern('rock-44', 'Backbeat', 88, editedBars, findFactoryBeat(bundled, 'rock-44')!.beat.blurb)
+assert.equal(overwritten.id, 'rock-44')
+assert.equal(overwritten.name, 'Backbeat')
+assert.equal(overwritten.bars[0]?.beats, 3)
+const afterDefault = replaceFactoryBeat(bundled, overwritten)
+assert.equal(findFactoryBeat(afterDefault, 'rock-44')?.beat.bars[0]?.beats, 3)
+assert.equal(findFactoryBeat(afterDefault, 'rock-44')?.beat.name, 'Backbeat')
+
+const added = beatFromPattern('fx-testnew', 'Pocket clone', 92, editedBars)
+const afterNew = upsertFactoryBeat(bundled, 'funk', added)
+assert.equal(findFactoryBeat(afterNew, 'rock-44')?.beat.name, 'Backbeat')
+assert.equal(findFactoryBeat(afterNew, 'rock-44')?.beat.bars[0]?.beats, 4)
+assert.equal(findFactoryBeat(afterNew, 'fx-testnew')?.beat.name, 'Pocket clone')
+assert.equal(findFactoryBeat(afterNew, 'fx-testnew')?.style.id, 'funk')
+
+const rhythmSrc = readFileSync(new URL('../src/pages/RhythmPage.tsx', import.meta.url), 'utf8')
+const meterFn = rhythmSrc.slice(rhythmSrc.indexOf('const setMeter'), rhythmSrc.indexOf('const setSubdivision'))
+assert.equal(meterFn.includes('setPresetId(null)'), false)
 
 console.log('factory-library ok')

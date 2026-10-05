@@ -1,15 +1,19 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import {
   cloneFactoryLibrary,
   deleteFactoryBeat,
   emptyFactoryBeat,
   findFactoryBeat,
+  liveFactoryPatternKey,
   moveFactoryBeat,
   newFactoryBeatId,
   parseFactoryBar,
+  parseFactoryLibraryJson,
   replaceFactoryBeat,
-  serializeBar,
+  savedFactoryPatternKey,
+  beatFromPattern,
+  upsertFactoryBeat,
   type FactoryLibrary,
 } from '@/lib/factory-library'
 import {
@@ -50,13 +54,27 @@ export function useFactoryEditor({
   const [library, setLibrary] = useState<FactoryLibrary>(() => bundledFactoryLibrary())
   const [savedJson, setSavedJson] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [prompt, setPrompt] = useState<null | 'save-new' | 'rename'>(null)
   const [versions, setVersions] = useState<Array<{ id: string; savedAt: string; beatCount: number }>>([])
 
   const selected = presetId ? findFactoryBeat(library, presetId) : null
-  const dirty = Boolean(savedJson) && JSON.stringify(library) !== savedJson
+  const savedLibrary = useMemo(() => (savedJson ? parseFactoryLibraryJson(savedJson) : null), [savedJson])
+  const savedBeat =
+    savedLibrary?.ok && presetId ? findFactoryBeat(savedLibrary.library, presetId)?.beat ?? null : null
+  const patternDirty = Boolean(
+    selected &&
+      (savedBeat
+        ? liveFactoryPatternKey(bpm, drumBars) !== savedFactoryPatternKey(savedBeat)
+        : true),
+  )
+  const libraryDirty = Boolean(savedJson) && JSON.stringify(library) !== savedJson
+  const dirty = patternDirty || libraryDirty
   const visible = admin && mode === 'drums'
+  const canSaveDefault = Boolean(selected)
+  const name = selected?.beat.name ?? ''
 
   useEffect(() => {
     void (async () => {
@@ -71,33 +89,53 @@ export function useFactoryEditor({
     (id: string, nextLibrary = library) => {
       const found = findFactoryBeat(nextLibrary, id)
       const preset = findPreset(id)
-      if (!found) return
-      const bars = preset ? barsForPreset(preset) : found.beat.bars.map(parseFactoryBar).filter((bar): bar is RhythmBar => bar !== null)
-      if (!bars.length) return
+      if (!found) return false
+      const bars = preset
+        ? barsForPreset(preset)
+        : found.beat.bars.map(parseFactoryBar).filter((bar): bar is RhythmBar => bar !== null)
+      if (!bars.length) return false
       setDrumBars(bars.map(cloneBar))
       setDrumBarIndex(0)
       setBpm(found.beat.bpm)
       setPresetId(id)
       setUserBeatId(null)
       setDraftNew(false)
+      return true
     },
     [library, setBpm, setDraftNew, setDrumBarIndex, setDrumBars, setPresetId, setUserBeatId],
   )
 
-  useEffect(() => {
-    if (!visible || !presetId || !selected) return
-    const nextBeat = {
-      ...selected.beat,
-      bpm,
-      bars: drumBars.map(serializeBar),
-    }
-    if (JSON.stringify(selected.beat) === JSON.stringify(nextBeat)) return
-    setLibrary((current) => replaceFactoryBeat(current, nextBeat))
-  }, [bpm, drumBars, presetId, selected, visible])
+  const persist = useCallback(
+    async (next: FactoryLibrary, stayId: string | null, success: string) => {
+      setSaving(true)
+      setError(null)
+      setNotice(null)
+      const result = await saveFactoryLibrary({ ...next, updatedAt: new Date().toISOString() })
+      setSaving(false)
+      if (!result.ok) {
+        setError(result.error)
+        return false
+      }
+      const hydrated = cloneFactoryLibrary(result.library)
+      setLibrary(hydrated)
+      setSavedJson(JSON.stringify(hydrated))
+      if (stayId) {
+        if (!loadBeat(stayId, hydrated)) {
+          setPresetId(stayId)
+          setUserBeatId(null)
+          setDraftNew(false)
+        }
+      }
+      setNotice(success)
+      setPrompt(null)
+      return true
+    },
+    [loadBeat, setDraftNew, setPresetId, setUserBeatId],
+  )
 
-  const onName = (name: string) => {
+  const onName = (nextName: string) => {
     if (!selected) return
-    setLibrary(replaceFactoryBeat(library, { ...selected.beat, name }))
+    setLibrary(replaceFactoryBeat(library, { ...selected.beat, name: nextName.trim().slice(0, 40) || selected.beat.name }))
   }
 
   const onStyle = (styleId: RhythmStyleId) => {
@@ -126,28 +164,33 @@ export function useFactoryEditor({
     setDraftNew(false)
   }
 
-  const onDelete = () => {
+  const onDelete = async () => {
     if (!presetId) return
     const next = deleteFactoryBeat(library, presetId)
-    setLibrary(next)
     const fallback = next.styles.flatMap((style) => style.beats)[0]
-    if (fallback) loadBeat(fallback.id, next)
-    else {
-      setPresetId(null)
-    }
+    await persist(next, fallback?.id ?? null, 'Deleted')
+    if (!fallback) setPresetId(null)
   }
 
-  const onSave = async () => {
-    setSaving(true)
-    setError(null)
-    const result = await saveFactoryLibrary({ ...library, updatedAt: new Date().toISOString() })
-    setSaving(false)
-    if (!result.ok) {
-      setError(result.error)
+  const onSaveDefault = async () => {
+    if (!selected) {
+      setError('Load a factory beat to overwrite, or use Save as new.')
       return
     }
-    setLibrary(cloneFactoryLibrary(result.library))
-    setSavedJson(JSON.stringify(result.library))
+    const nextBeat = beatFromPattern(selected.beat.id, selected.beat.name, bpm, drumBars, selected.beat.blurb)
+    const next = replaceFactoryBeat(library, nextBeat)
+    await persist(next, nextBeat.id, `Saved ${nextBeat.name}`)
+  }
+
+  const onSaveAsNew = async (nextName: string, styleId: RhythmStyleId) => {
+    const beat = beatFromPattern(newFactoryBeatId(), nextName, bpm, drumBars)
+    const next = upsertFactoryBeat(library, styleId, beat)
+    await persist(next, beat.id, `Saved ${beat.name}`)
+  }
+
+  const onRename = (nextName: string) => {
+    onName(nextName)
+    setPrompt(null)
   }
 
   const openHistory = async () => {
@@ -164,27 +207,34 @@ export function useFactoryEditor({
     setLibrary(cloneFactoryLibrary(result.library))
     setSavedJson(JSON.stringify(result.library))
     setHistoryOpen(false)
+    setNotice('Restored')
     if (presetId && findFactoryBeat(result.library, presetId)) loadBeat(presetId, result.library)
   }
 
   return {
     visible,
     library,
-    name: selected?.beat.name ?? '',
+    name,
     styleId: (selected?.style.id ?? 'rock') as RhythmStyleId,
     dirty,
+    canSaveDefault,
     saving,
     error,
+    notice,
+    prompt,
     historyOpen,
     versions,
     setHistoryOpen,
+    setPrompt,
     setAdmin,
     onName,
     onStyle,
     onMove,
     onNew,
     onDelete,
-    onSave,
+    onSaveDefault,
+    onSaveAsNew,
+    onRename,
     openHistory,
     onRestore,
   }

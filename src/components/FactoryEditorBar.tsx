@@ -13,40 +13,51 @@ export function FactoryEditorBar({
   name,
   styleId,
   dirty,
+  canSaveDefault,
   saving,
   error,
-  onName,
+  notice,
+  displayName,
   onStyle,
   onMove,
   onNew,
   onDelete,
-  onSave,
+  onSaveDefault,
   onHistory,
   onSignOut,
+  onOpenSaveNew,
+  onOpenRename,
 }: {
   library: FactoryLibrary
   selectedId: string | null
   name: string
   styleId: RhythmStyleId
   dirty: boolean
+  canSaveDefault: boolean
   saving: boolean
   error: string | null
-  onName: (name: string) => void
+  notice: string | null
+  displayName: string
   onStyle: (styleId: RhythmStyleId) => void
   onMove: (delta: number) => void
   onNew: () => void
   onDelete: () => void
-  onSave: () => void
+  onSaveDefault: () => void
   onHistory: () => void
   onSignOut: () => void
+  onOpenSaveNew: () => void
+  onOpenRename: () => void
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const style = library.styles.find((item) => item.id === styleId)
   const index = style?.beats.findIndex((beat) => beat.id === selectedId) ?? -1
+  const shownName = name || displayName || 'Custom beat'
 
   return (
     <section
       data-factory-bar
+      data-factory-dirty={dirty ? 'true' : 'false'}
+      data-factory-name-value={shownName}
       className="mb-3 rounded-2xl border border-[#A855F7]/40 bg-[#A855F7]/12 px-3 py-2.5"
     >
       <div className="flex items-center justify-between gap-2">
@@ -62,13 +73,18 @@ export function FactoryEditorBar({
           Sign out
         </button>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <input
-          data-factory-name
-          value={name}
-          onChange={(event) => onName(event.target.value)}
-          className="h-8 min-w-0 flex-1 rounded-lg border border-white/10 bg-[#0B0F1A] px-2 text-sm font-semibold text-white outline-none focus:border-[#A855F7]"
-        />
+      <div className="mt-1.5 flex items-baseline justify-between gap-2">
+        <p data-factory-current-name className="min-w-0 truncate text-sm font-semibold text-white">
+          {shownName}
+        </p>
+        <p
+          data-factory-unsaved={dirty ? 'true' : 'false'}
+          className={cn('shrink-0 text-[0.65rem] font-semibold', dirty ? 'text-[#F5D0FE]' : 'text-slate-500')}
+        >
+          {dirty ? 'Unsaved changes' : 'Saved'}
+        </p>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <select
           data-factory-style
           value={styleId}
@@ -81,8 +97,6 @@ export function FactoryEditorBar({
             </option>
           ))}
         </select>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <IconBtn label="Move up" onClick={() => onMove(-1)} disabled={index <= 0}>
           <ChevronUp className="size-4" />
         </IconBtn>
@@ -105,24 +119,53 @@ export function FactoryEditorBar({
             Delete this beat?
           </button>
         ) : (
-          <IconBtn label="Delete factory beat" onClick={() => setConfirmDelete(true)}>
+          <IconBtn label="Delete factory beat" onClick={() => setConfirmDelete(true)} disabled={!canSaveDefault}>
             <Trash2 className="size-4" />
           </IconBtn>
         )}
         <IconBtn label="Version history" onClick={onHistory}>
           <History className="size-4" />
         </IconBtn>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          data-factory-rename
+          disabled={!canSaveDefault}
+          onClick={onOpenRename}
+          className="h-8 px-2.5 text-xs"
+        >
+          Rename
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          data-factory-save-as-new
+          disabled={saving}
+          onClick={onOpenSaveNew}
+          className="h-8 px-2.5 text-xs"
+        >
+          Save as new
+        </Button>
         <Button
           type="button"
           size="sm"
           data-factory-save
-          disabled={saving || !dirty}
-          onClick={onSave}
+          disabled={saving || !canSaveDefault}
+          onClick={onSaveDefault}
           className="ml-auto h-8 px-2.5 text-xs"
         >
           {saving ? 'Saving…' : 'Save as default'}
         </Button>
       </div>
+      {notice ? (
+        <p data-factory-notice className="mt-2 text-xs font-semibold text-emerald-300">
+          {notice}
+        </p>
+      ) : null}
       {error ? <p className="mt-2 text-xs text-red-300">{error}</p> : null}
     </section>
   )
@@ -152,6 +195,85 @@ function IconBtn({
     >
       {children}
     </button>
+  )
+}
+
+export function FactoryNameSheet({
+  mode,
+  name,
+  styleId,
+  saving,
+  onClose,
+  onSubmit,
+}: {
+  mode: 'save-new' | 'rename'
+  name: string
+  styleId: RhythmStyleId
+  saving: boolean
+  onClose: () => void
+  onSubmit: (name: string, styleId: RhythmStyleId) => void
+}) {
+  const [draftName, setDraftName] = useState(name)
+  const [draftStyle, setDraftStyle] = useState(styleId)
+  const title = mode === 'save-new' ? 'Save as new factory beat' : 'Rename factory beat'
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 p-4 sm:items-center">
+      <form
+        role="dialog"
+        aria-labelledby="factory-name-title"
+        data-factory-name-dialog={mode}
+        className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0F1422] p-5"
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (!draftName.trim()) return
+          onSubmit(draftName.trim(), draftStyle)
+        }}
+      >
+        <h2 id="factory-name-title" className="text-xl font-bold tracking-tight text-white">
+          {title}
+        </h2>
+        <p className="mt-1 text-sm text-slate-400">
+          {mode === 'save-new'
+            ? 'Adds a new built-in beat with the current pattern. The one you loaded stays as it was last saved.'
+            : 'Changes the name of this factory beat. It keeps the same id.'}
+        </p>
+        <label className="mt-4 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Name
+          <input
+            autoFocus
+            value={draftName}
+            maxLength={40}
+            placeholder="Name this beat"
+            data-factory-name-input
+            onChange={(event) => setDraftName(event.target.value)}
+            className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-semibold text-white outline-none focus:border-[#A855F7]"
+          />
+        </label>
+        {mode === 'save-new' ? (
+          <label className="mt-3 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Style
+            <select
+              data-factory-new-style
+              value={draftStyle}
+              onChange={(event) => setDraftStyle(event.target.value as RhythmStyleId)}
+              className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-semibold text-white"
+            >
+              {FACTORY_STYLE_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {findStyle(id)?.name ?? id}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <Button type="submit" className="mt-4 w-full" disabled={saving || !draftName.trim()} data-factory-name-confirm>
+          {mode === 'save-new' ? 'Save as new' : 'Rename'}
+        </Button>
+        <Button type="button" variant="outline" className="mt-2 w-full" onClick={onClose}>
+          Cancel
+        </Button>
+      </form>
+    </div>
   )
 }
 

@@ -8,8 +8,8 @@ import { InputPicker } from '@/components/tuner/InputPicker'
 import { APP_COPYRIGHT, APP_NAME, APP_VERSION } from '@/lib/app-info'
 import { layoutModeLabel, loadTunerPrefs, patchTunerPrefs, type TunerLayoutMode } from '@/lib/custom-presets'
 import { loadMidiMap, saveMidiMap, type MidiNoteMap } from '@/lib/midi-map'
-import { CLICK_SOUND_LABELS, CLICK_SOUNDS, type ClickSoundId } from '@/lib/rhythm'
-import { getOrCreateRhythmKit } from '@/lib/rhythm-audio'
+import { ClickSoundPicker } from '@/components/rhythm/ClickSoundPicker'
+import { type ClickSoundId } from '@/lib/rhythm'
 import { loadRhythmPrefs, patchRhythmPrefs } from '@/lib/rhythm-prefs'
 import { cn } from '@/lib/utils'
 
@@ -124,30 +124,16 @@ function ClickSettings() {
   return (
     <div className="space-y-3" data-settings-panel="click">
       <p className="text-sm leading-5 text-slate-400">
-        Wood, Clave, Digital, or Mechanical. This is the sound Play uses on Click, and the guide
-        click while you record.
+        Wood, Clave, Digital, or Mechanical. Same picker as on the Click page — the sound Play uses
+        on Click, and the guide click while you record.
       </p>
-      <div className="grid grid-cols-2 gap-2" data-section="click-sound">
-        {CLICK_SOUNDS.map((id) => (
-          <button
-            key={id}
-            type="button"
-            data-click-sound={id}
-            aria-pressed={sound === id}
-            onClick={() => {
-              setSound(id)
-              patchRhythmPrefs({ clickSound: id })
-              getOrCreateRhythmKit()?.previewClick(id)
-            }}
-            className={cn(
-              'h-11 rounded-xl text-sm font-semibold',
-              sound === id ? 'bg-[#A855F7] text-white' : 'border border-white/10 bg-[#141A28] text-slate-200',
-            )}
-          >
-            {CLICK_SOUND_LABELS[id]}
-          </button>
-        ))}
-      </div>
+      <ClickSoundPicker
+        value={sound}
+        onChange={(id) => {
+          setSound(id)
+          patchRhythmPrefs({ clickSound: id })
+        }}
+      />
     </div>
   )
 }
@@ -185,8 +171,8 @@ function SpeedBuilderSettings() {
   return (
     <div className="space-y-3" data-settings-panel="speed-builder">
       <p className="text-sm leading-5 text-slate-400">
-        From / To / Step / Repeats stay on the Click and Drums tempo card so you can change them
-        while you practice. These two switches are the set-and-forget options.
+        From / To / Step / Repeats stay on the Click and Drums tempo card. Announce and Precount
+        are on that same panel; these switches are a duplicate.
       </p>
       <SettingRow label="Announce" hint="Speak the new percent when Speed Builder steps.">
         <SettingSwitch label="Announce" on={announce} onChange={(value) => patch({ announce: value })} />
@@ -209,8 +195,8 @@ function AudioSettings() {
         the tempo wheel. It is a live mix control, not a buried preference.
       </p>
       <p>
-        Kit mix and Intensity stay under the drum grid. Click sound lives under Click in this
-        Settings screen.
+        Kit mix and Intensity stay under the drum grid. Click sound lives on the Click page, with
+        a copy here.
       </p>
     </div>
   )

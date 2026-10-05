@@ -4,6 +4,7 @@ import { BpmWheel } from '@/components/rhythm/BpmWheel'
 import { VolumeFader } from '@/components/rhythm/KitFaders'
 import { SpeedBuilderPanel } from '@/components/rhythm/SpeedBuilderPanel'
 import { Button } from '@/components/ui/button'
+import { type RhythmMode } from '@/lib/rhythm'
 import { type SpeedBuilder } from '@/lib/speed-builder'
 import { activateOnPointer } from '@/lib/utils'
 
@@ -11,6 +12,7 @@ export function RhythmTempoCard({
   bpm,
   liveBpm,
   playing,
+  mode,
   speedBuilder,
   volumeDb,
   onSpeedBuilder,
@@ -22,6 +24,7 @@ export function RhythmTempoCard({
   bpm: number
   liveBpm: number
   playing: boolean
+  mode: RhythmMode
   speedBuilder: SpeedBuilder
   volumeDb: number
   onSpeedBuilder: (next: SpeedBuilder) => void
@@ -40,7 +43,12 @@ export function RhythmTempoCard({
       <div className="grid grid-cols-[minmax(0,1fr)_9.25rem] items-start gap-x-1.5 gap-y-1.5 pt-6 pr-7 pb-2 sm:gap-x-2 sm:pt-5 sm:pr-8">
         <div className="flex min-w-0 items-stretch">
           <div className="w-max min-w-0 max-w-[calc(100%-2.6rem)]">
-            <SpeedBuilderPanel value={speedBuilder} baseBpm={bpm} onChange={onSpeedBuilder} />
+            <SpeedBuilderPanel
+              value={speedBuilder}
+              baseBpm={bpm}
+              onChange={onSpeedBuilder}
+              precountAlways={mode === 'drums'}
+            />
           </div>
           <div className="relative z-20 ml-2 flex min-w-[2.15rem] flex-1 items-stretch justify-end self-stretch pr-0.5 sm:ml-3">
             <VolumeFader db={volumeDb} onChange={onVolume} />
