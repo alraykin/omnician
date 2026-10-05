@@ -55,6 +55,9 @@ function readSlot(
   return { voice: voice as VoiceId, beat, slot, filled }
 }
 
+/** 12px filled dots sit ~3px in from the slot’s left edge so they don’t clip. */
+const HIT_INSET_PX = 3
+
 function HitDot({
   soft,
   className,
@@ -67,6 +70,7 @@ function HitDot({
   return (
     <span
       data-hit-dot
+      data-hit-align="start"
       data-soft={soft ? '1' : '0'}
       className={cn(
         'size-3 shrink-0 rounded-full',
@@ -241,10 +245,17 @@ export const DrumGrid = memo(function DrumGrid({
     >
       <div className="grid w-full min-w-0 grid-cols-[4rem_minmax(0,1fr)] gap-x-1 gap-y-1 sm:grid-cols-[4.4rem_minmax(0,1fr)] md:grid-cols-[5.1rem_minmax(0,1fr)]">
         <div aria-hidden />
-        <div className="mb-0.5 flex min-w-0 items-center gap-1 text-[0.6rem] font-semibold uppercase tracking-wider text-slate-500">
+        <div
+          data-beat-labels
+          className="mb-0.5 flex min-w-0 items-center gap-1 text-[0.6rem] font-semibold uppercase tracking-wider text-slate-500"
+        >
           {Array.from({ length: beats }, (_, beat) => (
-            <span key={`beat-${beat}`} className="min-w-0 flex-1 text-center">
-              {beat + 1}
+            <span
+              key={`beat-${beat}`}
+              data-beat-label={beat + 1}
+              className="min-w-0 flex-1 border border-transparent px-0.5 text-left tabular-nums"
+            >
+              <span className="block pl-[3px]">{beat + 1}</span>
             </span>
           ))}
         </div>
@@ -307,8 +318,8 @@ export const DrumGrid = memo(function DrumGrid({
                             <HitDot
                               key={frac}
                               soft={view.dotsSoft[index] === true}
-                              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
-                              style={{ left: `${frac * 100}%` }}
+                              className="absolute top-1/2 -translate-y-1/2"
+                              style={{ left: `calc(${frac * 100}% + ${HIT_INSET_PX}px)` }}
                             />
                           ))}
                         </div>
@@ -321,7 +332,7 @@ export const DrumGrid = memo(function DrumGrid({
                               data-filled={slot.filled ? '1' : '0'}
                               data-soft={slot.soft ? '1' : '0'}
                               className={cn(
-                                'flex h-5 min-w-0 flex-1 items-center justify-center rounded-md border border-dashed sm:h-6 md:h-7 wide:!h-5',
+                                'flex h-5 min-w-0 flex-1 items-center justify-start rounded-md border border-dashed pl-[3px] sm:h-6 md:h-7 wide:!h-5',
                                 view.empty || !slot.filled
                                   ? 'border-white/18 bg-transparent'
                                   : 'border-white/10 bg-transparent',

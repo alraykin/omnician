@@ -62,8 +62,15 @@ assert.equal(beatBoxView(example.pattern.floorTom, 3, 4).triplet, true)
 
 const gridSrc = readFileSync(new URL('../src/components/rhythm/DrumGrid.tsx', import.meta.url), 'utf8')
 assert.match(gridSrc, /data-hit-dot/)
+assert.match(gridSrc, /data-hit-align="start"/)
 assert.match(gridSrc, /size-3 shrink-0 rounded-full/)
 assert.match(gridSrc, /bg-\[#6D28D9\]\/50/)
+assert.match(gridSrc, /justify-start/)
+assert.match(gridSrc, /pl-\[3px\]/)
+assert.match(gridSrc, /data-beat-label/)
+assert.match(gridSrc, /text-left tabular-nums/)
+assert.doesNotMatch(gridSrc, /justify-center/)
+assert.doesNotMatch(gridSrc, /text-center/)
 
 console.log('beat-boxes: ok')
 
