@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import {
   beatBoxView,
@@ -58,6 +59,13 @@ assert.equal(beatBoxView(example.pattern.kick, 2, 4).division, 4)
 assert.equal(beatBoxView(example.pattern.highTom, 3, 4).division, 1)
 assert.equal(beatBoxView(example.pattern.midTom, 3, 4).triplet, true)
 assert.equal(beatBoxView(example.pattern.floorTom, 3, 4).triplet, true)
+
+const gridSrc = readFileSync(new URL('../src/components/rhythm/DrumGrid.tsx', import.meta.url), 'utf8')
+assert.match(gridSrc, /data-hit-dot/)
+assert.match(gridSrc, /size-3 shrink-0 rounded-full/)
+assert.match(gridSrc, /bg-\[#6D28D9\]\/50/)
+
+console.log('beat-boxes: ok')
 
 const times = exampleBarHitSeconds(120)
 const kick = times.filter((item) => item.voice === 'kick').map((item) => item.sec)

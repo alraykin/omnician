@@ -55,6 +55,29 @@ function readSlot(
   return { voice: voice as VoiceId, beat, slot, filled }
 }
 
+function HitDot({
+  soft,
+  className,
+  style,
+}: {
+  soft: boolean
+  className?: string
+  style?: { left: string }
+}) {
+  return (
+    <span
+      data-hit-dot
+      data-soft={soft ? '1' : '0'}
+      className={cn(
+        'size-3 shrink-0 rounded-full',
+        soft ? 'bg-[#6D28D9]/50' : 'bg-[#A855F7]',
+        className,
+      )}
+      style={style}
+    />
+  )
+}
+
 function slotFromPoint(x: number, y: number, input: InputDivision) {
   return readSlot(document.elementFromPoint(x, y), x, input)
 }
@@ -281,12 +304,10 @@ export const DrumGrid = memo(function DrumGrid({
                       {view.dots ? (
                         <div className="relative h-5 w-full sm:h-6 md:h-7 wide:!h-5">
                           {view.dotsAt.map((frac, index) => (
-                            <span
+                            <HitDot
                               key={frac}
-                              className={cn(
-                                'absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full',
-                                view.dotsSoft[index] ? 'bg-[#A855F7]/55' : 'bg-[#A855F7]',
-                              )}
+                              soft={view.dotsSoft[index] === true}
+                              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
                               style={{ left: `${frac * 100}%` }}
                             />
                           ))}
@@ -300,17 +321,14 @@ export const DrumGrid = memo(function DrumGrid({
                               data-filled={slot.filled ? '1' : '0'}
                               data-soft={slot.soft ? '1' : '0'}
                               className={cn(
-                                'h-5 min-w-0 flex-1 sm:h-6 md:h-7 wide:!h-5',
-                                view.division === 1 ? 'rounded-md' : 'rounded-full',
-                                slot.filled
-                                  ? slot.soft
-                                    ? 'bg-[#A855F7]/55'
-                                    : 'bg-[#A855F7]'
-                                  : view.empty
-                                    ? 'border border-dashed border-white/18 bg-transparent'
-                                    : 'bg-white/8',
+                                'flex h-5 min-w-0 flex-1 items-center justify-center rounded-md border border-dashed sm:h-6 md:h-7 wide:!h-5',
+                                view.empty || !slot.filled
+                                  ? 'border-white/18 bg-transparent'
+                                  : 'border-white/10 bg-transparent',
                               )}
-                            />
+                            >
+                              {slot.filled ? <HitDot soft={slot.soft} /> : null}
+                            </span>
                           ))}
                         </div>
                       )}
