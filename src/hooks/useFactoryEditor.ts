@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   cloneFactoryLibrary,
@@ -61,6 +61,8 @@ export function useFactoryEditor({
   const [prompt, setPrompt] = useState<null | 'save-new' | 'rename'>(null)
   const [versions, setVersions] = useState<Array<{ id: string; savedAt: string; beatCount: number }>>([])
   const [canUndo, setCanUndo] = useState(false)
+  const libraryRef = useRef(library)
+  libraryRef.current = library
 
   const selected = presetId ? findFactoryBeat(library, presetId) : null
   const savedLibrary = useMemo(() => (savedJson ? parseFactoryLibraryJson(savedJson) : null), [savedJson])
@@ -158,13 +160,14 @@ export function useFactoryEditor({
   }
 
   const onReorder = (styleId: RhythmStyleId, beatId: string, toIndex: number) => {
-    const current = findFactoryBeat(library, beatId)
+    const currentLibrary = libraryRef.current
+    const current = findFactoryBeat(currentLibrary, beatId)
     if (!current || current.style.id !== styleId) return
     if (current.index === toIndex) return
-    commitLibrary(
-      moveFactoryBeat(library, beatId, styleId, toIndex),
-      'Moved — Save as default to publish this order.',
-    )
+    const next = moveFactoryBeat(currentLibrary, beatId, styleId, toIndex)
+    libraryRef.current = next
+    commitLibrary(next)
+    void persist(next, presetId, 'Saved order')
   }
 
   const onNew = () => {

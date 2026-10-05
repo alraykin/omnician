@@ -1365,6 +1365,9 @@ export function RhythmPage() {
           selectedUserId={userBeatId}
           userBeats={userBeats}
           factoryReorder={factory.visible}
+          factorySaving={factory.saving}
+          factoryNotice={factory.notice}
+          factoryError={factory.error}
           onReorder={factory.visible ? factory.onReorder : undefined}
           onClose={() => setPickerOpen(false)}
           onSelect={loadPreset}
@@ -1643,6 +1646,9 @@ function PresetSheet({
   selectedUserId,
   userBeats,
   factoryReorder = false,
+  factorySaving = false,
+  factoryNotice = null,
+  factoryError = null,
   onReorder,
   onClose,
   onSelect,
@@ -1655,6 +1661,9 @@ function PresetSheet({
   selectedUserId: string | null
   userBeats: UserBeat[]
   factoryReorder?: boolean
+  factorySaving?: boolean
+  factoryNotice?: string | null
+  factoryError?: string | null
   onReorder?: (styleId: RhythmStyleId, beatId: string, toIndex: number) => void
   onClose: () => void
   onSelect: (id: string) => void
@@ -1684,7 +1693,20 @@ function PresetSheet({
         </h2>
         {factoryReorder ? (
           <p className="mt-1 text-sm text-slate-400">
-            Drag a groove within its style to change the menu order. Then Save as default to publish it.
+            Drag a groove within its style to change the menu order. That order is saved as default for everyone.
+          </p>
+        ) : null}
+        {factorySaving ? (
+          <p data-factory-picker-notice className="mt-2 text-sm font-semibold text-[#E9D5FF]">
+            Saving order…
+          </p>
+        ) : factoryNotice ? (
+          <p data-factory-picker-notice className="mt-2 text-sm font-semibold text-emerald-300">
+            {factoryNotice}
+          </p>
+        ) : factoryError ? (
+          <p data-factory-picker-notice className="mt-2 text-sm text-red-300">
+            {factoryError}
           </p>
         ) : null}
         <MyBeatsSection

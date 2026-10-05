@@ -166,6 +166,8 @@ const rhythmSrc = readFileSync(new URL('../src/pages/RhythmPage.tsx', import.met
 assert.match(rhythmSrc, /data-factory-reorder/)
 assert.match(rhythmSrc, /data-factory-grip/)
 assert.match(rhythmSrc, /onReorder/)
+assert.match(rhythmSrc, /data-factory-picker-notice/)
+assert.match(readFileSync(new URL('../src/hooks/useFactoryEditor.ts', import.meta.url), 'utf8'), /Saved order/)
 const meterFn = rhythmSrc.slice(rhythmSrc.indexOf('const setMeter'), rhythmSrc.indexOf('const setSubdivision'))
 assert.equal(meterFn.includes('setPresetId(null)'), false)
 
