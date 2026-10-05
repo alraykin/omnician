@@ -52,8 +52,8 @@ export function fitsDivision(hits: readonly HitPos[], division: number): boolean
 }
 
 /**
- * Coarsest exact slot count for this beat. Empty → 0 (caller uses Input).
- * Mixed 16ths + triplets → 12. Anything else (5, 7, off-grid) → -1 (dots).
+ * Coarsest exact slot count for this beat (snap / MIDI, not grid display).
+ * Empty → 0. Mixed 16ths + triplets → 12. Anything else (5, 7, off-grid) → -1.
  */
 export function coarsestDivision(hits: readonly HitPos[]): number {
   if (hits.length === 0) return 0
@@ -106,61 +106,37 @@ export function beatBoxView(
   input: InputDivision,
 ): BeatBoxView {
   const inBeat = hitsInBeat(hits, beat)
-  const exact = coarsestDivision(inBeat)
-  if (exact === 0) {
-    return {
-      beat,
-      division: input,
-      empty: true,
-      triplet: isTripletDivision(input),
-      dots: false,
-      slots: Array.from({ length: input }, (_, slot) => ({
-        slot,
-        filled: false,
-        soft: false,
-        start: slot / input,
-        end: (slot + 1) / input,
-      })),
-      dotsAt: [],
-      dotsSoft: [],
-    }
-  }
-  if (exact < 0) {
-    return {
-      beat,
-      division: 0,
-      empty: false,
-      triplet: false,
-      dots: true,
-      slots: [],
-      dotsAt: inBeat.map((hit) => hit.num / hit.den).filter((frac) => frac >= 0 && frac < 1),
-      dotsSoft: inBeat.filter((hit) => hit.num / hit.den >= 0 && hit.num / hit.den < 1).map(isHitSoft),
-    }
-  }
   const filled = new Set(
-    inBeat.map((hit) => hitSlot(hit, exact)).filter((slot): slot is number => slot !== null),
+    inBeat.map((hit) => hitSlot(hit, input)).filter((slot): slot is number => slot !== null),
   )
   const soft = new Set(
     inBeat
       .filter(isHitSoft)
-      .map((hit) => hitSlot(hit, exact))
+      .map((hit) => hitSlot(hit, input))
       .filter((slot): slot is number => slot !== null),
   )
+  const offGrid = inBeat.filter((hit) => hitSlot(hit, input) === null)
+  const dotsAt = offGrid
+    .map((hit) => hit.num / hit.den)
+    .filter((frac) => frac >= 0 && frac < 1)
+  const dotsSoft = offGrid
+    .filter((hit) => hit.num / hit.den >= 0 && hit.num / hit.den < 1)
+    .map(isHitSoft)
   return {
     beat,
-    division: exact,
-    empty: false,
-    triplet: isTripletDivision(exact),
-    dots: false,
-    slots: Array.from({ length: exact }, (_, slot) => ({
+    division: input,
+    empty: inBeat.length === 0,
+    triplet: isTripletDivision(input),
+    dots: dotsAt.length > 0,
+    slots: Array.from({ length: input }, (_, slot) => ({
       slot,
       filled: filled.has(slot),
       soft: soft.has(slot),
-      start: slot / exact,
-      end: (slot + 1) / exact,
+      start: slot / input,
+      end: (slot + 1) / input,
     })),
-    dotsAt: [],
-    dotsSoft: [],
+    dotsAt,
+    dotsSoft,
   }
 }
 

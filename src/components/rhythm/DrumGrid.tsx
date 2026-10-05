@@ -312,37 +312,34 @@ export const DrumGrid = memo(function DrumGrid({
                           : 'border border-white/8 bg-white/[0.03]',
                       )}
                     >
-                      {view.dots ? (
-                        <div className="relative h-5 w-full sm:h-6 md:h-7 wide:!h-5">
-                          {view.dotsAt.map((frac, index) => (
-                            <HitDot
-                              key={frac}
-                              soft={view.dotsSoft[index] === true}
-                              className="absolute top-1/2 -translate-y-1/2"
-                              style={{ left: `calc(${frac * 100}% + ${HIT_INSET_PX}px)` }}
-                            />
-                          ))}
-                        </div>
-                      ) : (
-                        <div className={cn('flex w-full min-w-0', view.division === 1 ? 'gap-0' : 'gap-0.5')}>
-                          {view.slots.map((slot) => (
-                            <span
-                              key={slot.slot}
-                              data-box-slot={slot.slot}
-                              data-filled={slot.filled ? '1' : '0'}
-                              data-soft={slot.soft ? '1' : '0'}
-                              className={cn(
-                                'flex h-5 min-w-0 flex-1 items-center justify-start rounded-md border border-dashed pl-[3px] sm:h-6 md:h-7 wide:!h-5',
-                                view.empty || !slot.filled
-                                  ? 'border-white/18 bg-transparent'
-                                  : 'border-white/10 bg-transparent',
-                              )}
-                            >
-                              {slot.filled ? <HitDot soft={slot.soft} /> : null}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <div className="relative flex w-full min-w-0 gap-0.5">
+                        {view.slots.map((slot) => (
+                          <span
+                            key={slot.slot}
+                            data-box-slot={slot.slot}
+                            data-filled={slot.filled ? '1' : '0'}
+                            data-soft={slot.soft ? '1' : '0'}
+                            className={cn(
+                              'flex h-5 min-w-0 flex-1 items-center justify-start rounded-md border border-dashed pl-[3px] sm:h-6 md:h-7 wide:!h-5',
+                              view.empty || !slot.filled
+                                ? 'border-white/18 bg-transparent'
+                                : 'border-white/10 bg-transparent',
+                            )}
+                          >
+                            {slot.filled ? <HitDot soft={slot.soft} /> : null}
+                          </span>
+                        ))}
+                        {view.dots
+                          ? view.dotsAt.map((frac, index) => (
+                              <HitDot
+                                key={`off-${frac}`}
+                                soft={view.dotsSoft[index] === true}
+                                className="pointer-events-none absolute top-1/2 -translate-y-1/2"
+                                style={{ left: `calc(${frac * 100}% + ${HIT_INSET_PX}px)` }}
+                              />
+                            ))
+                          : null}
+                      </div>
                     </div>
                   )
                 })}
