@@ -73,8 +73,11 @@ export function inputSlotFromX(x: number, width: number, input: InputDivision): 
   return Math.min(input - 1, Math.max(0, slot))
 }
 
-/** Beats 1–6 stay on the first Kick→China block; 7+ start another full kit underneath. */
-export const KIT_BLOCK_BEATS = 6
+/** Split the kit when a slot would drop under this width, or when a bar has more than 6 beats. */
+export const SLOT_MIN_PX = 28
+export const KIT_MAX_BEATS = 6
+export const BEAT_GAP_PX = 4
+const BEAT_CHROME_PX = 8
 
 export type KitBeatBlock = {
   index: number
@@ -82,19 +85,58 @@ export type KitBeatBlock = {
   count: number
 }
 
-export function kitBeatBlocks(beats: number): KitBeatBlock[] {
+export function approxSlotWidthPx(
+  trackPx: number,
+  beatsPerRow: number,
+  input: InputDivision,
+  beatGapPx = BEAT_GAP_PX,
+): number {
+  if (beatsPerRow < 1 || trackPx <= 0 || input < 1) return 0
+  const beatW = (trackPx - beatGapPx * Math.max(0, beatsPerRow - 1)) / beatsPerRow
+  const slotGaps = 2 * Math.max(0, input - 1)
+  return (beatW - BEAT_CHROME_PX - slotGaps) / input
+}
+
+export function kitRowCount(opts: {
+  beats: number
+  input: InputDivision
+  trackPx: number
+}): number {
+  const n = Math.max(1, Math.floor(opts.beats) || 1)
+  const oneRow = approxSlotWidthPx(opts.trackPx, n, opts.input)
+  if (n <= KIT_MAX_BEATS && oneRow >= SLOT_MIN_PX) return 1
+  return Math.max(2, Math.ceil(n / KIT_MAX_BEATS))
+}
+
+/** Spread beats across rows so 6 → 3+3, 8 → 4+4, 5 → 3+2 — never a single leftover. */
+export function evenBeatChunks(beats: number, rows: number): KitBeatBlock[] {
   const n = Math.max(1, Math.floor(beats) || 1)
+  const r = Math.max(1, Math.min(n, Math.floor(rows) || 1))
+  const base = Math.floor(n / r)
+  const extra = n % r
   const blocks: KitBeatBlock[] = []
-  for (let start = 0, index = 0; start < n; start += KIT_BLOCK_BEATS, index += 1) {
-    blocks.push({ index, start, count: Math.min(KIT_BLOCK_BEATS, n - start) })
+  let start = 0
+  for (let i = 0; i < r; i += 1) {
+    const count = base + (i < extra ? 1 : 0)
+    if (count < 1) continue
+    blocks.push({ index: blocks.length, start, count })
+    start += count
   }
   return blocks
 }
 
-/** Column count so a leftover 7th beat keeps the same width as beats 1–6. */
-export function kitBlockColumns(beats: number): number {
-  const n = Math.max(1, Math.floor(beats) || 1)
-  return Math.min(n, KIT_BLOCK_BEATS)
+export function kitBeatBlocks(opts: {
+  beats: number
+  input: InputDivision
+  trackPx: number
+}): KitBeatBlock[] {
+  const n = Math.max(1, Math.floor(opts.beats) || 1)
+  return evenBeatChunks(n, kitRowCount({ beats: n, input: opts.input, trackPx: opts.trackPx }))
+}
+
+/** Shared column count so a shorter second block keeps the same beat width (left-aligned). */
+export function kitBlockColumns(blocks: readonly KitBeatBlock[]): number {
+  return Math.max(1, ...blocks.map((block) => block.count))
 }
 
 export function hitForInputSlot(beat: number, slot: number, input: InputDivision): HitPos {

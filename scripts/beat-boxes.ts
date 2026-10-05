@@ -7,9 +7,12 @@ import {
   exampleBarHitSeconds,
   hitForInputSlot,
   hitFromBarOffset,
+  evenBeatChunks,
   INPUT_CHIPS,
   kitBeatBlocks,
   kitBlockColumns,
+  kitRowCount,
+  SLOT_MIN_PX,
   makeBeatBoxesExampleBar,
   snapBeatFraction,
 } from '../src/lib/beat-boxes.ts'
@@ -115,6 +118,9 @@ assert.doesNotMatch(gridSrc, /view\.division === 1/)
 assert.match(gridSrc, /data-beats-per-row/)
 assert.match(gridSrc, /data-kit-block/)
 assert.match(gridSrc, /data-kit-blocks/)
+assert.match(gridSrc, /data-kit-track/)
+assert.match(gridSrc, /ResizeObserver/)
+assert.match(gridSrc, /kitBeatBlocks\(\{ beats, input, trackPx \}\)/)
 assert.doesNotMatch(gridSrc, /overflow-y-auto/)
 assert.doesNotMatch(gridSrc, /max-h-\[min\(34vh/)
 assert.doesNotMatch(gridSrc, /bg-\[#A855F7\]\/8/)
@@ -129,22 +135,90 @@ assert.match(gridSrc, /data-drum-beat-unit/)
 assert.doesNotMatch(gridSrc, /1\/8T/)
 assert.doesNotMatch(gridSrc, /1\/16T/)
 
-assert.deepEqual(kitBeatBlocks(4), [{ index: 0, start: 0, count: 4 }])
-assert.deepEqual(kitBeatBlocks(6), [{ index: 0, start: 0, count: 6 }])
-assert.deepEqual(kitBeatBlocks(7), [
-  { index: 0, start: 0, count: 6 },
-  { index: 1, start: 6, count: 1 },
+const PHONE = 330
+const DESK = 900
+
+assert.equal(SLOT_MIN_PX, 28)
+assert.deepEqual(evenBeatChunks(6, 2), [
+  { index: 0, start: 0, count: 3 },
+  { index: 1, start: 3, count: 3 },
 ])
-assert.deepEqual(kitBeatBlocks(9), [
-  { index: 0, start: 0, count: 6 },
-  { index: 1, start: 6, count: 3 },
+assert.deepEqual(evenBeatChunks(8, 2), [
+  { index: 0, start: 0, count: 4 },
+  { index: 1, start: 4, count: 4 },
 ])
-assert.equal(kitBeatBlocks(12).length, 2)
-assert.equal(kitBeatBlocks(13).length, 3)
-assert.equal(kitBlockColumns(4), 4)
-assert.equal(kitBlockColumns(6), 6)
-assert.equal(kitBlockColumns(7), 6)
-assert.equal(kitBlockColumns(9), 6)
+assert.deepEqual(evenBeatChunks(5, 2), [
+  { index: 0, start: 0, count: 3 },
+  { index: 1, start: 3, count: 2 },
+])
+assert.deepEqual(evenBeatChunks(7, 2), [
+  { index: 0, start: 0, count: 4 },
+  { index: 1, start: 4, count: 3 },
+])
+assert.deepEqual(evenBeatChunks(13, 3), [
+  { index: 0, start: 0, count: 5 },
+  { index: 1, start: 5, count: 4 },
+  { index: 2, start: 9, count: 4 },
+])
+
+assert.equal(kitRowCount({ beats: 4, input: 2, trackPx: PHONE }), 1)
+assert.equal(kitRowCount({ beats: 4, input: 4, trackPx: PHONE }), 2)
+assert.equal(kitRowCount({ beats: 6, input: 6, trackPx: PHONE }), 2)
+assert.equal(kitRowCount({ beats: 7, input: 2, trackPx: DESK }), 2)
+assert.equal(kitRowCount({ beats: 13, input: 2, trackPx: DESK }), 3)
+
+assert.deepEqual(kitBeatBlocks({ beats: 4, input: 2, trackPx: PHONE }), [
+  { index: 0, start: 0, count: 4 },
+])
+assert.deepEqual(kitBeatBlocks({ beats: 6, input: 2, trackPx: DESK }), [
+  { index: 0, start: 0, count: 6 },
+])
+assert.deepEqual(kitBeatBlocks({ beats: 6, input: 6, trackPx: PHONE }), [
+  { index: 0, start: 0, count: 3 },
+  { index: 1, start: 3, count: 3 },
+])
+assert.deepEqual(kitBeatBlocks({ beats: 4, input: 6, trackPx: PHONE }), [
+  { index: 0, start: 0, count: 2 },
+  { index: 1, start: 2, count: 2 },
+])
+assert.deepEqual(kitBeatBlocks({ beats: 4, input: 4, trackPx: PHONE }), [
+  { index: 0, start: 0, count: 2 },
+  { index: 1, start: 2, count: 2 },
+])
+assert.deepEqual(kitBeatBlocks({ beats: 5, input: 6, trackPx: PHONE }), [
+  { index: 0, start: 0, count: 3 },
+  { index: 1, start: 3, count: 2 },
+])
+assert.deepEqual(kitBeatBlocks({ beats: 7, input: 4, trackPx: DESK }), [
+  { index: 0, start: 0, count: 4 },
+  { index: 1, start: 4, count: 3 },
+])
+assert.deepEqual(kitBeatBlocks({ beats: 8, input: 2, trackPx: DESK }), [
+  { index: 0, start: 0, count: 4 },
+  { index: 1, start: 4, count: 4 },
+])
+assert.deepEqual(kitBeatBlocks({ beats: 9, input: 2, trackPx: DESK }), [
+  { index: 0, start: 0, count: 5 },
+  { index: 1, start: 5, count: 4 },
+])
+assert.equal(kitBeatBlocks({ beats: 12, input: 2, trackPx: DESK }).length, 2)
+assert.equal(kitBeatBlocks({ beats: 13, input: 2, trackPx: DESK }).length, 3)
+assert.equal(
+  kitBlockColumns(kitBeatBlocks({ beats: 4, input: 2, trackPx: PHONE })),
+  4,
+)
+assert.equal(
+  kitBlockColumns(kitBeatBlocks({ beats: 6, input: 6, trackPx: PHONE })),
+  3,
+)
+assert.equal(
+  kitBlockColumns(kitBeatBlocks({ beats: 7, input: 4, trackPx: DESK })),
+  4,
+)
+assert.equal(
+  kitBlockColumns(kitBeatBlocks({ beats: 5, input: 6, trackPx: PHONE })),
+  3,
+)
 
 console.log('beat-boxes: ok')
 

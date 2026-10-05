@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, type PointerEvent, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 
 import { type PlayheadStore } from '@/hooks/useRhythmEngine'
 import {
@@ -263,8 +263,25 @@ export const DrumGrid = memo(function DrumGrid({
   const pendingRef = useRef<PendingPaint | null>(null)
   const holdTimerRef = useRef(0)
   const rootRef = useRef<HTMLDivElement>(null)
-  const blocks = kitBeatBlocks(beats)
-  const columns = kitBlockColumns(beats)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [trackPx, setTrackPx] = useState(() =>
+    typeof window === 'undefined' ? 320 : Math.max(160, window.innerWidth - 96),
+  )
+  const blocks = kitBeatBlocks({ beats, input, trackPx })
+  const columns = kitBlockColumns(blocks)
+
+  useEffect(() => {
+    const node = trackRef.current
+    if (!node) return
+    const apply = () => {
+      const next = Math.max(120, Math.round(node.clientWidth))
+      setTrackPx((prev) => (prev === next ? prev : next))
+    }
+    apply()
+    const ro = new ResizeObserver(apply)
+    ro.observe(node)
+    return () => ro.disconnect()
+  }, [beats, input])
 
   const paintAt = useCallback(
     (voice: VoiceId, beat: number, slot: number, preview: boolean) => {
@@ -362,6 +379,7 @@ export const DrumGrid = memo(function DrumGrid({
       data-kit-blocks={blocks.length}
       data-kit-block-beats={columns}
       data-beats-per-row={columns}
+      data-kit-track-px={trackPx}
       data-beat-wrap={blocks.length > 1 ? '1' : '0'}
       onContextMenu={(event) => event.preventDefault()}
       className={cn(
@@ -409,7 +427,14 @@ export const DrumGrid = memo(function DrumGrid({
         endPaint()
       }}
     >
-      <div className="flex w-full min-w-0 flex-col gap-3">
+      <div className="relative flex w-full min-w-0 flex-col gap-3">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 grid h-0 grid-cols-[3.85rem_minmax(0,1fr)] gap-x-1 sm:grid-cols-[4.4rem_minmax(0,1fr)] md:grid-cols-[5.1rem_minmax(0,1fr)]"
+        >
+          <div />
+          <div ref={trackRef} data-kit-track />
+        </div>
         {blocks.map((block) => (
           <KitBlock
             key={block.index}
