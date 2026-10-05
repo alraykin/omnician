@@ -157,6 +157,7 @@ assert.equal(movedBack.styles.find((style) => style.id === 'rock')!.beats[0]?.id
 
 const barSrc = readFileSync(new URL('../src/components/FactoryEditorBar.tsx', import.meta.url), 'utf8')
 assert.match(barSrc, /data-factory-undo/)
+assert.match(barSrc, />\s*Undo\s*</)
 assert.match(barSrc, /data-factory-history-open/)
 assert.doesNotMatch(barSrc, /Move up/)
 assert.doesNotMatch(barSrc, /Move down/)

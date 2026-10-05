@@ -100,9 +100,20 @@ export function FactoryEditorBar({
             </option>
           ))}
         </select>
-        <IconBtn label="Undo last save" mark="undo" onClick={onUndo} disabled={!canUndo || saving}>
-          <Undo2 className="size-4" />
-        </IconBtn>
+        <button
+          type="button"
+          data-factory-undo
+          aria-label="Undo last save"
+          disabled={!canUndo || saving}
+          onClick={onUndo}
+          className={cn(
+            'inline-flex h-8 items-center gap-1 rounded-lg border border-white/10 bg-[#0B0F1A] px-2.5 text-xs font-semibold text-white',
+            (!canUndo || saving) && 'opacity-40',
+          )}
+        >
+          <Undo2 className="size-3.5" />
+          Undo
+        </button>
         <IconBtn label="New factory beat" onClick={onNew}>
           <Plus className="size-4" />
         </IconBtn>
@@ -180,13 +191,11 @@ function IconBtn({
   label,
   onClick,
   disabled,
-  mark,
   children,
 }: {
   label: string
   onClick: () => void
   disabled?: boolean
-  mark?: 'undo'
   children: ReactNode
 }) {
   return (
@@ -195,7 +204,6 @@ function IconBtn({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      {...(mark === 'undo' ? { 'data-factory-undo': '1' } : {})}
       className={cn(
         'flex size-8 items-center justify-center rounded-lg border border-white/10 bg-[#0B0F1A] text-slate-200',
         disabled && 'opacity-40',
@@ -303,9 +311,11 @@ export function FactoryHistorySheet({
         className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0F1422] p-5"
       >
         <h2 id="factory-history-title" className="text-xl font-bold tracking-tight text-white">
-          Restore previous version
+          Version history
         </h2>
-        <p className="mt-1 text-sm text-slate-400">The last 20 saves are kept on the server.</p>
+        <p className="mt-1 text-sm text-slate-400">
+          Undo on the editor bar steps back one save. Pick an older save here if you need it.
+        </p>
         {versions.length === 0 ? (
           <p className="mt-4 rounded-2xl border border-dashed border-white/10 px-3 py-3 text-sm text-slate-500">
             No previous versions yet. Save as default to create one.
