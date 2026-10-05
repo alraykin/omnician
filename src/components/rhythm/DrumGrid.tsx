@@ -5,6 +5,7 @@ import {
   beatBoxView,
   beatsPerGridRow,
   drumGridIsCompact,
+  INPUT_CHIPS,
   inputSlotFromX,
   type InputDivision,
 } from '@/lib/beat-boxes'
@@ -380,12 +381,7 @@ export const DrumGrid = memo(function DrumGrid({
                       data-triplet={view.triplet ? '1' : '0'}
                       data-dots={view.dots ? '1' : '0'}
                       data-input-filled={filledInput}
-                      className={cn(
-                        'relative flex min-w-0 items-center overflow-hidden rounded-md px-px py-0 sm:rounded-lg sm:py-0.5',
-                        view.triplet
-                          ? 'border border-[#A855F7] bg-[#A855F7]/8'
-                          : 'border border-white/8 bg-white/[0.03]',
-                      )}
+                      className="relative flex min-w-0 items-center overflow-hidden rounded-md border border-white/8 bg-white/[0.03] px-px py-0 sm:rounded-lg sm:py-0.5"
                     >
                       <div className="relative flex w-full min-w-0 gap-0.5">
                         {view.slots.map((slot) => (
@@ -440,12 +436,7 @@ export function DrumInputChips({
       data-section="drum-input"
       className={cn('flex w-full min-w-0 items-center gap-1', className)}
     >
-      {([
-        [2, '1/8'],
-        [4, '1/16'],
-        [3, '1/8T'],
-        [6, '1/16T'],
-      ] as const).map(([id, label]) => (
+      {INPUT_CHIPS.map(({ id, label }) => (
         <button
           key={id}
           type="button"

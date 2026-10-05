@@ -17,13 +17,13 @@ import {
 /** 48 ticks per beat: exact 8ths, 16ths, 8th-triplets, 16th-triplets, and 12-slot mixes. */
 export const TICKS_PER_BEAT = 48
 
-export const INPUT_DIVISIONS = [2, 4, 3, 6] as const
+export const INPUT_DIVISIONS = [2, 3, 4, 6] as const
 export type InputDivision = (typeof INPUT_DIVISIONS)[number]
 
 export const INPUT_CHIPS: ReadonlyArray<{ id: InputDivision; label: string }> = [
   { id: 2, label: '1/8' },
-  { id: 4, label: '1/16' },
   { id: 3, label: '1/8T' },
+  { id: 4, label: '1/16' },
   { id: 6, label: '1/16T' },
 ]
 

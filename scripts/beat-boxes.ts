@@ -10,6 +10,7 @@ import {
   exampleBarHitSeconds,
   hitForInputSlot,
   hitFromBarOffset,
+  INPUT_CHIPS,
   makeBeatBoxesExampleBar,
   maxBeatsForSlotFloor,
   snapBeatFraction,
@@ -117,6 +118,12 @@ assert.match(gridSrc, /data-beats-per-row/)
 assert.match(gridSrc, /data-beat-wrap/)
 assert.doesNotMatch(gridSrc, /overflow-y-auto/)
 assert.doesNotMatch(gridSrc, /max-h-\[min\(34vh/)
+assert.doesNotMatch(gridSrc, /bg-\[#A855F7\]\/8/)
+assert.doesNotMatch(gridSrc, /border-\[#A855F7\]/)
+assert.deepEqual(
+  INPUT_CHIPS.map((chip) => chip.label),
+  ['1/8', '1/8T', '1/16', '1/16T'],
+)
 
 const wrap4 = beatsPerGridRow({ beats: 4, input: 4, trackPx: 330, compact: true })
 assert.equal(wrap4, 4, '4/4 stays one row on phone')
