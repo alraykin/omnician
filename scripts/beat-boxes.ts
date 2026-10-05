@@ -118,11 +118,16 @@ assert.match(gridSrc, /data-kit-blocks/)
 assert.doesNotMatch(gridSrc, /overflow-y-auto/)
 assert.doesNotMatch(gridSrc, /max-h-\[min\(34vh/)
 assert.doesNotMatch(gridSrc, /bg-\[#A855F7\]\/8/)
-assert.doesNotMatch(gridSrc, /border-\[#A855F7\]/)
 assert.deepEqual(
-  INPUT_CHIPS.map((chip) => chip.label),
-  ['1/8', '1/8T', '1/16', '1/16T'],
+  INPUT_CHIPS.map((chip) => chip.id),
+  [2, 3, 4, 6],
 )
+assert.match(gridSrc, /SubdivIcon/)
+assert.match(gridSrc, /subdivisionLabel/)
+assert.match(gridSrc, /data-subdivision-label/)
+assert.match(gridSrc, /data-drum-beat-unit/)
+assert.doesNotMatch(gridSrc, /1\/8T/)
+assert.doesNotMatch(gridSrc, /1\/16T/)
 
 assert.deepEqual(kitBeatBlocks(4), [{ index: 0, start: 0, count: 4 }])
 assert.deepEqual(kitBeatBlocks(6), [{ index: 0, start: 0, count: 6 }])

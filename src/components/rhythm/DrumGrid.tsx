@@ -10,9 +10,17 @@ import {
   type InputDivision,
   type KitBeatBlock,
 } from '@/lib/beat-boxes'
+import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { BAR_LONG_PRESS_MS } from '@/lib/bar-press'
 import { HOLD_NUDGE_CLASS } from '@/lib/hold-repeat'
-import { VOICE_LABELS, VOICES, type Pattern, type VoiceId } from '@/lib/rhythm'
+import {
+  subdivisionLabel,
+  type BeatUnit,
+  type Pattern,
+  type VoiceId,
+  VOICE_LABELS,
+  VOICES,
+} from '@/lib/rhythm'
 import { TAP_SLOP_PX, accumulatedScroll, activateOnPointer, cn } from '@/lib/utils'
 
 type DrumGridProps = {
@@ -420,10 +428,12 @@ export const DrumGrid = memo(function DrumGrid({
 export function DrumInputChips({
   value,
   onChange,
+  beatUnit,
   className,
 }: {
   value: InputDivision
   onChange: (next: InputDivision) => void
+  beatUnit: BeatUnit
   className?: string
 }) {
   return (
@@ -431,23 +441,33 @@ export function DrumInputChips({
       role="group"
       aria-label="Input subdivision"
       data-section="drum-input"
-      className={cn('flex w-full min-w-0 items-center gap-1', className)}
+      data-drum-beat-unit={beatUnit}
+      className={cn('flex w-full min-w-0 items-center gap-0.5 sm:gap-1', className)}
     >
-      {INPUT_CHIPS.map(({ id, label }) => (
-        <button
-          key={id}
-          type="button"
-          data-drum-input={id}
-          aria-pressed={value === id}
-          onClick={() => onChange(id)}
-          className={cn(
-            'h-7 min-w-0 flex-1 rounded-full text-[0.65rem] font-semibold touch-manipulation sm:h-8 sm:text-[0.7rem]',
-            value === id ? 'bg-[#A855F7] text-white' : 'border border-white/10 bg-white/4 text-slate-200',
-          )}
-        >
-          {label}
-        </button>
-      ))}
+      {INPUT_CHIPS.map(({ id }) => {
+        const label = subdivisionLabel(id, beatUnit)
+        return (
+          <button
+            key={id}
+            type="button"
+            data-drum-input={id}
+            data-subdivision={id}
+            data-subdivision-label={label}
+            aria-label={label}
+            title={label}
+            aria-pressed={value === id}
+            {...activateOnPointer(() => onChange(id))}
+            className={cn(
+              'flex h-9 min-w-0 flex-1 items-center touch-manipulation rounded-lg sm:h-11',
+              value === id
+                ? 'bg-[#A855F7] text-white'
+                : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
+            )}
+          >
+            <SubdivIcon steps={id} beatUnit={beatUnit} compact className="mx-auto" />
+          </button>
+        )
+      })}
     </div>
   )
 }
