@@ -55,8 +55,8 @@ function readSlot(
   return { voice: voice as VoiceId, beat, slot, filled }
 }
 
-/** 12px filled dots sit ~3px in from the slot’s left edge so they don’t clip. */
-const HIT_INSET_PX = 3
+/** 12px dots sit 2px in from the slot’s left edge and shrink if the slot is narrower. */
+const HIT_INSET_PX = 2
 
 function HitDot({
   soft,
@@ -73,7 +73,7 @@ function HitDot({
       data-hit-align="start"
       data-soft={soft ? '1' : '0'}
       className={cn(
-        'size-3 shrink-0 rounded-full',
+        'aspect-square h-auto w-3 max-w-full shrink-0 rounded-full',
         soft ? 'bg-[#6D28D9]/50' : 'bg-[#A855F7]',
         className,
       )}
@@ -253,9 +253,9 @@ export const DrumGrid = memo(function DrumGrid({
             <span
               key={`beat-${beat}`}
               data-beat-label={beat + 1}
-              className="min-w-0 flex-1 border border-transparent px-0.5 text-left tabular-nums"
+              className="min-w-0 flex-1 border border-transparent px-px text-left tabular-nums"
             >
-              <span className="block pl-[3px]">{beat + 1}</span>
+              {beat + 1}
             </span>
           ))}
         </div>
@@ -306,7 +306,7 @@ export const DrumGrid = memo(function DrumGrid({
                       data-dots={view.dots ? '1' : '0'}
                       data-input-filled={filledInput}
                       className={cn(
-                        'relative flex min-w-0 flex-1 items-center rounded-lg px-0.5 py-0.5',
+                        'relative flex min-w-0 flex-1 items-center overflow-hidden rounded-lg px-px py-0.5',
                         view.triplet
                           ? 'border border-[#A855F7] bg-[#A855F7]/8'
                           : 'border border-white/8 bg-white/[0.03]',
@@ -320,10 +320,7 @@ export const DrumGrid = memo(function DrumGrid({
                             data-filled={slot.filled ? '1' : '0'}
                             data-soft={slot.soft ? '1' : '0'}
                             className={cn(
-                              'flex h-5 min-w-0 flex-1 items-center justify-start rounded-md border border-dashed pl-[3px] sm:h-6 md:h-7 wide:!h-5',
-                              view.empty || !slot.filled
-                                ? 'border-white/18 bg-transparent'
-                                : 'border-white/10 bg-transparent',
+                              'flex h-5 min-w-0 flex-1 items-center justify-start overflow-hidden rounded-md border border-dashed border-white/18 bg-transparent pl-[2px] sm:h-6 md:h-7 wide:!h-5',
                             )}
                           >
                             {slot.filled ? <HitDot soft={slot.soft} /> : null}
