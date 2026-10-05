@@ -1191,7 +1191,7 @@ export function RhythmPage() {
                   </span>
                   <span className="ml-1.5 shrink-0 text-[0.7rem] font-semibold text-slate-400">Change</span>
                 </button>
-                {needsSave ? (
+                {needsSave && !factory.visible ? (
                   <Button
                     type="button"
                     size="sm"

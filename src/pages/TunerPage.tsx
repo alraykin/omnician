@@ -397,7 +397,7 @@ export function TunerPage() {
             />
           )}
         </div>
-        <InputPicker />
+        <InputPicker alwaysShow />
 
         <section
           className={cn(
