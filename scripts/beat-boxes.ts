@@ -2,17 +2,15 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 import {
-  approxSlotWidthPx,
   beatBoxView,
-  beatsPerGridRow,
   coarsestDivision,
-  drumGridIsCompact,
   exampleBarHitSeconds,
   hitForInputSlot,
   hitFromBarOffset,
   INPUT_CHIPS,
+  kitBeatBlocks,
+  kitBlockColumns,
   makeBeatBoxesExampleBar,
-  maxBeatsForSlotFloor,
   snapBeatFraction,
 } from '../src/lib/beat-boxes.ts'
 import { barDurationSec, hitTimeInBar, reduceHit, toggleHitPos } from '../src/lib/rhythm.ts'
@@ -115,7 +113,8 @@ assert.doesNotMatch(gridSrc, /pl-\[3px\]/)
 assert.match(gridSrc, /relative flex w-full min-w-0 gap-0.5/)
 assert.doesNotMatch(gridSrc, /view\.division === 1/)
 assert.match(gridSrc, /data-beats-per-row/)
-assert.match(gridSrc, /data-beat-wrap/)
+assert.match(gridSrc, /data-kit-block/)
+assert.match(gridSrc, /data-kit-blocks/)
 assert.doesNotMatch(gridSrc, /overflow-y-auto/)
 assert.doesNotMatch(gridSrc, /max-h-\[min\(34vh/)
 assert.doesNotMatch(gridSrc, /bg-\[#A855F7\]\/8/)
@@ -125,22 +124,22 @@ assert.deepEqual(
   ['1/8', '1/8T', '1/16', '1/16T'],
 )
 
-const wrap4 = beatsPerGridRow({ beats: 4, input: 4, trackPx: 330, compact: true })
-assert.equal(wrap4, 4, '4/4 stays one row on phone')
-assert.equal(beatsPerGridRow({ beats: 3, input: 4, trackPx: 330, compact: true }), 3)
-assert.equal(beatsPerGridRow({ beats: 6, input: 4, trackPx: 330, compact: true }), 4, '6/8 wraps after 4 beats')
-assert.equal(beatsPerGridRow({ beats: 5, input: 4, trackPx: 330, compact: true }), 4)
-assert.equal(beatsPerGridRow({ beats: 8, input: 4, trackPx: 330, compact: true }), 4)
-assert.equal(beatsPerGridRow({ beats: 1, input: 4, trackPx: 330, compact: true }), 1)
-assert.equal(beatsPerGridRow({ beats: 4, input: 4, trackPx: 900, compact: false }), 4)
-assert.ok(
-  beatsPerGridRow({ beats: 12, input: 4, trackPx: 900, compact: false }) < 12,
-  'wide many-beat bars wrap before slots drop under the tap floor',
-)
-assert.ok(approxSlotWidthPx(330, 4, 4) > approxSlotWidthPx(330, 6, 4))
-assert.ok(maxBeatsForSlotFloor(330, 4) <= 4)
-assert.equal(drumGridIsCompact(430), true)
-assert.equal(drumGridIsCompact(1024), false)
+assert.deepEqual(kitBeatBlocks(4), [{ index: 0, start: 0, count: 4 }])
+assert.deepEqual(kitBeatBlocks(6), [{ index: 0, start: 0, count: 6 }])
+assert.deepEqual(kitBeatBlocks(7), [
+  { index: 0, start: 0, count: 6 },
+  { index: 1, start: 6, count: 1 },
+])
+assert.deepEqual(kitBeatBlocks(9), [
+  { index: 0, start: 0, count: 6 },
+  { index: 1, start: 6, count: 3 },
+])
+assert.equal(kitBeatBlocks(12).length, 2)
+assert.equal(kitBeatBlocks(13).length, 3)
+assert.equal(kitBlockColumns(4), 4)
+assert.equal(kitBlockColumns(6), 6)
+assert.equal(kitBlockColumns(7), 6)
+assert.equal(kitBlockColumns(9), 6)
 
 console.log('beat-boxes: ok')
 

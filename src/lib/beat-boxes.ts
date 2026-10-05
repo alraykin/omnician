@@ -73,56 +73,28 @@ export function inputSlotFromX(x: number, width: number, input: InputDivision): 
   return Math.min(input - 1, Math.max(0, slot))
 }
 
-/** Don’t shrink 16th (etc.) pills past this — wrap the bar onto another beat row instead. */
-export const SLOT_MIN_PX = 28
-/** Phone width: more than this many beats at 1/16 wraps rather than packing a tighter row. */
-export const PHONE_BEATS_PER_ROW = 4
-export const BEAT_GAP_PX = 4
-const BEAT_CHROME_PX = 8
+/** Beats 1–6 stay on the first Kick→China block; 7+ start another full kit underneath. */
+export const KIT_BLOCK_BEATS = 6
 
-export function approxSlotWidthPx(
-  trackPx: number,
-  beatsPerRow: number,
-  input: InputDivision,
-  beatGapPx = BEAT_GAP_PX,
-): number {
-  if (beatsPerRow < 1 || trackPx <= 0 || input < 1) return 0
-  const beatW = (trackPx - beatGapPx * Math.max(0, beatsPerRow - 1)) / beatsPerRow
-  return (beatW - BEAT_CHROME_PX) / input
+export type KitBeatBlock = {
+  index: number
+  start: number
+  count: number
 }
 
-export function maxBeatsForSlotFloor(
-  trackPx: number,
-  input: InputDivision,
-  floorPx = SLOT_MIN_PX,
-  beatGapPx = BEAT_GAP_PX,
-): number {
-  if (trackPx <= 0 || input < 1) return 1
-  const denom = floorPx * input + BEAT_CHROME_PX + beatGapPx
-  return Math.max(1, Math.floor((trackPx + beatGapPx) / denom))
+export function kitBeatBlocks(beats: number): KitBeatBlock[] {
+  const n = Math.max(1, Math.floor(beats) || 1)
+  const blocks: KitBeatBlock[] = []
+  for (let start = 0, index = 0; start < n; start += KIT_BLOCK_BEATS, index += 1) {
+    blocks.push({ index, start, count: Math.min(KIT_BLOCK_BEATS, n - start) })
+  }
+  return blocks
 }
 
-/**
- * How many beat boxes sit on one row of the kit grid.
- * Phone keeps 4/4 on a single row (same slot size as today) and wraps 5+ beats
- * (6/8 → 4+2, leftover left-aligned). Wider layouts wrap only when a slot would
- * drop below {@link SLOT_MIN_PX}.
- */
-export function beatsPerGridRow(opts: {
-  beats: number
-  input: InputDivision
-  trackPx: number
-  compact: boolean
-}): number {
-  const beats = Math.max(1, Math.floor(opts.beats) || 1)
-  if (beats <= 1) return 1
-  if (opts.compact) return Math.min(beats, PHONE_BEATS_PER_ROW)
-  const fitted = maxBeatsForSlotFloor(opts.trackPx, opts.input)
-  return Math.min(beats, Math.max(1, fitted))
-}
-
-export function drumGridIsCompact(widthPx: number): boolean {
-  return widthPx > 0 && widthPx < 640
+/** Column count so a leftover 7th beat keeps the same width as beats 1–6. */
+export function kitBlockColumns(beats: number): number {
+  const n = Math.max(1, Math.floor(beats) || 1)
+  return Math.min(n, KIT_BLOCK_BEATS)
 }
 
 export function hitForInputSlot(beat: number, slot: number, input: InputDivision): HitPos {
