@@ -1,7 +1,13 @@
-import { memo, useCallback, useEffect, useRef, type PointerEvent } from 'react'
+import { memo, useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode, type Ref } from 'react'
 
 import { type PlayheadStore } from '@/hooks/useRhythmEngine'
-import { beatBoxView, inputSlotFromX, type InputDivision } from '@/lib/beat-boxes'
+import {
+  beatBoxView,
+  beatsPerGridRow,
+  drumGridIsCompact,
+  inputSlotFromX,
+  type InputDivision,
+} from '@/lib/beat-boxes'
 import { BAR_LONG_PRESS_MS } from '@/lib/bar-press'
 import { HOLD_NUDGE_CLASS } from '@/lib/hold-repeat'
 import { VOICE_LABELS, VOICES, type Pattern, type VoiceId } from '@/lib/rhythm'
@@ -86,6 +92,71 @@ function slotFromPoint(x: number, y: number, input: InputDivision) {
   return readSlot(document.elementFromPoint(x, y), x, input)
 }
 
+function BeatWrapTrack({
+  beatsPerRow,
+  className,
+  children,
+  trackRef,
+  labels,
+}: {
+  beatsPerRow: number
+  className?: string
+  children: ReactNode
+  trackRef?: Ref<HTMLDivElement>
+  labels?: boolean
+}) {
+  return (
+    <div
+      ref={trackRef}
+      data-beats-per-row={beatsPerRow}
+      {...(labels ? { 'data-beat-labels': '' } : {})}
+      className={cn('grid min-w-0 gap-x-1 gap-y-0.5', className)}
+      style={{ gridTemplateColumns: `repeat(${beatsPerRow}, minmax(0, 1fr))` }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function useBeatsPerRow(beats: number, input: InputDivision) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [beatsPerRow, setBeatsPerRow] = useState(() =>
+    beatsPerGridRow({
+      beats,
+      input,
+      trackPx: typeof window === 'undefined' ? 320 : Math.max(160, window.innerWidth - 96),
+      compact: typeof window === 'undefined' ? true : drumGridIsCompact(window.innerWidth),
+    }),
+  )
+
+  useEffect(() => {
+    const node = trackRef.current
+    if (!node) return
+    const apply = () => {
+      const next = beatsPerGridRow({
+        beats,
+        input,
+        trackPx: node.clientWidth,
+        compact: drumGridIsCompact(window.innerWidth),
+      })
+      setBeatsPerRow((prev) => (prev === next ? prev : next))
+    }
+    apply()
+    const ro = new ResizeObserver(apply)
+    ro.observe(node)
+    const mq = window.matchMedia('(max-width: 639px)')
+    mq.addEventListener('change', apply)
+    window.addEventListener('resize', apply)
+    return () => {
+      ro.disconnect()
+      mq.removeEventListener('change', apply)
+      window.removeEventListener('resize', apply)
+    }
+  }, [beats, input])
+
+  return { trackRef, beatsPerRow }
+}
+
 export const DrumGrid = memo(function DrumGrid({
   beats,
   pattern,
@@ -101,6 +172,8 @@ export const DrumGrid = memo(function DrumGrid({
   const pendingRef = useRef<PendingPaint | null>(null)
   const holdTimerRef = useRef(0)
   const rootRef = useRef<HTMLDivElement>(null)
+  const { trackRef, beatsPerRow } = useBeatsPerRow(beats, input)
+  const wrapping = beatsPerRow < beats
 
   const paintAt = useCallback(
     (voice: VoiceId, beat: number, slot: number, preview: boolean) => {
@@ -195,12 +268,12 @@ export const DrumGrid = memo(function DrumGrid({
       data-beat-boxes
       data-bar-index={barIndex}
       data-drum-input={input}
+      data-beats-per-row={beatsPerRow}
+      data-beat-wrap={wrapping ? '1' : '0'}
       onContextMenu={(event) => event.preventDefault()}
       className={cn(
         HOLD_NUDGE_CLASS,
-        'max-w-full touch-manipulation overflow-x-hidden pb-1',
-        'max-h-[min(34vh,22rem)] overflow-y-auto overscroll-x-none md:max-h-[min(50vh,32rem)]',
-        'wide:!max-h-none wide:overflow-x-clip wide:!overflow-y-visible wide:overscroll-auto',
+        'max-w-full touch-manipulation overflow-x-hidden overflow-y-visible pb-0.5',
       )}
       onPointerDown={startPaint}
       onClick={(event) => event.preventDefault()}
@@ -243,22 +316,24 @@ export const DrumGrid = memo(function DrumGrid({
         endPaint()
       }}
     >
-      <div className="grid w-full min-w-0 grid-cols-[4rem_minmax(0,1fr)] gap-x-1 gap-y-1 sm:grid-cols-[4.4rem_minmax(0,1fr)] md:grid-cols-[5.1rem_minmax(0,1fr)]">
+      <div className="grid w-full min-w-0 grid-cols-[3.85rem_minmax(0,1fr)] gap-x-1 gap-y-px sm:grid-cols-[4.4rem_minmax(0,1fr)] sm:gap-y-1 md:grid-cols-[5.1rem_minmax(0,1fr)]">
         <div aria-hidden />
-        <div
-          data-beat-labels
-          className="mb-0.5 flex min-w-0 items-center gap-1 text-[0.6rem] font-semibold uppercase tracking-wider text-slate-500"
+        <BeatWrapTrack
+          labels
+          trackRef={trackRef}
+          beatsPerRow={beatsPerRow}
+          className="mb-px text-[0.5rem] font-semibold uppercase tracking-wider text-slate-500 sm:mb-0.5 sm:text-[0.6rem]"
         >
           {Array.from({ length: beats }, (_, beat) => (
             <span
               key={`beat-${beat}`}
               data-beat-label={beat + 1}
-              className="min-w-0 flex-1 border border-transparent px-px text-left tabular-nums"
+                className="min-w-0 border border-transparent px-px text-left tabular-nums leading-none"
             >
               {beat + 1}
             </span>
           ))}
-        </div>
+        </BeatWrapTrack>
 
         {VOICES.map((voice) => {
           const hits = pattern[voice] ?? []
@@ -277,11 +352,11 @@ export const DrumGrid = memo(function DrumGrid({
                     },
                   }
                 })()}
-                className="min-w-0 touch-manipulation whitespace-nowrap rounded-md py-1 pr-0.5 text-left text-[0.56rem] font-semibold leading-none tracking-tight text-slate-300 hover:bg-white/6 hover:text-white sm:text-[0.62rem] md:text-[0.68rem] wide:py-0 wide:text-[0.58rem]"
+                className="flex min-w-0 items-center self-stretch touch-manipulation whitespace-nowrap rounded-md py-0 pr-0.5 text-left text-[0.52rem] font-semibold leading-none tracking-tight text-slate-300 hover:bg-white/6 hover:text-white sm:text-[0.62rem] md:text-[0.68rem] wide:text-[0.58rem]"
               >
                 {VOICE_LABELS[voice]}
               </button>
-              <div className="flex min-w-0 touch-none gap-1">
+              <BeatWrapTrack beatsPerRow={beatsPerRow} className="touch-none">
                 {Array.from({ length: beats }, (_, beat) => {
                   const view = beatBoxView(hits, beat, input)
                   const filledInput = Array.from({ length: input }, (_, slot) =>
@@ -306,7 +381,7 @@ export const DrumGrid = memo(function DrumGrid({
                       data-dots={view.dots ? '1' : '0'}
                       data-input-filled={filledInput}
                       className={cn(
-                        'relative flex min-w-0 flex-1 items-center overflow-hidden rounded-lg px-px py-0.5',
+                        'relative flex min-w-0 items-center overflow-hidden rounded-md px-px py-0 sm:rounded-lg sm:py-0.5',
                         view.triplet
                           ? 'border border-[#A855F7] bg-[#A855F7]/8'
                           : 'border border-white/8 bg-white/[0.03]',
@@ -320,7 +395,7 @@ export const DrumGrid = memo(function DrumGrid({
                             data-filled={slot.filled ? '1' : '0'}
                             data-soft={slot.soft ? '1' : '0'}
                             className={cn(
-                              'flex h-5 min-w-0 flex-1 items-center justify-start overflow-hidden rounded-md border border-dashed border-white/18 bg-transparent pl-[2px] sm:h-6 md:h-7 wide:!h-5',
+                              'flex h-4 min-w-0 flex-1 items-center justify-start overflow-hidden rounded-md border border-dashed border-white/18 bg-transparent pl-[2px] sm:h-6 md:h-7 wide:!h-5',
                             )}
                           >
                             {slot.filled ? <HitDot soft={slot.soft} /> : null}
@@ -340,7 +415,7 @@ export const DrumGrid = memo(function DrumGrid({
                     </div>
                   )
                 })}
-              </div>
+              </BeatWrapTrack>
             </div>
           )
         })}
@@ -378,7 +453,7 @@ export function DrumInputChips({
           aria-pressed={value === id}
           onClick={() => onChange(id)}
           className={cn(
-            'h-8 min-w-0 flex-1 rounded-full text-[0.7rem] font-semibold touch-manipulation',
+            'h-7 min-w-0 flex-1 rounded-full text-[0.65rem] font-semibold touch-manipulation sm:h-8 sm:text-[0.7rem]',
             value === id ? 'bg-[#A855F7] text-white' : 'border border-white/10 bg-white/4 text-slate-200',
           )}
         >

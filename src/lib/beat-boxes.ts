@@ -73,6 +73,58 @@ export function inputSlotFromX(x: number, width: number, input: InputDivision): 
   return Math.min(input - 1, Math.max(0, slot))
 }
 
+/** Don’t shrink 16th (etc.) pills past this — wrap the bar onto another beat row instead. */
+export const SLOT_MIN_PX = 28
+/** Phone width: more than this many beats at 1/16 wraps rather than packing a tighter row. */
+export const PHONE_BEATS_PER_ROW = 4
+export const BEAT_GAP_PX = 4
+const BEAT_CHROME_PX = 8
+
+export function approxSlotWidthPx(
+  trackPx: number,
+  beatsPerRow: number,
+  input: InputDivision,
+  beatGapPx = BEAT_GAP_PX,
+): number {
+  if (beatsPerRow < 1 || trackPx <= 0 || input < 1) return 0
+  const beatW = (trackPx - beatGapPx * Math.max(0, beatsPerRow - 1)) / beatsPerRow
+  return (beatW - BEAT_CHROME_PX) / input
+}
+
+export function maxBeatsForSlotFloor(
+  trackPx: number,
+  input: InputDivision,
+  floorPx = SLOT_MIN_PX,
+  beatGapPx = BEAT_GAP_PX,
+): number {
+  if (trackPx <= 0 || input < 1) return 1
+  const denom = floorPx * input + BEAT_CHROME_PX + beatGapPx
+  return Math.max(1, Math.floor((trackPx + beatGapPx) / denom))
+}
+
+/**
+ * How many beat boxes sit on one row of the kit grid.
+ * Phone keeps 4/4 on a single row (same slot size as today) and wraps 5+ beats
+ * (6/8 → 4+2, leftover left-aligned). Wider layouts wrap only when a slot would
+ * drop below {@link SLOT_MIN_PX}.
+ */
+export function beatsPerGridRow(opts: {
+  beats: number
+  input: InputDivision
+  trackPx: number
+  compact: boolean
+}): number {
+  const beats = Math.max(1, Math.floor(opts.beats) || 1)
+  if (beats <= 1) return 1
+  if (opts.compact) return Math.min(beats, PHONE_BEATS_PER_ROW)
+  const fitted = maxBeatsForSlotFloor(opts.trackPx, opts.input)
+  return Math.min(beats, Math.max(1, fitted))
+}
+
+export function drumGridIsCompact(widthPx: number): boolean {
+  return widthPx > 0 && widthPx < 640
+}
+
 export function hitForInputSlot(beat: number, slot: number, input: InputDivision): HitPos {
   return reduceHit(beat, slot, input)
 }

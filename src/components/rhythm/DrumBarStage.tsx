@@ -40,7 +40,7 @@ export const DrumBarStage = memo(function DrumBarStage({
 
   return (
     <div data-bar-stage data-bar-slide={active} className="min-h-0">
-      <DrumInputChips value={input} onChange={onInput} className="mb-2" />
+      <DrumInputChips value={input} onChange={onInput} className="mb-1.5" />
       <DrumGrid
         beats={bar.beats}
         pattern={bar.pattern}
