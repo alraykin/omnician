@@ -4,6 +4,7 @@ import {
   cloneFactoryLibrary,
   deleteFactoryBeat,
   emptyFactoryBeat,
+  factoryLibraryToStyles,
   findFactoryBeat,
   liveFactoryPatternKey,
   moveFactoryBeat,
@@ -24,7 +25,7 @@ import {
   restoreFactoryVersion,
   saveFactoryLibrary,
 } from '@/lib/factory-store'
-import { barsForPreset, findPreset, type RhythmStyleId } from '@/lib/rhythm-presets'
+import { barsForPreset, findPreset, setLiveRhythmStyles, type RhythmStyleId } from '@/lib/rhythm-presets'
 import { cloneBar, type RhythmBar } from '@/lib/rhythm'
 
 export function useFactoryEditor({
@@ -59,6 +60,7 @@ export function useFactoryEditor({
   const [historyOpen, setHistoryOpen] = useState(false)
   const [prompt, setPrompt] = useState<null | 'save-new' | 'rename'>(null)
   const [versions, setVersions] = useState<Array<{ id: string; savedAt: string; beatCount: number }>>([])
+  const [canUndo, setCanUndo] = useState(false)
 
   const selected = presetId ? findFactoryBeat(library, presetId) : null
   const savedLibrary = useMemo(() => (savedJson ? parseFactoryLibraryJson(savedJson) : null), [savedJson])
@@ -82,6 +84,10 @@ export function useFactoryEditor({
       setAdmin(session)
       setLibrary(cloneFactoryLibrary(hydrated))
       setSavedJson(JSON.stringify(hydrated))
+      if (session) {
+        const history = await fetchFactoryHistory()
+        setCanUndo(history.length > 0)
+      }
     })()
   }, [])
 
@@ -128,25 +134,37 @@ export function useFactoryEditor({
       }
       setNotice(success)
       setPrompt(null)
+      setCanUndo(true)
       return true
     },
     [loadBeat, setDraftNew, setPresetId, setUserBeatId],
   )
 
+  const commitLibrary = useCallback((next: FactoryLibrary, message?: string) => {
+    setLibrary(next)
+    setLiveRhythmStyles(factoryLibraryToStyles(next))
+    if (message) setNotice(message)
+  }, [])
+
   const onName = (nextName: string) => {
     if (!selected) return
-    setLibrary(replaceFactoryBeat(library, { ...selected.beat, name: nextName.trim().slice(0, 40) || selected.beat.name }))
+    commitLibrary(replaceFactoryBeat(library, { ...selected.beat, name: nextName.trim().slice(0, 40) || selected.beat.name }))
   }
 
   const onStyle = (styleId: RhythmStyleId) => {
     if (!presetId || !selected) return
     const index = selected.style.id === styleId ? selected.index : 999
-    setLibrary(moveFactoryBeat(library, presetId, styleId, index))
+    commitLibrary(moveFactoryBeat(library, presetId, styleId, index))
   }
 
-  const onMove = (delta: number) => {
-    if (!selected) return
-    setLibrary(moveFactoryBeat(library, selected.beat.id, selected.style.id, selected.index + delta))
+  const onReorder = (styleId: RhythmStyleId, beatId: string, toIndex: number) => {
+    const current = findFactoryBeat(library, beatId)
+    if (!current || current.style.id !== styleId) return
+    if (current.index === toIndex) return
+    commitLibrary(
+      moveFactoryBeat(library, beatId, styleId, toIndex),
+      'Moved — Save as default to publish this order.',
+    )
   }
 
   const onNew = () => {
@@ -154,7 +172,7 @@ export function useFactoryEditor({
     const beat = emptyFactoryBeat(styleId, newFactoryBeatId())
     const next = cloneFactoryLibrary(library)
     next.styles.find((item) => item.id === styleId)?.beats.push(beat)
-    setLibrary(next)
+    commitLibrary(next)
     const bars = beat.bars.map(parseFactoryBar).filter((bar): bar is RhythmBar => bar !== null)
     setDrumBars(bars.map(cloneBar))
     setDrumBarIndex(0)
@@ -208,7 +226,20 @@ export function useFactoryEditor({
     setSavedJson(JSON.stringify(result.library))
     setHistoryOpen(false)
     setNotice('Restored')
+    setCanUndo(true)
     if (presetId && findFactoryBeat(result.library, presetId)) loadBeat(presetId, result.library)
+  }
+
+  const onUndo = async () => {
+    const history = await fetchFactoryHistory()
+    const previous = history[0]
+    if (!previous) {
+      setError('Nothing to undo yet.')
+      setCanUndo(false)
+      return
+    }
+    await onRestore(previous.id)
+    setNotice('Undid last save')
   }
 
   return {
@@ -218,6 +249,7 @@ export function useFactoryEditor({
     styleId: (selected?.style.id ?? 'rock') as RhythmStyleId,
     dirty,
     canSaveDefault,
+    canUndo,
     saving,
     error,
     notice,
@@ -229,7 +261,7 @@ export function useFactoryEditor({
     setAdmin,
     onName,
     onStyle,
-    onMove,
+    onReorder,
     onNew,
     onDelete,
     onSaveDefault,
@@ -237,5 +269,6 @@ export function useFactoryEditor({
     onRename,
     openHistory,
     onRestore,
+    onUndo,
   }
 }

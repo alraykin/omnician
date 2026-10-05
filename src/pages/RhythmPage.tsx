@@ -1,5 +1,5 @@
-import { Check, ChevronDown, FileUp, Pencil, Play, Plus, Square, Trash2, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Check, ChevronDown, FileUp, GripVertical, Pencil, Play, Plus, Square, Trash2, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
@@ -1159,15 +1159,16 @@ export function RhythmPage() {
                   styleId={factory.styleId}
                   dirty={factory.dirty}
                   canSaveDefault={factory.canSaveDefault}
+                  canUndo={factory.canUndo}
                   saving={factory.saving}
                   error={factory.error}
                   notice={factory.notice}
                   displayName={beatName}
                   onStyle={factory.onStyle}
-                  onMove={factory.onMove}
                   onNew={factory.onNew}
                   onDelete={() => void factory.onDelete()}
                   onSaveDefault={() => void factory.onSaveDefault()}
+                  onUndo={() => void factory.onUndo()}
                   onHistory={() => void factory.openHistory()}
                   onSignOut={() => factory.setAdmin(false)}
                   onOpenSaveNew={() => factory.setPrompt('save-new')}
@@ -1363,6 +1364,8 @@ export function RhythmPage() {
           selectedId={userBeatId || draftNew ? null : (matched?.id ?? presetId)}
           selectedUserId={userBeatId}
           userBeats={userBeats}
+          factoryReorder={factory.visible}
+          onReorder={factory.visible ? factory.onReorder : undefined}
           onClose={() => setPickerOpen(false)}
           onSelect={loadPreset}
           onLoadUser={loadUser}
@@ -1639,6 +1642,8 @@ function PresetSheet({
   selectedId,
   selectedUserId,
   userBeats,
+  factoryReorder = false,
+  onReorder,
   onClose,
   onSelect,
   onLoadUser,
@@ -1649,6 +1654,8 @@ function PresetSheet({
   selectedId: string | null
   selectedUserId: string | null
   userBeats: UserBeat[]
+  factoryReorder?: boolean
+  onReorder?: (styleId: RhythmStyleId, beatId: string, toIndex: number) => void
   onClose: () => void
   onSelect: (id: string) => void
   onLoadUser: (id: string) => void
@@ -1656,7 +1663,7 @@ function PresetSheet({
   onDelete: (id: string) => void
 }) {
   const selected = selectedId ? findPreset(selectedId) : undefined
-  const styles = getRhythmStyles()
+  const styles = useSyncExternalStore(subscribeRhythmStyles, getRhythmStyles, getRhythmStyles)
   const local = styles.filter((style) =>
     style.grooves.some((item) => item.beats === current.beats && item.beatUnit === current.beatUnit),
   )
@@ -1669,11 +1676,17 @@ function PresetSheet({
       <div
         role="dialog"
         aria-labelledby="rhythm-presets-title"
+        data-factory-reorder={factoryReorder ? '1' : '0'}
         className="max-h-[90svh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5 md:max-w-2xl lg:max-w-4xl"
       >
         <h2 id="rhythm-presets-title" className="text-xl font-bold tracking-tight text-white">
           Beat library
         </h2>
+        {factoryReorder ? (
+          <p className="mt-1 text-sm text-slate-400">
+            Drag a groove within its style to change the menu order. Then Save as default to publish it.
+          </p>
+        ) : null}
         <MyBeatsSection
           beats={userBeats}
           selectedId={selectedUserId}
@@ -1685,10 +1698,19 @@ function PresetSheet({
           title={`For ${meterLabel(current.beats, current.beatUnit)}`}
           styles={local}
           selected={selected}
+          factoryReorder={factoryReorder}
+          onReorder={onReorder}
           onSelect={onSelect}
         />
         {others.length > 0 ? (
-          <PresetGroup title="Other meters" styles={others} selected={selected} onSelect={onSelect} />
+          <PresetGroup
+            title="Other meters"
+            styles={others}
+            selected={selected}
+            factoryReorder={factoryReorder}
+            onReorder={onReorder}
+            onSelect={onSelect}
+          />
         ) : null}
         <Button type="button" variant="outline" className="mt-4 w-full" onClick={onClose}>
           Close
@@ -1859,11 +1881,15 @@ function PresetGroup({
   title,
   styles,
   selected,
+  factoryReorder = false,
+  onReorder,
   onSelect,
 }: {
   title: string
   styles: RhythmStyle[]
   selected: RhythmPreset | undefined
+  factoryReorder?: boolean
+  onReorder?: (styleId: RhythmStyleId, beatId: string, toIndex: number) => void
   onSelect: (id: string) => void
 }) {
   if (styles.length === 0) return null
@@ -1879,6 +1905,8 @@ function PresetGroup({
             style={style}
             selected={selected}
             defaultOpen={selected?.styleId === style.id}
+            factoryReorder={factoryReorder}
+            onReorder={onReorder}
             onSelect={onSelect}
           />
         ))}
@@ -1891,16 +1919,65 @@ function StyleMenu({
   style,
   selected,
   defaultOpen,
+  factoryReorder = false,
+  onReorder,
   onSelect,
 }: {
   style: RhythmStyle
   selected: RhythmPreset | undefined
   defaultOpen: boolean
+  factoryReorder?: boolean
+  onReorder?: (styleId: RhythmStyleId, beatId: string, toIndex: number) => void
   onSelect: (id: string) => void
 }) {
   const [open, setOpen] = useState(defaultOpen)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dropIndex, setDropIndex] = useState<number | null>(null)
+  const dragRef = useRef<{ id: string; moved: boolean } | null>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const active = selected?.styleId === style.id
   const activeGroove = active ? selected : undefined
+
+  const grooveIndexAt = (clientY: number) => {
+    const rows = listRef.current?.querySelectorAll('[data-factory-groove]')
+    if (!rows || rows.length === 0) return null
+    let index = rows.length - 1
+    for (let i = 0; i < rows.length; i += 1) {
+      const rect = rows[i]!.getBoundingClientRect()
+      if (clientY < rect.top + rect.height / 2) {
+        index = i
+        break
+      }
+    }
+    return index
+  }
+
+  const onGripPointerDown = (event: PointerEvent<HTMLButtonElement>, id: string) => {
+    if (!factoryReorder || !onReorder) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    dragRef.current = { id, moved: false }
+    setDraggingId(id)
+    setDropIndex(style.grooves.findIndex((item) => item.id === id))
+  }
+
+  const onGripPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!dragRef.current || !event.currentTarget.hasPointerCapture(event.pointerId)) return
+    dragRef.current.moved = true
+    const next = grooveIndexAt(event.clientY)
+    if (next != null) setDropIndex(next)
+  }
+
+  const onGripPointerUp = (event: PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current
+    const target = grooveIndexAt(event.clientY) ?? dropIndex
+    dragRef.current = null
+    setDraggingId(null)
+    setDropIndex(null)
+    if (!drag || !onReorder || !drag.moved || target == null) return
+    onReorder(style.id, drag.id, target)
+  }
 
   return (
     <div
@@ -1929,32 +2006,54 @@ function StyleMenu({
         />
       </button>
       {open ? (
-        <div className="space-y-1 border-t border-white/8 px-2 pb-2 pt-1.5">
-          {style.grooves.map((item) => (
-            <button
+        <div ref={listRef} className="space-y-1 border-t border-white/8 px-2 pb-2 pt-1.5">
+          {style.grooves.map((item, index) => (
+            <div
               key={item.id}
-              type="button"
-              onClick={() => onSelect(item.id)}
-              data-preset={item.id}
+              data-factory-groove={item.id}
+              data-drop={dropIndex === index ? '1' : '0'}
               className={cn(
-                'flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left',
-                item.id === selected?.id
-                  ? 'bg-[#A855F7] text-white'
-                  : 'bg-white/4 text-slate-200 hover:bg-white/8',
+                'flex items-stretch gap-0.5 rounded-xl',
+                dropIndex === index && draggingId && draggingId !== item.id ? 'ring-1 ring-[#A855F7]' : '',
+                draggingId === item.id ? 'opacity-55' : '',
               )}
             >
-              <span>
-                <span className="block text-sm font-semibold">
-                  {item.name}
+              {factoryReorder ? (
+                <button
+                  type="button"
+                  aria-label={`Reorder ${item.name}`}
+                  data-factory-grip={item.id}
+                  onPointerDown={(event) => onGripPointerDown(event, item.id)}
+                  onPointerMove={onGripPointerMove}
+                  onPointerUp={onGripPointerUp}
+                  onPointerCancel={onGripPointerUp}
+                  className="flex w-8 shrink-0 touch-none items-center justify-center rounded-xl text-slate-500 hover:text-white"
+                >
+                  <GripVertical className="size-4" />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => onSelect(item.id)}
+                data-preset={item.id}
+                className={cn(
+                  'flex min-w-0 flex-1 items-center justify-between rounded-xl px-2.5 py-2 text-left',
+                  item.id === selected?.id
+                    ? 'bg-[#A855F7] text-white'
+                    : 'bg-white/4 text-slate-200 hover:bg-white/8',
+                )}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold">{item.name}</span>
+                  <span className={cn('block truncate text-xs', item.id === selected?.id ? 'text-white/80' : 'text-slate-500')}>
+                    {item.blurb}
+                  </span>
                 </span>
-                <span className={cn('block text-xs', item.id === selected?.id ? 'text-white/80' : 'text-slate-500')}>
-                  {item.blurb}
+                <span className={cn('ml-2 shrink-0 text-xs font-semibold', item.id === selected?.id ? 'text-white/80' : 'text-slate-500')}>
+                  {meterLabel(item.beats, item.beatUnit)}
                 </span>
-              </span>
-              <span className={cn('text-xs font-semibold', item.id === selected?.id ? 'text-white/80' : 'text-slate-500')}>
-                {meterLabel(item.beats, item.beatUnit)}
-              </span>
-            </button>
+              </button>
+            </div>
           ))}
         </div>
       ) : null}

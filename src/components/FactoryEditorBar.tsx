@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronUp, History, Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Undo2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { FACTORY_STYLE_IDS, type FactoryLibrary } from '@/lib/factory-library'
@@ -14,15 +14,16 @@ export function FactoryEditorBar({
   styleId,
   dirty,
   canSaveDefault,
+  canUndo,
   saving,
   error,
   notice,
   displayName,
   onStyle,
-  onMove,
   onNew,
   onDelete,
   onSaveDefault,
+  onUndo,
   onHistory,
   onSignOut,
   onOpenSaveNew,
@@ -34,30 +35,32 @@ export function FactoryEditorBar({
   styleId: RhythmStyleId
   dirty: boolean
   canSaveDefault: boolean
+  canUndo: boolean
   saving: boolean
   error: string | null
   notice: string | null
   displayName: string
   onStyle: (styleId: RhythmStyleId) => void
-  onMove: (delta: number) => void
   onNew: () => void
   onDelete: () => void
   onSaveDefault: () => void
+  onUndo: () => void
   onHistory: () => void
   onSignOut: () => void
   onOpenSaveNew: () => void
   onOpenRename: () => void
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const style = library.styles.find((item) => item.id === styleId)
-  const index = style?.beats.findIndex((beat) => beat.id === selectedId) ?? -1
   const shownName = name || displayName || 'Custom beat'
+  const styleCount = library.styles.find((item) => item.id === styleId)?.beats.length ?? 0
 
   return (
     <section
       data-factory-bar
       data-factory-dirty={dirty ? 'true' : 'false'}
       data-factory-name-value={shownName}
+      data-factory-selected={selectedId ?? ''}
+      data-factory-style-count={styleCount}
       className="mb-3 rounded-2xl border border-[#A855F7]/40 bg-[#A855F7]/12 px-3 py-2.5"
     >
       <div className="flex items-center justify-between gap-2">
@@ -97,11 +100,8 @@ export function FactoryEditorBar({
             </option>
           ))}
         </select>
-        <IconBtn label="Move up" onClick={() => onMove(-1)} disabled={index <= 0}>
-          <ChevronUp className="size-4" />
-        </IconBtn>
-        <IconBtn label="Move down" onClick={() => onMove(1)} disabled={index < 0 || !style || index >= style.beats.length - 1}>
-          <ChevronDown className="size-4" />
+        <IconBtn label="Undo last save" mark="undo" onClick={onUndo} disabled={!canUndo || saving}>
+          <Undo2 className="size-4" />
         </IconBtn>
         <IconBtn label="New factory beat" onClick={onNew}>
           <Plus className="size-4" />
@@ -123,9 +123,14 @@ export function FactoryEditorBar({
             <Trash2 className="size-4" />
           </IconBtn>
         )}
-        <IconBtn label="Version history" onClick={onHistory}>
-          <History className="size-4" />
-        </IconBtn>
+        <button
+          type="button"
+          data-factory-history-open
+          onClick={onHistory}
+          className="h-8 rounded-lg px-2 text-xs font-semibold text-slate-400 hover:text-white"
+        >
+          History
+        </button>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <Button
@@ -175,11 +180,13 @@ function IconBtn({
   label,
   onClick,
   disabled,
+  mark,
   children,
 }: {
   label: string
   onClick: () => void
   disabled?: boolean
+  mark?: 'undo'
   children: ReactNode
 }) {
   return (
@@ -188,6 +195,7 @@ function IconBtn({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
+      {...(mark === 'undo' ? { 'data-factory-undo': '1' } : {})}
       className={cn(
         'flex size-8 items-center justify-center rounded-lg border border-white/10 bg-[#0B0F1A] text-slate-200',
         disabled && 'opacity-40',

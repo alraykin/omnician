@@ -9,6 +9,7 @@ import {
   findFactoryBeat,
   liveFactoryPatternKey,
   parseFactoryLibraryJson,
+  moveFactoryBeat,
   replaceFactoryBeat,
   savedFactoryPatternKey,
   upsertFactoryBeat,
@@ -144,7 +145,27 @@ assert.equal(findFactoryBeat(afterNew, 'rock-44')?.beat.bars[0]?.beats, 4)
 assert.equal(findFactoryBeat(afterNew, 'fx-testnew')?.beat.name, 'Pocket clone')
 assert.equal(findFactoryBeat(afterNew, 'fx-testnew')?.style.id, 'funk')
 
+const rockIds = bundled.styles.find((style) => style.id === 'rock')!.beats.map((beat) => beat.id)
+const firstRock = rockIds[0]!
+const secondRock = rockIds[1]!
+assert.ok(firstRock && secondRock)
+const movedDown = moveFactoryBeat(bundled, firstRock, 'rock', 1)
+assert.equal(movedDown.styles.find((style) => style.id === 'rock')!.beats[1]?.id, firstRock)
+assert.equal(movedDown.styles.find((style) => style.id === 'rock')!.beats[0]?.id, secondRock)
+const movedBack = moveFactoryBeat(movedDown, firstRock, 'rock', 0)
+assert.equal(movedBack.styles.find((style) => style.id === 'rock')!.beats[0]?.id, firstRock)
+
+const barSrc = readFileSync(new URL('../src/components/FactoryEditorBar.tsx', import.meta.url), 'utf8')
+assert.match(barSrc, /data-factory-undo/)
+assert.match(barSrc, /data-factory-history-open/)
+assert.doesNotMatch(barSrc, /Move up/)
+assert.doesNotMatch(barSrc, /Move down/)
+assert.doesNotMatch(barSrc, /ChevronUp/)
+
 const rhythmSrc = readFileSync(new URL('../src/pages/RhythmPage.tsx', import.meta.url), 'utf8')
+assert.match(rhythmSrc, /data-factory-reorder/)
+assert.match(rhythmSrc, /data-factory-grip/)
+assert.match(rhythmSrc, /onReorder/)
 const meterFn = rhythmSrc.slice(rhythmSrc.indexOf('const setMeter'), rhythmSrc.indexOf('const setSubdivision'))
 assert.equal(meterFn.includes('setPresetId(null)'), false)
 
