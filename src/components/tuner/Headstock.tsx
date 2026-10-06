@@ -14,6 +14,7 @@ type HeadstockProps = {
   live: boolean
   onTapPeg: (string: InstrumentString) => void
   layoutMode: TunerLayoutMode
+  playingId?: string | null
 }
 
 export function Headstock({
@@ -25,6 +26,7 @@ export function Headstock({
   live,
   onTapPeg,
   layoutMode,
+  playingId = null,
 }: HeadstockProps) {
   const twelveString = isTwelveString(config, strings.length)
   const effectiveLayout = twelveString ? 'headstock' : layoutMode
@@ -46,6 +48,7 @@ export function Headstock({
               inTune={inTune}
               live={live}
               onTapPeg={onTapPeg}
+              playingId={playingId}
             />
           ) : (
             <SplitHeadstock
@@ -56,13 +59,15 @@ export function Headstock({
               inTune={inTune}
               live={live}
               onTapPeg={onTapPeg}
+              playingId={playingId}
             />
           )}
         </div>
       </div>
       <p className="mt-1.5 hidden text-center text-[0.65rem] leading-4 text-slate-500 sm:block">
-        Tap a peg to hear its pitch and set the target. Hold a string in tune to
-        lock it green — it stays green until you tap that peg or change the tuning.
+        Tap a peg to play its pitch like a tuning fork — tap again to stop. Hold a
+        string in tune to lock it green. It stays green until you tap that peg or
+        change the tuning.
       </p>
     </div>
   )

@@ -188,6 +188,25 @@ body {
   animation: omni-in-tune-pop 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+@keyframes omni-fork-ring {
+  0% {
+    opacity: 0.42;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.omni-fork-ring {
+  animation: omni-fork-ring 1.7s ease-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.omni-fork-ring-delay {
+  animation-delay: 0.55s;
+}
+
 @keyframes omni-hold-glow {
   0%,
   100% {

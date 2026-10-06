@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import { layoutModeLabel, parseLayoutMode } from '../src/lib/custom-presets.ts'
 import {
@@ -148,5 +149,12 @@ assert.equal(split12.pegs.length, 12)
 assert.equal(split12.pegs.filter((p) => p.side === 'left').length, 6)
 assert.equal(split12.pegs.filter((p) => p.side === 'right').length, 6)
 assert.equal(split12.courses.length, 6)
+
+const splitSrc = readFileSync(new URL('../src/components/tuner/SplitHeadstock.tsx', import.meta.url), 'utf8')
+const inlineSrc = readFileSync(new URL('../src/components/tuner/InlineHeadstock.tsx', import.meta.url), 'utf8')
+assert.match(splitSrc, /PegSpeakerIcon/)
+assert.match(inlineSrc, /PegSpeakerIcon/)
+assert.match(splitSrc, /data-peg-playing/)
+assert.match(inlineSrc, /data-peg-playing/)
 
 console.log('tuner-layout: ok')

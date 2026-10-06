@@ -1,5 +1,7 @@
 import { ArrowLeftRight } from 'lucide-react'
 
+import { PegPulseRings, PegSpeakerIcon } from '@/components/tuner/PegSpeaker'
+
 import { usesCloverPegs } from '@/lib/headstock'
 import {
   INLINE_NECK_FADE,
@@ -42,6 +44,7 @@ type InlineHeadstockProps = {
   inTune: boolean
   live: boolean
   onTapPeg: (string: InstrumentString) => void
+  playingId?: string | null
 }
 
 export function InlineHeadstock({
@@ -52,6 +55,7 @@ export function InlineHeadstock({
   inTune,
   live,
   onTapPeg,
+  playingId = null,
 }: InlineHeadstockProps) {
   const drawn = layoutInline(strings, config)
   const clover = usesCloverPegs(config)
@@ -63,6 +67,7 @@ export function InlineHeadstock({
       id="inline-headstock"
       data-inline-headstock
       data-inline-shape="v4-svg"
+      data-fork-id={playingId ?? ''}
       className="relative h-full w-full"
     >
       <svg
@@ -191,12 +196,13 @@ export function InlineHeadstock({
 
         {rest.map((peg) => {
           const tone = pegTone(peg.string.id, selectedId, tunedIds, inTune, live)
+          const playing = peg.string.id === playingId
           return (
             <StringRun
               key={`s-${peg.string.id}`}
               peg={peg}
-              color={tone === 'sticky' ? GREEN : WHITE}
-              width={clover ? 4.2 : 2.6}
+              color={playing ? PEG_PURPLE : tone === 'sticky' ? GREEN : WHITE}
+              width={playing ? (clover ? 5.4 : 3.8) : clover ? 4.2 : 2.6}
             />
           )
         })}
@@ -205,6 +211,7 @@ export function InlineHeadstock({
             key={peg.string.id}
             peg={peg}
             tone={pegTone(peg.string.id, selectedId, tunedIds, inTune, live)}
+            playing={peg.string.id === playingId}
             onClick={() => onTapPeg(peg.string)}
           />
         ))}
@@ -214,15 +221,18 @@ export function InlineHeadstock({
             <StringRun
               peg={active}
               color={
-                pegActiveColor(
-                  pegTone(active.string.id, selectedId, tunedIds, inTune, live),
-                ) ?? WHITE
+                active.string.id === playingId
+                  ? PEG_PURPLE
+                  : pegActiveColor(
+                      pegTone(active.string.id, selectedId, tunedIds, inTune, live),
+                    ) ?? WHITE
               }
               width={clover ? 5.4 : 3.8}
             />
             <Peg
               peg={active}
               tone={pegTone(active.string.id, selectedId, tunedIds, inTune, live)}
+              playing={active.string.id === playingId}
               onClick={() => onTapPeg(active.string)}
             />
           </>
@@ -267,26 +277,34 @@ function StringRun({
 function Peg({
   peg,
   tone,
+  playing,
   onClick,
 }: {
   peg: InlinePeg
   tone: PegTone
+  playing: boolean
   onClick: () => void
 }) {
-  const { fill, stroke, text } = pegColors(tone)
-  const glow = tone === 'red' || tone === 'green' || tone === 'sticky' || tone === 'selected'
-  const lit = tone !== 'idle'
-  const locked = tone === 'green' || tone === 'sticky'
+  const colors = playing
+    ? { fill: PEG_PURPLE, stroke: PEG_PURPLE, text: PEG_WHITE }
+    : pegColors(tone)
+  const { fill, stroke, text } = colors
+  const glow = playing || tone === 'red' || tone === 'green' || tone === 'sticky' || tone === 'selected'
+  const lit = playing || tone !== 'idle'
+  const locked = !playing && (tone === 'green' || tone === 'sticky')
   const letter = peg.string.label
   const shaftY = peg.buttonY + peg.buttonH / 2
+  const chipCx = peg.buttonX + peg.buttonW / 2
+  const chipCy = peg.buttonY + peg.buttonH / 2
 
   return (
     <g
       role="button"
       tabIndex={0}
       data-inline-string={peg.string.id}
-      data-peg-tone={tone}
-      aria-label={`String ${peg.string.stringNo}, ${letter}${locked ? ', in tune' : ''}`}
+      data-peg-tone={playing ? 'playing' : tone}
+      data-peg-playing={playing ? '1' : '0'}
+      aria-label={`String ${peg.string.stringNo}, ${letter}${playing ? ', playing reference' : locked ? ', in tune' : ''}`}
       onClick={onClick}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -297,6 +315,7 @@ function Peg({
       className="cursor-pointer"
       filter={glow ? 'url(#omnician-inline-peg-glow)' : undefined}
     >
+      {playing ? <PegPulseRings cx={chipCx} cy={chipCy} radius={peg.buttonW * 0.62} /> : null}
       {lit ? (
         <circle cx={peg.postX} cy={peg.postY} r={peg.postR + 8} fill={stroke} opacity="0.22" />
       ) : null}
@@ -325,23 +344,20 @@ function Peg({
         rx={peg.buttonRx}
         fill={fill}
         stroke={stroke}
-        strokeWidth={tone === 'red' ? 4.6 : 3.8}
+        strokeWidth={playing || tone === 'red' ? 4.6 : 3.8}
       />
-      <line
-        x1={peg.buttonX + peg.buttonW * 0.32}
-        y1={shaftY}
-        x2={peg.buttonX + peg.buttonW * 0.68}
-        y2={shaftY}
-        stroke={text}
-        strokeWidth={Math.max(2.8, peg.buttonH * 0.1)}
-        strokeLinecap="round"
-        opacity={tone === 'idle' ? 0.7 : 1}
+      <PegSpeakerIcon
+        cx={chipCx}
+        cy={chipCy}
+        size={Math.min(peg.buttonW, peg.buttonH) * 0.44}
+        fill={text}
+        flip
       />
       <text
         x={peg.buttonX - 16}
         y={shaftY + 8}
         textAnchor="end"
-        fill={locked ? GREEN : tone === 'red' ? RED : WHITE}
+        fill={playing ? WHITE : locked ? GREEN : tone === 'red' ? RED : WHITE}
         fontSize="28"
         fontWeight="700"
         fontFamily="Outfit, ui-sans-serif, system-ui, sans-serif"

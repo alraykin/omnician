@@ -25,6 +25,11 @@ import {
 import { createPitchScratch, estimateFromFilled, MAX_WINDOW } from '@/lib/mpm'
 import { filterBuffer } from '@/lib/pitch-filter'
 import { createSmoothState, pushEstimate, type SmoothState } from '@/lib/pitch-smooth'
+import {
+  isReferenceToneLeak,
+  onReferenceToneChange,
+  stopReferenceTone,
+} from '@/lib/reference-tone'
 
 const UI_PERIOD_MS = 16
 const ORPHAN_PRIME_MS = 1600
@@ -112,6 +117,8 @@ let engine: 'worklet' | 'analyser' | 'none' = 'none'
 let audio: AudioContext | null = null
 let stream: MediaStream | null = null
 let captureSource: AudioNode | null = null
+let forkNotch: BiquadFilterNode | null = null
+let rejectHz: number | null = null
 let oscillator: OscillatorNode | null = null
 let worklet: AudioWorkletNode | null = null
 let raf = 0
@@ -198,11 +205,23 @@ async function micPermissionState(): Promise<'granted' | 'denied' | 'prompt' | '
   }
 }
 
+function applyNotch(node: BiquadFilterNode | null, hz: number | null): void {
+  if (!node) return
+  if (hz && hz > 20) {
+    node.frequency.value = hz
+    node.Q.value = 18
+    return
+  }
+  node.frequency.value = 12
+  node.Q.value = 30
+}
+
 function applyEstimate(hz: number, clarity: number, signal: number, now: number): void {
+  const heard = isReferenceToneLeak(hz, rejectHz, signal) ? 0 : hz
   const prev = lastTick || now
   lastTick = now
   const dt = Math.min(0.05, Math.max(0.003, (now - prev) / 1000))
-  const next = pushEstimate(smooth, hz, clarity, signal, now, dt)
+  const next = pushEstimate(smooth, heard, clarity, heard > 0 ? signal : 0, now, dt)
   const rawNote = hz > 0 ? analyzeFrequency(hz, a4Hz) : null
   const debug = currentDebug({
     rms: signal,
@@ -263,6 +282,12 @@ function teardown(nextStatus: TunerStatus | null): void {
     // already gone
   }
   captureSource = null
+  try {
+    forkNotch?.disconnect()
+  } catch {
+    // already gone
+  }
+  forkNotch = null
 
   const liveStream = stream
   stream = null
@@ -494,12 +519,19 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     applyEstimate(hz, clarity, signal, performance.now())
   }
 
+  const notch = ctx.createBiquadFilter()
+  notch.type = 'notch'
+  applyNotch(notch, rejectHz)
+  source.connect(notch)
+  forkNotch = notch
+  const pitched = notch
+
   const attachAnalyser = () => {
     const analyser = ctx.createAnalyser()
     const fftSize = Math.min(32768, Math.max(16384, MAX_WINDOW))
     analyser.fftSize = fftSize
     analyser.smoothingTimeConstant = 0
-    connectRawInput(ctx, source, analyser)
+    connectRawInput(ctx, pitched, analyser)
     const scratch = createPitchScratch()
     const buffer = new Float32Array(fftSize)
     const filtered = new Float32Array(fftSize)
@@ -535,7 +567,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
           if (typeof event.data.channelCount === 'number') lastChannelCount = event.data.channelCount
           onEstimate(event.data.hz, event.data.clarity, event.data.rms)
         }
-        connectRawInput(ctx, source, node)
+        connectRawInput(ctx, pitched, node)
         worklet = node
         engine = 'worklet'
       } catch (error) {
@@ -611,6 +643,7 @@ export function enterTunerPage(): void {
 }
 
 export function leaveTunerPage(): void {
+  stopReferenceTone()
   pageCount = Math.max(0, pageCount - 1)
   if (pageCount > 0) return
   stopTuner()
@@ -618,5 +651,11 @@ export function leaveTunerPage(): void {
 }
 
 onHiddenReleaseCapture(() => {
+  stopReferenceTone()
   if (stream) stopTuner()
+})
+
+onReferenceToneChange((hz) => {
+  rejectHz = hz
+  applyNotch(forkNotch, hz)
 })

@@ -45,7 +45,13 @@ import {
   resolvePreset,
   type InstrumentId,
 } from '@/lib/presets'
-import { playReferenceTone } from '@/lib/reference-tone'
+import {
+  getPlayingToneId,
+  retunePlayingTone,
+  stopReferenceTone,
+  subscribePlayingTone,
+  toggleReferenceTone,
+} from '@/lib/reference-tone'
 import { isTwelveString } from '@/lib/headstock'
 import { armLogoDebugToggle, subscribeTunerDebug } from '@/lib/tuner-debug'
 import {
@@ -109,9 +115,11 @@ export function TunerPage() {
   const initialTuningRef = useRef<string | null>(null)
 
   const { status, reading, needsGesture, debug } = useTuner(a4Hz)
+  const [playingId, setPlayingId] = useState<string | null>(getPlayingToneId)
 
   useEffect(() => subscribeTunerDebug(setShowDebug), [])
   useEffect(() => armLogoDebugToggle(), [])
+  useEffect(() => subscribePlayingTone(setPlayingId), [])
 
   useEffect(() => {
     enterTunerPage()
@@ -120,6 +128,10 @@ export function TunerPage() {
       void startTuner({ fromGesture: true })
     }
     const onResume = () => {
+      if (document.visibilityState === 'hidden') {
+        stopReferenceTone()
+        return
+      }
       void resumeTuner()
     }
 
@@ -185,6 +197,16 @@ export function TunerPage() {
   }, [current.id, demo.glow])
 
   const strings = current.strings
+
+  useEffect(() => {
+    if (!playingId) return
+    const string = strings.find((item) => item.id === playingId)
+    if (!string) {
+      stopReferenceTone()
+      return
+    }
+    retunePlayingTone(midiToFreq(string.midi, a4Hz))
+  }, [a4Hz, playingId, strings])
   const instrumentMode = strings.length > 0
   const safeFocus = Math.min(focusIndex, Math.max(0, strings.length - 1))
   const lockedString = instrumentMode ? strings[safeFocus] ?? null : null
@@ -432,8 +454,13 @@ export function TunerPage() {
                   tunedIds={tunedIds}
                   inTune={inTune}
                   live={live}
+                  playingId={playingId}
                   onTapPeg={(string) => {
-                    playReferenceTone(midiToFreq(string.midi, a4Hz), family.id)
+                    toggleReferenceTone({
+                      id: string.id,
+                      frequency: midiToFreq(string.midi, a4Hz),
+                      family: family.id,
+                    })
                     const index = strings.findIndex((item) => item.id === string.id)
                     if (index >= 0) setFocusIndex(index)
                     if (autoString) setAutoId(string.id)
@@ -658,10 +685,10 @@ function statusMessage(
   }
   if (status === 'listening' && !live) return 'Play a note…'
   if (instrumentMode && autoString) {
-    return 'Auto is listening for the nearest string in this tuning. Tap a peg to hear it. Turn Auto off in Settings to lock one string.'
+    return 'Auto is listening for the nearest string in this tuning. Tap a peg speaker to play its pitch; tap again to stop. Turn Auto off in Settings to lock one string.'
   }
   return instrumentMode
-    ? 'Auto is off in Settings. The red peg is locked — play that string, or tap another peg to change the target.'
+    ? 'Auto is off in Settings. The red peg is locked — play that string, or tap another peg speaker to change the target and play its pitch.'
     : 'Play a steady note. The needle follows true cents; green lock is ±1.0 ¢ and never hides the number.'
 }
 
