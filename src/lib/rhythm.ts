@@ -197,6 +197,37 @@ export function isBeatUnit(value: unknown): value is BeatUnit {
   return value === 2 || value === 4 || value === 8 || value === 16 || value === 32
 }
 
+/** Nearest allowed meter denominator (2 / 4 / 8 / 16 / 32). Ties pick the smaller unit. */
+export function snapBeatUnit(value: number): BeatUnit {
+  if (!Number.isFinite(value)) return 4
+  let best: BeatUnit = 4
+  let bestDist = Number.POSITIVE_INFINITY
+  for (const unit of BEAT_UNITS) {
+    const dist = Math.abs(unit - value)
+    if (dist < bestDist) {
+      best = unit
+      bestDist = dist
+    }
+  }
+  return best
+}
+
+export function parseMeterBeats(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const n = Number(trimmed)
+  if (!Number.isFinite(n)) return null
+  return clampBeats(n)
+}
+
+export function parseMeterBeatUnit(raw: string): BeatUnit | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const n = Number(trimmed)
+  if (!Number.isFinite(n)) return null
+  return snapBeatUnit(n)
+}
+
 export function normalizeSubdivision(value: unknown): SubdivisionId {
   if (value === 8 || value === 'thirtyseconds' || value === 'thirty-seconds') {
     return 4
@@ -450,6 +481,31 @@ export function setHitPos(pattern: Pattern, voice: VoiceId, target: HitPos, on: 
   const next = clonePattern(pattern)
   if (on) next[voice].push(hit)
   else next[voice].splice(index, 1)
+  return next
+}
+
+/** Move a hit to another slot or drum row. Keeps soft/full. Occupied dest is replaced. */
+export function moveHitPos(
+  pattern: Pattern,
+  fromVoice: VoiceId,
+  from: HitPos,
+  toVoice: VoiceId,
+  to: HitPos,
+): Pattern {
+  const fromHit = reduceHit(from.beat, from.num, from.den)
+  const sourceRow = pattern[fromVoice] ?? []
+  const source = sourceRow.find((item) => sameHit(item, fromHit))
+  if (!source) return pattern
+  const dest = reduceHit(to.beat, to.num, to.den, isHitSoft(source))
+  if (fromVoice === toVoice && sameHit(source, dest)) return pattern
+  const next = clonePattern(pattern)
+  const nextFrom = next[fromVoice]
+  const fromIndex = nextFrom.findIndex((item) => sameHit(item, fromHit))
+  if (fromIndex >= 0) nextFrom.splice(fromIndex, 1)
+  const nextTo = next[toVoice]
+  const destIndex = nextTo.findIndex((item) => sameHit(item, dest))
+  if (destIndex >= 0) nextTo.splice(destIndex, 1)
+  nextTo.push(dest)
   return next
 }
 

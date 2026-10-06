@@ -1,6 +1,14 @@
+import { useEffect, useRef, useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
 
-import { BEAT_UNITS, MAX_BEATS, MIN_BEATS, type BeatUnit } from '@/lib/rhythm'
+import {
+  BEAT_UNITS,
+  MAX_BEATS,
+  MIN_BEATS,
+  parseMeterBeatUnit,
+  parseMeterBeats,
+  type BeatUnit,
+} from '@/lib/rhythm'
 import { activateOnPointer, cn } from '@/lib/utils'
 
 function stepBeatUnit(current: BeatUnit, dir: 1 | -1): BeatUnit {
@@ -8,10 +16,98 @@ function stepBeatUnit(current: BeatUnit, dir: 1 | -1): BeatUnit {
   return BEAT_UNITS[Math.min(BEAT_UNITS.length - 1, Math.max(0, index + dir))] ?? current
 }
 
+function MeterValue({
+  label,
+  value,
+  display,
+  parse,
+  onCommit,
+}: {
+  label: string
+  value: number
+  display?: string
+  parse: (raw: string) => number | null
+  onCommit: (next: number) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(value))
+  const inputRef = useRef<HTMLInputElement>(null)
+  const doneRef = useRef(false)
+
+  useEffect(() => {
+    if (!editing) return
+    const node = inputRef.current
+    if (!node) return
+    node.focus()
+    node.select()
+  }, [editing])
+
+  const open = () => {
+    doneRef.current = false
+    setDraft(String(value))
+    setEditing(true)
+  }
+
+  const finish = (apply: boolean) => {
+    if (doneRef.current) return
+    doneRef.current = true
+    setEditing(false)
+    if (!apply) return
+    const next = parse(draft)
+    if (next == null || next === value) return
+    onCommit(next)
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        data-meter-value={value}
+        data-meter-edit={label}
+        inputMode="numeric"
+        pattern="[0-9]*"
+        enterKeyHint="done"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        aria-label={`Type ${label}`}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, ''))}
+        onBlur={() => finish(true)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            finish(true)
+          }
+          if (event.key === 'Escape') {
+            event.preventDefault()
+            finish(false)
+          }
+        }}
+        className="h-7 w-10 min-w-[1.75rem] rounded-md bg-white/8 text-center text-base font-bold tabular-nums text-white outline-none ring-1 ring-[#A855F7]"
+      />
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      data-meter-value={value}
+      aria-label={`${label}, ${display ?? value}. Tap to type`}
+      {...activateOnPointer(open)}
+      className="flex h-7 min-w-[1.75rem] items-center justify-center text-center text-base font-bold tabular-nums text-white"
+    >
+      {display ?? value}
+    </button>
+  )
+}
+
 function Stepper({
   label,
   value,
   display,
+  parse,
+  onCommit,
   onDec,
   onInc,
   decDisabled,
@@ -20,6 +116,8 @@ function Stepper({
   label: string
   value: number
   display?: string
+  parse: (raw: string) => number | null
+  onCommit: (next: number) => void
   onDec: () => void
   onInc: () => void
   decDisabled: boolean
@@ -39,12 +137,7 @@ function Stepper({
       >
         <Minus className="size-3" />
       </button>
-      <span
-        className="min-w-[1.4rem] text-center text-base font-bold tabular-nums text-white"
-        data-meter-value={value}
-      >
-        {display ?? value}
-      </span>
+      <MeterValue label={label} value={value} display={display} parse={parse} onCommit={onCommit} />
       <button
         type="button"
         aria-label={`Increase ${label}`}
@@ -79,6 +172,8 @@ export function CompactMeter({
         <Stepper
           label="beats"
           value={beats}
+          parse={parseMeterBeats}
+          onCommit={(next) => onChange(next, beatUnit)}
           onDec={() => onChange(beats - 1, beatUnit)}
           onInc={() => onChange(beats + 1, beatUnit)}
           decDisabled={beats <= MIN_BEATS}
@@ -89,6 +184,8 @@ export function CompactMeter({
           label="beat unit"
           value={beatUnit}
           display={`${beatUnit}`}
+          parse={parseMeterBeatUnit}
+          onCommit={(next) => onChange(beats, next as BeatUnit)}
           onDec={() => onChange(beats, stepBeatUnit(beatUnit, -1))}
           onInc={() => onChange(beats, stepBeatUnit(beatUnit, 1))}
           decDisabled={unitIndex <= 0}

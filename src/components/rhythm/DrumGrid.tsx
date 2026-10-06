@@ -11,7 +11,7 @@ import {
   type KitBeatBlock,
 } from '@/lib/beat-boxes'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
-import { BAR_LONG_PRESS_MS } from '@/lib/bar-press'
+import { BAR_LONG_PRESS_MS, MOVE_ARM_MS } from '@/lib/bar-press'
 import { HOLD_NUDGE_CLASS } from '@/lib/hold-repeat'
 import {
   subdivisionLabel,
@@ -21,7 +21,7 @@ import {
   VOICE_LABELS,
   VOICES,
 } from '@/lib/rhythm'
-import { TAP_SLOP_PX, accumulatedScroll, activateOnPointer, cn } from '@/lib/utils'
+import { TAP_SLOP_PX, accumulatedScroll, activateOnPointer, cn, isCoarsePointer } from '@/lib/utils'
 
 type DrumGridProps = {
   beats: number
@@ -32,6 +32,14 @@ type DrumGridProps = {
   playing: boolean
   onToggle: (voice: VoiceId, beat: number, slot: number, on: boolean, preview: boolean) => void
   onToggleSoft: (voice: VoiceId, beat: number, slot: number) => void
+  onMoveHit: (
+    fromVoice: VoiceId,
+    fromBeat: number,
+    fromSlot: number,
+    toVoice: VoiceId,
+    toBeat: number,
+    toSlot: number,
+  ) => void
   onPreview: (voice: VoiceId) => void
 }
 
@@ -50,16 +58,28 @@ type PendingPaint = {
   beat: number
   slot: number
   filled: boolean
+  soft: boolean
+  coarse: boolean
   engaged: boolean
+  moving: boolean
+  moveArmed: boolean
   ignored: boolean
   softened: boolean
+}
+
+type SlotCell = {
+  voice: VoiceId
+  beat: number
+  slot: number
+  filled: boolean
+  soft: boolean
 }
 
 function readSlot(
   node: Element | null,
   clientX: number,
   input: InputDivision,
-): { voice: VoiceId; beat: number; slot: number; filled: boolean } | null {
+): SlotCell | null {
   const box = node?.closest('[data-beat-box]')
   if (!box) return null
   const voice = box.getAttribute('data-voice-cell')
@@ -67,8 +87,28 @@ function readSlot(
   if (!voice || !Number.isInteger(beat)) return null
   const rect = box.getBoundingClientRect()
   const slot = inputSlotFromX(clientX - rect.left, rect.width, input)
-  const filled = box.getAttribute('data-input-filled')?.split(',').includes(String(slot)) ?? false
-  return { voice: voice as VoiceId, beat, slot, filled }
+  const slotEl = box.querySelector(`[data-box-slot="${slot}"]`)
+  const filled =
+    slotEl?.getAttribute('data-filled') === '1' ||
+    (box.getAttribute('data-input-filled')?.split(',').includes(String(slot)) ?? false)
+  const soft = slotEl?.getAttribute('data-soft') === '1'
+  return { voice: voice as VoiceId, beat, slot, filled, soft }
+}
+
+function sameSlot(a: Pick<SlotCell, 'voice' | 'beat' | 'slot'>, b: Pick<SlotCell, 'voice' | 'beat' | 'slot'>) {
+  return a.voice === b.voice && a.beat === b.beat && a.slot === b.slot
+}
+
+function lightHaptic() {
+  try {
+    navigator.vibrate?.(10)
+  } catch {
+    /* haptic is optional */
+  }
+}
+
+function needsMoveArm(pointerType: string) {
+  return pointerType === 'touch' || (pointerType !== 'mouse' && isCoarsePointer())
 }
 
 /** 12px dots sit 2px in from the slot’s left edge and shrink if the slot is narrower. */
@@ -98,8 +138,10 @@ function HitDot({
   )
 }
 
-function slotFromPoint(x: number, y: number, input: InputDivision) {
-  return readSlot(document.elementFromPoint(x, y), x, input)
+function slotFromPoint(x: number, y: number, input: InputDivision, root?: HTMLElement | null) {
+  const node = document.elementFromPoint(x, y)
+  if (!node || (root && !root.contains(node))) return null
+  return readSlot(node, x, input)
 }
 
 function BeatTrack({
@@ -142,12 +184,16 @@ function KitBlock({
   pattern,
   input,
   onPreview,
+  moveFrom,
+  moveTo,
 }: {
   block: KitBeatBlock
   columns: number
   pattern: Pattern
   input: InputDivision
   onPreview: (voice: VoiceId) => void
+  moveFrom?: { voice: VoiceId; beat: number; slot: number } | null
+  moveTo?: { voice: VoiceId; beat: number; slot: number } | null
 }) {
   const beats = Array.from({ length: block.count }, (_, i) => block.start + i)
   return (
@@ -213,19 +259,29 @@ function KitBlock({
                     className="relative flex min-w-0 items-center overflow-hidden rounded-md border border-white/8 bg-white/[0.03] px-px py-0 sm:rounded-lg sm:py-0.5"
                   >
                     <div className="relative flex w-full min-w-0 gap-0.5">
-                      {view.slots.map((slot) => (
+                      {view.slots.map((slot) => {
+                        const isSource =
+                          moveFrom?.voice === voice && moveFrom.beat === beat && moveFrom.slot === slot.slot
+                        const isTarget =
+                          moveTo?.voice === voice && moveTo.beat === beat && moveTo.slot === slot.slot
+                        return (
                         <span
                           key={slot.slot}
                           data-box-slot={slot.slot}
                           data-filled={slot.filled ? '1' : '0'}
                           data-soft={slot.soft ? '1' : '0'}
+                          {...(isSource ? { 'data-move-source': '1' } : {})}
+                          {...(isTarget ? { 'data-drop-target': '1' } : {})}
                           className={cn(
                             'flex h-4 min-w-0 flex-1 items-center justify-start overflow-hidden rounded-md border border-dashed border-white/18 bg-transparent pl-[2px] sm:h-6 md:h-7 wide:!h-5',
+                            'data-[drop-target=1]:border-solid data-[drop-target=1]:border-[#A855F7] data-[drop-target=1]:bg-[#A855F7]/30',
+                            '[&[data-move-source=1]_[data-hit-dot]]:opacity-0',
                           )}
                         >
                           {slot.filled ? <HitDot soft={slot.soft} /> : null}
                         </span>
-                      ))}
+                        )
+                      })}
                       {view.dots
                         ? view.dotsAt.map((frac, index) => (
                             <HitDot
@@ -257,13 +313,25 @@ export const DrumGrid = memo(function DrumGrid({
   playing,
   onToggle,
   onToggleSoft,
+  onMoveHit,
   onPreview,
 }: DrumGridProps) {
   const paintRef = useRef<PaintStroke | null>(null)
   const pendingRef = useRef<PendingPaint | null>(null)
   const holdTimerRef = useRef(0)
+  const armTimerRef = useRef(0)
   const rootRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
+  const ghostRef = useRef<HTMLSpanElement>(null)
+  const pointerPosRef = useRef({ x: 0, y: 0 })
+  const moveToRef = useRef<SlotCell | null>(null)
+  const [moving, setMoving] = useState<{
+    soft: boolean
+    fromVoice: VoiceId
+    fromBeat: number
+    fromSlot: number
+  } | null>(null)
+  const [moveTo, setMoveTo] = useState<SlotCell | null>(null)
   const [trackPx, setTrackPx] = useState(() =>
     typeof window === 'undefined' ? 320 : Math.max(160, window.innerWidth - 96),
   )
@@ -295,10 +363,36 @@ export const DrumGrid = memo(function DrumGrid({
     [onToggle],
   )
 
+  const placeGhost = useCallback((x: number, y: number) => {
+    pointerPosRef.current = { x, y }
+    const ghost = ghostRef.current
+    if (!ghost) return
+    ghost.style.left = `${x}px`
+    ghost.style.top = `${y}px`
+  }, [])
+
+  const highlightTarget = useCallback((cell: SlotCell | null) => {
+    const prev = moveToRef.current
+    if (prev === cell) return
+    if (prev && cell && sameSlot(prev, cell)) return
+    if (!prev && !cell) return
+    moveToRef.current = cell
+    setMoveTo(cell)
+  }, [])
+
+  useEffect(() => {
+    if (!moving) return
+    placeGhost(pointerPosRef.current.x, pointerPosRef.current.y)
+  }, [moving, placeGhost])
+
   const endPaint = useCallback(() => {
     window.clearTimeout(holdTimerRef.current)
+    window.clearTimeout(armTimerRef.current)
     paintRef.current = null
     pendingRef.current = null
+    moveToRef.current = null
+    setMoveTo(null)
+    setMoving(null)
   }, [])
 
   const engagePaint = useCallback(
@@ -339,11 +433,39 @@ export const DrumGrid = memo(function DrumGrid({
     return playheadStore.subscribe(apply)
   }, [playheadStore, barIndex, playing])
 
+  const beginMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>, pending: PendingPaint) => {
+      window.clearTimeout(holdTimerRef.current)
+      window.clearTimeout(armTimerRef.current)
+      pending.moving = true
+      pending.engaged = true
+      rootRef.current?.setPointerCapture(pending.pointerId)
+      const origin: SlotCell = {
+        voice: pending.voice,
+        beat: pending.beat,
+        slot: pending.slot,
+        filled: pending.filled,
+        soft: pending.soft,
+      }
+      moveToRef.current = origin
+      setMoving({
+        soft: pending.soft,
+        fromVoice: pending.voice,
+        fromBeat: pending.beat,
+        fromSlot: pending.slot,
+      })
+      setMoveTo(origin)
+      placeGhost(event.clientX, event.clientY)
+    },
+    [placeGhost],
+  )
+
   const startPaint = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) return
       const cell = readSlot(event.target instanceof Element ? event.target : null, event.clientX, input)
       if (!cell) return
+      const coarse = needsMoveArm(event.pointerType)
       pendingRef.current = {
         pointerId: event.pointerId,
         x: event.clientX,
@@ -353,14 +475,27 @@ export const DrumGrid = memo(function DrumGrid({
         beat: cell.beat,
         slot: cell.slot,
         filled: cell.filled,
+        soft: cell.soft,
+        coarse,
         engaged: false,
+        moving: false,
+        moveArmed: cell.filled && !coarse,
         ignored: false,
         softened: false,
       }
       window.clearTimeout(holdTimerRef.current)
+      window.clearTimeout(armTimerRef.current)
+      if (cell.filled && coarse) {
+        armTimerRef.current = window.setTimeout(() => {
+          const pending = pendingRef.current
+          if (!pending || pending.engaged || pending.ignored || pending.softened || pending.moving) return
+          pending.moveArmed = true
+          lightHaptic()
+        }, MOVE_ARM_MS)
+      }
       holdTimerRef.current = window.setTimeout(() => {
         const pending = pendingRef.current
-        if (!pending || pending.engaged || pending.ignored || pending.softened) return
+        if (!pending || pending.engaged || pending.ignored || pending.softened || pending.moving) return
         if (!pending.filled) return
         pending.softened = true
         onToggleSoft(pending.voice, pending.beat, pending.slot)
@@ -381,6 +516,7 @@ export const DrumGrid = memo(function DrumGrid({
       data-beats-per-row={columns}
       data-kit-track-px={trackPx}
       data-beat-wrap={blocks.length > 1 ? '1' : '0'}
+      data-moving={moving ? '1' : '0'}
       onContextMenu={(event) => event.preventDefault()}
       className={cn(
         HOLD_NUDGE_CLASS,
@@ -390,8 +526,14 @@ export const DrumGrid = memo(function DrumGrid({
       onClick={(event) => event.preventDefault()}
       onPointerMove={(event) => {
         const pending = pendingRef.current
+        if (pending?.moving) {
+          if (event.cancelable) event.preventDefault()
+          placeGhost(event.clientX, event.clientY)
+          highlightTarget(slotFromPoint(event.clientX, event.clientY, input, rootRef.current))
+          return
+        }
         if (paintRef.current && pending?.engaged) {
-          const cell = slotFromPoint(event.clientX, event.clientY, input)
+          const cell = slotFromPoint(event.clientX, event.clientY, input, rootRef.current)
           if (cell) paintAt(cell.voice, cell.beat, cell.slot, false)
           return
         }
@@ -399,15 +541,28 @@ export const DrumGrid = memo(function DrumGrid({
         if (Math.abs(accumulatedScroll(rootRef.current) - pending.scroll) > 1) {
           pending.ignored = true
           window.clearTimeout(holdTimerRef.current)
+          window.clearTimeout(armTimerRef.current)
           return
         }
         const dx = event.clientX - pending.x
         const dy = event.clientY - pending.y
         const dist = Math.hypot(dx, dy)
         if (dist < TAP_SLOP_PX) return
+        if (pending.filled && pending.moveArmed && !pending.softened) {
+          if (event.cancelable) event.preventDefault()
+          beginMove(event, pending)
+          return
+        }
+        if (pending.filled && pending.coarse) {
+          pending.ignored = true
+          window.clearTimeout(holdTimerRef.current)
+          window.clearTimeout(armTimerRef.current)
+          return
+        }
         if (Math.abs(dy) > Math.abs(dx) * 1.15) {
           pending.ignored = true
           window.clearTimeout(holdTimerRef.current)
+          window.clearTimeout(armTimerRef.current)
           return
         }
         engagePaint(true)
@@ -416,6 +571,15 @@ export const DrumGrid = memo(function DrumGrid({
       onPointerUp={(event) => {
         const pending = pendingRef.current
         window.clearTimeout(holdTimerRef.current)
+        window.clearTimeout(armTimerRef.current)
+        if (pending && pending.pointerId === event.pointerId && pending.moving) {
+          const cell = slotFromPoint(event.clientX, event.clientY, input, rootRef.current)
+          if (cell && !sameSlot(pending, cell)) {
+            onMoveHit(pending.voice, pending.beat, pending.slot, cell.voice, cell.beat, cell.slot)
+          }
+          endPaint()
+          return
+        }
         if (pending && pending.pointerId === event.pointerId && !pending.engaged && !pending.ignored && !pending.softened) {
           const dist = Math.hypot(event.clientX - pending.x, event.clientY - pending.y)
           const scrolled = Math.abs(accumulatedScroll(rootRef.current) - pending.scroll) > 1
@@ -427,6 +591,18 @@ export const DrumGrid = memo(function DrumGrid({
         endPaint()
       }}
     >
+      {moving ? (
+        <span
+          ref={ghostRef}
+          data-hit-ghost
+          data-soft={moving.soft ? '1' : '0'}
+          className={cn(
+            'pointer-events-none fixed z-50 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_0_0_4px_rgba(168,85,247,0.28)]',
+            moving.soft ? 'bg-[#6D28D9]/50' : 'bg-[#A855F7]',
+          )}
+          style={{ left: pointerPosRef.current.x, top: pointerPosRef.current.y }}
+        />
+      ) : null}
       <div className="relative flex w-full min-w-0 flex-col gap-3">
         <div
           aria-hidden
@@ -443,6 +619,12 @@ export const DrumGrid = memo(function DrumGrid({
             pattern={pattern}
             input={input}
             onPreview={onPreview}
+            moveFrom={
+              moving
+                ? { voice: moving.fromVoice, beat: moving.fromBeat, slot: moving.fromSlot }
+                : null
+            }
+            moveTo={moveTo}
           />
         ))}
       </div>

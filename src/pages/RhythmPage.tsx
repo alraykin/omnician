@@ -38,6 +38,9 @@ import {
   setBeatSubdivision,
   setHit,
   emptyPattern,
+  isHitSoft,
+  moveHitPos,
+  sameHit,
   setHitPos,
   toggleHitSoft,
   updateBarMeter,
@@ -518,6 +521,40 @@ export function RhythmPage() {
         )
       })
       if (changed && !draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
+    },
+    [draftNew, drumInput, matched?.id, presetId, preview, userBeatId],
+  )
+
+  const onMoveHit = useCallback(
+    (
+      targetBar: number,
+      fromVoice: VoiceId,
+      fromBeat: number,
+      fromSlot: number,
+      toVoice: VoiceId,
+      toBeat: number,
+      toSlot: number,
+    ) => {
+      const from = hitForInputSlot(fromBeat, fromSlot, drumInput)
+      const to = hitForInputSlot(toBeat, toSlot, drumInput)
+      let destSoft = false
+      let changed = false
+      setDrumBars((currentBars) => {
+        const bar = currentBars[targetBar]
+        if (!bar) return currentBars
+        if (toBeat < 0 || toBeat >= bar.beats) return currentBars
+        const nextPattern = moveHitPos(bar.pattern, fromVoice, from, toVoice, to)
+        if (nextPattern === bar.pattern) return currentBars
+        changed = true
+        destSoft = (nextPattern[toVoice] ?? []).some((hit) => sameHit(hit, to) && isHitSoft(hit))
+        return currentBars.map((item, index) =>
+          index === targetBar ? { ...item, pattern: nextPattern } : item,
+        )
+      })
+      if (changed) {
+        preview(toVoice, destSoft ? 'ghost' : 'normal')
+        if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
+      }
     },
     [draftNew, drumInput, matched?.id, presetId, preview, userBeatId],
   )
@@ -1302,6 +1339,7 @@ export function RhythmPage() {
                 onInput={setDrumInput}
                 onToggle={onToggleCell}
                 onToggleSoft={onToggleSoft}
+                onMoveHit={onMoveHit}
                 onPreviewVoice={preview}
               />
               <KitFaders
