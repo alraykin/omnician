@@ -274,11 +274,10 @@ function KitBlock({
                           {...(isTarget ? { 'data-drop-target': '1' } : {})}
                           className={cn(
                             'flex h-4 min-w-0 flex-1 items-center justify-start overflow-hidden rounded-md border border-dashed border-white/18 bg-transparent pl-[2px] sm:h-6 md:h-7 wide:!h-5',
-                            'data-[drop-target=1]:border-solid data-[drop-target=1]:border-[#A855F7] data-[drop-target=1]:bg-[#A855F7]/30',
-                            '[&[data-move-source=1]_[data-hit-dot]]:opacity-0',
+                            isTarget && 'border-solid border-[#A855F7] bg-[#A855F7]/30',
                           )}
                         >
-                          {slot.filled ? <HitDot soft={slot.soft} /> : null}
+                          {slot.filled ? <HitDot soft={slot.soft} className={isSource ? 'opacity-0' : undefined} /> : null}
                         </span>
                         )
                       })}
