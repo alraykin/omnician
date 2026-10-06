@@ -10,6 +10,8 @@ type AppChromeProps = {
   children: ReactNode
   align?: 'center' | 'fill'
   wide?: boolean
+  /** Let Click/Drums use the leftover desktop width for the grid. */
+  fluid?: boolean
   compact?: boolean
   headerTrailing?: ReactNode
   /** Home hides the tool switcher. Tuner / Click / Drums keep it. */
@@ -19,6 +21,7 @@ type AppChromeProps = {
 const SHELL = {
   default: 'max-w-lg md:max-w-3xl lg:max-w-5xl wide:max-w-6xl',
   wide: 'max-w-lg md:max-w-3xl wide:max-w-6xl xl:max-w-7xl',
+  fluid: 'max-w-lg md:max-w-3xl wide:max-w-none',
 }
 
 function SettingsGearButton() {
@@ -41,11 +44,12 @@ export function AppChrome({
   children,
   align = 'center',
   wide = false,
+  fluid = false,
   compact = false,
   headerTrailing,
   hideTabs = false,
 }: AppChromeProps) {
-  const shell = wide ? SHELL.wide : SHELL.default
+  const shell = fluid ? SHELL.fluid : wide ? SHELL.wide : SHELL.default
   return (
     <div
       data-app-frame

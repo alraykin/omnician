@@ -73,9 +73,8 @@ export function inputSlotFromX(x: number, width: number, input: InputDivision): 
   return Math.min(input - 1, Math.max(0, slot))
 }
 
-/** Split the kit when a slot would drop under this width, or when a bar has more than 6 beats. */
+/** Split only when packing the whole bar on one row would make a slot narrower than this. */
 export const SLOT_MIN_PX = 28
-export const KIT_MAX_BEATS = 6
 export const BEAT_GAP_PX = 4
 const BEAT_CHROME_PX = 8
 
@@ -103,9 +102,9 @@ export function kitRowCount(opts: {
   trackPx: number
 }): number {
   const n = Math.max(1, Math.floor(opts.beats) || 1)
-  const oneRow = approxSlotWidthPx(opts.trackPx, n, opts.input)
-  if (n <= KIT_MAX_BEATS && oneRow >= SLOT_MIN_PX) return 1
-  return Math.max(2, Math.ceil(n / KIT_MAX_BEATS))
+  const track = Math.max(0, opts.trackPx)
+  if (approxSlotWidthPx(track, n, opts.input) >= SLOT_MIN_PX) return 1
+  return 2
 }
 
 /** Spread beats across rows so 6 → 3+3, 8 → 4+4, 5 → 3+2 — never a single leftover. */

@@ -894,6 +894,7 @@ export function RhythmPage() {
     <AppChrome
       align="fill"
       wide
+      fluid
       compact
       headerTrailing={
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-slate-400">
@@ -1031,7 +1032,7 @@ export function RhythmPage() {
             </div>
 
             <div
-              className="flex h-fit min-w-0 flex-1 flex-col gap-1.5"
+              className="flex h-fit min-w-0 w-full flex-1 flex-col gap-1.5"
               data-rhythm-stack="stage"
             >
             <section className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-2.5 py-2 sm:px-4">
@@ -1150,7 +1151,7 @@ export function RhythmPage() {
                 />
               </TransportDock>
             </div>
-            <section className="flex h-fit min-h-0 min-w-0 flex-1 flex-col" data-rhythm-stack="stage">
+            <section className="flex h-fit min-h-0 min-w-0 w-full flex-1 flex-col" data-rhythm-stack="stage">
               {factory.visible ? (
                 <FactoryEditorBar
                   library={factory.library}

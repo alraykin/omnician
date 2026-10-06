@@ -101,6 +101,8 @@ assert.equal(beatBoxView(example.pattern.floorTom, 3, 3).triplet, true)
 assert.equal(beatBoxView(example.pattern.floorTom, 3, 3).division, 3)
 
 const gridSrc = readFileSync(new URL('../src/components/rhythm/DrumGrid.tsx', import.meta.url), 'utf8')
+const pageSrc = readFileSync(new URL('../src/pages/RhythmPage.tsx', import.meta.url), 'utf8')
+const boxesSrc = readFileSync(new URL('../src/lib/beat-boxes.ts', import.meta.url), 'utf8')
 assert.match(gridSrc, /data-hit-dot/)
 assert.match(gridSrc, /data-hit-align="start"/)
 assert.match(gridSrc, /aspect-square h-auto w-3 max-w-full/)
@@ -121,6 +123,8 @@ assert.match(gridSrc, /data-kit-blocks/)
 assert.match(gridSrc, /data-kit-track/)
 assert.match(gridSrc, /ResizeObserver/)
 assert.match(gridSrc, /kitBeatBlocks\(\{ beats, input, trackPx \}\)/)
+assert.match(pageSrc, /fluid/)
+assert.doesNotMatch(boxesSrc, /KIT_MAX_BEATS/)
 assert.doesNotMatch(gridSrc, /overflow-y-auto/)
 assert.doesNotMatch(gridSrc, /max-h-\[min\(34vh/)
 assert.doesNotMatch(gridSrc, /bg-\[#A855F7\]\/8/)
@@ -163,9 +167,12 @@ assert.deepEqual(evenBeatChunks(13, 3), [
 
 assert.equal(kitRowCount({ beats: 4, input: 2, trackPx: PHONE }), 1)
 assert.equal(kitRowCount({ beats: 4, input: 4, trackPx: PHONE }), 2)
+assert.equal(kitRowCount({ beats: 4, input: 6, trackPx: PHONE }), 2)
+assert.equal(kitRowCount({ beats: 4, input: 6, trackPx: DESK }), 1)
 assert.equal(kitRowCount({ beats: 6, input: 6, trackPx: PHONE }), 2)
-assert.equal(kitRowCount({ beats: 7, input: 2, trackPx: DESK }), 2)
-assert.equal(kitRowCount({ beats: 13, input: 2, trackPx: DESK }), 3)
+assert.equal(kitRowCount({ beats: 7, input: 2, trackPx: DESK }), 1)
+assert.equal(kitRowCount({ beats: 7, input: 2, trackPx: PHONE }), 2)
+assert.equal(kitRowCount({ beats: 13, input: 2, trackPx: DESK }), 2)
 
 assert.deepEqual(kitBeatBlocks({ beats: 4, input: 2, trackPx: PHONE }), [
   { index: 0, start: 0, count: 4 },
@@ -189,20 +196,26 @@ assert.deepEqual(kitBeatBlocks({ beats: 5, input: 6, trackPx: PHONE }), [
   { index: 0, start: 0, count: 3 },
   { index: 1, start: 3, count: 2 },
 ])
-assert.deepEqual(kitBeatBlocks({ beats: 7, input: 4, trackPx: DESK }), [
+assert.deepEqual(kitBeatBlocks({ beats: 4, input: 6, trackPx: DESK }), [
+  { index: 0, start: 0, count: 4 },
+])
+assert.deepEqual(kitBeatBlocks({ beats: 7, input: 2, trackPx: DESK }), [
+  { index: 0, start: 0, count: 7 },
+])
+assert.deepEqual(kitBeatBlocks({ beats: 7, input: 4, trackPx: PHONE }), [
   { index: 0, start: 0, count: 4 },
   { index: 1, start: 4, count: 3 },
 ])
-assert.deepEqual(kitBeatBlocks({ beats: 8, input: 2, trackPx: DESK }), [
+assert.deepEqual(kitBeatBlocks({ beats: 8, input: 6, trackPx: PHONE }), [
   { index: 0, start: 0, count: 4 },
   { index: 1, start: 4, count: 4 },
 ])
-assert.deepEqual(kitBeatBlocks({ beats: 9, input: 2, trackPx: DESK }), [
+assert.deepEqual(kitBeatBlocks({ beats: 9, input: 6, trackPx: PHONE }), [
   { index: 0, start: 0, count: 5 },
   { index: 1, start: 5, count: 4 },
 ])
-assert.equal(kitBeatBlocks({ beats: 12, input: 2, trackPx: DESK }).length, 2)
-assert.equal(kitBeatBlocks({ beats: 13, input: 2, trackPx: DESK }).length, 3)
+assert.equal(kitBeatBlocks({ beats: 12, input: 2, trackPx: DESK }).length, 1)
+assert.equal(kitBeatBlocks({ beats: 13, input: 2, trackPx: DESK }).length, 2)
 assert.equal(
   kitBlockColumns(kitBeatBlocks({ beats: 4, input: 2, trackPx: PHONE })),
   4,
@@ -212,7 +225,7 @@ assert.equal(
   3,
 )
 assert.equal(
-  kitBlockColumns(kitBeatBlocks({ beats: 7, input: 4, trackPx: DESK })),
+  kitBlockColumns(kitBeatBlocks({ beats: 7, input: 4, trackPx: PHONE })),
   4,
 )
 assert.equal(
