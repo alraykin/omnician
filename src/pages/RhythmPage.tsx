@@ -1958,7 +1958,6 @@ function StyleMenu({
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const active = selected?.styleId === style.id
-  const activeGroove = active ? selected : undefined
 
   const grooveIndexAt = (clientY: number) => {
     const rows = listRef.current?.querySelectorAll('[data-factory-groove]')
@@ -2015,13 +2014,15 @@ function StyleMenu({
         aria-expanded={open}
         data-style-toggle={style.id}
         onClick={() => setOpen((currentOpen) => !currentOpen)}
-        className="flex w-full items-center justify-between px-3 py-2.5 text-left"
+        className="flex w-full items-center justify-between px-3 py-2 text-left"
       >
         <span>
-          <span className="block text-sm font-semibold text-white">{style.name}</span>
-          <span className="block text-xs text-slate-400">
-            {activeGroove ? `${activeGroove.name} · ${activeGroove.blurb}` : `${style.grooves.length} grooves`}
-          </span>
+          <span className="block text-sm font-semibold leading-5 text-white">{style.name}</span>
+          {!open ? (
+            <span className="block text-xs leading-4 text-slate-400">
+              {style.grooves.length} {style.grooves.length === 1 ? 'groove' : 'grooves'}
+            </span>
+          ) : null}
         </span>
         <ChevronDown
           className={cn('size-4 text-slate-400 transition', open && 'rotate-180 text-white')}
@@ -2059,18 +2060,13 @@ function StyleMenu({
                 onClick={() => onSelect(item.id)}
                 data-preset={item.id}
                 className={cn(
-                  'flex min-w-0 flex-1 items-center justify-between rounded-xl px-2.5 py-2 text-left',
+                  'flex min-h-9 min-w-0 flex-1 items-center justify-between rounded-xl px-2.5 py-1.5 text-left',
                   item.id === selected?.id
                     ? 'bg-[#A855F7] text-white'
                     : 'bg-white/4 text-slate-200 hover:bg-white/8',
                 )}
               >
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{item.name}</span>
-                  <span className={cn('block truncate text-xs', item.id === selected?.id ? 'text-white/80' : 'text-slate-500')}>
-                    {item.blurb}
-                  </span>
-                </span>
+                <span className="min-w-0 truncate text-sm font-semibold leading-5">{item.name}</span>
                 <span className={cn('ml-2 shrink-0 text-xs font-semibold', item.id === selected?.id ? 'text-white/80' : 'text-slate-500')}>
                   {meterLabel(item.beats, item.beatUnit)}
                 </span>
