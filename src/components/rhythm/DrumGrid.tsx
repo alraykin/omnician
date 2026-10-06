@@ -439,7 +439,11 @@ export const DrumGrid = memo(function DrumGrid({
       window.clearTimeout(armTimerRef.current)
       pending.moving = true
       pending.engaged = true
-      rootRef.current?.setPointerCapture(pending.pointerId)
+      try {
+        rootRef.current?.setPointerCapture(pending.pointerId)
+      } catch {
+        /* dispatched test pointers may not be active */
+      }
       const origin: SlotCell = {
         voice: pending.voice,
         beat: pending.beat,
