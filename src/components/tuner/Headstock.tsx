@@ -36,7 +36,7 @@ export function Headstock({
       <div
         data-headstock-stage
         data-headstock-layout={effectiveLayout}
-        className="relative mx-auto h-[17.75rem] w-full max-w-[16rem] overflow-hidden sm:h-[20rem] sm:max-w-[18rem] wide:h-[22.5rem] wide:max-w-[20rem]"
+        className="relative mx-auto h-[17.75rem] w-full max-w-[16rem] overflow-visible sm:h-[20rem] sm:max-w-[18rem] wide:h-[22.5rem] wide:max-w-[20rem]"
       >
         <div className="absolute inset-0 flex items-center justify-center">
           {effectiveLayout === 'inline' ? (

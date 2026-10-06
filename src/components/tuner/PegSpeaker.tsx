@@ -53,22 +53,31 @@ export function PegPulseRings({
   return (
     <g data-peg-pulse pointerEvents="none">
       <circle
+        cx={cx}
+        cy={cy}
+        r={radius * 0.82}
+        fill="none"
+        stroke={PEG_PURPLE}
+        strokeWidth={4}
+        opacity={0.32}
+      />
+      <circle
         className="omni-fork-ring"
         cx={cx}
         cy={cy}
         r={radius}
         fill="none"
         stroke={PEG_PURPLE}
-        strokeWidth={3.2}
+        strokeWidth={3.6}
       />
       <circle
         className="omni-fork-ring omni-fork-ring-delay"
         cx={cx}
         cy={cy}
-        r={radius * 1.28}
+        r={radius * 1.32}
         fill="none"
         stroke={PEG_PURPLE}
-        strokeWidth={2.4}
+        strokeWidth={2.8}
       />
     </g>
   )

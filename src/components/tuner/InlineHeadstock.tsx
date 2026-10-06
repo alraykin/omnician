@@ -315,7 +315,7 @@ function Peg({
       className="cursor-pointer"
       filter={glow ? 'url(#omnician-inline-peg-glow)' : undefined}
     >
-      {playing ? <PegPulseRings cx={chipCx} cy={chipCy} radius={peg.buttonW * 0.62} /> : null}
+      {playing ? <PegPulseRings cx={chipCx} cy={chipCy} radius={peg.buttonW * 0.78} /> : null}
       {lit ? (
         <circle cx={peg.postX} cy={peg.postY} r={peg.postR + 8} fill={stroke} opacity="0.22" />
       ) : null}
