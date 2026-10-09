@@ -14,10 +14,10 @@ import {
   type VoiceId,
 } from '@/lib/rhythm'
 
-/** 48 ticks per beat: exact 8ths, 16ths, 8th-triplets, 16th-triplets, and 12-slot mixes. */
+/** 48 ticks per beat: exact 8ths, 16ths, 32nds, 8th-triplets, 16th-triplets, and 12-slot mixes. */
 export const TICKS_PER_BEAT = 48
 
-export const INPUT_DIVISIONS = [2, 3, 4, 6] as const
+export const INPUT_DIVISIONS = [2, 3, 4, 6, 8] as const
 export type InputDivision = (typeof INPUT_DIVISIONS)[number]
 
 export const INPUT_CHIPS: ReadonlyArray<{ id: InputDivision }> = [
@@ -25,16 +25,17 @@ export const INPUT_CHIPS: ReadonlyArray<{ id: InputDivision }> = [
   { id: 3 },
   { id: 4 },
   { id: 6 },
+  { id: 8 },
 ]
 
 export const DEFAULT_DRUM_INPUT: InputDivision = 4
 
-/** Coarsest display grids, then the 16th+triplet mix (12). */
-export const DISPLAY_DIVISIONS = [1, 2, 3, 4, 6, 12] as const
+/** Coarsest display grids, then 32nds, then the 16th+triplet mix (12). */
+export const DISPLAY_DIVISIONS = [1, 2, 3, 4, 6, 8, 12] as const
 export type DisplayDivision = (typeof DISPLAY_DIVISIONS)[number]
 
 export function isInputDivision(value: unknown): value is InputDivision {
-  return value === 2 || value === 3 || value === 4 || value === 6
+  return (INPUT_DIVISIONS as readonly number[]).includes(value as number)
 }
 
 export function normalizeDrumInput(value: unknown): InputDivision {

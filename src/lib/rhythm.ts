@@ -78,11 +78,12 @@ export function noteValueName(beams: number, plural = false): string {
 }
 
 /** Spoken label for a subdivision chip, relative to the meter denominator. */
-export function subdivisionLabel(steps: SubdivisionId, beatUnit: BeatUnit = 4): string {
+export function subdivisionLabel(steps: number, beatUnit: BeatUnit = 4): string {
   const beatBeams = beatUnitBeams(beatUnit)
   if (steps === 1) return noteValueName(beatBeams, false)
   if (steps === 2) return noteValueName(beatBeams + 1, true)
   if (steps === 4) return noteValueName(beatBeams + 2, true)
+  if (steps === 8) return noteValueName(beatBeams + 3, true)
   if (steps === 3) {
     const base = noteValueName(beatBeams + 1, false).replace(/ note$/, '')
     return `${base}-note triplets`

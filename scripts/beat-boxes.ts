@@ -9,20 +9,24 @@ import {
   hitFromBarOffset,
   evenBeatChunks,
   INPUT_CHIPS,
+  isInputDivision,
   kitBeatBlocks,
   kitBlockColumns,
   kitRowCount,
+  normalizeDrumInput,
   SLOT_MIN_PX,
   makeBeatBoxesExampleBar,
   snapBeatFraction,
 } from '../src/lib/beat-boxes.ts'
-import { barDurationSec, hitTimeInBar, reduceHit, toggleHitPos } from '../src/lib/rhythm.ts'
+import { barDurationSec, hitTimeInBar, reduceHit, subdivisionLabel, toggleHitPos } from '../src/lib/rhythm.ts'
 
 assert.equal(coarsestDivision([reduceHit(0, 0, 1)]), 1)
 assert.equal(coarsestDivision([reduceHit(0, 0, 2), reduceHit(0, 1, 2)]), 2)
 assert.equal(coarsestDivision([reduceHit(0, 1, 4)]), 4)
 assert.equal(coarsestDivision([reduceHit(0, 2, 3)]), 3)
 assert.equal(coarsestDivision([reduceHit(0, 1, 6)]), 6)
+assert.equal(coarsestDivision([reduceHit(0, 1, 8)]), 8)
+assert.equal(coarsestDivision([reduceHit(0, 1, 4), reduceHit(0, 1, 8)]), 8)
 assert.equal(coarsestDivision([reduceHit(0, 1, 4), reduceHit(0, 1, 3)]), 12)
 assert.equal(coarsestDivision([reduceHit(0, 1, 5)]), -1)
 assert.equal(coarsestDivision([]), 0)
@@ -55,6 +59,34 @@ const empty16 = beatBoxView([], 1, 4)
 assert.equal(empty16.division, 4)
 assert.equal(empty16.slots.length, 4)
 assert.equal(empty16.empty, true)
+
+assert.equal(isInputDivision(8), true)
+assert.equal(normalizeDrumInput(8), 8)
+assert.equal(normalizeDrumInput(5), 4)
+const thirtyseconds = beatBoxView([], 0, 8)
+assert.equal(thirtyseconds.division, 8)
+assert.equal(thirtyseconds.slots.length, 8)
+assert.equal(thirtyseconds.triplet, false)
+const sixteenthOn32 = beatBoxView([reduceHit(0, 1, 4)], 0, 8)
+assert.deepEqual(
+  sixteenthOn32.slots.map((slot) => slot.filled),
+  [false, false, true, false, false, false, false, false],
+)
+assert.equal(sixteenthOn32.dots, false)
+const odd32On16 = beatBoxView([reduceHit(0, 1, 8)], 0, 4)
+assert.equal(odd32On16.dots, true)
+assert.deepEqual(odd32On16.dotsAt, [1 / 8])
+assert.ok(odd32On16.slots.every((slot) => !slot.filled))
+const keep = [reduceHit(1, 1, 4, true)]
+beatBoxView(keep, 1, 8)
+beatBoxView(keep, 1, 4)
+assert.deepEqual(keep, [reduceHit(1, 1, 4, true)])
+assert.deepEqual(hitForInputSlot(0, 3, 8), reduceHit(0, 3, 8))
+assert.equal(hitTimeInBar(reduceHit(0, 1, 8), 120, 4), 0.0625)
+assert.equal(hitTimeInBar(reduceHit(0, 7, 8), 120, 4), 0.4375)
+assert.equal(subdivisionLabel(8, 4), '32nd notes')
+assert.equal(subdivisionLabel(8, 8), '64th notes')
+assert.equal(subdivisionLabel(8, 2), 'sixteenth notes')
 
 let pattern = makeBeatBoxesExampleBar().pattern
 pattern = toggleHitPos(pattern, 'closedHat', hitForInputSlot(0, 1, 4))
@@ -133,8 +165,9 @@ assert.doesNotMatch(gridSrc, /max-h-\[min\(34vh/)
 assert.doesNotMatch(gridSrc, /bg-\[#A855F7\]\/8/)
 assert.deepEqual(
   INPUT_CHIPS.map((chip) => chip.id),
-  [2, 3, 4, 6],
+  [2, 3, 4, 6, 8],
 )
+assert.match(readFileSync(new URL('../src/components/rhythm/SubdivIcons.tsx', import.meta.url), 'utf8'), /steps === 8/)
 assert.match(gridSrc, /SubdivIcon/)
 assert.match(gridSrc, /subdivisionLabel/)
 assert.match(gridSrc, /data-subdivision-label/)
@@ -172,6 +205,8 @@ assert.equal(kitRowCount({ beats: 4, input: 2, trackPx: PHONE }), 1)
 assert.equal(kitRowCount({ beats: 4, input: 4, trackPx: PHONE }), 2)
 assert.equal(kitRowCount({ beats: 4, input: 6, trackPx: PHONE }), 2)
 assert.equal(kitRowCount({ beats: 4, input: 6, trackPx: DESK }), 1)
+assert.equal(kitRowCount({ beats: 4, input: 8, trackPx: PHONE }), 2)
+assert.equal(kitRowCount({ beats: 4, input: 8, trackPx: DESK }), 2)
 assert.equal(kitRowCount({ beats: 6, input: 6, trackPx: PHONE }), 2)
 assert.equal(kitRowCount({ beats: 7, input: 2, trackPx: DESK }), 1)
 assert.equal(kitRowCount({ beats: 7, input: 2, trackPx: PHONE }), 2)
@@ -201,6 +236,14 @@ assert.deepEqual(kitBeatBlocks({ beats: 5, input: 6, trackPx: PHONE }), [
 ])
 assert.deepEqual(kitBeatBlocks({ beats: 4, input: 6, trackPx: DESK }), [
   { index: 0, start: 0, count: 4 },
+])
+assert.deepEqual(kitBeatBlocks({ beats: 4, input: 8, trackPx: PHONE }), [
+  { index: 0, start: 0, count: 2 },
+  { index: 1, start: 2, count: 2 },
+])
+assert.deepEqual(kitBeatBlocks({ beats: 4, input: 8, trackPx: DESK }), [
+  { index: 0, start: 0, count: 2 },
+  { index: 1, start: 2, count: 2 },
 ])
 assert.deepEqual(kitBeatBlocks({ beats: 7, input: 2, trackPx: DESK }), [
   { index: 0, start: 0, count: 7 },

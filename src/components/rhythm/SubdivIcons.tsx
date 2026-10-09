@@ -1,4 +1,4 @@
-import { beatUnitBeams, type BeatUnit, type SubdivisionId } from '@/lib/rhythm'
+import { beatUnitBeams, type BeatUnit } from '@/lib/rhythm'
 
 type NoteLook = {
   hollow: boolean
@@ -6,13 +6,17 @@ type NoteLook = {
   count: number
 }
 
-function lookFor(steps: SubdivisionId, beatUnit: BeatUnit): NoteLook {
+function lookFor(steps: number, beatUnit: BeatUnit): NoteLook {
   const beatBeams = beatUnitBeams(beatUnit)
   if (steps === 1) {
     return { hollow: beatBeams < 0, beams: Math.max(0, beatBeams), count: 1 }
   }
   if (steps === 4) {
     const beams = beatBeams + 2
+    return { hollow: beams < 0, beams: Math.min(4, Math.max(0, beams)), count: 4 }
+  }
+  if (steps === 8) {
+    const beams = beatBeams + 3
     return { hollow: beams < 0, beams: Math.min(4, Math.max(0, beams)), count: 4 }
   }
   const beams = beatBeams + 1
@@ -167,7 +171,7 @@ export function SubdivIcon({
   compact = false,
   tiny = false,
 }: {
-  steps: SubdivisionId
+  steps: number
   beatUnit?: BeatUnit
   className?: string
   compact?: boolean

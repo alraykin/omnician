@@ -90,6 +90,8 @@ assert(subdivisionLabel(1, 4) === 'quarter note', `4/4 beat: ${subdivisionLabel(
 assert(subdivisionLabel(2, 4) === 'eighth notes', `4/4 2-sub: ${subdivisionLabel(2, 4)}`)
 assert(subdivisionLabel(3, 4) === 'eighth-note triplets', `4/4 trip: ${subdivisionLabel(3, 4)}`)
 assert(subdivisionLabel(4, 4) === 'sixteenth notes', `4/4 4-sub: ${subdivisionLabel(4, 4)}`)
+assert(subdivisionLabel(8, 4) === '32nd notes', `4/4 8-sub: ${subdivisionLabel(8, 4)}`)
+assert(subdivisionLabel(8, 8) === '64th notes', `4/8 8-sub: ${subdivisionLabel(8, 8)}`)
 assert(subdivisionLabel(1, 8) === 'eighth note', `4/8 beat: ${subdivisionLabel(1, 8)}`)
 assert(subdivisionLabel(2, 8) === 'sixteenth notes', `4/8 2-sub: ${subdivisionLabel(2, 8)}`)
 assert(subdivisionLabel(3, 8) === 'sixteenth-note triplets', `4/8 trip: ${subdivisionLabel(3, 8)}`)
