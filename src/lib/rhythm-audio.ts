@@ -21,6 +21,7 @@ import {
 import { CLICK_SOUNDS, type ClickSoundId, type VoiceId } from '@/lib/rhythm'
 import type { RhythmStyleId } from '@/lib/rhythm-presets'
 import { clampSbPct, MAX_SB_PCT, MIN_SB_PCT } from '@/lib/speed-builder'
+import { HAT_CHOKE_SEC, nextHatChokeTime } from '@/lib/hat-choke'
 
 export type DrumPlayOpts = {
   tier?: CrocellTier
@@ -145,14 +146,7 @@ const REVERB_SEND: Record<VoiceId, number> = {
   china: 1,
 }
 
-const CHOKE_HAT_VOICES: ReadonlySet<VoiceId> = new Set([
-  'closedHat',
-  'openHat',
-  'crash',
-  'stack',
-  'splash',
-  'china',
-])
+type HatVoice = { gain: GainNode; start: number; mix: number }
 
 function renderBuffer(
   ctx: AudioContext,
@@ -869,8 +863,9 @@ export class RhythmKit {
   private readonly rr = new Map<string, number>()
   private mix: KitMix = { ...DEFAULT_KIT_MIX }
   private volumeDb = DEFAULT_MASTER_VOLUME_DB
-  private openHat: { gain: GainNode; start: number } | null = null
-  private closedHat: { gain: GainNode; start: number } | null = null
+  private openHats: HatVoice[] = []
+  private closedHat: HatVoice | null = null
+  private closedHatTimes: number[] = []
   private sources: Array<{ node: AudioBufferSourceNode; when: number; kind: 'drum' | 'click' | 'other' }> = []
   private readonly announceBuffers = new Map<number, AudioBuffer>()
   private readonly announceLoads = new Map<number, Promise<AudioBuffer | null>>()
@@ -1050,19 +1045,27 @@ export class RhythmKit {
   }
 
   hit(voice: VoiceId, time: number, role: HitRole = 'normal', play: DrumPlayOpts = {}): void {
-    if (CHOKE_HAT_VOICES.has(voice)) {
-      this.chokeHats(time)
-    }
-    if (voice === 'openHat') this.chokeClosed(time)
+    const when = time <= 0 ? this.ctx.currentTime : time
+    if (voice === 'closedHat' || voice === 'openHat') this.chokeOpenHats(when)
+    if (voice === 'openHat') this.chokeClosed(when)
     const derived = playOptsForRole(this.intensity, role)
     const vel = play.vel ?? derived.vel
     const group = KIT_VOICE_GROUP[voice]
     const groupGain = mixFaderToGain(group, this.mix[group] ?? 0)
     const mix = (SAMPLE_GAIN[voice] ?? 1) * groupGain * Math.max(0.05, vel)
     const layers = this.layerBuffers(voice, role, play)
-    const source = this.fireLayers(layers, time, mix, voice)
-    if (voice === 'openHat' && source) this.openHat = { gain: source, start: time }
-    if (voice === 'closedHat' && source) this.closedHat = { gain: source, start: time }
+    const source = this.fireLayers(layers, when, mix, voice)
+    if (voice === 'openHat' && source) {
+      const hat: HatVoice = { gain: source, start: when, mix }
+      const laterClosed = nextHatChokeTime(when, this.closedHatTimes)
+      if (laterClosed != null) this.fadeVoice(hat, laterClosed, HAT_CHOKE_SEC)
+      else this.openHats.push(hat)
+    }
+    if (voice === 'closedHat') {
+      this.closedHatTimes.push(when)
+      this.pruneHatState(when)
+      if (source) this.closedHat = { gain: source, start: when, mix }
+    }
   }
 
   previewVoice(voice: VoiceId, role: HitRole = 'backbeat'): void {
@@ -1105,6 +1108,9 @@ export class RhythmKit {
       }
     }
     this.sources = keep
+    this.openHats = this.openHats.filter((hat) => hat.start <= after)
+    this.closedHatTimes = this.closedHatTimes.filter((time) => time <= after)
+    if (this.closedHat && this.closedHat.start > after) this.closedHat = null
   }
 
   /** Cut every scheduled click and drum the instant Stop is pressed.
@@ -1130,8 +1136,9 @@ export class RhythmKit {
       }
     }
     this.sources = []
-    this.openHat = null
+    this.openHats = []
     this.closedHat = null
+    this.closedHatTimes = []
     const restore = this.playbackGain()
     try {
       this.reverbWet.gain.cancelScheduledValues(now)
@@ -1267,31 +1274,36 @@ export class RhythmKit {
     return amp
   }
 
-  private fadeVoice(
-    voice: { gain: GainNode; start: number } | null,
-    time: number,
-    seconds: number,
-  ): void {
+  private fadeVoice(voice: HatVoice | null, time: number, seconds: number): void {
     if (!voice || time < voice.start - 0.0001) return
+    const at = Math.max(time, this.ctx.currentTime)
     const { gain } = voice
+    const from = Math.max(0.0001, voice.mix)
     try {
-      gain.gain.cancelScheduledValues(time)
-      gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), time)
-      gain.gain.exponentialRampToValueAtTime(0.0001, time + seconds)
+      gain.gain.cancelScheduledValues(at)
+      gain.gain.setValueAtTime(from, at)
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + seconds)
     } catch {
-      gain.gain.setValueAtTime(0.0001, time)
+      gain.gain.setValueAtTime(0.0001, at)
     }
   }
 
-  private chokeHats(time: number): void {
-    if (!this.openHat || time < this.openHat.start - 0.0001) return
-    this.fadeVoice(this.openHat, time, 0.055)
-    this.openHat = null
+  private chokeOpenHats(time: number): void {
+    const keep: HatVoice[] = []
+    for (const hat of this.openHats) {
+      if (time < hat.start - 0.0001) keep.push(hat)
+      else this.fadeVoice(hat, time, HAT_CHOKE_SEC)
+    }
+    this.openHats = keep
   }
 
   private chokeClosed(time: number): void {
     if (!this.closedHat || time < this.closedHat.start - 0.0001) return
-    this.fadeVoice(this.closedHat, time, 0.018)
+    this.fadeVoice(this.closedHat, time, HAT_CHOKE_SEC)
     this.closedHat = null
+  }
+
+  private pruneHatState(now: number): void {
+    this.closedHatTimes = this.closedHatTimes.filter((time) => time > now - 16)
   }
 }

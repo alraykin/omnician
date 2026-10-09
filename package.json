@@ -22,6 +22,7 @@
     "test:ghost-notes": "npx --yes tsx scripts/ghost-notes.ts",
     "test:move-hit": "npx --yes tsx scripts/move-hit.ts",
     "test:meter-input": "npx --yes tsx scripts/meter-input.ts",
+    "test:hat-choke": "npx --yes tsx scripts/hat-choke.ts",
     "test:legal": "npx --yes tsx scripts/legal-markdown.ts",
     "test:chameleon": "npx --yes tsx scripts/chameleon.ts",
     "test:factory": "npx --yes tsx scripts/factory-library.ts",
