@@ -7,7 +7,7 @@ import {
   parseDisplayMode,
   stepA4,
 } from '../src/lib/custom-presets.ts'
-import { A4_HZ, centsBetween, midiToFreq } from '../src/lib/notes.ts'
+import { A4_HZ, centsBetween, formatHz, midiToFreq, stringTargetHz } from '../src/lib/notes.ts'
 
 assert.equal(A4_RANGE.min, 415)
 assert.equal(A4_RANGE.max, 466)
@@ -37,8 +37,11 @@ const baroqueA = midiToFreq(69, 415)
 assert.equal(baroqueA, 415)
 assert.ok(Math.abs(centsBetween(440, 69, 415)) > 90)
 
+assert.equal(formatHz(stringTargetHz(40, 440)), '82.41 Hz')
+assert.equal(formatHz(stringTargetHz(45, 432)), formatHz(110 * (432 / 440)))
+
 assert.equal(parseDisplayMode('target'), 'target')
 assert.equal(parseDisplayMode('strobe'), 'strobe')
 assert.equal(parseDisplayMode('nope'), 'target')
 
-console.log('a4-reference: 16 checks ok')
+console.log('a4-reference: A4 range, presets, and Hz scale ok')

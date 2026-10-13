@@ -33,7 +33,7 @@ import {
   parseFocusStringNo,
   seedTunedIds,
 } from '@/lib/sticky-tune'
-import { centsBetween, midiToFreq, trackString } from '@/lib/notes'
+import { centsBetween, formatHz, midiToFreq, stringTargetHz, trackString } from '@/lib/notes'
 import {
   customToPreset,
   familyHasSubmenu,
@@ -373,6 +373,13 @@ export function TunerPage() {
   const targetLabel = activeString
     ? `${activeString.label}${activeString.octave}`
     : null
+  const targetHz = activeString ? stringTargetHz(activeString, a4Hz) : null
+  const detectedHz =
+    live && reading
+      ? reading.frequency
+      : live && demo.cents !== null && targetHz
+        ? targetHz * 2 ** (demo.cents / 1200)
+        : null
 
   const openEdit = (id: string) => {
     setPickerOpen(false)
@@ -531,6 +538,8 @@ export function TunerPage() {
                   ? `${activeString.label}${activeString.octave} · ${activeString.stringNo}${ordinal(activeString.stringNo)}`
                   : null
               }
+              targetHz={targetHz}
+              detectedHz={detectedHz}
             />
 
             <p
@@ -620,6 +629,8 @@ function NoteDisplay({
   isNatural,
   octave,
   target,
+  targetHz,
+  detectedHz,
 }: {
   live: boolean
   inTune: boolean
@@ -628,14 +639,32 @@ function NoteDisplay({
   isNatural?: boolean
   octave?: number
   target: string | null
+  targetHz: number | null
+  detectedHz: number | null
 }) {
+  const hzLine = (
+    <p className="mt-0.5 font-mono text-xs tabular-nums text-slate-400 sm:text-sm">
+      {detectedHz ? (
+        <span data-detected-hz>{formatHz(detectedHz)}</span>
+      ) : null}
+      {detectedHz && targetHz ? <span className="text-slate-600"> · </span> : null}
+      {targetHz ? (
+        <span data-target-hz>
+          {detectedHz ? `target ${formatHz(targetHz)}` : formatHz(targetHz)}
+        </span>
+      ) : null}
+    </p>
+  )
+
   if (!live || !sharpName) {
     return (
       <div className="text-center">
         <div className="text-[2.15rem] font-extrabold leading-none tracking-tight text-white/25 sm:text-5xl">
-          —
+          {target ? target.split(' · ')[0] : '—'}
         </div>
-        <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">Waiting for a note</p>
+        {targetHz ? hzLine : (
+          <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">Waiting for a note</p>
+        )}
       </div>
     )
   }
@@ -662,6 +691,7 @@ function NoteDisplay({
         {isNatural ? 'Natural' : `${sharpName} / ${flatName}`}
         {target ? ` · ${target}` : ''}
       </p>
+      {targetHz || detectedHz ? hzLine : null}
     </div>
   )
 }

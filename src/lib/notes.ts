@@ -142,6 +142,33 @@ export function midiToFreq(midi: number, a4 = A4_HZ): number {
   return a4 * 2 ** ((midi - 69) / 12)
 }
 
+/** Concert-pitch anchors used to pin octave numbering and the A4=MIDI 69 formula. */
+export const CONCERT_ANCHORS = [
+  { name: 'B0', midi: 23, hz: 30.86770632850775 },
+  { name: 'E2', midi: 40, hz: 82.40688922821748 },
+  { name: 'A2', midi: 45, hz: 110 },
+  { name: 'E4', midi: 64, hz: 329.6275569128699 },
+  { name: 'A4', midi: 69, hz: 440 },
+] as const
+
+export function stringTargetHz(
+  string: Pick<InstrumentString, 'midi'> | number,
+  a4 = A4_HZ,
+): number {
+  const midi = typeof string === 'number' ? string : string.midi
+  return midiToFreq(midi, a4)
+}
+
+/** Displayed Hz: two decimals, except whole numbers (A2 = 110 Hz). */
+export function formatHz(hz: number): string {
+  if (!(hz > 0) || !Number.isFinite(hz)) return '—'
+  const hundredths = Math.round(hz * 100) / 100
+  if (Math.abs(hundredths - Math.round(hundredths)) < 0.001) {
+    return `${Math.round(hundredths)} Hz`
+  }
+  return `${hundredths.toFixed(2)} Hz`
+}
+
 export function freqToMidi(frequency: number, a4 = A4_HZ): number {
   return 69 + 12 * Math.log2(frequency / a4)
 }

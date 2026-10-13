@@ -13,6 +13,7 @@
     "test:sticky": "npx --yes tsx scripts/sticky-tune.ts",
     "test:calibration": "npx --yes tsx scripts/tuner-calibration.ts",
     "test:a4": "npx --yes tsx scripts/a4-reference.ts",
+    "test:note-freq": "npx --yes tsx scripts/note-frequencies.ts",
     "test:scheduler": "npx --yes tsx scripts/scheduler-after-preview.ts",
     "test:recorder": "npx --yes tsx scripts/drum-recorder.ts",
     "test:hold-repeat": "npx --yes tsx scripts/hold-repeat.ts",

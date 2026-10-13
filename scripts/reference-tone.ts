@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
+import { midiToFreq, stringTargetHz } from '../src/lib/notes.ts'
+import { findBuiltinPreset } from '../src/lib/presets.ts'
 import {
   isReferenceToneLeak,
   nextToneAction,
@@ -18,6 +20,17 @@ assert.equal(isReferenceToneLeak(110, 110, 0.08), false)
 assert.equal(isReferenceToneLeak(146.8, 110, 0.02), false)
 assert.equal(isReferenceToneLeak(110, null, 0.01), false)
 assert.equal(isReferenceToneLeak(0, 110, 0.01), false)
+
+const guitar = findBuiltinPreset('guitar-6-standard')
+assert.ok(guitar)
+for (const string of guitar.strings) {
+  const forkHz = midiToFreq(string.midi, 440)
+  assert.equal(forkHz, stringTargetHz(string, 440))
+  assert.ok(
+    Math.abs(midiToFreq(string.midi, 432) - forkHz * (432 / 440)) < 1e-9,
+    `${string.id} fork must scale with A4`,
+  )
+}
 
 const toneSrc = readFileSync(new URL('../src/lib/reference-tone.ts', import.meta.url), 'utf8')
 assert.match(toneSrc, /type = 'sine'/)
