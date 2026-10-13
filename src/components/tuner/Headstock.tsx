@@ -66,8 +66,8 @@ export function Headstock({
       </div>
       <p className="mt-1.5 hidden text-center text-[0.65rem] leading-4 text-slate-500 sm:block">
         Tap a peg to play its pitch like a tuning fork — tap again to stop. Hold a
-        string in tune to lock it green. It stays green until you tap that peg or
-        change the tuning.
+        string in tune to lock it green. It stays green until you tap Reset or
+        change the instrument or tuning.
       </p>
     </div>
   )

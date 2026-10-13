@@ -60,4 +60,11 @@ assert.equal(parseFocusStringNo(''), null)
 assert.equal(indexForStringNo(strings, 3), 3)
 assert.equal(strings[3]?.label, 'G')
 
+const lockedThenReset = seedTunedIds(strings, 'all')
+assert.equal(lockedThenReset.size, 6)
+lockedThenReset.clear()
+assert.equal(lockedThenReset.size, 0)
+assert.equal(allStringsSticky(strings, lockedThenReset), false)
+assert.equal(pegTone(first.id, first.id, lockedThenReset, false, true), 'red')
+
 console.log('sticky-tune: ok')

@@ -1,7 +1,7 @@
-/** Fixed pre-filters for pitch: DC block, 12 Hz high-pass, 1.5 kHz low-pass. No AGC. */
+/** Fixed pre-filters for pitch: DC block, 6 Hz high-pass, 3.6 kHz low-pass. No AGC. */
 
-export const HP_HZ = 12
-export const LP_HZ = 1500
+export const HP_HZ = 6
+export const LP_HZ = 3600
 
 export type Biquad = {
   b0: number
@@ -62,7 +62,7 @@ function rbj(type: 'highpass' | 'lowpass', freq: number, q: number, sampleRate: 
 
 export function createPitchFilter(sampleRate: number): PitchFilter {
   return {
-    dc: { r: 0.995, x1: 0, y1: 0 },
+    dc: { r: 0.999, x1: 0, y1: 0 },
     hp: rbj('highpass', HP_HZ, 0.7071, sampleRate),
     lp: rbj('lowpass', LP_HZ, 0.7071, sampleRate),
   }

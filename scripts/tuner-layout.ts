@@ -152,9 +152,17 @@ assert.equal(split12.courses.length, 6)
 
 const splitSrc = readFileSync(new URL('../src/components/tuner/SplitHeadstock.tsx', import.meta.url), 'utf8')
 const inlineSrc = readFileSync(new URL('../src/components/tuner/InlineHeadstock.tsx', import.meta.url), 'utf8')
+const pageSrc = readFileSync(new URL('../src/pages/TunerPage.tsx', import.meta.url), 'utf8')
 assert.match(splitSrc, /PegSpeakerIcon/)
 assert.match(inlineSrc, /PegSpeakerIcon/)
 assert.match(splitSrc, /data-peg-playing/)
 assert.match(inlineSrc, /data-peg-playing/)
+assert.match(pageSrc, /data-tuner-reset/)
+assert.match(pageSrc, /Reset/)
+assert.doesNotMatch(
+  pageSrc,
+  /nextIds\.delete\(string\.id\)/,
+  'peg tap must not un-stick a green peg; only Reset / instrument / tuning change clears',
+)
 
 console.log('tuner-layout: ok')

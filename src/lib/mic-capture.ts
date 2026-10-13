@@ -183,7 +183,7 @@ export async function createTunerContext(): Promise<AudioContext> {
   return audio
 }
 
-/** Mono downmix + 25 Hz high-pass + 1.5 kHz low-pass. No compressor or AGC. */
+/** Mono downmix + 6 Hz high-pass + 3.6 kHz low-pass. No compressor or AGC. */
 export function connectRawInput(audio: AudioContext, source: AudioNode, dest: AudioNode): GainNode {
   const mono = audio.createGain()
   mono.channelCount = 1
@@ -192,12 +192,12 @@ export function connectRawInput(audio: AudioContext, source: AudioNode, dest: Au
 
   const highpass = audio.createBiquadFilter()
   highpass.type = 'highpass'
-  highpass.frequency.value = 25
+  highpass.frequency.value = 6
   highpass.Q.value = 0.707
 
   const lowpass = audio.createBiquadFilter()
   lowpass.type = 'lowpass'
-  lowpass.frequency.value = 1500
+  lowpass.frequency.value = 3600
   lowpass.Q.value = 0.707
 
   source.connect(mono)

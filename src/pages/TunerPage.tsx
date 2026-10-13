@@ -171,6 +171,18 @@ export function TunerPage() {
     })
   }, [activeInstrument, a4Hz, autoString, current.id, layoutMode])
 
+  const resetTunedPegs = () => {
+    setTunedIds(new Set())
+    inTuneRef.current = false
+    setInTune(false)
+    if (holdRef.current) {
+      window.clearTimeout(holdRef.current.timer)
+      holdRef.current = null
+    }
+    celebratedRef.current = false
+    setCelebrate(false)
+  }
+
   useEffect(() => {
     const query =
       typeof window === 'undefined' ? null : new URLSearchParams(window.location.search)
@@ -181,9 +193,14 @@ export function TunerPage() {
     )
     setFocusIndex(focus ?? 0)
     setAutoId(null)
-    if (initialTuningRef.current === null) initialTuningRef.current = current.id
-    const firstTuning = current.id === initialTuningRef.current
-    setTunedIds(firstTuning && seeded.size > 0 ? seeded : new Set())
+    const sessionKey = `${activeInstrument}:${current.id}`
+    if (initialTuningRef.current === null) initialTuningRef.current = sessionKey
+    const firstSession = initialTuningRef.current === sessionKey
+    if (firstSession && seeded.size > 0) {
+      setTunedIds(seeded)
+    } else {
+      setTunedIds(new Set())
+    }
     inTuneRef.current = false
     setInTune(false)
     if (holdRef.current) {
@@ -194,7 +211,7 @@ export function TunerPage() {
       celebratedRef.current = false
       setCelebrate(false)
     }
-  }, [current.id, demo.glow])
+  }, [activeInstrument, current.id, demo.glow])
 
   const strings = current.strings
 
@@ -464,19 +481,19 @@ export function TunerPage() {
                     const index = strings.findIndex((item) => item.id === string.id)
                     if (index >= 0) setFocusIndex(index)
                     if (autoString) setAutoId(string.id)
-                    setTunedIds((currentIds) => {
-                      if (!currentIds.has(string.id)) return currentIds
-                      const nextIds = new Set(currentIds)
-                      nextIds.delete(string.id)
-                      return nextIds
-                    })
-                    if (holdRef.current?.id === string.id) {
-                      window.clearTimeout(holdRef.current.timer)
-                      holdRef.current = null
-                    }
                   }}
                   layoutMode={layoutMode}
                 />
+                <div className="mt-1.5 flex justify-center">
+                  <button
+                    type="button"
+                    data-tuner-reset
+                    onClick={resetTunedPegs}
+                    className="rounded-full border border-white/15 bg-[#0C1220] px-3.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-300 hover:border-white/30 hover:text-white"
+                  >
+                    Reset
+                  </button>
+                </div>
               </div>
             </div>
           ) : (

@@ -10,7 +10,7 @@
  */
 
 export const MIN_HZ = 16
-export const MAX_HZ = 1500
+export const MAX_HZ = 2200
 export const HIGH_MIN_HZ = 38
 export const LOW_MAX_HZ = 120
 export const MIN_WINDOW = 2048
@@ -98,8 +98,9 @@ export function keyMaximumIndices(nsdf: ArrayLike<number>, tauMin: number, tauMa
   let looking = false
   let max = -Infinity
   let maxIndex = -1
+  const start = Math.max(1, tauMin)
   const last = Math.min(tauMax, nsdf.length - 2)
-  for (let i = Math.max(1, tauMin); i <= last; i += 1) {
+  for (let i = start; i <= last; i += 1) {
     const prev = nsdf[i - 1]
     const cur = nsdf[i]
     if (prev <= 0 && cur > 0) {
@@ -186,22 +187,21 @@ export function mpmPitch(
   }
   if (nMax < MIN_CLARITY_SUB) return { frequency: 0, clarity: 0 }
 
-  const cutoff = CLARITY_K * nMax
-  let chosen = keys[0]
+  // High notes: NSDF at 2τ is often taller after filtering. Do not skip the
+  // first (shortest-τ) peak when it is already a clear high-frequency match.
+  const firstTau = keys[0] ?? 0
+  const highCutoff = firstTau > 0 && sampleRate / firstTau > 800 ? 0.82 : CLARITY_K
+  const cutoff = highCutoff * nMax
   for (const i of keys) {
-    if (scratch.nsdf[i] >= cutoff) {
-      chosen = i
-      break
-    }
+    if (scratch.nsdf[i] < cutoff) continue
+    const [tau, peak] = parabolicPeak(scratch.nsdf, i)
+    if (tau <= tauMin + 0.6 || tau >= tauMax - 0.6) continue
+    const frequency = sampleRate / tau
+    const clarity = Math.max(0, Math.min(1, peak))
+    if (!Number.isFinite(frequency) || frequency < minHz || frequency > maxHz) continue
+    return { frequency, clarity }
   }
-
-  const [tau, peak] = parabolicPeak(scratch.nsdf, chosen)
-  const frequency = sampleRate / tau
-  const clarity = Math.max(0, Math.min(1, peak))
-  if (!Number.isFinite(frequency) || frequency < minHz || frequency > maxHz) {
-    return { frequency: 0, clarity: 0 }
-  }
-  return { frequency, clarity }
+  return { frequency: 0, clarity: 0 }
 }
 
 /** YIN as an octave check only — never a standalone guess. */
@@ -248,6 +248,9 @@ export function yinPitch(
   if (tauEstimate === 0) return { frequency: 0, clarity: 0 }
 
   const [tau, yinVal] = parabolicPeak(cmnd, tauEstimate)
+  if (tau <= tauMin + 0.6 || tau >= tauMax - 0.6) {
+    return { frequency: 0, clarity: 0 }
+  }
   const frequency = sampleRate / tau
   const clarity = Math.max(
     0,
@@ -279,31 +282,108 @@ function goertzelPower(buffer: ArrayLike<number>, sampleRate: number, hz: number
   return real * real + imag * imag
 }
 
-/** Drop to f/2 or f/3 only when the spectrum actually has energy there. */
+function magAt(buffer: ArrayLike<number>, sampleRate: number, hz: number): number {
+  return Math.sqrt(Math.max(0, goertzelPower(buffer, sampleRate, hz)))
+}
+
+/**
+ * Harmonic-series strength at f. Weights 2f/3f so a missing fundamental
+ * still scores when the 2nd harmonic dominates.
+ */
+export function harmonicStrength(
+  buffer: ArrayLike<number>,
+  sampleRate: number,
+  hz: number,
+): number {
+  if (hz <= 0) return 0
+  const weights = [1, 0.65, 0.4, 0.2]
+  let score = 0
+  for (let h = 1; h <= weights.length; h += 1) {
+    const f = hz * h
+    if (f > sampleRate * 0.45) break
+    score += weights[h - 1] * magAt(buffer, sampleRate, f)
+  }
+  return score
+}
+
+function nsdfAtTau(buffer: ArrayLike<number>, tau: number): number {
+  const n = buffer.length
+  const iTau = Math.floor(tau)
+  const frac = tau - iTau
+  const lim = n - iTau - 1
+  if (lim < 8 || iTau < 1) return -1
+  let ac = 0
+  let m = 0
+  for (let j = 0; j < lim; j += 1) {
+    const a = buffer[j]
+    const b = buffer[j + iTau] * (1 - frac) + buffer[j + iTau + 1] * frac
+    ac += a * b
+    m += a * a + b * b
+  }
+  return m > 1e-12 ? (2 * ac) / m : -1
+}
+
+/** Fractional-τ NSDF peak so interpolation bias does not pull readings. */
+export function refineFrequency(
+  buffer: ArrayLike<number>,
+  sampleRate: number,
+  hz: number,
+): number {
+  if (hz <= 0) return hz
+  const tau0 = sampleRate / hz
+  const maxTau = buffer.length - 3
+  if (tau0 < 2 || tau0 > maxTau) return hz
+  if (hz >= 55) return hz
+  const span = 8
+  let lo = tau0 / 2 ** (span / 1200)
+  let hi = tau0 * 2 ** (span / 1200)
+  lo = Math.max(2, lo)
+  hi = Math.min(maxTau, hi)
+  for (let i = 0; i < 14; i += 1) {
+    const m1 = lo + (hi - lo) * 0.382
+    const m2 = lo + (hi - lo) * 0.618
+    if (nsdfAtTau(buffer, m1) < nsdfAtTau(buffer, m2)) lo = m1
+    else hi = m2
+  }
+  const tau = (lo + hi) / 2
+  const next = sampleRate / tau
+  return Number.isFinite(next) && next > 0 ? next : hz
+}
+
+/**
+ * Fold a 2nd/3rd-harmonic lock back to the fundamental.
+ * Works when the fundamental is weak or missing: odd partials of f/2
+ * (1.5f, 2.5f) are not harmonics of f, so their energy is the tell.
+ */
 export function maybeLowerOctave(
   buffer: ArrayLike<number>,
   sampleRate: number,
   estimate: PitchEstimate,
   minHz = MIN_HZ,
 ): PitchEstimate {
-  if (estimate.frequency <= 0 || estimate.frequency > 120) return estimate
+  if (estimate.frequency <= 0 || estimate.frequency > 200) return estimate
   let f = estimate.frequency
   for (const div of [2, 3]) {
     const lower = f / div
     if (lower < minHz) continue
-    const pLow = goertzelPower(buffer, sampleRate, lower)
-    const pHigh = goertzelPower(buffer, sampleRate, f)
-    const pLo = goertzelPower(buffer, sampleRate, lower * 0.89)
-    const pHi = goertzelPower(buffer, sampleRate, lower * 1.12)
-    const pThird = goertzelPower(buffer, sampleRate, lower * 3)
-    const pOct = goertzelPower(buffer, sampleRate, f * 2)
-    const magLow = Math.sqrt(Math.max(0, pLow))
-    const magHigh = Math.sqrt(Math.max(0, pHigh))
-    if (magHigh < 1e-9) continue
-    const peaked = pLow > pLo * 1.45 && pLow > pHi * 1.45
-    const series = pThird > pOct * 0.28
-    const minRatio = div === 3 ? 0.28 : 0.1
-    if (peaked && series && magLow > magHigh * minRatio) {
+    const magF = magAt(buffer, sampleRate, f)
+    const peakHarm = Math.max(
+      magF,
+      magAt(buffer, sampleRate, f * 2),
+      magAt(buffer, sampleRate, f * 3),
+    )
+    if (peakHarm < 1e-12) continue
+    const magLower = magAt(buffer, sampleRate, lower)
+    const peaked =
+      magLower > magAt(buffer, sampleRate, lower * 0.89) * 1.25 &&
+      magLower > magAt(buffer, sampleRate, lower * 1.12) * 1.25
+    const oddSeries =
+      div === 2
+        ? magAt(buffer, sampleRate, lower * 3) + 0.55 * magAt(buffer, sampleRate, lower * 5)
+        : magAt(buffer, sampleRate, lower * 2) + 0.65 * magAt(buffer, sampleRate, lower * 4)
+    const fundRatio = magLower / peakHarm
+    const oddStrong = oddSeries > peakHarm * (div === 3 ? 0.38 : 0.32)
+    if ((peaked && fundRatio > 0.12) || oddStrong || fundRatio > 0.35) {
       f = lower
       break
     }
@@ -336,8 +416,20 @@ function pickEstimate(
   prevHz: number | null,
 ): PitchEstimate {
   let chosen = high
-  if (yin.frequency > 0 && yin.clarity >= 0.75 && high.frequency > 0) {
-    if (isOctaveRatio(high.frequency, yin.frequency) && yin.frequency < high.frequency) {
+  if (high.frequency <= 0 && yin.frequency > 0 && yin.clarity >= 0.75) {
+    chosen = yin
+  } else if (yin.frequency > 0 && yin.clarity >= 0.75 && high.frequency > 0) {
+    if (
+      isOctaveRatio(high.frequency, yin.frequency) &&
+      yin.frequency > high.frequency &&
+      high.frequency > 400
+    ) {
+      chosen = { frequency: yin.frequency, clarity: Math.min(high.clarity + 0.04, yin.clarity) }
+    } else if (
+      isOctaveRatio(high.frequency, yin.frequency) &&
+      yin.frequency < high.frequency &&
+      high.frequency < 130
+    ) {
       chosen = { frequency: yin.frequency, clarity: Math.min(high.clarity, yin.clarity + 0.04) }
     } else if (isThirdHarmonic(high.frequency, yin.frequency) && yin.frequency < 220) {
       chosen = { frequency: yin.frequency, clarity: Math.min(high.clarity, yin.clarity) }
@@ -346,7 +438,7 @@ function pickEstimate(
 
   if (low.frequency > 0 && low.clarity >= MIN_CLARITY_SUB) {
     if (chosen.frequency <= 0) return low
-    if (prevHz && prevHz < HIGH_MIN_HZ) {
+    if (prevHz && prevHz < 80) {
       const lowErr = Math.abs(1200 * Math.log2(low.frequency / prevHz))
       const highErr = Math.abs(1200 * Math.log2(chosen.frequency / prevHz))
       if (lowErr + 12 < highErr) return low
@@ -381,16 +473,27 @@ export function estimatePitch(
     windowForHz(prevHz && prevHz >= 70 ? prevHz : 110, sampleRate),
   )
   const highBuf = sliceTail(buffer, highWin)
+  const highMin = HIGH_MIN_HZ
   const high = maybeLowerOctave(
     buffer,
     sampleRate,
-    mpmPitch(highBuf, sampleRate, scratch, HIGH_MIN_HZ, MAX_HZ),
+    mpmPitch(highBuf, sampleRate, scratch, highMin, MAX_HZ),
     MIN_HZ,
   )
-  const yin = high.frequency > 0 ? yinPitch(highBuf, sampleRate, scratch, HIGH_MIN_HZ, MAX_HZ) : { frequency: 0, clarity: 0 }
+  // YIN may dip at 2τ. Only trust it to fold a low/mid harmonic lock, never high strings.
+  const yin = yinPitch(
+    highBuf,
+    sampleRate,
+    scratch,
+    high.frequency > 280 ? Math.max(highMin, high.frequency * 0.72) : highMin,
+    MAX_HZ,
+  )
 
   const wantLow =
-    (!prevHz || prevHz < 58) && (high.frequency <= 0 || high.frequency < 58)
+    !prevHz ||
+    prevHz < 90 ||
+    high.frequency <= 0 ||
+    high.frequency < 90
   let low: PitchEstimate = { frequency: 0, clarity: 0 }
   if (wantLow) {
     const factor = lowDecimateFactor(sampleRate)
@@ -410,7 +513,18 @@ export function estimatePitch(
     }
   }
 
-  return maybeLowerOctave(buffer, sampleRate, pickEstimate(high, yin, low, prevHz), MIN_HZ)
+  let picked = maybeLowerOctave(buffer, sampleRate, pickEstimate(high, yin, low, prevHz), MIN_HZ)
+  if (picked.frequency > 0) {
+    const refined = refineFrequency(buffer, sampleRate, picked.frequency)
+    if (
+      refined > MIN_HZ &&
+      refined < MAX_HZ &&
+      Math.abs(1200 * Math.log2(refined / picked.frequency)) <= 10
+    ) {
+      picked = { frequency: refined, clarity: picked.clarity }
+    }
+  }
+  return picked
 }
 
 const EMPTY: PitchEstimate = { frequency: 0, clarity: 0 }
