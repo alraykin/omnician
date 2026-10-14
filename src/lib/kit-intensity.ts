@@ -17,6 +17,23 @@ export const INTENSITY_LABELS: Record<KitIntensity, string> = {
   high: 'High',
 }
 
+/** Two-way playing dynamics. Intense = High; Moderate = Mid (Low reads as Moderate). */
+export const INTENSITY_MARKS = ['moderate', 'intense'] as const
+export type IntensityMark = (typeof INTENSITY_MARKS)[number]
+
+export const INTENSITY_MARK_LABELS: Record<IntensityMark, string> = {
+  moderate: 'Moderate',
+  intense: 'Intense',
+}
+
+export function intensityMark(value: KitIntensity): IntensityMark {
+  return value === 'high' ? 'intense' : 'moderate'
+}
+
+export function intensityFromMark(mark: IntensityMark): KitIntensity {
+  return mark === 'intense' ? 'high' : 'mid'
+}
+
 /** Cap positions: Low at the bottom, Mid at center, High at the top. */
 export const INTENSITY_POS: Record<KitIntensity, number> = {
   low: 0,

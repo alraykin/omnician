@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import {
-  INTENSITY_POS,
-  INTENSITY_POS_LIST,
-  intensityFromPos,
-  intensityLabel,
-  stepKitIntensity,
-  type KitIntensity,
-} from '@/lib/kit-intensity'
+import { IntensitySwitch } from '@/components/rhythm/IntensitySwitch'
+import { type KitIntensity } from '@/lib/kit-intensity'
 import {
   KIT_GROUPS,
   KIT_GROUP_LABELS,
@@ -35,7 +29,7 @@ type KitFadersProps = {
 const FINE_TRAVEL_PX = 340
 
 export function KitFaders({ mix, intensity, onChange, onIntensityChange }: KitFadersProps) {
-  const [held, setHeld] = useState<KitGroupId | 'intensity' | null>(null)
+  const [held, setHeld] = useState<KitGroupId | null>(null)
 
   return (
     <div data-section="kit-faders" className="kit-fader-bank">
@@ -61,37 +55,17 @@ export function KitFaders({ mix, intensity, onChange, onIntensityChange }: KitFa
             onHoldEnd={() => setHeld((current) => (current === group ? null : current))}
           />
         ))}
-        <MixFader
-          id="intensity"
-          label="Intensity"
-          pos={INTENSITY_POS[intensity]}
-          held={held === 'intensity'}
-          readout={intensityLabel(intensity)}
-          ariaValueMin={0}
-          ariaValueMax={2}
-          ariaValueNow={['low', 'mid', 'high'].indexOf(intensity)}
-          ariaValueText={intensityLabel(intensity)}
-          snap={INTENSITY_POS_LIST}
-          clickToSet
-          onChangePos={(pos) => onIntensityChange(intensityFromPos(pos))}
-          onNudge={(delta) => onIntensityChange(stepKitIntensity(intensity, delta))}
-          onHome={() => onIntensityChange('high')}
-          onEnd={() => onIntensityChange('low')}
-          onHoldStart={() => setHeld('intensity')}
-          onHoldEnd={() => setHeld((current) => (current === 'intensity' ? null : current))}
-        />
+      </div>
+      <div className="mt-2 flex justify-center px-1">
+        <IntensitySwitch value={intensity} onChange={onIntensityChange} />
       </div>
       {held && typeof document !== 'undefined'
         ? createPortal(
-            held === 'intensity' ? (
-              <MixFaderZoom label="Intensity" pos={INTENSITY_POS[intensity]} readout={intensityLabel(intensity)} />
-            ) : (
-              <MixFaderZoom
-                label={KIT_GROUP_LABELS[held]}
-                pos={mixDbToPos(mix[held])}
-                readout={formatKitDb(mix[held])}
-              />
-            ),
+            <MixFaderZoom
+              label={KIT_GROUP_LABELS[held]}
+              pos={mixDbToPos(mix[held])}
+              readout={formatKitDb(mix[held])}
+            />,
             document.body,
           )
         : null}

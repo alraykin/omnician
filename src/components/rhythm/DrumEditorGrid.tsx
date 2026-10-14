@@ -1,28 +1,11 @@
 import { memo, useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 
 import { type TransportClock, type PlayheadStore } from '@/hooks/useRhythmEngine'
-import {
-  beatBoxView,
-  inputSlotFromX,
-  type InputDivision,
-} from '@/lib/beat-boxes'
+import { beatBoxView, inputSlotFromX, type InputDivision } from '@/lib/beat-boxes'
 import { BAR_LONG_PRESS_MS, MOVE_ARM_MS } from '@/lib/bar-press'
-import {
-  editorBarOffsetsPx,
-  editorBarWidthPx,
-  editorBeatWidthPx,
-  editorPatternWidthPx,
-  followPlayheadScroll,
-  fracInBar,
-  playheadOffsetPx,
-} from '@/lib/editor-playhead'
+import { fracInBar } from '@/lib/editor-playhead'
 import { HOLD_NUDGE_CLASS } from '@/lib/hold-repeat'
-import {
-  VOICE_LABELS,
-  VOICES,
-  type RhythmBar,
-  type VoiceId,
-} from '@/lib/rhythm'
+import { VOICE_LABELS, VOICES, type RhythmBar, type VoiceId } from '@/lib/rhythm'
 import { TAP_SLOP_PX, accumulatedScroll, activateOnPointer, cn, isCoarsePointer } from '@/lib/utils'
 
 type SlotCell = {
@@ -39,7 +22,6 @@ type PendingPaint = {
   x: number
   y: number
   scroll: number
-  scrollX: number
   bar: number
   voice: VoiceId
   beat: number
@@ -55,6 +37,7 @@ type PendingPaint = {
 }
 
 const HIT_INSET_PX = 2
+const SWIPE_PX = 56
 
 function HitDot({
   soft,
@@ -92,18 +75,11 @@ function needsMoveArm(pointerType: string) {
   return pointerType === 'touch' || (pointerType !== 'mouse' && isCoarsePointer())
 }
 
-function sameSlot(a: Pick<SlotCell, 'bar' | 'voice' | 'beat' | 'slot'>, b: Pick<SlotCell, 'bar' | 'voice' | 'beat' | 'slot'>) {
+function sameSlot(
+  a: Pick<SlotCell, 'bar' | 'voice' | 'beat' | 'slot'>,
+  b: Pick<SlotCell, 'bar' | 'voice' | 'beat' | 'slot'>,
+) {
   return a.bar === b.bar && a.voice === b.voice && a.beat === b.beat && a.slot === b.slot
-}
-
-function accumulatedScrollX(node: EventTarget | null): number {
-  let total = typeof window === 'undefined' ? 0 : window.scrollX
-  let el: Element | null = node instanceof Element ? node : null
-  while (el) {
-    total += el.scrollLeft
-    el = el.parentElement
-  }
-  return total
 }
 
 function readSlot(node: Element | null, clientX: number, input: InputDivision): SlotCell | null {
@@ -142,11 +118,12 @@ function voicePreviewHandlers(onPreview: (voice: VoiceId) => void, voice: VoiceI
 
 export const DrumEditorGrid = memo(function DrumEditorGrid({
   bars,
+  barIndex,
   input,
   playing,
   playheadStore,
   getClock,
-  selectedBar,
+  canSwipe,
   onSelectBar,
   onToggle,
   onToggleSoft,
@@ -154,11 +131,12 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
   onPreview,
 }: {
   bars: readonly RhythmBar[]
+  barIndex: number
   input: InputDivision
   playing: boolean
   playheadStore: PlayheadStore
   getClock: () => TransportClock
-  selectedBar: number
+  canSwipe: boolean
   onSelectBar: (index: number) => void
   onToggle: (barIndex: number, voice: VoiceId, beat: number, slot: number, on: boolean, preview: boolean) => void
   onToggleSoft: (barIndex: number, voice: VoiceId, beat: number, slot: number) => void
@@ -176,16 +154,15 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
 }) {
   const paintRef = useRef<{ voice: VoiceId; on: boolean; lastKey: string } | null>(null)
   const pendingRef = useRef<PendingPaint | null>(null)
+  const swipeRef = useRef<{ pointerId: number; x: number; y: number; fromBar: number } | null>(null)
   const holdTimerRef = useRef(0)
   const armTimerRef = useRef(0)
   const rootRef = useRef<HTMLDivElement>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
   const playheadRef = useRef<HTMLDivElement>(null)
   const ghostRef = useRef<HTMLSpanElement>(null)
   const pointerPosRef = useRef({ x: 0, y: 0 })
   const moveToRef = useRef<SlotCell | null>(null)
-  const userScrollUntilRef = useRef(0)
-  const lastAutoScrollRef = useRef(0)
   const [moving, setMoving] = useState<{
     soft: boolean
     fromBar: number
@@ -195,18 +172,17 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
   } | null>(null)
   const [moveTo, setMoveTo] = useState<SlotCell | null>(null)
 
-  const beatPx = editorBeatWidthPx(input)
-  const totalPx = editorPatternWidthPx(bars, input)
-  const barOffsets = editorBarOffsetsPx(bars, input)
+  const shown = Math.min(Math.max(0, barIndex), Math.max(0, bars.length - 1))
+  const bar = bars[shown] ?? bars[0]
 
   const paintAt = useCallback(
-    (bar: number, voice: VoiceId, beat: number, slot: number, preview: boolean) => {
+    (targetBar: number, voice: VoiceId, beat: number, slot: number, preview: boolean) => {
       const stroke = paintRef.current
       if (!stroke || stroke.voice !== voice) return
-      const key = `${bar}:${voice}:${beat}:${slot}`
+      const key = `${targetBar}:${voice}:${beat}:${slot}`
       if (stroke.lastKey === key) return
       stroke.lastKey = key
-      onToggle(bar, voice, beat, slot, stroke.on, preview)
+      onToggle(targetBar, voice, beat, slot, stroke.on, preview)
     },
     [onToggle],
   )
@@ -233,6 +209,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
     window.clearTimeout(armTimerRef.current)
     paintRef.current = null
     pendingRef.current = null
+    swipeRef.current = null
     moveToRef.current = null
     setMoveTo(null)
     setMoving(null)
@@ -244,6 +221,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
       if (!pending || pending.engaged || pending.ignored || pending.softened) return
       window.clearTimeout(holdTimerRef.current)
       pending.engaged = true
+      swipeRef.current = null
       rootRef.current?.setPointerCapture(pending.pointerId)
       paintRef.current = { voice: pending.voice, on: !pending.filled, lastKey: '' }
       paintAt(pending.bar, pending.voice, pending.beat, pending.slot, preview)
@@ -257,6 +235,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
       window.clearTimeout(armTimerRef.current)
       pending.moving = true
       pending.engaged = true
+      swipeRef.current = null
       try {
         rootRef.current?.setPointerCapture(pending.pointerId)
       } catch {
@@ -291,44 +270,34 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
 
   useEffect(() => {
     const line = playheadRef.current
-    const scroller = scrollRef.current
-    if (!line || !scroller) return
+    const track = trackRef.current
+    if (!line || !track) return
     let raf = 0
     const tick = () => {
       const clock = getClock()
       const snap = playheadStore.getSnapshot()
-      const live = playing && clock.playing && !clock.precount && snap.bar >= 0
+      const live = playing && clock.playing && !clock.precount && snap.bar === shown
       if (!live) {
         line.hidden = true
         line.setAttribute('data-playhead-on', '0')
       } else {
         const frac = fracInBar(clock)
-        const x = playheadOffsetPx({ bars, input, barIndex: clock.barIndex, frac })
+        const x = frac * track.clientWidth
         line.hidden = false
         line.setAttribute('data-playhead-on', '1')
         line.setAttribute('data-playhead-x', String(Math.round(x)))
         line.style.transform = `translateX(${x}px)`
-        if (Date.now() >= userScrollUntilRef.current) {
-          const next = followPlayheadScroll({
-            scrollLeft: scroller.scrollLeft,
-            clientWidth: scroller.clientWidth,
-            playheadX: x,
-          })
-          if (next != null && Math.abs(next - scroller.scrollLeft) > 2) {
-            lastAutoScrollRef.current = next
-            scroller.scrollLeft = next
-          }
-        }
       }
       raf = window.requestAnimationFrame(tick)
     }
     raf = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(raf)
-  }, [bars, getClock, input, playheadStore, playing])
+  }, [getClock, playheadStore, playing, shown])
 
   const startPaint = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) return
+      swipeRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, fromBar: shown }
       const cell = readSlot(event.target instanceof Element ? event.target : null, event.clientX, input)
       if (!cell) return
       const coarse = needsMoveArm(event.pointerType)
@@ -336,8 +305,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
         pointerId: event.pointerId,
         x: event.clientX,
         y: event.clientY,
-        scroll: accumulatedScroll(scrollRef.current),
-        scrollX: accumulatedScrollX(scrollRef.current),
+        scroll: accumulatedScroll(rootRef.current),
         bar: cell.bar,
         voice: cell.voice,
         beat: cell.beat,
@@ -366,17 +334,35 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
         if (!pending || pending.engaged || pending.ignored || pending.softened || pending.moving) return
         if (!pending.filled) return
         pending.softened = true
+        swipeRef.current = null
         onToggleSoft(pending.bar, pending.voice, pending.beat, pending.slot)
       }, BAR_LONG_PRESS_MS)
     },
-    [input, onToggleSoft],
+    [input, onToggleSoft, shown],
   )
+
+  const finishSwipe = (event: PointerEvent<HTMLDivElement>) => {
+    const swipe = swipeRef.current
+    if (!canSwipe || !swipe || swipe.pointerId !== event.pointerId) return false
+    const pending = pendingRef.current
+    if (pending?.engaged || pending?.moving || pending?.softened) return false
+    const dx = event.clientX - swipe.x
+    const dy = event.clientY - swipe.y
+    if (Math.abs(dx) < SWIPE_PX || Math.abs(dx) < Math.abs(dy) * 1.15) return false
+    const next = swipe.fromBar + (dx < 0 ? 1 : -1)
+    if (next < 0 || next >= bars.length) return false
+    onSelectBar(next)
+    return true
+  }
+
+  if (!bar) return null
 
   return (
     <div
       ref={rootRef}
       data-drum-editor-grid
-      data-editor-one-row="1"
+      data-editor-one-bar="1"
+      data-editor-bar={shown}
       data-drum-input={input}
       data-moving={moving ? '1' : '0'}
       data-bar-count={bars.length}
@@ -398,12 +384,8 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
           return
         }
         if (!pending || pending.pointerId !== event.pointerId || pending.ignored || pending.engaged) return
-        const scrolled =
-          Math.abs(accumulatedScroll(scrollRef.current) - pending.scroll) > 1 ||
-          Math.abs(accumulatedScrollX(scrollRef.current) - pending.scrollX) > 1
-        if (scrolled) {
+        if (Math.abs(accumulatedScroll(rootRef.current) - pending.scroll) > 1) {
           pending.ignored = true
-          userScrollUntilRef.current = Date.now() + 1600
           window.clearTimeout(holdTimerRef.current)
           window.clearTimeout(armTimerRef.current)
           return
@@ -415,6 +397,12 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
         if (pending.filled && pending.moveArmed && !pending.softened) {
           if (event.cancelable) event.preventDefault()
           beginMove(event, pending)
+          return
+        }
+        if (Math.abs(dx) > Math.abs(dy) * 1.15 && Math.abs(dx) >= SWIPE_PX) {
+          pending.ignored = true
+          window.clearTimeout(holdTimerRef.current)
+          window.clearTimeout(armTimerRef.current)
           return
         }
         if (pending.filled && pending.coarse) {
@@ -453,11 +441,19 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
           endPaint()
           return
         }
-        if (pending && pending.pointerId === event.pointerId && !pending.engaged && !pending.ignored && !pending.softened) {
+        if (finishSwipe(event)) {
+          endPaint()
+          return
+        }
+        if (
+          pending &&
+          pending.pointerId === event.pointerId &&
+          !pending.engaged &&
+          !pending.ignored &&
+          !pending.softened
+        ) {
           const dist = Math.hypot(event.clientX - pending.x, event.clientY - pending.y)
-          const scrolled =
-            Math.abs(accumulatedScroll(scrollRef.current) - pending.scroll) > 1 ||
-            Math.abs(accumulatedScrollX(scrollRef.current) - pending.scrollX) > 1
+          const scrolled = Math.abs(accumulatedScroll(rootRef.current) - pending.scroll) > 1
           if (dist <= TAP_SLOP_PX && !scrolled) {
             paintRef.current = { voice: pending.voice, on: !pending.filled, lastKey: '' }
             paintAt(pending.bar, pending.voice, pending.beat, pending.slot, true)
@@ -495,143 +491,101 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
           </button>
         ))}
       </div>
-      <div
-        ref={scrollRef}
-        data-editor-scroll
-        className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden [scrollbar-width:thin]"
-        style={{ touchAction: 'pan-x' }}
-        onScroll={() => {
-          const scroller = scrollRef.current
-          if (!scroller) return
-          if (Math.abs(scroller.scrollLeft - lastAutoScrollRef.current) > 8) {
-            userScrollUntilRef.current = Date.now() + 1600
-          }
-        }}
-      >
+      <div ref={trackRef} data-editor-track className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         <div
-          data-editor-track
-          className="relative grid h-full min-h-0 grid-rows-[1.15rem_repeat(14,minmax(0,1fr))] gap-y-px"
-          style={{ width: totalPx, minWidth: totalPx }}
+          data-editor-bar-page={shown}
+          className="grid h-full min-h-0 w-full grid-rows-[1.15rem_repeat(14,minmax(0,1fr))] gap-y-px"
         >
-          <div className="relative flex min-w-0">
-            {bars.map((bar, barIndex) => (
-              <div
-                key={`beats-${barIndex}`}
-                data-editor-bar-head={barIndex}
-                className="flex shrink-0"
-                style={{ width: editorBarWidthPx(bar.beats, input) }}
+          <div className="flex min-w-0">
+            {Array.from({ length: bar.beats }, (_, beat) => (
+              <span
+                key={beat}
+                data-beat-label={beat + 1}
+                className="min-w-0 flex-1 text-left text-[0.55rem] font-semibold tabular-nums leading-none text-slate-500"
               >
-                {Array.from({ length: bar.beats }, (_, beat) => (
-                  <button
-                    key={`${barIndex}-${beat}`}
-                    type="button"
-                    data-beat-label={beat + 1}
-                    data-bar-index={barIndex}
-                    onClick={() => onSelectBar(barIndex)}
-                    className={cn(
-                      'min-w-0 flex-1 text-left text-[0.55rem] font-semibold tabular-nums leading-none text-slate-500',
-                      selectedBar === barIndex && 'text-[#E9D5FF]',
-                    )}
-                  >
-                    {beat + 1}
-                  </button>
-                ))}
-              </div>
+                {beat + 1}
+              </span>
             ))}
           </div>
-          {VOICES.map((voice) => (
-            <div key={voice} className="relative flex min-h-0 min-w-0">
-              {bars.map((bar, barIndex) => {
-                const hits = bar.pattern[voice] ?? []
-                return (
-                  <div
-                    key={`${voice}-${barIndex}`}
-                    data-editor-bar={barIndex}
-                    data-editor-selected={selectedBar === barIndex ? '1' : '0'}
-                    className={cn(
-                      'flex min-h-0 shrink-0 gap-px px-px',
-                      selectedBar === barIndex && 'bg-[#A855F7]/6',
-                    )}
-                    style={{ width: editorBarWidthPx(bar.beats, input) }}
-                  >
-                    {Array.from({ length: bar.beats }, (_, beat) => {
-                      const view = beatBoxView(hits, beat, input)
-                      const filledInput = Array.from({ length: input }, (_, slot) =>
-                        hits.some((hit) => hit.beat === beat && hit.num * input === slot * hit.den),
-                      )
-                        .map((on, slot) => (on ? String(slot) : ''))
-                        .filter(Boolean)
-                        .join(',')
-                      return (
-                        <div
-                          key={`${voice}-${barIndex}-${beat}`}
-                          data-beat-box
-                          data-voice-cell={voice}
-                          data-beat={beat}
-                          data-bar-index={barIndex}
-                          data-division={view.division}
-                          data-input-filled={filledInput}
-                          className="relative flex min-h-0 min-w-0 flex-1 items-center overflow-hidden rounded-md border border-white/8 bg-white/[0.03] px-px"
-                          style={{ width: beatPx }}
-                        >
-                          <div className="relative flex h-full w-full min-w-0 items-center gap-0.5">
-                            {view.slots.map((slot) => {
-                              const isSource =
-                                moving?.fromVoice === voice &&
-                                moving.fromBar === barIndex &&
-                                moving.fromBeat === beat &&
-                                moving.fromSlot === slot.slot
-                              const isTarget =
-                                moveTo?.voice === voice &&
-                                moveTo.bar === barIndex &&
-                                moveTo.beat === beat &&
-                                moveTo.slot === slot.slot
-                              return (
-                                <span
-                                  key={slot.slot}
-                                  data-box-slot={slot.slot}
-                                  data-filled={slot.filled ? '1' : '0'}
-                                  data-soft={slot.soft ? '1' : '0'}
-                                  {...(isSource ? { 'data-move-source': '1' } : {})}
-                                  {...(isTarget ? { 'data-drop-target': '1' } : {})}
-                                  className={cn(
-                                    'flex h-[70%] min-h-3.5 min-w-0 flex-1 items-center justify-start overflow-hidden rounded-md border border-dashed border-white/18 bg-transparent pl-[2px]',
-                                    isTarget && 'border-solid border-[#A855F7] bg-[#A855F7]/30',
-                                  )}
-                                >
-                                  {slot.filled ? (
-                                    <HitDot soft={slot.soft} className={isSource ? 'opacity-0' : undefined} />
-                                  ) : null}
-                                </span>
-                              )
-                            })}
-                            {view.dots
-                              ? view.dotsAt.map((frac, index) => (
-                                  <HitDot
-                                    key={`off-${frac}`}
-                                    soft={view.dotsSoft[index] === true}
-                                    className="pointer-events-none absolute top-1/2 -translate-y-1/2"
-                                    style={{ left: `calc(${frac * 100}% + ${HIT_INSET_PX}px)` }}
-                                  />
-                                ))
-                              : null}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })}
-            </div>
-          ))}
-          <div
-            ref={playheadRef}
-            data-editor-playhead
-            hidden
-            className="pointer-events-none absolute top-0 bottom-0 z-20 w-0.5 bg-[#FF3B4A] shadow-[0_0_8px_rgba(255,59,74,0.55)]"
-            style={{ left: 0, transform: `translateX(${barOffsets[0] ?? 0}px)` }}
-          />
+          {VOICES.map((voice) => {
+            const hits = bar.pattern[voice] ?? []
+            return (
+              <div key={voice} className="flex min-h-0 min-w-0 gap-px px-px">
+                {Array.from({ length: bar.beats }, (_, beat) => {
+                  const view = beatBoxView(hits, beat, input)
+                  const filledInput = Array.from({ length: input }, (_, slot) =>
+                    hits.some((hit) => hit.beat === beat && hit.num * input === slot * hit.den),
+                  )
+                    .map((on, slot) => (on ? String(slot) : ''))
+                    .filter(Boolean)
+                    .join(',')
+                  return (
+                    <div
+                      key={`${voice}-${beat}`}
+                      data-beat-box
+                      data-voice-cell={voice}
+                      data-beat={beat}
+                      data-bar-index={shown}
+                      data-division={view.division}
+                      data-input-filled={filledInput}
+                      className="relative flex min-h-0 min-w-0 flex-1 items-center overflow-hidden rounded-md border border-white/8 bg-white/[0.03] px-px"
+                    >
+                      <div className="relative flex h-full w-full min-w-0 items-center gap-0.5">
+                        {view.slots.map((slot) => {
+                          const isSource =
+                            moving?.fromVoice === voice &&
+                            moving.fromBar === shown &&
+                            moving.fromBeat === beat &&
+                            moving.fromSlot === slot.slot
+                          const isTarget =
+                            moveTo?.voice === voice &&
+                            moveTo.bar === shown &&
+                            moveTo.beat === beat &&
+                            moveTo.slot === slot.slot
+                          return (
+                            <span
+                              key={slot.slot}
+                              data-box-slot={slot.slot}
+                              data-filled={slot.filled ? '1' : '0'}
+                              data-soft={slot.soft ? '1' : '0'}
+                              {...(isSource ? { 'data-move-source': '1' } : {})}
+                              {...(isTarget ? { 'data-drop-target': '1' } : {})}
+                              className={cn(
+                                'flex h-[70%] min-h-3.5 min-w-0 flex-1 items-center justify-start overflow-hidden rounded-md border border-dashed border-white/18 bg-transparent pl-[2px]',
+                                isTarget && 'border-solid border-[#A855F7] bg-[#A855F7]/30',
+                              )}
+                            >
+                              {slot.filled ? (
+                                <HitDot soft={slot.soft} className={isSource ? 'opacity-0' : undefined} />
+                              ) : null}
+                            </span>
+                          )
+                        })}
+                        {view.dots
+                          ? view.dotsAt.map((frac, index) => (
+                              <HitDot
+                                key={`off-${frac}`}
+                                soft={view.dotsSoft[index] === true}
+                                className="pointer-events-none absolute top-1/2 -translate-y-1/2"
+                                style={{ left: `calc(${frac * 100}% + ${HIT_INSET_PX}px)` }}
+                              />
+                            ))
+                          : null}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
         </div>
+        <div
+          ref={playheadRef}
+          data-editor-playhead
+          hidden
+          className="pointer-events-none absolute top-0 bottom-0 z-20 w-0.5 bg-[#FF3B4A] shadow-[0_0_8px_rgba(255,59,74,0.55)]"
+          style={{ left: 0 }}
+        />
       </div>
     </div>
   )

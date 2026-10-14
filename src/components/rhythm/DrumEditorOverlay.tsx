@@ -1,18 +1,19 @@
 import { LayoutGrid, Play, Square, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { BarStrip, type BarChipMenu } from '@/components/rhythm/BarStrip'
 import { CompactMeter } from '@/components/rhythm/CompactMeter'
 import { DrumEditorGrid } from '@/components/rhythm/DrumEditorGrid'
 import { DrumInputChips } from '@/components/rhythm/DrumGrid'
+import { IntensitySwitch } from '@/components/rhythm/IntensitySwitch'
 import { KitMixerPanel } from '@/components/rhythm/KitMixerPanel'
-import { type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
+import { usePlayhead, type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
 import { usePortraitViewport } from '@/hooks/usePhoneViewport'
 import { type InputDivision } from '@/lib/beat-boxes'
 import { type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
-import { tryLockLandscape, unlockOrientation } from '@/lib/phone-viewport'
+import { readPortraitViewport, tryLockLandscape, unlockOrientation } from '@/lib/phone-viewport'
 import { MAX_BARS, type BeatUnit, type RhythmBar, type VoiceId } from '@/lib/rhythm'
 import { activateOnPointer, cn } from '@/lib/utils'
 
@@ -81,9 +82,15 @@ export function DrumEditorOverlay({
   onIntensity: (next: KitIntensity) => void
 }) {
   const portrait = usePortraitViewport()
+  const playhead = usePlayhead(playheadStore)
   const [mixerOpen, setMixerOpen] = useState(false)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  const sawLandscape = useRef(!readPortraitViewport())
   const current = bars[Math.min(barIndex, bars.length - 1)] ?? bars[0]
   const shownBpm = Math.round(liveBpm || bpm)
+  const viewBar =
+    playing && !playhead.precount && playhead.bar >= 0 ? playhead.bar : barIndex
 
   useEffect(() => {
     const html = document.documentElement
@@ -95,7 +102,17 @@ export function DrumEditorOverlay({
     }
   }, [])
 
+  useEffect(() => {
+    if (!portrait) {
+      sawLandscape.current = true
+      return
+    }
+    if (sawLandscape.current) onCloseRef.current()
+  }, [portrait])
+
   if (typeof document === 'undefined') return null
+
+  const showHint = portrait && !sawLandscape.current
 
   return createPortal(
     <div
@@ -110,11 +127,11 @@ export function DrumEditorOverlay({
         paddingLeft: 'max(0.45rem, env(safe-area-inset-left, 0px))',
       }}
     >
-      {portrait ? (
+      {showHint ? (
         <RotateHint beatName={beatName} onClose={onClose} />
       ) : (
         <>
-          <header className="flex shrink-0 items-center gap-2 px-1 pb-1">
+          <header className="flex shrink-0 items-center gap-1.5 px-1 pb-1">
             <button
               type="button"
               data-editor-done
@@ -130,6 +147,7 @@ export function DrumEditorOverlay({
                 {beatName}
               </p>
             </div>
+            <IntensitySwitch compact value={kitIntensity} onChange={onIntensity} />
             <button
               type="button"
               data-editor-mixer
@@ -155,7 +173,7 @@ export function DrumEditorOverlay({
               {playing ? <Square className="size-3.5 fill-current" /> : <Play className="size-3.5 fill-current" />}
               {playing ? 'Stop' : 'Play'}
             </button>
-            <p data-editor-bpm className="min-w-[4.4rem] text-right text-[0.82rem] font-semibold tabular-nums text-white">
+            <p data-editor-bpm className="min-w-[4.2rem] text-right text-[0.82rem] font-semibold tabular-nums text-white">
               {shownBpm} BPM
             </p>
           </header>
@@ -171,7 +189,7 @@ export function DrumEditorOverlay({
               <BarStrip
                 store={playheadStore}
                 bars={bars}
-                barIndex={barIndex}
+                barIndex={viewBar}
                 playing={playing}
                 canAdd={canAdd && bars.length < MAX_BARS}
                 onSelect={onSelectBar}
@@ -185,11 +203,12 @@ export function DrumEditorOverlay({
           <div className="relative min-h-0 flex-1 px-1">
             <DrumEditorGrid
               bars={bars}
+              barIndex={viewBar}
               input={input}
               playing={playing}
               playheadStore={playheadStore}
               getClock={getClock}
-              selectedBar={barIndex}
+              canSwipe={!playing}
               onSelectBar={onSelectBar}
               onToggle={onToggle}
               onToggleSoft={onToggleSoft}
@@ -207,10 +226,10 @@ export function DrumEditorOverlay({
                 />
                 <aside
                   data-mixer-panel
-                  className="absolute inset-y-0 right-0 z-40 w-[min(16.5rem,46%)] overflow-y-auto rounded-l-2xl border border-white/10 bg-[#101626]/96 px-3 py-3 shadow-[-12px_0_32px_rgba(0,0,0,0.35)]"
+                  className="absolute right-0 top-0 z-40 w-[min(16.5rem,46%)] overflow-hidden rounded-2xl border border-white/10 bg-[#101626] px-3 py-2.5 shadow-[-12px_0_32px_rgba(0,0,0,0.35)]"
                 >
-                  <p className="mb-2 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-slate-500">Mixer</p>
-                  <KitMixerPanel mix={kitMix} intensity={kitIntensity} onChange={onMix} onIntensityChange={onIntensity} />
+                  <p className="mb-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-slate-500">Mixer</p>
+                  <KitMixerPanel mix={kitMix} onChange={onMix} />
                 </aside>
               </>
             ) : null}
@@ -266,16 +285,7 @@ function RotateHint({ beatName, onClose }: { beatName: string; onClose: () => vo
 function RotatePhoneArt() {
   return (
     <svg data-rotate-art viewBox="0 0 180 120" className="h-28 w-44" aria-hidden>
-      <rect
-        x="48"
-        y="38"
-        width="84"
-        height="48"
-        rx="12"
-        fill="none"
-        stroke="#A855F7"
-        strokeWidth="3"
-      />
+      <rect x="48" y="38" width="84" height="48" rx="12" fill="none" stroke="#A855F7" strokeWidth="3" />
       <circle cx="68" cy="62" r="2.2" fill="#C084FC" />
       <circle cx="78" cy="62" r="2.2" fill="#C084FC" />
       <circle cx="88" cy="62" r="2.2" fill="#C084FC" />
@@ -283,13 +293,7 @@ function RotatePhoneArt() {
       <circle cx="78" cy="72" r="2.2" fill="#C084FC" />
       <circle cx="88" cy="72" r="2.2" fill="#C084FC" />
       <rect x="72" y="22" width="36" height="8" rx="2" fill="none" stroke="#A855F7" strokeDasharray="3 3" />
-      <path
-        d="M128 34c14 6 22 20 16 36"
-        fill="none"
-        stroke="#E9D5FF"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+      <path d="M128 34c14 6 22 20 16 36" fill="none" stroke="#E9D5FF" strokeWidth="2" strokeLinecap="round" />
       <path d="M150 64l-8 10 12-2" fill="#E9D5FF" />
     </svg>
   )

@@ -16,6 +16,10 @@ import {
   previewDotsForGroup,
   previewHasHits,
 } from '../src/lib/pattern-preview.ts'
+import {
+  intensityFromMark,
+  intensityMark,
+} from '../src/lib/kit-intensity.ts'
 import { isPhoneViewport, isPortraitViewport, PHONE_SHORTEST_PX } from '../src/lib/phone-viewport.ts'
 import {
   emptyPattern,
@@ -111,12 +115,33 @@ assert.match(overlaySrc, /Back to Drums/)
 assert.match(overlaySrc, /data-editor-mixer/)
 assert.match(overlaySrc, /data-mixer-panel/)
 assert.match(overlaySrc, /safe-area-inset/)
-assert.match(gridSrc, /data-editor-one-row/)
+assert.match(overlaySrc, /sawLandscape/)
+assert.match(overlaySrc, /IntensitySwitch/)
+assert.match(overlaySrc, /canSwipe=\{!playing\}/)
+assert.doesNotMatch(overlaySrc, /onIntensityChange/)
+assert.match(gridSrc, /data-editor-one-bar/)
 assert.match(gridSrc, /data-editor-playhead/)
-assert.match(gridSrc, /followPlayheadScroll/)
+assert.match(gridSrc, /SWIPE_PX/)
 assert.match(gridSrc, /onMoveHit/)
 assert.match(gridSrc, /MOVE_ARM_MS/)
 assert.doesNotMatch(gridSrc, /kitBeatBlocks/)
+assert.doesNotMatch(gridSrc, /data-editor-one-row/)
+
+const mixerSrc = readFileSync(new URL('../src/components/rhythm/KitMixerPanel.tsx', import.meta.url), 'utf8')
+assert.doesNotMatch(mixerSrc, /intensity/)
+assert.match(mixerSrc, /KIT_GROUPS/)
+
+const faderSrc = readFileSync(new URL('../src/components/rhythm/KitFaders.tsx', import.meta.url), 'utf8')
+assert.match(faderSrc, /IntensitySwitch/)
+assert.doesNotMatch(faderSrc, /id="intensity"/)
+
+assert.match(cssSrc, /repeat\(4, minmax\(0, 1fr\)\)/)
+
+assert.equal(intensityMark('high'), 'intense')
+assert.equal(intensityMark('mid'), 'moderate')
+assert.equal(intensityMark('low'), 'moderate')
+assert.equal(intensityFromMark('intense'), 'high')
+assert.equal(intensityFromMark('moderate'), 'mid')
 assert.match(previewSrc, /PREVIEW_GROUPS/)
 assert.match(stageSrc, /DrumBarStage/)
 assert.match(overlaySrc, /beatName/)

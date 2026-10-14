@@ -1,13 +1,6 @@
 import { useCallback, useRef } from 'react'
 
 import {
-  INTENSITY_POS,
-  INTENSITY_POS_LIST,
-  intensityFromPos,
-  intensityLabel,
-  type KitIntensity,
-} from '@/lib/kit-intensity'
-import {
   KIT_GROUPS,
   KIT_GROUP_LABELS,
   formatKitDb,
@@ -16,21 +9,17 @@ import {
   type KitGroupId,
   type KitMix,
 } from '@/lib/kit-mix'
-import { DRAG_DEADZONE_PX, cn } from '@/lib/utils'
+import { DRAG_DEADZONE_PX } from '@/lib/utils'
 
 export function KitMixerPanel({
   mix,
-  intensity,
   onChange,
-  onIntensityChange,
 }: {
   mix: KitMix
-  intensity: KitIntensity
   onChange: (group: KitGroupId, db: number) => void
-  onIntensityChange: (next: KitIntensity) => void
 }) {
   return (
-    <div data-kit-mixer-panel className="flex flex-col gap-2.5">
+    <div data-kit-mixer-panel className="flex flex-col gap-2">
       {KIT_GROUPS.map((group) => (
         <HorizFader
           key={group}
@@ -41,14 +30,6 @@ export function KitMixerPanel({
           onChangePos={(pos) => onChange(group, mixPosToDb(pos))}
         />
       ))}
-      <HorizFader
-        id="intensity"
-        label="Intensity"
-        pos={INTENSITY_POS[intensity]}
-        readout={intensityLabel(intensity)}
-        snap={INTENSITY_POS_LIST}
-        onChangePos={(pos) => onIntensityChange(intensityFromPos(pos))}
-      />
     </div>
   )
 }
@@ -58,14 +39,12 @@ function HorizFader({
   label,
   pos,
   readout,
-  snap,
   onChangePos,
 }: {
   id: string
   label: string
   pos: number
   readout: string
-  snap?: number[]
   onChangePos: (pos: number) => void
 }) {
   const wellRef = useRef<HTMLDivElement>(null)
@@ -77,18 +56,13 @@ function HorizFader({
 
   const apply = useCallback(
     (next: number) => {
-      const clamped = Math.min(1, Math.max(0, next))
-      if (!snap?.length) {
-        onChangePos(clamped)
-        return
-      }
-      onChangePos(snap.reduce((best, item) => (Math.abs(item - clamped) < Math.abs(best - clamped) ? item : best)))
+      onChangePos(Math.min(1, Math.max(0, next)))
     },
-    [onChangePos, snap],
+    [onChangePos],
   )
 
   return (
-    <div data-kit-fader={id} data-section={id === 'intensity' ? 'kit-intensity' : undefined} className="flex flex-col gap-1">
+    <div data-kit-fader={id} className="flex flex-col gap-0.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</span>
         <span className="text-[0.68rem] font-semibold tabular-nums text-white" data-kit-readout={id}>
@@ -101,7 +75,7 @@ function HorizFader({
         tabIndex={0}
         aria-label={`${label} level`}
         aria-orientation="horizontal"
-        className="relative h-7 touch-none"
+        className="relative h-6 touch-none"
         onPointerDown={(event) => {
           if (event.button !== 0) return
           event.preventDefault()
@@ -148,9 +122,7 @@ function HorizFader({
           style={{ width: `${Math.min(1, Math.max(0, pos)) * 100}%` }}
         />
         <span
-          className={cn(
-            'absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#E9D5FF] shadow-[0_0_0_3px_rgba(168,85,247,0.28)]',
-          )}
+          className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#E9D5FF] shadow-[0_0_0_3px_rgba(168,85,247,0.28)]"
           style={{ left: `${Math.min(1, Math.max(0, pos)) * 100}%` }}
         />
       </div>
