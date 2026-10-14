@@ -1,7 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 
+import {
+  ITEM_PX,
+  PX_PER_BPM,
+  TAP_SLOP_PX,
+  bpmDeltaFromFinger,
+  coastFriction,
+  COAST_STOP_BPM_S,
+  FLICK_MIN_BPM_S,
+  flickVelocityBpm,
+  stripOffsetPx,
+  type WheelSample,
+} from '@/lib/bpm-wheel-physics'
 import { clampBpm, MAX_BPM, MIN_BPM } from '@/lib/rhythm'
-import { DRAG_DEADZONE_PX, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 type BpmWheelProps = {
   value: number
@@ -10,45 +22,7 @@ type BpmWheelProps = {
   faceBpm?: number
 }
 
-const NEIGHBORS = [-3, -2, -1, 0, 1, 2, 3] as const
-const ITEM_PX = 22
-/** Slow drags take more travel per BPM (the 7743a9e precision). */
-const PX_PER_BPM = 16
-const FLICK_WINDOW_MS = 90
-const FLICK_PEAK_MS = 45
-const FLICK_MIN_BPM_S = 18
-const FLICK_MAX_BPM_S = 240
-const FRICTION_FAST = 1.72
-const FRICTION_SLOW = 3.6
-const COAST_STOP_BPM_S = 2.6
-
-type Sample = { t: number; y: number }
-
-function coastFriction(bpmPerSec: number): number {
-  const speed = Math.abs(bpmPerSec)
-  const t = Math.min(1, speed / 220)
-  return FRICTION_SLOW + (FRICTION_FAST - FRICTION_SLOW) * t * t
-}
-
-function boostFlick(rawBpmPerSec: number): number {
-  const sign = rawBpmPerSec < 0 ? -1 : 1
-  const speed = Math.abs(rawBpmPerSec)
-  if (speed < FLICK_MIN_BPM_S) return 0
-  const span = Math.max(1, FLICK_MAX_BPM_S - FLICK_MIN_BPM_S)
-  const t = Math.min(1, (speed - FLICK_MIN_BPM_S) / span)
-  const gain = 1.1 + 1.25 * t * t
-  return sign * Math.min(FLICK_MAX_BPM_S, speed * gain)
-}
-
-function verticalSpeed(samples: Sample[]): number {
-  if (samples.length < 2) return 0
-  const first = samples[0]
-  const last = samples[samples.length - 1]
-  const dt = Math.max((last.t - first.t) / 1000, 0.008)
-  const dy = first.y - last.y
-  if (Math.abs(dy) < 1.2) return 0
-  return dy / dt / PX_PER_BPM
-}
+const NEIGHBORS = [-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6] as const
 
 export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -62,24 +36,30 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
   const face = faceBpm ?? shown
   const center = Math.round(visual)
   const frac = visual - center
+  const stripY = stripOffsetPx(visual)
 
   const visualRef = useRef(value)
   const emittedRef = useRef(value)
   const onChangeRef = useRef(onChange)
-  const dragRef = useRef<{ y: number } | null>(null)
-  const pendingRef = useRef<{ pointerId: number; y: number; x: number; tapEdit: boolean } | null>(null)
-  const samplesRef = useRef<Sample[]>([])
+  const samplesRef = useRef<WheelSample[]>([])
   const movedRef = useRef(false)
   const velRef = useRef(0)
   const rafRef = useRef(0)
   const coastingRef = useRef(false)
   const draggingRef = useRef(false)
   const lastTsRef = useRef(0)
+  const lastYRef = useRef(0)
+  const lastMoveTsRef = useRef(0)
   const reducedRef = useRef(false)
   const editingRef = useRef(false)
+  const inputKindRef = useRef<'none' | 'touch' | 'mouse'>('none')
+  const pointerIdRef = useRef<number | null>(null)
+  const startRef = useRef<{ x: number; y: number; tapEdit: boolean } | null>(null)
+  const shownRef = useRef(value)
 
   onChangeRef.current = onChange
   editingRef.current = editing
+  shownRef.current = shown
 
   useEffect(() => {
     if (editing) inputRef.current?.select()
@@ -124,9 +104,9 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
       for (let bpm = prev + dir; dir > 0 ? bpm <= dest : bpm >= dest; bpm += dir) {
         emittedRef.current = bpm
         onChangeRef.current(bpm)
-        if (draggingRef.current && typeof navigator.vibrate === 'function') {
-          navigator.vibrate(8)
-        }
+      }
+      if (draggingRef.current && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(8)
       }
       setShown(dest)
     }
@@ -163,12 +143,11 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
       snapToEmitted()
       return
     }
-    const velocity = boostFlick(bpmPerSec)
-    if (Math.abs(velocity) < FLICK_MIN_BPM_S) {
+    if (Math.abs(bpmPerSec) < FLICK_MIN_BPM_S) {
       snapToEmitted()
       return
     }
-    velRef.current = velocity
+    velRef.current = bpmPerSec
     coastingRef.current = true
     setCoasting(true)
     lastTsRef.current = performance.now()
@@ -177,6 +156,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
 
   useEffect(() => {
     if (value === emittedRef.current) return
+    if (draggingRef.current || coastingRef.current) return
     stopCoast()
     emittedRef.current = value
     visualRef.current = value
@@ -191,9 +171,137 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
     [],
   )
 
+  const beginFinger = (x: number, y: number, time: number, tapEdit: boolean) => {
+    stopCoast()
+    movedRef.current = false
+    lastYRef.current = y
+    lastMoveTsRef.current = time
+    samplesRef.current = [{ t: time, y }]
+    startRef.current = { x, y, tapEdit }
+    draggingRef.current = true
+    setDragging(true)
+  }
+
+  const moveFinger = (y: number, time: number) => {
+    if (!draggingRef.current || editingRef.current) return
+    const dy = y - lastYRef.current
+    const dt = (time - lastMoveTsRef.current) / 1000
+    lastYRef.current = y
+    lastMoveTsRef.current = time
+    samplesRef.current.push({ t: time, y })
+    if (samplesRef.current.length > 32) samplesRef.current.shift()
+    const start = startRef.current
+    if (start && Math.hypot(0, y - start.y) > TAP_SLOP_PX) movedRef.current = true
+    if (Math.abs(dy) < 0.01) return
+    emitIfNeeded(visualRef.current + bpmDeltaFromFinger(dy, dt))
+  }
+
+  const endFinger = (y: number, time: number, flick: boolean) => {
+    if (!draggingRef.current) return
+    samplesRef.current.push({ t: time, y })
+    draggingRef.current = false
+    setDragging(false)
+    inputKindRef.current = 'none'
+    pointerIdRef.current = null
+    const start = startRef.current
+    startRef.current = null
+    if (flick) startCoast(flickVelocityBpm(samplesRef.current, time))
+    else snapToEmitted()
+    samplesRef.current = []
+    return start
+  }
+
   useEffect(() => {
     const node = hitRef.current
     if (!node) return
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (editingRef.current) return
+      if (event.touches.length !== 1) return
+      const touch = event.touches[0]
+      if (!touch) return
+      event.preventDefault()
+      if (inputKindRef.current === 'mouse') return
+      inputKindRef.current = 'touch'
+      const target = event.target as HTMLElement
+      beginFinger(touch.clientX, touch.clientY, performance.now(), Boolean(target.closest('[data-bpm-edit]')))
+    }
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (editingRef.current) return
+      event.preventDefault()
+      if (inputKindRef.current !== 'touch') return
+      const touch = event.touches[0]
+      if (!touch) return
+      moveFinger(touch.clientY, performance.now())
+    }
+
+    const onTouchEnd = (event: TouchEvent) => {
+      if (inputKindRef.current !== 'touch') return
+      event.preventDefault()
+      const touch = event.changedTouches[0]
+      const start = endFinger(touch?.clientY ?? lastYRef.current, performance.now(), true)
+      if (start?.tapEdit && !movedRef.current && !editingRef.current) {
+        setDraft(String(shownRef.current))
+      }
+    }
+
+    const onTouchCancel = () => {
+      if (inputKindRef.current !== 'touch') return
+      endFinger(lastYRef.current, performance.now(), false)
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (editingRef.current) return
+      if (event.button !== 0) return
+      const target = event.target as HTMLElement
+      if (target.closest('input')) return
+      try {
+        node.setPointerCapture(event.pointerId)
+      } catch {
+        // Capture is best-effort; touch listeners still hold the page.
+      }
+      if (event.pointerType === 'touch') {
+        pointerIdRef.current = event.pointerId
+        return
+      }
+      if (inputKindRef.current === 'touch') return
+      event.preventDefault()
+      inputKindRef.current = 'mouse'
+      pointerIdRef.current = event.pointerId
+      beginFinger(event.clientX, event.clientY, performance.now(), Boolean(target.closest('[data-bpm-edit]')))
+    }
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType === 'touch' || inputKindRef.current !== 'mouse') return
+      if (pointerIdRef.current != null && event.pointerId !== pointerIdRef.current) return
+      const coalesced =
+        typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [event]
+      for (const item of coalesced) {
+        moveFinger(item.clientY, performance.now())
+      }
+    }
+
+    const onPointerUp = (event: PointerEvent) => {
+      if (node.hasPointerCapture(event.pointerId)) {
+        node.releasePointerCapture(event.pointerId)
+      }
+      if (event.pointerType === 'touch') return
+      if (inputKindRef.current !== 'mouse') return
+      const start = endFinger(event.clientY, performance.now(), true)
+      if (start?.tapEdit && !movedRef.current && !editingRef.current) {
+        setDraft(String(shownRef.current))
+      }
+    }
+
+    const onPointerCancel = (event: PointerEvent) => {
+      if (node.hasPointerCapture(event.pointerId)) {
+        node.releasePointerCapture(event.pointerId)
+      }
+      if (inputKindRef.current !== 'mouse') return
+      endFinger(event.clientY, performance.now(), false)
+    }
+
     const onWheel = (event: WheelEvent) => {
       if (editingRef.current) return
       event.preventDefault()
@@ -202,29 +310,29 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
       const steps = Math.max(1, Math.round(Math.abs(event.deltaY) / 48))
       emitIfNeeded(emittedRef.current + dir * steps)
     }
-    const onTouchMove = (event: TouchEvent) => {
-      if (editingRef.current) return
-      event.preventDefault()
-    }
-    node.addEventListener('wheel', onWheel, { passive: false })
-    node.addEventListener('touchmove', onTouchMove, { passive: false })
+
+    const opts: AddEventListenerOptions = { passive: false, capture: true }
+    node.addEventListener('touchstart', onTouchStart, opts)
+    node.addEventListener('touchmove', onTouchMove, opts)
+    node.addEventListener('touchend', onTouchEnd, opts)
+    node.addEventListener('touchcancel', onTouchCancel, opts)
+    node.addEventListener('pointerdown', onPointerDown, opts)
+    node.addEventListener('pointermove', onPointerMove, opts)
+    node.addEventListener('pointerup', onPointerUp, opts)
+    node.addEventListener('pointercancel', onPointerCancel, opts)
+    node.addEventListener('wheel', onWheel, opts)
     return () => {
-      node.removeEventListener('wheel', onWheel)
-      node.removeEventListener('touchmove', onTouchMove)
+      node.removeEventListener('touchstart', onTouchStart, opts)
+      node.removeEventListener('touchmove', onTouchMove, opts)
+      node.removeEventListener('touchend', onTouchEnd, opts)
+      node.removeEventListener('touchcancel', onTouchCancel, opts)
+      node.removeEventListener('pointerdown', onPointerDown, opts)
+      node.removeEventListener('pointermove', onPointerMove, opts)
+      node.removeEventListener('pointerup', onPointerUp, opts)
+      node.removeEventListener('pointercancel', onPointerCancel, opts)
+      node.removeEventListener('wheel', onWheel, opts)
     }
   }, [])
-
-  const flickVelocity = (): number => {
-    const samples = samplesRef.current
-    if (samples.length < 2) return 0
-    const latest = samples[samples.length - 1]
-    const windowed = samples.filter((sample) => sample.t >= latest.t - FLICK_WINDOW_MS)
-    const used = windowed.length >= 2 ? windowed : samples
-    const peak = used.filter((sample) => sample.t >= latest.t - FLICK_PEAK_MS)
-    const sustained = verticalSpeed(used)
-    const burst = peak.length >= 2 ? verticalSpeed(peak) : sustained
-    return Math.abs(burst) > Math.abs(sustained) ? burst : sustained
-  }
 
   const commitDraft = () => {
     if (draft === null) return
@@ -233,16 +341,6 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
     if (!Number.isFinite(parsed)) return
     const clamped = clampBpm(parsed)
     if (clamped !== emittedRef.current) onChange(clamped)
-  }
-
-  const endDrag = (flick: boolean, event?: { timeStamp: number; clientY: number }) => {
-    if (event) samplesRef.current.push({ t: event.timeStamp, y: event.clientY })
-    dragRef.current = null
-    draggingRef.current = false
-    setDragging(false)
-    if (flick) startCoast(flickVelocity())
-    else snapToEmitted()
-    samplesRef.current = []
   }
 
   return (
@@ -266,81 +364,16 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
           data-spinning={dragging ? 'true' : 'false'}
           data-tempo-hit="true"
           data-bpm-wheel="vertical"
+          data-higher-below="true"
+          data-px-per-bpm={PX_PER_BPM}
+          style={{
+            touchAction: 'none',
+            ['--wheel-y' as string]: `${(visual * ITEM_PX).toFixed(2)}px`,
+          }}
           className={cn(
-            'bpm-wheel relative touch-none select-none rounded-[26px] p-[5px] outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]/70',
+            'bpm-wheel relative select-none rounded-[26px] p-[5px] outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]/70',
             compact ? 'h-[152px] w-[68px]' : 'h-[164px] w-[72px]',
           )}
-          onPointerDown={(event) => {
-            movedRef.current = false
-            if (editing) return
-            const target = event.target as HTMLElement
-            if (target.closest('input')) return
-            if (event.button !== 0) return
-            event.preventDefault()
-            try {
-              event.currentTarget.setPointerCapture(event.pointerId)
-            } catch {
-              // Capture is best-effort; non-passive touchmove still holds the page.
-            }
-            stopCoast()
-            pendingRef.current = {
-              pointerId: event.pointerId,
-              x: event.clientX,
-              y: event.clientY,
-              tapEdit: Boolean(target.closest('[data-bpm-edit]')),
-            }
-          }}
-          onPointerMove={(event) => {
-            const drag = dragRef.current
-            if (drag && !editing) {
-              const dy = drag.y - event.clientY
-              drag.y = event.clientY
-              samplesRef.current.push({ t: event.timeStamp, y: event.clientY })
-              if (samplesRef.current.length > 24) samplesRef.current.shift()
-              if (Math.abs(dy) > 1.5) movedRef.current = true
-              emitIfNeeded(visualRef.current + dy / PX_PER_BPM)
-              return
-            }
-
-            const pending = pendingRef.current
-            if (!pending || pending.pointerId !== event.pointerId || editing) return
-            const dist = Math.hypot(event.clientX - pending.x, event.clientY - pending.y)
-            if (dist < DRAG_DEADZONE_PX) return
-            event.preventDefault()
-            try {
-              event.currentTarget.setPointerCapture(event.pointerId)
-            } catch {
-              // Already captured on pointerdown when the browser allows it.
-            }
-            stopCoast()
-            snapToEmitted()
-            dragRef.current = { y: event.clientY }
-            samplesRef.current = [{ t: event.timeStamp, y: event.clientY }]
-            draggingRef.current = true
-            setDragging(true)
-            pendingRef.current = null
-          }}
-          onPointerUp={(event) => {
-            const pending = pendingRef.current
-            pendingRef.current = null
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-              event.currentTarget.releasePointerCapture(event.pointerId)
-            }
-            if (dragRef.current) {
-              endDrag(true, event)
-              return
-            }
-            if (pending?.tapEdit && !movedRef.current && !editing) {
-              setDraft(String(shown))
-            }
-          }}
-          onPointerCancel={(event) => {
-            pendingRef.current = null
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-              event.currentTarget.releasePointerCapture(event.pointerId)
-            }
-            if (dragRef.current) endDrag(false)
-          }}
           onKeyDown={(event) => {
             if (editing) return
             if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
@@ -367,9 +400,10 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
             <div className="bpm-wheel-shade-right pointer-events-none absolute inset-y-0 right-0 w-5" />
             <div
               className="flex h-full flex-col items-center justify-center"
+              data-wheel-strip
               style={{
                 perspective: '420px',
-                transform: `translateY(${-frac * ITEM_PX}px)`,
+                transform: `translateY(${stripY}px)`,
               }}
             >
               {NEIGHBORS.map((offset) => {
@@ -381,17 +415,17 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
                     key={offset}
                     data-bpm-tick={bpm}
                     className={cn(
-                      'flex h-[22px] items-center font-semibold tabular-nums tracking-tight',
-                      active ? 'text-[1.05rem] text-white' : 'text-[0.7rem] text-slate-500',
-                      Math.abs(offset) === 1 && 'text-slate-300',
+                      'pointer-events-none flex h-[10px] items-center font-semibold tabular-nums tracking-tight',
+                      active ? 'text-[1.05rem] text-white' : 'text-[0.62rem] text-slate-500',
+                      Math.abs(offset) === 1 && 'text-[0.72rem] text-slate-300',
                       hidden && 'opacity-0',
                     )}
                     style={
                       hidden
                         ? undefined
                         : {
-                            transform: `rotateX(${(offset - frac) * -16}deg) scale(${1 - Math.abs(offset - frac) * 0.07})`,
-                            opacity: 1 - Math.abs(offset - frac) * 0.18,
+                            transform: `rotateX(${(offset - frac) * -11}deg) scale(${1 - Math.abs(offset - frac) * 0.045})`,
+                            opacity: 1 - Math.abs(offset - frac) * 0.12,
                           }
                     }
                   >
