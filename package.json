@@ -30,6 +30,7 @@
     "test:factory": "npx --yes tsx scripts/factory-library.ts",
     "test:reference-tone": "npx --yes tsx scripts/reference-tone.ts",
     "test:audio-session": "npx --yes tsx scripts/audio-session.ts",
+    "test:click-subdivision": "npx --yes tsx scripts/click-subdivision.ts",
     "test:tuner-layout": "npx --yes tsx scripts/tuner-layout.ts",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-cloudflare.sh"

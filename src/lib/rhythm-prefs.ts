@@ -1,6 +1,7 @@
 import {
   DEFAULT_BPM,
   DEFAULT_CLICK_SOUND,
+  DEFAULT_CLICK_SUBDIVISION,
   MAX_BARS,
   VOICES,
   clampBeats,
@@ -10,6 +11,7 @@ import {
   isBeatUnit,
   makeBar,
   normalizeBeatSubdivisions,
+  setBarSubdivision,
   normalizeClickSound,
   normalizeSubdivision,
   parseBeatAccents,
@@ -36,8 +38,9 @@ import { DEFAULT_DRUM_INPUT, normalizeDrumInput, type InputDivision } from '@/li
 import { barsForPreset, findPreset, makeDefaultClickBars, makeDefaultRockBars, matchPreset } from '@/lib/rhythm-presets'
 import { DEFAULT_SPEED_BUILDER, parseSpeedBuilder, type SpeedBuilder } from '@/lib/speed-builder'
 
-const STORAGE_KEY = 'omnician.rhythm.v21'
+const STORAGE_KEY = 'omnician.rhythm.v22'
 const PREVIOUS_KEYS = [
+  'omnician.rhythm.v21',
   'omnician.rhythm.v20',
   'omnician.rhythm.v19',
   'omnician.rhythm.v18',
@@ -133,6 +136,16 @@ function parseBar(raw: unknown, fallbackSub: SubdivisionId): RhythmBar | null {
   )
 }
 
+/** Old first-open Click was 4/4 eighths. Promote that factory shape to quarters. */
+export function migrateClickFactorySubdivision(bars: RhythmBar[]): RhythmBar[] {
+  if (bars.length !== 1) return bars
+  const bar = bars[0]
+  if (!bar) return bars
+  if (bar.beats !== 4 || bar.beatUnit !== 4 || bar.subdivision !== 2) return bars
+  if (!bar.beatSubdivisions.every((item) => item === 2)) return bars
+  return [setBarSubdivision(bar, DEFAULT_CLICK_SUBDIVISION)]
+}
+
 function syncSubdivision(bars: RhythmBar[]): RhythmBar[] {
   const sub = bars[0]?.subdivision ?? 2
   return bars.map((bar) => {
@@ -193,7 +206,8 @@ export function loadRhythmPrefs(): RhythmPrefs {
     }
 
     const split = Array.isArray(row.clickBars) || Array.isArray(row.drumBars)
-    const clickBars = split ? parseBars(row.clickBars, base.clickBars) : makeDefaultClickBars()
+    const parsedClick = split ? parseBars(row.clickBars, base.clickBars) : makeDefaultClickBars()
+    const clickBars = currentRaw ? parsedClick : migrateClickFactorySubdivision(parsedClick)
     const presetId = typeof row.presetId === 'string' ? row.presetId : null
     const libraryPreset = !currentRaw && presetId ? findPreset(presetId) : undefined
     const drumBars = libraryPreset

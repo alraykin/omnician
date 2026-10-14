@@ -50,6 +50,8 @@ export const DEFAULT_BPM = 120
 export const SUBDIVISIONS = [1, 2, 3, 4, 5, 6, 7] as const
 export type SubdivisionId = (typeof SUBDIVISIONS)[number]
 export const DEFAULT_SUBDIVISION: SubdivisionId = 2
+/** Click first-open / factory default: the beat only, no extra pulses. */
+export const DEFAULT_CLICK_SUBDIVISION: SubdivisionId = 1
 
 export const SUBDIVISION_LABELS: Record<SubdivisionId, string> = {
   1: 'Quarter note',
@@ -899,6 +901,55 @@ export function nextEventAfter(
 
 export function timesAfter(times: readonly number[], after: number): number[] {
   return times.filter((time) => time > after)
+}
+
+/**
+ * Next audible beat after the committed window. Subdivision changes land here
+ * so already-sounding pulses finish and the pulse stays on the same beat grid.
+ */
+export function nextClickBeatBoundary(
+  now: number,
+  barStart: number,
+  bpm: number,
+  beats: number,
+  beatUnit: BeatUnit,
+  commitLead = LIVE_COMMIT_SEC,
+): { time: number; beat: number; wrap: boolean } {
+  const commit = now + commitLead
+  const beatSec = beatDurationSec(bpm, beatUnit)
+  const count = clampBeats(beats)
+  const barDur = count * beatSec
+  let beat = 0
+  let time = barStart
+  while (time <= commit + 1e-9) {
+    beat += 1
+    time = barStart + beat * beatSec
+  }
+  if (beat >= count) {
+    return { time: barStart + barDur, beat: 0, wrap: true }
+  }
+  return { time, beat, wrap: false }
+}
+
+/** Copy Click subdivision onto the live bar without touching meter or accents. */
+export function applyClickSubdivision(live: RhythmBar, pending: RhythmBar): RhythmBar {
+  return {
+    ...cloneBar(live),
+    subdivision: pending.subdivision,
+    beatSubdivisions: normalizeBeatSubdivisions(live.beats, pending.subdivision, pending.beatSubdivisions),
+  }
+}
+
+export function clickMeterSignature(mode: RhythmMode, bars: readonly RhythmBar[]): string {
+  return [
+    mode,
+    String(bars.length),
+    ...bars.map((bar) => `${bar.beats}/${bar.beatUnit}:${JSON.stringify(bar.beatAccents)}`),
+  ].join('|')
+}
+
+export function clickSubdivSignature(bars: readonly RhythmBar[]): string {
+  return bars.map((bar) => `${bar.subdivision}:${JSON.stringify(bar.beatSubdivisions)}`).join('|')
 }
 
 /** Recompute the current bar from the playhead so a manual tempo change stays in phase. */

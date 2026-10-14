@@ -18,14 +18,18 @@ import {
 import { captureAudioTime } from '@/lib/drum-recorder'
 import { getOrCreateRhythmKit, type RhythmKit } from '@/lib/rhythm-audio'
 import {
+  applyClickSubdivision,
   barDurationSec,
   beatAccentAt,
   beatDurationSec,
   beatIndexForStep,
+  clickMeterSignature,
   clickPulsesInBar,
+  clickSubdivSignature,
   hitTimeInBar,
   isBeatStep,
   LIVE_COMMIT_SEC,
+  nextClickBeatBoundary,
   planLiveTempoRetarget,
   stepDurationSec,
   stepsInBar,
@@ -119,17 +123,6 @@ export function usePlayheadBar(store: PlayheadStore): number {
   )
 }
 
-function cycleSignature(mode: RhythmMode, bars: readonly RhythmBar[]): string {
-  return [
-    mode,
-    String(bars.length),
-    ...bars.map(
-      (bar) =>
-        `${bar.beats}/${bar.beatUnit}/${bar.subdivision}:${JSON.stringify(bar.beatAccents)}:${JSON.stringify(bar.beatSubdivisions)}`,
-    ),
-  ].join('|')
-}
-
 export function useRhythmEngine({
   playing,
   bpm,
@@ -209,7 +202,7 @@ export function useRhythmEngine({
   const sbRepeatRef = useRef(0)
   const barStartRef = useRef(0)
   const barTempoRef = useRef(bpm)
-  const retargetRef = useRef<(reason: 'tempo' | 'intensity') => void>(() => undefined)
+  const retargetRef = useRef<(reason: 'tempo' | 'intensity' | 'subdivision') => void>(() => undefined)
   const clockWatchRef = useRef<ClockWatch>(createClockWatch(0, 0))
   const freezeResumeRef = useRef(false)
 
@@ -371,10 +364,20 @@ export function useRhythmEngine({
       setHoldUntilCycle(false)
       return
     }
-    const queued =
-      cycleSignature(liveModeRef.current, liveBarsRef.current) !==
-      cycleSignature(pendingModeRef.current, pendingBarsRef.current)
-    setHoldUntilCycle(queued)
+    const meterQueued =
+      clickMeterSignature(liveModeRef.current, liveBarsRef.current) !==
+      clickMeterSignature(pendingModeRef.current, pendingBarsRef.current)
+    const subdivQueued =
+      clickSubdivSignature(liveBarsRef.current) !== clickSubdivSignature(pendingBarsRef.current)
+    setHoldUntilCycle(meterQueued)
+    if (
+      !meterQueued &&
+      subdivQueued &&
+      liveModeRef.current === 'click' &&
+      pendingModeRef.current === 'click'
+    ) {
+      retargetRef.current('subdivision')
+    }
   }, [bars, mode, playing])
 
   useEffect(() => {
@@ -553,7 +556,77 @@ export function useRhythmEngine({
 
       let tick: () => void = () => undefined
 
-      const retarget = (reason: 'tempo' | 'intensity') => {
+      const applyPendingClickSubdiv = () => {
+        const live = liveBarsRef.current
+        const pending = pendingBarsRef.current
+        liveBarsRef.current = live.map((bar, index) => {
+          const next = pending[index]
+          return next ? applyClickSubdivision(bar, next) : bar
+        })
+      }
+
+      const retargetClickSubdivision = () => {
+        applyPendingClickSubdiv()
+        if (sbPhaseRef.current === 'precount') return
+        if (liveModeRef.current !== 'click') return
+
+        const now = kit.ctx.currentTime
+        const sequence = liveBarsRef.current
+        if (sequence.length === 0) return
+        const barIndex = currentBarIndex()
+        const bar = playbackBar(barIndex)
+        if (!bar) return
+        const tempo = applyPlaybackBpm()
+        const plan = nextClickBeatBoundary(
+          now,
+          barStartRef.current,
+          tempo,
+          bar.beats,
+          bar.beatUnit,
+          COMMIT_SEC,
+        )
+
+        let targetBarIndex = barIndex
+        let targetBar = bar
+        let targetBeat = plan.beat
+        let boundary = plan.time
+        if (plan.wrap) {
+          targetBarIndex = (barIndex + 1) % sequence.length
+          targetBar = playbackBar(targetBarIndex) ?? bar
+          targetBeat = 0
+          boundary = plan.time
+          barRef.current = targetBarIndex
+          barStartRef.current = boundary
+          armedBarRef.current = null
+        }
+
+        kit.cancelFuture(boundary, 'click')
+        cuesRef.current = cuesRef.current.filter((cue) => cue.time <= boundary + 1e-6)
+
+        const pulses = clickPulsesInBar(targetBar, tempo)
+        const downbeat = pulses.findIndex((pulse) => pulse.beat === targetBeat && pulse.onBeat)
+        const downbeatPulse = downbeat >= 0 ? downbeat : 0
+        const keptDownbeat = cuesRef.current.some(
+          (cue) => Math.abs(cue.time - boundary) <= 1e-4 && cue.beat === targetBeat && !cue.subdivision,
+        )
+        const startPulse = keptDownbeat ? downbeatPulse + 1 : downbeatPulse
+        if (startPulse >= pulses.length) {
+          const wrapped = (targetBarIndex + 1) % sequence.length
+          barRef.current = wrapped
+          stepRef.current = 0
+          nextTimeRef.current =
+            boundary - (pulses[downbeatPulse]?.offsetSec ?? 0) + barDurationSec(targetBar.beats, tempo, targetBar.beatUnit)
+          armedBarRef.current = null
+          if (wrapped === 0) commitPendingCycle()
+        } else {
+          stepRef.current = startPulse
+          const origin = pulses[downbeatPulse]?.offsetSec ?? 0
+          nextTimeRef.current = boundary + ((pulses[startPulse]?.offsetSec ?? origin) - origin)
+        }
+        tick()
+      }
+
+      const retarget = (reason: 'tempo' | 'intensity' | 'subdivision') => {
         if (!playingRef.current) return
         const now = kit.ctx.currentTime
         const commit = now + COMMIT_SEC
@@ -563,6 +636,11 @@ export function useRhythmEngine({
           if (liveModeRef.current === 'drums' && sbPhaseRef.current === 'pattern') {
             armDrumHitsFrom(currentBarIndex(), barStartRef.current, commit)
           }
+          return
+        }
+
+        if (reason === 'subdivision') {
+          retargetClickSubdivision()
           return
         }
 
