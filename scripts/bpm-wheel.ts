@@ -10,7 +10,7 @@ import {
 } from '../src/lib/bpm-wheel-physics.ts'
 
 assert.equal(PX_PER_BPM, 9)
-assert.equal(ITEM_PX, 10)
+assert.equal(ITEM_PX, 28)
 
 const slowUp = bpmDeltaFromFinger(-9, 0.12)
 assert.ok(slowUp > 0.85 && slowUp < 1.15, `slow drag-up should be ~+1 BPM, got ${slowUp}`)
@@ -59,6 +59,7 @@ assert.match(src, /stopCoast/)
 assert.match(src, /data-bpm-edit/)
 assert.match(src, /inputMode="numeric"/)
 assert.match(src, /center \+ offset/)
+assert.match(src, /const NEIGHBORS = \[-2, -1, 0, 1, 2\]/)
 assert.doesNotMatch(src, /bpm-dial-ring/)
 assert.doesNotMatch(src, /DRAG_DEADZONE_PX/)
 assert.doesNotMatch(src, /const PX_PER_BPM = 16/)

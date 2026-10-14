@@ -22,7 +22,7 @@ type BpmWheelProps = {
   faceBpm?: number
 }
 
-const NEIGHBORS = [-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6] as const
+const NEIGHBORS = [-2, -1, 0, 1, 2] as const
 
 export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -415,17 +415,17 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
                     key={offset}
                     data-bpm-tick={bpm}
                     className={cn(
-                      'pointer-events-none flex h-[10px] items-center font-semibold tabular-nums tracking-tight',
-                      active ? 'text-[1.05rem] text-white' : 'text-[0.62rem] text-slate-500',
-                      Math.abs(offset) === 1 && 'text-[0.72rem] text-slate-300',
+                      'pointer-events-none flex h-[28px] items-center font-semibold tabular-nums tracking-tight',
+                      active ? 'text-[1.05rem] text-white' : 'text-[0.68rem] text-slate-500',
+                      Math.abs(offset) === 1 && 'text-[0.78rem] text-slate-300',
                       hidden && 'opacity-0',
                     )}
                     style={
                       hidden
                         ? undefined
                         : {
-                            transform: `rotateX(${(offset - frac) * -11}deg) scale(${1 - Math.abs(offset - frac) * 0.045})`,
-                            opacity: 1 - Math.abs(offset - frac) * 0.12,
+                            transform: `rotateX(${(offset - frac) * -18}deg) scale(${1 - Math.abs(offset - frac) * 0.08})`,
+                            opacity: 1 - Math.abs(offset - frac) * 0.22,
                           }
                     }
                   >
