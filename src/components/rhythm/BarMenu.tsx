@@ -1,3 +1,4 @@
+import { AUTO_COMPLETE_ENABLED } from '@/lib/features'
 import { cn } from '@/lib/utils'
 
 export type BarMenuAction = 'copy' | 'paste' | 'duplicate' | 'clear' | 'delete' | 'auto' | 'retry-fill'
@@ -37,8 +38,8 @@ export function BarMenu({
     { action: 'duplicate', label: 'Duplicate', disabled: !canDuplicate },
     { action: 'clear', label: 'Clear bar' },
     { action: 'delete', label: 'Delete bar', hidden: !canDelete, danger: true },
-    { action: 'auto', label: 'Auto-complete', disabled: !canAutoComplete },
-    { action: 'retry-fill', label: 'Try another fill', hidden: !canRetryFill },
+    { action: 'auto', label: 'Auto-complete', hidden: !AUTO_COMPLETE_ENABLED, disabled: !canAutoComplete },
+    { action: 'retry-fill', label: 'Try another fill', hidden: !AUTO_COMPLETE_ENABLED || !canRetryFill },
   ]
 
   const width = 196

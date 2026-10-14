@@ -52,7 +52,7 @@ import {
   type VoiceId,
 } from '@/lib/rhythm'
 import { loadRecordClick } from '@/lib/drum-recorder'
-import { RECORDER_ENABLED } from '@/lib/features'
+import { AUTO_COMPLETE_ENABLED, RECORDER_ENABLED } from '@/lib/features'
 import { importMidiFile, importNoteLine } from '@/lib/midi-import'
 import { loadMidiMap } from '@/lib/midi-map'
 import {
@@ -1295,38 +1295,40 @@ export function RhythmPage() {
                     onAction: onDrumBarMenu,
                   }}
                   tools={
-                    <>
-                      <button
-                        type="button"
-                        data-auto-complete
-                        disabled={seedBars(drumBars).length === 0}
-                        onClick={requestAutoComplete}
-                        className="h-7 rounded-md border border-white/12 px-2 text-[0.7rem] font-semibold text-slate-100 disabled:opacity-40"
-                      >
-                        Auto-complete
-                      </button>
-                      {drumBars.length >= MAX_BARS ? (
+                    AUTO_COMPLETE_ENABLED ? (
+                      <>
                         <button
                           type="button"
-                          data-auto-retry-fill
+                          data-auto-complete
                           disabled={seedBars(drumBars).length === 0}
-                          onClick={retryFill}
+                          onClick={requestAutoComplete}
                           className="h-7 rounded-md border border-white/12 px-2 text-[0.7rem] font-semibold text-slate-100 disabled:opacity-40"
                         >
-                          Try another fill
+                          Auto-complete
                         </button>
-                      ) : null}
-                      {drumUndo ? (
-                        <button
-                          type="button"
-                          data-auto-undo
-                          onClick={undoDrums}
-                          className="h-7 rounded-md bg-[#A855F7] px-2 text-[0.7rem] font-semibold text-white"
-                        >
-                          Undo
-                        </button>
-                      ) : null}
-                    </>
+                        {drumBars.length >= MAX_BARS ? (
+                          <button
+                            type="button"
+                            data-auto-retry-fill
+                            disabled={seedBars(drumBars).length === 0}
+                            onClick={retryFill}
+                            className="h-7 rounded-md border border-white/12 px-2 text-[0.7rem] font-semibold text-slate-100 disabled:opacity-40"
+                          >
+                            Try another fill
+                          </button>
+                        ) : null}
+                        {drumUndo ? (
+                          <button
+                            type="button"
+                            data-auto-undo
+                            onClick={undoDrums}
+                            className="h-7 rounded-md bg-[#A855F7] px-2 text-[0.7rem] font-semibold text-white"
+                          >
+                            Undo
+                          </button>
+                        ) : null}
+                      </>
+                    ) : undefined
                   }
                 />
               </div>
@@ -1469,7 +1471,7 @@ export function RhythmPage() {
         </div>
       ) : null}
 
-      {autoConfirm ? (
+      {AUTO_COMPLETE_ENABLED && autoConfirm ? (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-4 sm:items-center">
           <div
             role="dialog"

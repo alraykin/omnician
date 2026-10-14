@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import {
   addPickupKick,
@@ -105,5 +106,17 @@ const emptyFour = [makeBar(4, 4, 4), makeBar(4, 4, 4), makeBar(4, 4, 4), makeBar
 emptyFour[0] = rockSeed[0]!
 assert.equal(seedBars(emptyFour).length, 1)
 assert.equal(needsOverwriteConfirm(emptyFour), false)
+
+const featureSrc = readFileSync(new URL('../src/lib/features.ts', import.meta.url), 'utf8')
+assert.match(featureSrc, /export const AUTO_COMPLETE_ENABLED = false/)
+
+const pageSrc = readFileSync(new URL('../src/pages/RhythmPage.tsx', import.meta.url), 'utf8')
+assert.match(pageSrc, /AUTO_COMPLETE_ENABLED/)
+assert.match(pageSrc, /AUTO_COMPLETE_ENABLED \? \(/)
+assert.match(pageSrc, /AUTO_COMPLETE_ENABLED && autoConfirm/)
+
+const menuSrc = readFileSync(new URL('../src/components/rhythm/BarMenu.tsx', import.meta.url), 'utf8')
+assert.match(menuSrc, /hidden: !AUTO_COMPLETE_ENABLED/)
+assert.doesNotMatch(menuSrc, /Auto-complete to 8 bars/)
 
 console.log('auto-complete: ok')
