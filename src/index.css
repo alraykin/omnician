@@ -32,6 +32,16 @@
   }
 }
 
+/* Phones in either orientation. iPad Mini shortest side is 768. */
+@custom-variant phone {
+  @media (max-width: 599px) {
+    @slot;
+  }
+  @media (orientation: landscape) and (max-height: 599px) {
+    @slot;
+  }
+}
+
 @theme inline {
   --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
@@ -87,6 +97,17 @@ body {
   #root {
     overflow-x: clip;
   }
+}
+
+html.drum-editor-open,
+html.drum-editor-open body,
+html.drum-editor-open #root {
+  overflow: hidden;
+  touch-action: none;
+}
+
+html.drum-editor-open [data-drum-editor] {
+  touch-action: manipulation;
 }
 
 .rhythm-glass {

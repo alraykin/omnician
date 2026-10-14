@@ -1,4 +1,4 @@
-import { Check, ChevronDown, FileUp, GripVertical, Pencil, Play, Plus, Square, Trash2, X } from 'lucide-react'
+import { Check, ChevronDown, FileUp, GripVertical, LayoutGrid, Pencil, Play, Plus, Smartphone, Square, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
@@ -10,7 +10,9 @@ import { type BarMenuAction } from '@/components/rhythm/BarMenu'
 import { ClickAccentGrid } from '@/components/rhythm/ClickAccentGrid'
 import { CompactMeter } from '@/components/rhythm/CompactMeter'
 import { DrumBarStage } from '@/components/rhythm/DrumBarStage'
+import { DrumEditorOverlay } from '@/components/rhythm/DrumEditorOverlay'
 import { DrumRecorderSheet, type DrumRecorderDemo } from '@/components/rhythm/DrumRecorderSheet'
+import { PatternPreview } from '@/components/rhythm/PatternPreview'
 import { RecordFab } from '@/components/rhythm/RecordFab'
 import { KitFaders } from '@/components/rhythm/KitFaders'
 import { ListenTempoSheet } from '@/components/rhythm/ListenTempo'
@@ -39,6 +41,7 @@ import {
   setHit,
   emptyPattern,
   isHitSoft,
+  moveHitAcrossBars,
   moveHitPos,
   sameHit,
   setHitPos,
@@ -157,6 +160,7 @@ export function RhythmPage() {
   } | null>(null)
   const [fillVariant, setFillVariant] = useState(0)
   const [autoConfirm, setAutoConfirm] = useState(false)
+  const [editorOpen, setEditorOpen] = useState(false)
   const [, setStyleTick] = useState(0)
 
   useEffect(() => subscribeRhythmStyles(() => setStyleTick((value) => value + 1)), [])
@@ -289,6 +293,10 @@ export function RhythmPage() {
     userBeatId,
     drumInput,
   ])
+
+  useEffect(() => {
+    if (mode !== 'drums' && editorOpen) setEditorOpen(false)
+  }, [editorOpen, mode])
 
   useEffect(() => {
     if (urlMode === 'click' || urlMode === 'drums') {
@@ -534,22 +542,32 @@ export function RhythmPage() {
       toVoice: VoiceId,
       toBeat: number,
       toSlot: number,
+      toBarIndex = targetBar,
     ) => {
       const from = hitForInputSlot(fromBeat, fromSlot, drumInput)
       const to = hitForInputSlot(toBeat, toSlot, drumInput)
       let destSoft = false
       let changed = false
       setDrumBars((currentBars) => {
-        const bar = currentBars[targetBar]
-        if (!bar) return currentBars
-        if (toBeat < 0 || toBeat >= bar.beats) return currentBars
-        const nextPattern = moveHitPos(bar.pattern, fromVoice, from, toVoice, to)
-        if (nextPattern === bar.pattern) return currentBars
+        const destBar = currentBars[toBarIndex] ?? currentBars[targetBar]
+        if (!destBar) return currentBars
+        if (toBeat < 0 || toBeat >= destBar.beats) return currentBars
+        if (toBarIndex === targetBar) {
+          const bar = currentBars[targetBar]
+          if (!bar) return currentBars
+          const nextPattern = moveHitPos(bar.pattern, fromVoice, from, toVoice, to)
+          if (nextPattern === bar.pattern) return currentBars
+          changed = true
+          destSoft = (nextPattern[toVoice] ?? []).some((hit) => sameHit(hit, to) && isHitSoft(hit))
+          return currentBars.map((item, index) =>
+            index === targetBar ? { ...item, pattern: nextPattern } : item,
+          )
+        }
+        const next = moveHitAcrossBars(currentBars, targetBar, fromVoice, from, toBarIndex, toVoice, to)
+        if (next === currentBars) return currentBars
         changed = true
-        destSoft = (nextPattern[toVoice] ?? []).some((hit) => sameHit(hit, to) && isHitSoft(hit))
-        return currentBars.map((item, index) =>
-          index === targetBar ? { ...item, pattern: nextPattern } : item,
-        )
+        destSoft = (next[toBarIndex]?.pattern[toVoice] ?? []).some((hit) => sameHit(hit, to) && isHitSoft(hit))
+        return next
       })
       if (changed) {
         preview(toVoice, destSoft ? 'ghost' : 'normal')
@@ -1138,10 +1156,10 @@ export function RhythmPage() {
           <div
             data-rhythm-layout
             data-rhythm-mode="drums"
-            className="mt-1.5 flex flex-col gap-1.5 wide:flex-row wide:items-start wide:gap-3 xl:gap-4"
+            className="mt-1.5 flex flex-col gap-1.5 wide:flex-row wide:items-start wide:gap-3 xl:gap-4 phone:!flex-col"
           >
             <div
-              className="flex h-fit w-full shrink-0 flex-col gap-1.5 wide:w-[min(32.5rem,48%)] wide:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem]"
+              className="flex h-fit w-full shrink-0 flex-col gap-1.5 wide:w-[min(32.5rem,48%)] wide:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem] phone:!w-full phone:!max-w-none"
               data-rhythm-stack="controls"
             >
               <RhythmTempoCard
@@ -1170,7 +1188,7 @@ export function RhythmPage() {
               </section>
               <TransportDock
                 place="inline"
-                className="hidden shrink-0 wide:flex wide:flex-col"
+                className="hidden shrink-0 wide:flex wide:flex-col phone:!hidden"
                 playing={playing}
                 onToggle={() => void startStop()}
                 holdUntilCycle={holdUntilCycle}
@@ -1276,7 +1294,7 @@ export function RhythmPage() {
                   }}
                 />
               </div>
-              <div className="mb-1.5 rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1">
+              <div className="mb-1.5 rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1 phone:hidden">
                 <BarStrip
                   store={playheadStore}
                   bars={drumBars}
@@ -1332,24 +1350,49 @@ export function RhythmPage() {
                   }
                 />
               </div>
-              <DrumBarStage
-                bars={drumBars}
-                barIndex={drumBarIndex}
-                playing={playing}
-                playheadStore={playheadStore}
-                input={drumInput}
-                onInput={setDrumInput}
-                onToggle={onToggleCell}
-                onToggleSoft={onToggleSoft}
-                onMoveHit={onMoveHit}
-                onPreviewVoice={preview}
-              />
-              <KitFaders
-                mix={kitMix}
-                intensity={kitIntensity}
-                onChange={setGroupMix}
-                onIntensityChange={setKitIntensity}
-              />
+              <div className="phone:hidden">
+                <DrumBarStage
+                  bars={drumBars}
+                  barIndex={drumBarIndex}
+                  playing={playing}
+                  playheadStore={playheadStore}
+                  input={drumInput}
+                  onInput={setDrumInput}
+                  onToggle={onToggleCell}
+                  onToggleSoft={onToggleSoft}
+                  onMoveHit={onMoveHit}
+                  onPreviewVoice={preview}
+                />
+                <KitFaders
+                  mix={kitMix}
+                  intensity={kitIntensity}
+                  onChange={setGroupMix}
+                  onIntensityChange={setKitIntensity}
+                />
+              </div>
+              <div className="hidden flex-col gap-2 phone:flex" data-phone-drums>
+                <PatternPreview bars={drumBars} input={drumInput} />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    data-edit-beat
+                    {...activateOnPointer(() => setEditorOpen(true))}
+                    className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-[#A855F7] text-[0.95rem] font-semibold text-white shadow-[0_0_24px_rgba(168,85,247,0.28)]"
+                  >
+                    <LayoutGrid className="size-4" />
+                    Edit beat
+                  </button>
+                  <button
+                    type="button"
+                    data-edit-landscape
+                    {...activateOnPointer(() => setEditorOpen(true))}
+                    className="flex h-12 shrink-0 items-center gap-1.5 rounded-full border border-white/14 bg-white/4 px-3.5 text-[0.82rem] font-semibold text-slate-100"
+                  >
+                    <Smartphone className="size-3.5 rotate-90" />
+                    Landscape
+                  </button>
+                </div>
+              </div>
             </section>
           </div>
           )}
@@ -1358,7 +1401,7 @@ export function RhythmPage() {
         <PlayheadBarSync store={playheadStore} playing={playing} onBar={setBarIndex} />
         <TransportDock
           place="sticky"
-          className="rhythm-glass z-40 shrink-0 border-t border-white/10 pt-2 pb-[max(0.7rem,env(safe-area-inset-bottom,0px))] wide:hidden"
+          className="rhythm-glass z-40 shrink-0 border-t border-white/10 pt-2 pb-[max(0.7rem,env(safe-area-inset-bottom,0px))] wide:hidden phone:!block"
           playing={playing}
           onToggle={() => void startStop()}
           holdUntilCycle={holdUntilCycle}
@@ -1376,6 +1419,44 @@ export function RhythmPage() {
           />
         </TransportDock>
       </div>
+
+      {editorOpen && mode === 'drums' ? (
+        <DrumEditorOverlay
+          beatName={beatName}
+          bpm={bpm}
+          liveBpm={speedBuilder.enabled && playing ? liveBpm : bpm}
+          playing={playing}
+          bars={drumBars}
+          barIndex={drumBarIndex}
+          input={drumInput}
+          playheadStore={playheadStore}
+          getClock={getTransportClock}
+          kitMix={kitMix}
+          kitIntensity={kitIntensity}
+          canAdd={drumBars.length < MAX_BARS}
+          barMenu={{
+            canPaste: clipBar != null,
+            canDuplicate: drumBars.length < MAX_BARS,
+            canDelete: drumBars.length > 1,
+            canAutoComplete: seedBars(drumBars).length > 0,
+            canRetryFill: drumBars.length >= MAX_BARS && seedBars(drumBars).length > 0,
+            onAction: onDrumBarMenu,
+          }}
+          onClose={() => setEditorOpen(false)}
+          onTogglePlay={() => void startStop()}
+          onInput={setDrumInput}
+          onMeter={setMeter}
+          onSelectBar={chooseDrumBar}
+          onAddBar={addBar}
+          onRemoveBar={() => removeBar(drumBarIndex)}
+          onToggle={onToggleCell}
+          onToggleSoft={onToggleSoft}
+          onMoveHit={onMoveHit}
+          onPreview={preview}
+          onMix={setGroupMix}
+          onIntensity={setKitIntensity}
+        />
+      ) : null}
 
       {factory.historyOpen ? (
         <FactoryHistorySheet

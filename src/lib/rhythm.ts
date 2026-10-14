@@ -515,6 +515,44 @@ export function moveHitPos(
   return next
 }
 
+/** Same as moveHitPos, including across bars. Soft travels; occupied dest is replaced. */
+export function moveHitAcrossBars(
+  bars: readonly RhythmBar[],
+  fromBarIndex: number,
+  fromVoice: VoiceId,
+  from: HitPos,
+  toBarIndex: number,
+  toVoice: VoiceId,
+  to: HitPos,
+): RhythmBar[] {
+  const fromBar = bars[fromBarIndex]
+  const toBar = bars[toBarIndex]
+  if (!fromBar || !toBar) return bars as RhythmBar[]
+  if (fromBarIndex === toBarIndex) {
+    const nextPattern = moveHitPos(fromBar.pattern, fromVoice, from, toVoice, to)
+    if (nextPattern === fromBar.pattern) return bars as RhythmBar[]
+    return bars.map((bar, index) => (index === fromBarIndex ? { ...bar, pattern: nextPattern } : bar))
+  }
+  const fromHit = reduceHit(from.beat, from.num, from.den)
+  const source = (fromBar.pattern[fromVoice] ?? []).find((item) => sameHit(item, fromHit))
+  if (!source) return bars as RhythmBar[]
+  const dest = reduceHit(to.beat, to.num, to.den, isHitSoft(source))
+  if (toBeatOutOfRange(toBar, dest)) return bars as RhythmBar[]
+  const nextFrom = setHitPos(fromBar.pattern, fromVoice, fromHit, false)
+  let nextTo = setHitPos(toBar.pattern, toVoice, dest, false)
+  nextTo = setHitPos(nextTo, toVoice, dest, true)
+  if (nextFrom === fromBar.pattern && nextTo === toBar.pattern) return bars as RhythmBar[]
+  return bars.map((bar, index) => {
+    if (index === fromBarIndex) return { ...bar, pattern: nextFrom }
+    if (index === toBarIndex) return { ...bar, pattern: nextTo }
+    return bar
+  })
+}
+
+function toBeatOutOfRange(bar: RhythmBar, hit: HitPos): boolean {
+  return hit.beat < 0 || hit.beat >= bar.beats
+}
+
 export function toggleHitSoft(pattern: Pattern, voice: VoiceId, target: HitPos): Pattern {
   const hit = reduceHit(target.beat, target.num, target.den)
   const row = pattern[voice] ?? []

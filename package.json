@@ -31,6 +31,7 @@
     "test:reference-tone": "npx --yes tsx scripts/reference-tone.ts",
     "test:audio-session": "npx --yes tsx scripts/audio-session.ts",
     "test:click-subdivision": "npx --yes tsx scripts/click-subdivision.ts",
+    "test:drum-editor": "npx --yes tsx scripts/drum-editor.ts",
     "test:bpm-wheel": "npx --yes tsx scripts/bpm-wheel.ts",
     "test:tuner-layout": "npx --yes tsx scripts/tuner-layout.ts",
     "preview": "vite preview",
