@@ -10,10 +10,10 @@ type BpmWheelProps = {
   faceBpm?: number
 }
 
-const VISIBLE_TICKS = 36
-const DEG_PER_BPM = 10
-const RAD_PER_BPM = (DEG_PER_BPM * Math.PI) / 180
-const MIN_RADIUS = 28
+const NEIGHBORS = [-3, -2, -1, 0, 1, 2, 3] as const
+const ITEM_PX = 22
+/** Slow drags take more travel per BPM (the 7743a9e precision). */
+const PX_PER_BPM = 16
 const FLICK_WINDOW_MS = 90
 const FLICK_PEAK_MS = 45
 const FLICK_MIN_BPM_S = 18
@@ -22,7 +22,7 @@ const FRICTION_FAST = 1.72
 const FRICTION_SLOW = 3.6
 const COAST_STOP_BPM_S = 2.6
 
-type Sample = { t: number; x: number; y: number }
+type Sample = { t: number; y: number }
 
 function coastFriction(bpmPerSec: number): number {
   const speed = Math.abs(bpmPerSec)
@@ -30,7 +30,6 @@ function coastFriction(bpmPerSec: number): number {
   return FRICTION_SLOW + (FRICTION_FAST - FRICTION_SLOW) * t * t
 }
 
-/** Light throws stay near measured speed; hard throws get extra reach. */
 function boostFlick(rawBpmPerSec: number): number {
   const sign = rawBpmPerSec < 0 ? -1 : 1
   const speed = Math.abs(rawBpmPerSec)
@@ -41,41 +40,14 @@ function boostFlick(rawBpmPerSec: number): number {
   return sign * Math.min(FLICK_MAX_BPM_S, speed * gain)
 }
 
-function angularSpeed(samples: Sample[], cx: number, cy: number, minRadius = MIN_RADIUS): number {
+function verticalSpeed(samples: Sample[]): number {
   if (samples.length < 2) return 0
-  let total = 0
-  let prev = pointAngle(samples[0].x, samples[0].y, cx, cy, minRadius)
-  for (let i = 1; i < samples.length; i += 1) {
-    const next = pointAngle(samples[i].x, samples[i].y, cx, cy, minRadius)
-    if (prev == null || next == null) {
-      prev = next
-      continue
-    }
-    total += unwrapDelta(prev, next)
-    prev = next
-  }
-  const dt = Math.max((samples[samples.length - 1].t - samples[0].t) / 1000, 0.008)
-  if (Math.abs(total) < 0.04) return 0
-  return total / dt / RAD_PER_BPM
-}
-function unwrapDelta(from: number, to: number): number {
-  let delta = to - from
-  while (delta > Math.PI) delta -= Math.PI * 2
-  while (delta < -Math.PI) delta += Math.PI * 2
-  return delta
-}
-
-function pointAngle(
-  x: number,
-  y: number,
-  cx: number,
-  cy: number,
-  minRadius = MIN_RADIUS,
-): number | null {
-  const dx = x - cx
-  const dy = y - cy
-  if (Math.hypot(dx, dy) < minRadius) return null
-  return Math.atan2(dy, dx)
+  const first = samples[0]
+  const last = samples[samples.length - 1]
+  const dt = Math.max((last.t - first.t) / 1000, 0.008)
+  const dy = first.y - last.y
+  if (Math.abs(dy) < 1.2) return 0
+  return dy / dt / PX_PER_BPM
 }
 
 export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheelProps) {
@@ -87,19 +59,15 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
   const [visual, setVisual] = useState(value)
   const [shown, setShown] = useState(value)
   const editing = draft !== null
-  const live = dragging || coasting
   const face = faceBpm ?? shown
+  const center = Math.round(visual)
+  const frac = visual - center
 
   const visualRef = useRef(value)
   const emittedRef = useRef(value)
   const onChangeRef = useRef(onChange)
-  const dragRef = useRef<{ x: number; y: number; angle: number } | null>(null)
-  const pendingRef = useRef<{
-    pointerId: number
-    x: number
-    y: number
-    tapEdit: boolean
-  } | null>(null)
+  const dragRef = useRef<{ y: number } | null>(null)
+  const pendingRef = useRef<{ pointerId: number; y: number; x: number; tapEdit: boolean } | null>(null)
   const samplesRef = useRef<Sample[]>([])
   const movedRef = useRef(false)
   const velRef = useRef(0)
@@ -169,7 +137,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
     if (!coastingRef.current) return
     const dt = Math.min(0.032, Math.max(0.001, (now - lastTsRef.current) / 1000))
     lastTsRef.current = now
-    let next = visualRef.current + velRef.current * dt
+    const next = visualRef.current + velRef.current * dt
     if (next <= MIN_BPM) {
       emitIfNeeded(MIN_BPM)
       stopCoast()
@@ -223,17 +191,6 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
     [],
   )
 
-  const hitCenter = () => {
-    const node = hitRef.current
-    if (!node) return { x: 0, y: 0, minRadius: MIN_RADIUS }
-    const rect = node.getBoundingClientRect()
-    return {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-      minRadius: Math.max(24, rect.height * 0.24),
-    }
-  }
-
   useEffect(() => {
     const node = hitRef.current
     if (!node) return
@@ -241,12 +198,9 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
       if (editingRef.current) return
       event.preventDefault()
       stopCoast()
-      const { x: cx } = hitCenter()
-      const onRight = event.clientX >= cx
-      const down = event.deltaY > 0
-      const clockwise = onRight ? down : !down
+      const dir = event.deltaY > 0 ? -1 : 1
       const steps = Math.max(1, Math.round(Math.abs(event.deltaY) / 48))
-      emitIfNeeded(emittedRef.current + (clockwise ? 1 : -1) * steps)
+      emitIfNeeded(emittedRef.current + dir * steps)
     }
     const onTouchMove = (event: TouchEvent) => {
       if (editingRef.current) return
@@ -267,9 +221,8 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
     const windowed = samples.filter((sample) => sample.t >= latest.t - FLICK_WINDOW_MS)
     const used = windowed.length >= 2 ? windowed : samples
     const peak = used.filter((sample) => sample.t >= latest.t - FLICK_PEAK_MS)
-    const { x: cx, y: cy, minRadius } = hitCenter()
-    const sustained = angularSpeed(used, cx, cy, minRadius)
-    const burst = peak.length >= 2 ? angularSpeed(peak, cx, cy, minRadius) : sustained
+    const sustained = verticalSpeed(used)
+    const burst = peak.length >= 2 ? verticalSpeed(peak) : sustained
     return Math.abs(burst) > Math.abs(sustained) ? burst : sustained
   }
 
@@ -282,8 +235,8 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
     if (clamped !== emittedRef.current) onChange(clamped)
   }
 
-  const endDrag = (flick: boolean, event?: { timeStamp: number; clientX: number; clientY: number }) => {
-    if (event) samplesRef.current.push({ t: event.timeStamp, x: event.clientX, y: event.clientY })
+  const endDrag = (flick: boolean, event?: { timeStamp: number; clientY: number }) => {
+    if (event) samplesRef.current.push({ t: event.timeStamp, y: event.clientY })
     dragRef.current = null
     draggingRef.current = false
     setDragging(false)
@@ -294,16 +247,10 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
 
   return (
     <div className="flex flex-col items-center">
-      <div
-        className={
-          compact
-            ? 'relative size-[9.25rem]'
-            : 'relative size-[152px] sm:size-[188px] lg:size-[216px]'
-        }
-      >
+      <div className="relative">
         <div
           aria-hidden
-          className="pointer-events-none absolute -bottom-1 left-1/2 h-4 w-28 -translate-x-1/2 rounded-full bg-black/50 blur-md"
+          className="pointer-events-none absolute -bottom-1.5 inset-x-1.5 h-3 rounded-full bg-black/55 blur-[5px]"
         />
         <div
           ref={hitRef}
@@ -318,52 +265,46 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
           data-coasting={coasting ? 'true' : 'false'}
           data-spinning={dragging ? 'true' : 'false'}
           data-tempo-hit="true"
-          data-tempo-hit-pad="true"
-          className="bpm-dial-hit absolute z-10 flex items-center justify-center rounded-full outline-none focus-visible:[&_.bpm-dial]:ring-2 focus-visible:[&_.bpm-dial]:ring-[#A855F7]/70"
+          data-bpm-wheel="vertical"
+          className={cn(
+            'bpm-wheel relative touch-none select-none rounded-[26px] p-[5px] outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]/70',
+            compact ? 'h-[152px] w-[68px]' : 'h-[164px] w-[72px]',
+          )}
           onPointerDown={(event) => {
             movedRef.current = false
             if (editing) return
             const target = event.target as HTMLElement
             if (target.closest('input')) return
-            if (target.closest('[data-speed-builder], [data-tempo-taps]')) return
             if (event.button !== 0) return
             event.preventDefault()
             try {
               event.currentTarget.setPointerCapture(event.pointerId)
             } catch {
-              // Capture is best-effort; touch-action + non-passive touchmove still hold the page.
+              // Capture is best-effort; non-passive touchmove still holds the page.
             }
             stopCoast()
             pendingRef.current = {
               pointerId: event.pointerId,
               x: event.clientX,
               y: event.clientY,
-              tapEdit: Boolean((event.target as HTMLElement).closest('button')),
+              tapEdit: Boolean(target.closest('[data-bpm-edit]')),
             }
           }}
           onPointerMove={(event) => {
             const drag = dragRef.current
             if (drag && !editing) {
-              const { x: cx, y: cy, minRadius } = hitCenter()
-              const nextAngle = pointAngle(event.clientX, event.clientY, cx, cy, minRadius)
-              samplesRef.current.push({ t: event.timeStamp, x: event.clientX, y: event.clientY })
-              if (samplesRef.current.length > 24) samplesRef.current.shift()
-              const dist = Math.hypot(event.clientX - drag.x, event.clientY - drag.y)
-              if (dist > 2) movedRef.current = true
-              drag.x = event.clientX
+              const dy = drag.y - event.clientY
               drag.y = event.clientY
-              if (nextAngle == null) return
-              const delta = unwrapDelta(drag.angle, nextAngle)
-              drag.angle = nextAngle
-              emitIfNeeded(visualRef.current + delta / RAD_PER_BPM)
+              samplesRef.current.push({ t: event.timeStamp, y: event.clientY })
+              if (samplesRef.current.length > 24) samplesRef.current.shift()
+              if (Math.abs(dy) > 1.5) movedRef.current = true
+              emitIfNeeded(visualRef.current + dy / PX_PER_BPM)
               return
             }
 
             const pending = pendingRef.current
             if (!pending || pending.pointerId !== event.pointerId || editing) return
-            const dx = event.clientX - pending.x
-            const dy = event.clientY - pending.y
-            const dist = Math.hypot(dx, dy)
+            const dist = Math.hypot(event.clientX - pending.x, event.clientY - pending.y)
             if (dist < DRAG_DEADZONE_PX) return
             event.preventDefault()
             try {
@@ -373,14 +314,8 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
             }
             stopCoast()
             snapToEmitted()
-            const { x: cx, y: cy, minRadius } = hitCenter()
-            const angle = pointAngle(event.clientX, event.clientY, cx, cy, minRadius)
-            dragRef.current = {
-              x: event.clientX,
-              y: event.clientY,
-              angle: angle ?? Math.atan2(event.clientY - cy, event.clientX - cx),
-            }
-            samplesRef.current = [{ t: event.timeStamp, x: event.clientX, y: event.clientY }]
+            dragRef.current = { y: event.clientY }
+            samplesRef.current = [{ t: event.timeStamp, y: event.clientY }]
             draggingRef.current = true
             setDragging(true)
             pendingRef.current = null
@@ -425,111 +360,88 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
             }
           }}
         >
-          <div
-            className={
-              compact
-                ? 'bpm-dial bpm-dial-compact pointer-events-none relative size-[9.25rem] select-none rounded-full'
-                : 'bpm-dial pointer-events-none relative size-[152px] select-none rounded-full sm:size-[188px] lg:size-[216px]'
-            }
-          >
-            <span aria-hidden className="bpm-dial-pip" />
+          <div className="bpm-wheel-drum relative h-full overflow-hidden rounded-[21px]">
+            <div className="bpm-wheel-knurl pointer-events-none absolute inset-y-0 left-0 w-2.5" />
+            <div className="bpm-wheel-knurl pointer-events-none absolute inset-y-0 right-0 w-2.5" />
+            <div className="bpm-wheel-shade pointer-events-none absolute inset-y-0 left-0 w-5" />
+            <div className="bpm-wheel-shade-right pointer-events-none absolute inset-y-0 right-0 w-5" />
             <div
-              aria-hidden
-              data-visual-bpm={visual.toFixed(2)}
-              className={cn('bpm-dial-ring', live ? 'bpm-dial-ring-live' : 'bpm-dial-ring-smooth')}
+              className="flex h-full flex-col items-center justify-center"
+              style={{
+                perspective: '420px',
+                transform: `translateY(${-frac * ITEM_PX}px)`,
+              }}
             >
-              {Array.from({ length: VISIBLE_TICKS }, (_, index) => {
-                const bpm = Math.round(visual) + index - Math.floor(VISIBLE_TICKS / 2)
-                const deg = (visual - bpm) * DEG_PER_BPM
-                const kind = bpm % 10 === 0 ? 'ten' : bpm % 5 === 0 ? 'five' : 'one'
-                const inRange = bpm >= MIN_BPM && bpm <= MAX_BPM
-                const label = kind === 'ten' && inRange && Math.abs(deg) <= 70
+              {NEIGHBORS.map((offset) => {
+                const bpm = center + offset
+                const hidden = bpm < MIN_BPM || bpm > MAX_BPM
+                const active = offset === 0
                 return (
                   <span
-                    key={`${bpm}-${index}`}
-                    data-tick-bpm={bpm}
-                    data-tick-kind={kind}
+                    key={offset}
+                    data-bpm-tick={bpm}
                     className={cn(
-                      'bpm-dial-tick',
-                      kind === 'ten' && 'bpm-dial-tick-ten',
-                      kind === 'five' && 'bpm-dial-tick-five',
-                      kind === 'one' && 'bpm-dial-tick-one',
-                      !inRange && 'opacity-20',
+                      'flex h-[22px] items-center font-semibold tabular-nums tracking-tight',
+                      active ? 'text-[1.05rem] text-white' : 'text-[0.7rem] text-slate-500',
+                      Math.abs(offset) === 1 && 'text-slate-300',
+                      hidden && 'opacity-0',
                     )}
-                    style={{
-                      transform: `rotate(${deg}deg) translateY(calc(-1 * var(--ring-radius)))`,
-                    }}
+                    style={
+                      hidden
+                        ? undefined
+                        : {
+                            transform: `rotateX(${(offset - frac) * -16}deg) scale(${1 - Math.abs(offset - frac) * 0.07})`,
+                            opacity: 1 - Math.abs(offset - frac) * 0.18,
+                          }
+                    }
                   >
-                    {label ? (
-                      <span
-                        className="bpm-dial-tick-label"
-                        style={{ transform: `rotate(${-deg}deg)` }}
+                    {hidden ? '—' : active && editing ? (
+                      <input
+                        ref={inputRef}
+                        aria-label="Custom tempo"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={draft ?? ''}
+                        onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, '').slice(0, 3))}
+                        onBlur={commitDraft}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault()
+                            commitDraft()
+                          }
+                          if (event.key === 'Escape') {
+                            event.preventDefault()
+                            setDraft(null)
+                          }
+                          event.stopPropagation()
+                        }}
+                        className="pointer-events-auto w-[2.6rem] bg-transparent text-center text-[1.05rem] font-bold tabular-nums text-white outline-none caret-[#C084FC]"
+                      />
+                    ) : active ? (
+                      <button
+                        type="button"
+                        data-bpm-edit
+                        aria-label="Edit tempo"
+                        onClick={() => {
+                          if (movedRef.current) return
+                          setDraft(String(face))
+                        }}
+                        className="pointer-events-auto rounded-md px-0.5 text-[1.05rem] font-bold tabular-nums text-white"
                       >
-                        {bpm}
-                      </span>
-                    ) : null}
+                        {face}
+                      </button>
+                    ) : (
+                      bpm
+                    )}
                   </span>
                 )
               })}
             </div>
-            <div className="bpm-dial-face">
-              <div className="pointer-events-none absolute inset-x-8 top-[14px] z-20 h-5 rounded-full bg-white/16 blur-[3px]" />
-              <div className="absolute inset-0 z-30 flex items-center justify-center">
-                <div className="relative flex items-center justify-center">
-                  {editing ? (
-                    <input
-                      ref={inputRef}
-                      aria-label="Custom tempo"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={draft}
-                      onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, '').slice(0, 3))}
-                      onBlur={commitDraft}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault()
-                          commitDraft()
-                        }
-                        if (event.key === 'Escape') {
-                          event.preventDefault()
-                          setDraft(null)
-                        }
-                        event.stopPropagation()
-                      }}
-                      className={
-                        compact
-                          ? 'pointer-events-auto w-[5rem] bg-transparent text-center text-[1.85rem] font-bold tabular-nums leading-none tracking-tight text-white outline-none caret-[#C084FC] sm:text-4xl'
-                          : 'pointer-events-auto w-[5.2rem] bg-transparent text-center text-4xl font-bold tabular-nums leading-none tracking-tight text-white outline-none caret-[#C084FC] sm:text-5xl'
-                      }
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (movedRef.current) return
-                        setDraft(String(shown))
-                      }}
-                      className={
-                        compact
-                          ? 'pointer-events-auto rounded-xl px-1 text-[1.85rem] font-bold tabular-nums leading-none tracking-tight text-white sm:text-4xl'
-                          : 'pointer-events-auto rounded-xl px-2 text-4xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-5xl'
-                      }
-                    >
-                      {face}
-                    </button>
-                  )}
-                  <span
-                    className={
-                      compact
-                        ? 'pointer-events-none absolute left-1/2 top-full -translate-x-1/2 text-[0.58rem] font-semibold uppercase tracking-[0.16em] text-slate-500'
-                        : 'pointer-events-none absolute left-1/2 top-full -translate-x-1/2 text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-slate-500'
-                    }
-                  >
-                    BPM
-                  </span>
-                </div>
-              </div>
-            </div>
+            <div className="pointer-events-none absolute inset-x-[11px] top-1/2 z-10 h-[42px] -translate-y-1/2 rounded-[12px] bg-[#A855F7]/18 ring-1 ring-[#C084FC]/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_0_14px_rgba(168,85,247,0.28)]" />
+            <div className="pointer-events-none absolute inset-x-3 top-1/2 z-20 h-px -translate-y-1/2 bg-white/35" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-10 bg-gradient-to-b from-[#070a12] via-[#070a12]/55 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-10 bg-gradient-to-t from-[#070a12] via-[#070a12]/55 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-3 top-[7px] z-30 h-3 rounded-full bg-white/18 blur-[2px]" />
           </div>
         </div>
       </div>
