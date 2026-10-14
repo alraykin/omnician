@@ -2,6 +2,10 @@ type AudioContextCtor = typeof AudioContext
 
 type SafariAudioState = AudioContextState | 'interrupted'
 
+export type AudioSessionKind = 'playback' | 'play-and-record'
+
+export type SilentHtmlState = 'none' | 'starting' | 'playing' | 'blocked'
+
 export type AudioDebugSnapshot = {
   playbackState: string
   playbackRate: number | null
@@ -10,6 +14,9 @@ export type AudioDebugSnapshot = {
   captureState: string
   captureRate: number | null
   sessionType: string
+  wantedSession: AudioSessionKind
+  sessionWrite: string
+  silentHtml: SilentHtmlState
   micTracks: number
   micLive: number
   lastRecovery: string
@@ -32,6 +39,12 @@ let lastError = 'none'
 let captureUsedSincePlayback = false
 let lastStop = 'none'
 let lastStopStack = ''
+let wantedSession: AudioSessionKind = 'playback'
+let lastSessionWrite = 'none'
+let silentHtml: HTMLAudioElement | null = null
+let silentHtmlState: SilentHtmlState = 'none'
+
+type SafariAudioSession = { type: string }
 
 const liveStreams = new Set<MediaStream>()
 const liveTracks = new Set<MediaStreamTrack>()
@@ -91,6 +104,162 @@ export function noteTransportStop(reason: string): void {
   }
 }
 
+function safariAudioSession(): SafariAudioSession | null {
+  if (typeof navigator === 'undefined') return null
+  const session = (navigator as Navigator & { audioSession?: SafariAudioSession }).audioSession
+  if (!session || typeof session !== 'object') return null
+  return session
+}
+
+export function hasSafariAudioSession(): boolean {
+  return safariAudioSession() !== null
+}
+
+export function getWantedAudioSession(): AudioSessionKind {
+  return wantedSession
+}
+
+export function getSilentHtmlState(): SilentHtmlState {
+  if (silentHtml && !silentHtml.paused) return 'playing'
+  return silentHtmlState
+}
+
+/** 0.25s of 8 kHz 16-bit mono PCM silence. Loops without a click. */
+export function silentWavDataUrl(): string {
+  const sampleRate = 8000
+  const samples = sampleRate / 4
+  const dataSize = samples * 2
+  const bytes = new Uint8Array(44 + dataSize)
+  const view = new DataView(bytes.buffer)
+  const ascii = (offset: number, text: string) => {
+    for (let i = 0; i < text.length; i += 1) bytes[offset + i] = text.charCodeAt(i)
+  }
+  ascii(0, 'RIFF')
+  view.setUint32(4, 36 + dataSize, true)
+  ascii(8, 'WAVE')
+  ascii(12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, 1, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, sampleRate * 2, true)
+  view.setUint16(32, 2, true)
+  view.setUint16(34, 16, true)
+  ascii(36, 'data')
+  view.setUint32(40, dataSize, true)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i] ?? 0)
+  return `data:audio/wav;base64,${btoa(binary)}`
+}
+
+function writeAudioSession(type: AudioSessionKind): boolean {
+  const session = safariAudioSession()
+  if (!session) {
+    lastSessionWrite = `${type}:unsupported`
+    return false
+  }
+  if (session.type === type) {
+    lastSessionWrite = `${type}:already`
+    return true
+  }
+  try {
+    session.type = type
+    lastSessionWrite = `${type}:set`
+    return true
+  } catch (error) {
+    noteAudioError(error, `audioSession.${type}`)
+    lastSessionWrite = `${type}:error`
+    return false
+  }
+}
+
+/**
+ * Older iOS: a looping silent <audio playsinline> started in the first tap
+ * puts the page in the media-playback category so Web Audio is not ringer-muted.
+ */
+function startSilentHtmlAudioFromGesture(): void {
+  if (typeof document === 'undefined') return
+  if (silentHtml && !silentHtml.paused) {
+    silentHtmlState = 'playing'
+    return
+  }
+  if (!silentHtml) {
+    const el = document.createElement('audio')
+    el.setAttribute('playsinline', '')
+    el.setAttribute('webkit-playsinline', '')
+    ;(el as HTMLAudioElement & { playsInline: boolean }).playsInline = true
+    el.loop = true
+    el.preload = 'auto'
+    el.controls = false
+    el.defaultMuted = false
+    el.muted = false
+    el.volume = 1
+    el.setAttribute('aria-hidden', 'true')
+    el.style.cssText =
+      'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:0;bottom:0'
+    el.src = silentWavDataUrl()
+    document.documentElement.appendChild(el)
+    silentHtml = el
+  }
+  silentHtmlState = 'starting'
+  try {
+    const pending = silentHtml.play()
+    void pending
+      .then(() => {
+        silentHtmlState = silentHtml && !silentHtml.paused ? 'playing' : silentHtmlState
+      })
+      .catch((error) => {
+        silentHtmlState = 'blocked'
+        noteAudioError(error, 'silent-html.play')
+      })
+  } catch (error) {
+    silentHtmlState = 'blocked'
+    noteAudioError(error, 'silent-html.play')
+  }
+}
+
+/**
+ * /lab/silent step 1: write playback in the user-gesture stack, THEN create or
+ * resume the AudioContext. Changing the session after clicks are already
+ * running still fades Web Audio after one or two hits — do not do that.
+ * Older iOS without navigator.audioSession gets the silent HTML loop instead.
+ */
+export function claimPlaybackSessionFromGesture(): void {
+  wantedSession = countLiveMicTracks().live > 0 ? 'play-and-record' : 'playback'
+  const wrote = writeAudioSession(wantedSession)
+  if (!safariAudioSession() || !wrote) startSilentHtmlAudioFromGesture()
+}
+
+export function claimPlayAndRecordSessionFromGesture(): void {
+  wantedSession = 'play-and-record'
+  writeAudioSession('play-and-record')
+}
+
+export function restorePlaybackSessionAfterMic(): void {
+  if (countLiveMicTracks().live > 0) return
+  wantedSession = 'playback'
+  writeAudioSession('playback')
+}
+
+export function resetAudioSessionForTests(): void {
+  wantedSession = 'playback'
+  lastSessionWrite = 'none'
+  silentHtmlState = 'none'
+  if (silentHtml) {
+    try {
+      silentHtml.pause()
+    } catch {
+      // test mock
+    }
+    try {
+      silentHtml.remove()
+    } catch {
+      // test mock
+    }
+  }
+  silentHtml = null
+}
+
 function createContext(): AudioContext {
   const Ctor = getAudioCtor()
   if (!Ctor) throw Object.assign(new Error('NO_AUDIO'), { code: 'unavailable' })
@@ -137,6 +306,7 @@ export function releaseMicStream(stream: MediaStream | null | undefined): void {
   }
   stopMediaTracks(stream)
   liveStreams.delete(stream)
+  restorePlaybackSessionAfterMic()
 }
 
 /** Stop every adopted getUserMedia stream and track. Does not close capture. */
@@ -158,6 +328,7 @@ export function stopMicTracks(): void {
     stopMediaTracks(stream)
   }
   liveStreams.clear()
+  restorePlaybackSessionAfterMic()
 }
 
 /** Listen/Tuner graph teardown + track.stop(). Do not close capture during a Play tap. */
@@ -236,8 +407,8 @@ export function markCaptureUsed(): void {
 
 /**
  * Tuner/Listen tap, immediately before getUserMedia. Stops Click/Drums and
- * marks that the next Play tap should resume playback after the mic. Does not write
- * audioSession — iOS picks play-and-record itself when the mic opens.
+ * marks that the next Play tap should resume playback after the mic. Writes
+ * play-and-record in this gesture so the mic and fork tones share one session.
  */
 export function prepareCaptureFromGesture(): void {
   for (const listener of captureStartListeners) {
@@ -248,14 +419,12 @@ export function prepareCaptureFromGesture(): void {
     }
   }
   markCaptureUsed()
+  claimPlayAndRecordSessionFromGesture()
 }
-
-/** After capture, do not write audioSession. Lab A was heard without that write;
- *  setting auto or playback during Play fades iOS Web Audio after the first
- *  precount clicks (session category change). */
 
 export function getCaptureAudioContext(): AudioContext {
   if (capture && contextState(capture) !== 'closed') return capture
+  claimPlayAndRecordSessionFromGesture()
   capture = createContext()
   wireLifecycle()
   return capture
@@ -263,6 +432,7 @@ export function getCaptureAudioContext(): AudioContext {
 
 export function getPlaybackAudioContext(): AudioContext {
   if (playback && contextState(playback) !== 'closed') return playback
+  claimPlaybackSessionFromGesture()
   playback = createContext()
   wirePlayback(playback)
   wireLifecycle()
@@ -330,15 +500,16 @@ async function resumeCtx(ctx: AudioContext): Promise<boolean> {
 
 /** Capture context + resume inside the tap. Does not touch playback. */
 export function beginCaptureFromGesture(): AudioContext {
+  claimPlayAndRecordSessionFromGesture()
   const ctx = getCaptureAudioContext()
   void ctx.resume().catch((error) => noteAudioError(error, 'capture.resume'))
   return ctx
 }
 
 /**
- * Lab A/C/H: stop leftover mic hardware, resume() the SAME playback context
- * in this tap. Never close playback after the mic, and never write
- * audioSession — that fade is what killed Play after one or two precount clicks.
+ * Stop leftover mic hardware, write playback (or keep play-and-record if the
+ * mic is still live), then resume() the SAME playback context in this tap.
+ * Session is claimed before create/resume — never after clicks are running.
  */
 export function preparePlaybackFromGesture(): AudioContext {
   endLiveMicSessions()
@@ -354,6 +525,7 @@ export function preparePlaybackFromGesture(): AudioContext {
 
 /** Resume (or create) playback. Does not rebuild after mic. */
 export function unlockPlaybackFromGesture(): AudioContext {
+  claimPlaybackSessionFromGesture()
   const ctx = getPlaybackAudioContext()
   resumeFromGesture(ctx)
   return ctx
@@ -364,6 +536,7 @@ export function unlockAudioFromGesture(): void {
 }
 
 export async function resumeSharedAudioContext(): Promise<boolean> {
+  claimPlaybackSessionFromGesture()
   const ctx = getPlaybackAudioContext()
   return resumeCtx(ctx)
 }
@@ -388,9 +561,10 @@ export function countLiveMicTracks(): { total: number; live: number } {
 }
 
 export function getAudioSessionType(): string {
-  if (typeof navigator === 'undefined') return 'unsupported'
-  const session = (navigator as Navigator & { audioSession?: { type?: string } }).audioSession
-  return session?.type ?? 'unsupported'
+  const session = safariAudioSession()
+  if (!session) return 'unsupported'
+  const type = session.type
+  return type == null || type === '' ? 'unset' : String(type)
 }
 
 export function getAudioDebugSnapshot(): AudioDebugSnapshot {
@@ -413,6 +587,9 @@ export function getAudioDebugSnapshot(): AudioDebugSnapshot {
     captureState: contextState(cap),
     captureRate: cap?.sampleRate ?? null,
     sessionType: getAudioSessionType(),
+    wantedSession,
+    sessionWrite: lastSessionWrite,
+    silentHtml: getSilentHtmlState(),
     micTracks: mics.total,
     micLive: mics.live,
     lastRecovery,
