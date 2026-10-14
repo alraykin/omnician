@@ -52,6 +52,9 @@ export type SubdivisionId = (typeof SUBDIVISIONS)[number]
 export const DEFAULT_SUBDIVISION: SubdivisionId = 2
 /** Click first-open / factory default: the beat only, no extra pulses. */
 export const DEFAULT_CLICK_SUBDIVISION: SubdivisionId = 1
+/** Click first-open / factory meter: one quarter-note beat per bar. */
+export const DEFAULT_CLICK_BEATS = 1
+export const DEFAULT_CLICK_BEAT_UNIT: BeatUnit = 4
 
 export const SUBDIVISION_LABELS: Record<SubdivisionId, string> = {
   1: 'Quarter note',

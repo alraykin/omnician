@@ -1,5 +1,7 @@
 import {
   cloneBar,
+  DEFAULT_CLICK_BEATS,
+  DEFAULT_CLICK_BEAT_UNIT,
   DEFAULT_CLICK_SUBDIVISION,
   makeBar,
   markHitsSoft,
@@ -1350,7 +1352,7 @@ export function makeDefaultRockBars(): RhythmBar[] {
   return makeGrooveBars(4, 4, 4, ROCK_GROOVE, ROCK_FILL)
 }
 
-/** First-open Click: a single empty 4/4 bar (quarters, no subdivision). */
+/** First-open Click: a single empty 1/4 bar (one quarter, no subdivision). */
 export function makeDefaultClickBars(): RhythmBar[] {
-  return [makeBar(4, 4, DEFAULT_CLICK_SUBDIVISION)]
+  return [makeBar(DEFAULT_CLICK_BEATS, DEFAULT_CLICK_BEAT_UNIT, DEFAULT_CLICK_SUBDIVISION)]
 }

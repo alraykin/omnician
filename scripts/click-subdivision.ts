@@ -12,28 +12,45 @@ import {
   setBarSubdivision,
   setBeatSubdivision,
 } from '../src/lib/rhythm.ts'
-import { makeDefaultClickBars } from '../src/lib/rhythm-presets.ts'
-import { migrateClickFactorySubdivision } from '../src/lib/rhythm-prefs.ts'
+import { makeDefaultClickBars, makeDefaultRockBars } from '../src/lib/rhythm-presets.ts'
+import { migrateFactoryClickBars } from '../src/lib/rhythm-prefs.ts'
 
 const BPM = 120
 const BEAT = 0.5
 
 const factory = makeDefaultClickBars()
 assert.equal(factory.length, 1)
+assert.equal(factory[0]?.beats, 1)
+assert.equal(factory[0]?.beatUnit, 4)
 assert.equal(factory[0]?.subdivision, 1)
 assert.equal(DEFAULT_CLICK_SUBDIVISION, 1)
 assert.ok(factory[0]?.beatSubdivisions.every((item) => item === 1))
 
+const drums = makeDefaultRockBars()
+assert.equal(drums[0]?.beats, 4)
+assert.equal(drums[0]?.beatUnit, 4)
+
 const eighths = makeBar(4, 4, 2)
-const migrated = migrateClickFactorySubdivision([eighths])
-assert.equal(migrated[0]?.subdivision, 1)
-assert.ok(migrated[0]?.beatSubdivisions.every((item) => item === 1))
+const migratedEighths = migrateFactoryClickBars([eighths])
+assert.equal(migratedEighths[0]?.beats, 1)
+assert.equal(migratedEighths[0]?.beatUnit, 4)
+assert.equal(migratedEighths[0]?.subdivision, 1)
+
+const quarters = makeBar(4, 4, 1)
+const migratedQuarters = migrateFactoryClickBars([quarters])
+assert.equal(migratedQuarters[0]?.beats, 1)
+assert.equal(migratedQuarters[0]?.subdivision, 1)
 
 const custom = setBarSubdivision(makeBar(4, 4, 4), 4)
-assert.equal(migrateClickFactorySubdivision([custom])[0]?.subdivision, 4)
+assert.equal(migrateFactoryClickBars([custom])[0]?.beats, 4)
+assert.equal(migrateFactoryClickBars([custom])[0]?.subdivision, 4)
+
+const fiveFour = makeBar(5, 4, 1)
+assert.equal(migrateFactoryClickBars([fiveFour])[0]?.beats, 5)
 
 const twoBars = [makeBar(4, 4, 2), makeBar(4, 4, 2)]
-assert.equal(migrateClickFactorySubdivision(twoBars)[0]?.subdivision, 2)
+assert.equal(migrateFactoryClickBars(twoBars)[0]?.beats, 4)
+assert.equal(migrateFactoryClickBars(twoBars)[0]?.subdivision, 2)
 
 const mid = nextClickBeatBoundary(10.12, 10, BPM, 4, 4)
 assert.equal(mid.wrap, false)
