@@ -3,10 +3,13 @@ import { readFileSync } from 'node:fs'
 
 import {
   applyClickSubdivision,
+  barDurationSec,
+  beatDurationSec,
   clickMeterSignature,
   clickPulsesInBar,
   clickSubdivSignature,
   DEFAULT_CLICK_SUBDIVISION,
+  locateHeardBar,
   makeBar,
   nextClickBeatBoundary,
   setBarSubdivision,
@@ -84,13 +87,53 @@ const pending = [setBeatSubdivision(setBarSubdivision(makeBar(4, 4, 4), 4), 2, 3
 assert.notEqual(clickSubdivSignature(live), clickSubdivSignature(pending))
 assert.equal(clickMeterSignature('click', live), clickMeterSignature('click', pending))
 
+function assertNextBeat(label: string, now: number, heardStart: number, bpm: number, beats: number) {
+  const beatSec = beatDurationSec(bpm, 4)
+  const plan = nextClickBeatBoundary(now, heardStart, bpm, beats, 4)
+  const wait = plan.time - now
+  assert.ok(wait > 0, `${label}: next beat must be in the future (${wait})`)
+  assert.ok(
+    wait <= beatSec + 0.1 + 1e-9,
+    `${label}: next beat must be within one beat + 100ms, wait=${wait.toFixed(3)}s beat=${beatSec.toFixed(3)}s`,
+  )
+}
+
+for (const bpm of [40, 200] as const) {
+  for (const beats of [1, 4] as const) {
+    const beatSec = beatDurationSec(bpm, 4)
+    const barDur = barDurationSec(beats, bpm, 4)
+    const queuedBars = Math.max(2, Math.ceil(1.5 / barDur))
+    const now = 10.08
+    const heardStart = 10
+    const tipStart = heardStart + queuedBars * barDur
+    const durations = [barDur]
+    const heard = locateHeardBar(now, tipStart, 0, durations)
+    assert.ok(
+      Math.abs(heard.start - heardStart) < beatSec + 1e-6,
+      `${beats}/4 @ ${bpm}: heard start from lookahead tip should be the playing bar, got ${heard.start} want ~${heardStart}`,
+    )
+    assertNextBeat(`${beats}/4 @ ${bpm} from heard bar`, now, heard.start, bpm, beats)
+    const wrong = nextClickBeatBoundary(now, tipStart, bpm, beats, 4)
+    assert.ok(
+      wrong.time - now > beatSec,
+      `${beats}/4 @ ${bpm}: retargeting from the lookahead tip would skip more than one beat (${wrong.time - now})`,
+    )
+  }
+}
+
 const engine = readFileSync(new URL('../src/hooks/useRhythmEngine.ts', import.meta.url), 'utf8')
 assert.match(engine, /reason === 'subdivision'/)
 assert.match(engine, /retargetClickSubdivision/)
 assert.match(engine, /cancelFuture\(boundary, 'click'\)/)
 assert.match(engine, /nextClickBeatBoundary/)
+assert.match(engine, /locateHeardBar/)
+assert.match(engine, /CLICK_SCHEDULE_AHEAD_SEC/)
+assert.match(engine, /useLayoutEffect/)
 assert.match(engine, /setHoldUntilCycle\(meterQueued\)/)
 assert.doesNotMatch(engine, /setHoldUntilCycle\(queued\)/)
+
+const audio = readFileSync(new URL('../src/lib/rhythm-audio.ts', import.meta.url), 'utf8')
+assert.match(audio, /item\.node\.stop\(this\.ctx\.currentTime\)/)
 
 const page = readFileSync(new URL('../src/pages/RhythmPage.tsx', import.meta.url), 'utf8')
 assert.match(page, /setSubdivision/)

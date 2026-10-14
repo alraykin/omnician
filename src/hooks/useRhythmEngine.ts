@@ -6,6 +6,7 @@ import { DEFAULT_KIT_MIX, DEFAULT_MASTER_VOLUME_DB, type KitMix } from '@/lib/ki
 import { noteTransportStop, onCaptureStarting } from '@/lib/audio-context'
 import { claimListenPreview } from '@/lib/listen-preview'
 import {
+  CLICK_SCHEDULE_AHEAD_SEC,
   LOOKAHEAD_MS,
   START_LEAD_SEC,
   createClockWatch,
@@ -29,6 +30,7 @@ import {
   hitTimeInBar,
   isBeatStep,
   LIVE_COMMIT_SEC,
+  locateHeardBar,
   nextClickBeatBoundary,
   planLiveTempoRetarget,
   stepDurationSec,
@@ -201,6 +203,8 @@ export function useRhythmEngine({
   const sbSessionRef = useRef(false)
   const sbRepeatRef = useRef(0)
   const barStartRef = useRef(0)
+  const heardBarStartRef = useRef(0)
+  const heardBarIndexRef = useRef(0)
   const barTempoRef = useRef(bpm)
   const retargetRef = useRef<(reason: 'tempo' | 'intensity' | 'subdivision') => void>(() => undefined)
   const clockWatchRef = useRef<ClockWatch>(createClockWatch(0, 0))
@@ -330,6 +334,8 @@ export function useRhythmEngine({
     barRef.current = 0
     armedBarRef.current = null
     barStartRef.current = 0
+    heardBarStartRef.current = 0
+    heardBarIndexRef.current = 0
     barTempoRef.current = bpmRef.current
     retargetRef.current = () => undefined
   }, [clearVisuals])
@@ -359,7 +365,7 @@ export function useRhythmEngine({
     retargetRef.current('tempo')
   }, [bpm, playing])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!playing) {
       setHoldUntilCycle(false)
       return
@@ -419,6 +425,8 @@ export function useRhythmEngine({
       sbRepeatRef.current = 0
       playbackBpmRef.current = sbStart ? sbBpm(bpmRef.current, sb.fromPct) : bpmRef.current
       barStartRef.current = nextTimeRef.current
+      heardBarStartRef.current = nextTimeRef.current
+      heardBarIndexRef.current = barRef.current
       barTempoRef.current = playbackBpmRef.current
       setLiveBpm(playbackBpmRef.current)
       if (sbStart) {
@@ -554,6 +562,22 @@ export function useRhythmEngine({
         return ((barRef.current % sequence.length) + sequence.length) % sequence.length
       }
 
+      const barDurations = (tempo: number) =>
+        liveBarsRef.current.map((bar) => barDurationSec(bar.beats, tempo, bar.beatUnit))
+
+      const heardPlayhead = (now: number, tempo: number) => {
+        const sequence = liveBarsRef.current
+        if (sequence.length === 0) {
+          return { start: heardBarStartRef.current, index: 0 }
+        }
+        const fromStart = heardBarStartRef.current || barStartRef.current
+        const fromIndex = heardBarIndexRef.current
+        const heard = locateHeardBar(now, fromStart, fromIndex, barDurations(tempo))
+        heardBarStartRef.current = heard.start
+        heardBarIndexRef.current = heard.index
+        return heard
+      }
+
       let tick: () => void = () => undefined
 
       const applyPendingClickSubdiv = () => {
@@ -573,13 +597,14 @@ export function useRhythmEngine({
         const now = kit.ctx.currentTime
         const sequence = liveBarsRef.current
         if (sequence.length === 0) return
-        const barIndex = currentBarIndex()
+        const tempo = applyPlaybackBpm()
+        const heard = heardPlayhead(now, tempo)
+        const barIndex = heard.index
         const bar = playbackBar(barIndex)
         if (!bar) return
-        const tempo = applyPlaybackBpm()
         const plan = nextClickBeatBoundary(
           now,
-          barStartRef.current,
+          heard.start,
           tempo,
           bar.beats,
           bar.beatUnit,
@@ -660,9 +685,11 @@ export function useRhythmEngine({
 
         const sequence = liveBarsRef.current
         if (sequence.length === 0) return
-        const barIndex = currentBarIndex()
+        const heard = heardPlayhead(now, newBpm)
+        const barIndex = heard.index
         const bar = playbackBar(barIndex)
         if (!bar) return
+        barStartRef.current = heard.start
 
         const clickMode = liveModeRef.current === 'click'
         const offsets = clickMode
@@ -672,7 +699,7 @@ export function useRhythmEngine({
             })
         const plan = planLiveTempoRetarget(
           now,
-          barStartRef.current,
+          heard.start,
           oldBpm,
           newBpm,
           offsets,
@@ -681,6 +708,8 @@ export function useRhythmEngine({
           bar.beatUnit,
         )
         barStartRef.current = plan.newBarStart
+        heardBarStartRef.current = plan.newBarStart
+        heardBarIndexRef.current = barIndex
 
         if (liveModeRef.current === 'drums') {
           armDrumHitsFrom(barIndex, plan.newBarStart, plan.commit)
@@ -752,8 +781,18 @@ export function useRhythmEngine({
         if (rebased !== nextTimeRef.current) {
           nextTimeRef.current = rebased
           barStartRef.current = rebased
+          heardBarStartRef.current = rebased
+          heardBarIndexRef.current = barRef.current
         }
-        const horizon = scheduleHorizon(audioTime, observed.virtualNow, observed.frozen)
+        if (sbPhaseRef.current === 'pattern') {
+          heardPlayhead(now, playbackBpmRef.current)
+        }
+        const horizon = scheduleHorizon(
+          audioTime,
+          observed.virtualNow,
+          observed.frozen,
+          liveModeRef.current === 'click' ? CLICK_SCHEDULE_AHEAD_SEC : undefined,
+        )
         while (nextTimeRef.current < horizon) {
           const tempo = applyPlaybackBpm()
           const sequence = liveBarsRef.current

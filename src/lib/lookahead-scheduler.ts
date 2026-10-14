@@ -10,7 +10,10 @@
  */
 
 export const LOOKAHEAD_MS = 25
+/** Drums keep a longer queue. Click stays near one scheduler tick so a
+ *  subdivision tap can cancel already-queued pulses before the next beat. */
 export const SCHEDULE_AHEAD_SEC = 1.5
+export const CLICK_SCHEDULE_AHEAD_SEC = 0.12
 export const START_LEAD_SEC = 0.05
 export const STALE_BEHIND_SEC = 0.08
 export const STALE_AHEAD_SEC = 2.5
@@ -74,8 +77,13 @@ export function rebaseNoteTime(
   return nextTime
 }
 
-export function scheduleHorizon(audioTime: number, virtualNow: number, frozen: boolean): number {
-  return frozen ? virtualNow + FROZEN_HORIZON_SEC : audioTime + SCHEDULE_AHEAD_SEC
+export function scheduleHorizon(
+  audioTime: number,
+  virtualNow: number,
+  frozen: boolean,
+  aheadSec = SCHEDULE_AHEAD_SEC,
+): number {
+  return frozen ? virtualNow + FROZEN_HORIZON_SEC : audioTime + aheadSec
 }
 
 export function noteStartTime(nextTime: number, frozen: boolean): number {

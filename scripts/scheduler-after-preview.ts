@@ -8,6 +8,7 @@
  *   npx --yes tsx scripts/scheduler-after-preview.ts
  */
 import {
+  CLICK_SCHEDULE_AHEAD_SEC,
   LOOKAHEAD_MS,
   SCHEDULE_AHEAD_SEC,
   START_LEAD_SEC,
@@ -80,7 +81,11 @@ console.log('==== frozen currentTime used to schedule only one click ====')
     next += BEAT
   }
   assert(count === 1, `legacy 0.12s window schedules ${count} click(s) at 120 BPM (the live-app stall)`)
-  assert(SCHEDULE_AHEAD_SEC > BEAT * 2, 'live lookahead covers more than one beat at 120 BPM')
+  assert(SCHEDULE_AHEAD_SEC > BEAT * 2, 'drums lookahead still covers more than one beat at 120 BPM')
+  assert(
+    CLICK_SCHEDULE_AHEAD_SEC <= 0.12 + 1e-9 && CLICK_SCHEDULE_AHEAD_SEC >= 0.08,
+    `click lookahead stays near 100ms (${CLICK_SCHEDULE_AHEAD_SEC}s)`,
+  )
 }
 
 console.log('\n==== mic → preview → stop → 8-bar lookahead (precount off) ====')

@@ -907,6 +907,35 @@ export function timesAfter(times: readonly number[], after: number): number[] {
 }
 
 /**
+ * Walk from a scheduled bar (often the lookahead tip) back to the bar
+ * that contains `now`. The engine used to retarget from the tip, so a 1.5s
+ * queue delayed subdivision by several beats.
+ */
+export function locateHeardBar(
+  now: number,
+  fromStart: number,
+  fromIndex: number,
+  durations: readonly number[],
+): { start: number; index: number } {
+  const n = durations.length
+  if (n === 0) return { start: fromStart, index: 0 }
+  let index = ((fromIndex % n) + n) % n
+  let start = fromStart
+  for (let step = 0; step < n * 16; step += 1) {
+    const dur = Math.max(1e-6, durations[index] ?? 0)
+    if (now >= start - 1e-9 && now < start + dur - 1e-9) return { start, index }
+    if (now < start) {
+      index = (index - 1 + n) % n
+      start -= Math.max(1e-6, durations[index] ?? 0)
+    } else {
+      start += dur
+      index = (index + 1) % n
+    }
+  }
+  return { start, index }
+}
+
+/**
  * Next audible beat after the committed window. Subdivision changes land here
  * so already-sounding pulses finish and the pulse stays on the same beat grid.
  */

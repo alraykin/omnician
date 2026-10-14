@@ -1094,9 +1094,14 @@ export class RhythmKit {
       if (match && item.when > after) {
         try {
           item.node.onended = null
-          item.node.stop()
+          // iOS ignores a bare stop() on some not-yet-started buffers.
+          item.node.stop(this.ctx.currentTime)
         } catch {
-          // Already finished or cancelled.
+          try {
+            item.node.stop()
+          } catch {
+            // Already finished or cancelled.
+          }
         }
         try {
           item.node.disconnect()
