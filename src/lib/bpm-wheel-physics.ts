@@ -1,10 +1,10 @@
-/** Slow-drag travel. Fast swipes add acceleration on top. */
-export const PX_PER_BPM = 9
 /**
- * Visible number pitch. Wider than the drag step so 5 ticks stay separated;
- * the strip still tracks BPM (and therefore the finger) without a 1:1 px lock.
+ * Drag travel and visible number pitch are the same so the strip, committed
+ * value, and turn clicks stay locked during slow drags and coasting.
  */
-export const ITEM_PX = 28
+export const PX_PER_BPM = 28
+export const ITEM_PX = PX_PER_BPM
+export const SNAP_BPM_S = 26
 export const FLICK_WINDOW_MS = 80
 export const STALE_FLICK_MS = 40
 export const TAP_SLOP_PX = 4
@@ -64,4 +64,9 @@ export function flickVelocityBpm(samples: readonly WheelSample[], now?: number):
 export function stripOffsetPx(visual: number): number {
   const center = Math.round(visual)
   return (center - visual) * ITEM_PX
+}
+
+/** Integer sitting in the selection window. */
+export function centeredBpm(visual: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(visual)))
 }

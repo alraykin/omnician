@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ITEM_PX,
   PX_PER_BPM,
+  SNAP_BPM_S,
   TAP_SLOP_PX,
   bpmDeltaFromFinger,
+  centeredBpm,
   coastFriction,
   COAST_STOP_BPM_S,
   FLICK_MIN_BPM_S,
@@ -24,7 +26,7 @@ type BpmWheelProps = {
 
 const NEIGHBORS = [-2, -1, 0, 1, 2] as const
 
-export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheelProps) {
+export function BpmWheel({ value, onChange, compact = false }: BpmWheelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const hitRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<string | null>(null)
@@ -33,7 +35,6 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
   const [visual, setVisual] = useState(value)
   const [shown, setShown] = useState(value)
   const editing = draft !== null
-  const face = faceBpm ?? shown
   const center = Math.round(visual)
   const frac = visual - center
   const stripY = stripOffsetPx(visual)
@@ -46,6 +47,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
   const velRef = useRef(0)
   const rafRef = useRef(0)
   const coastingRef = useRef(false)
+  const snappingRef = useRef(false)
   const draggingRef = useRef(false)
   const lastTsRef = useRef(0)
   const lastYRef = useRef(0)
@@ -82,6 +84,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
 
   const stopCoast = () => {
     coastingRef.current = false
+    snappingRef.current = false
     setCoasting(false)
     velRef.current = 0
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -92,13 +95,8 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
     const clampedFloat = Math.min(MAX_BPM, Math.max(MIN_BPM, nextFloat))
     visualRef.current = clampedFloat
     setVisual(clampedFloat)
+    const dest = centeredBpm(clampedFloat, MIN_BPM, MAX_BPM)
     const prev = emittedRef.current
-    let dest = prev
-    if (clampedFloat >= prev + 1 - 1e-9) {
-      dest = Math.min(MAX_BPM, Math.floor(clampedFloat + 1e-9))
-    } else if (clampedFloat <= prev - 1 + 1e-9) {
-      dest = Math.max(MIN_BPM, Math.ceil(clampedFloat - 1e-9))
-    }
     if (dest !== prev) {
       const dir = dest > prev ? 1 : -1
       for (let bpm = prev + dir; dir > 0 ? bpm <= dest : bpm >= dest; bpm += dir) {
@@ -131,20 +129,54 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
     velRef.current *= Math.exp(-coastFriction(velRef.current) * dt)
     emitIfNeeded(next)
     if (Math.abs(velRef.current) < COAST_STOP_BPM_S) {
-      snapToEmitted()
-      stopCoast()
+      startSnap()
       return
     }
     rafRef.current = requestAnimationFrame(coastFrame)
   }
 
-  const startCoast = (bpmPerSec: number) => {
+  const snapFrame = (now: number) => {
+    if (!snappingRef.current) return
+    const dt = Math.min(0.032, Math.max(0.001, (now - lastTsRef.current) / 1000))
+    lastTsRef.current = now
+    const target = centeredBpm(visualRef.current, MIN_BPM, MAX_BPM)
+    const delta = target - visualRef.current
+    if (Math.abs(delta) < 0.012) {
+      emitIfNeeded(target)
+      stopCoast()
+      return
+    }
+    const step = Math.sign(delta) * SNAP_BPM_S * dt
+    const next = Math.abs(step) >= Math.abs(delta) ? target : visualRef.current + step
+    emitIfNeeded(next)
+    rafRef.current = requestAnimationFrame(snapFrame)
+  }
+
+  const startSnap = () => {
     if (reducedRef.current) {
       snapToEmitted()
       return
     }
+    const target = centeredBpm(visualRef.current, MIN_BPM, MAX_BPM)
+    if (Math.abs(target - visualRef.current) < 0.012) {
+      emitIfNeeded(target)
+      stopCoast()
+      return
+    }
+    snappingRef.current = true
+    coastingRef.current = false
+    setCoasting(false)
+    lastTsRef.current = performance.now()
+    rafRef.current = requestAnimationFrame(snapFrame)
+  }
+
+  const startCoast = (bpmPerSec: number) => {
+    if (reducedRef.current) {
+      startSnap()
+      return
+    }
     if (Math.abs(bpmPerSec) < FLICK_MIN_BPM_S) {
-      snapToEmitted()
+      startSnap()
       return
     }
     velRef.current = bpmPerSec
@@ -156,7 +188,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
 
   useEffect(() => {
     if (value === emittedRef.current) return
-    if (draggingRef.current || coastingRef.current) return
+    if (draggingRef.current || coastingRef.current || snappingRef.current) return
     stopCoast()
     emittedRef.current = value
     visualRef.current = value
@@ -206,7 +238,7 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
     const start = startRef.current
     startRef.current = null
     if (flick) startCoast(flickVelocityBpm(samplesRef.current, time))
-    else snapToEmitted()
+    else startSnap()
     samplesRef.current = []
     return start
   }
@@ -409,68 +441,68 @@ export function BpmWheel({ value, onChange, compact = false, faceBpm }: BpmWheel
               {NEIGHBORS.map((offset) => {
                 const bpm = center + offset
                 const hidden = bpm < MIN_BPM || bpm > MAX_BPM
-                const active = offset === 0
+                const dist = Math.abs(offset - frac)
                 return (
                   <span
                     key={offset}
                     data-bpm-tick={bpm}
                     className={cn(
                       'pointer-events-none flex h-[28px] items-center font-semibold tabular-nums tracking-tight',
-                      active ? 'text-[1.05rem] text-white' : 'text-[0.68rem] text-slate-500',
-                      Math.abs(offset) === 1 && 'text-[0.78rem] text-slate-300',
+                      dist < 0.55
+                        ? 'text-[1.05rem] text-white'
+                        : dist < 1.25
+                          ? 'text-[0.78rem] text-slate-300'
+                          : 'text-[0.68rem] text-slate-500',
                       hidden && 'opacity-0',
                     )}
                     style={
                       hidden
                         ? undefined
                         : {
-                            transform: `rotateX(${(offset - frac) * -18}deg) scale(${1 - Math.abs(offset - frac) * 0.08})`,
-                            opacity: 1 - Math.abs(offset - frac) * 0.22,
+                            transform: `rotateX(${(offset - frac) * -18}deg) scale(${1 - dist * 0.08})`,
+                            opacity: 1 - dist * 0.22,
                           }
                     }
                   >
-                    {hidden ? '—' : active && editing ? (
-                      <input
-                        ref={inputRef}
-                        aria-label="Custom tempo"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={draft ?? ''}
-                        onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, '').slice(0, 3))}
-                        onBlur={commitDraft}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            commitDraft()
-                          }
-                          if (event.key === 'Escape') {
-                            event.preventDefault()
-                            setDraft(null)
-                          }
-                          event.stopPropagation()
-                        }}
-                        className="pointer-events-auto w-[2.6rem] bg-transparent text-center text-[1.05rem] font-bold tabular-nums text-white outline-none caret-[#C084FC]"
-                      />
-                    ) : active ? (
-                      <button
-                        type="button"
-                        data-bpm-edit
-                        aria-label="Edit tempo"
-                        onClick={() => {
-                          if (movedRef.current) return
-                          setDraft(String(face))
-                        }}
-                        className="pointer-events-auto rounded-md px-0.5 text-[1.05rem] font-bold tabular-nums text-white"
-                      >
-                        {face}
-                      </button>
-                    ) : (
-                      bpm
-                    )}
+                    {hidden ? '—' : bpm}
                   </span>
                 )
               })}
             </div>
+            {editing ? (
+              <input
+                ref={inputRef}
+                aria-label="Custom tempo"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={draft ?? ''}
+                onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, '').slice(0, 3))}
+                onBlur={commitDraft}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    commitDraft()
+                  }
+                  if (event.key === 'Escape') {
+                    event.preventDefault()
+                    setDraft(null)
+                  }
+                  event.stopPropagation()
+                }}
+                className="absolute inset-x-[11px] top-1/2 z-30 h-[42px] -translate-y-1/2 rounded-[12px] bg-[#0b0f1a]/80 text-center text-[1.05rem] font-bold tabular-nums text-white outline-none caret-[#C084FC]"
+              />
+            ) : (
+              <button
+                type="button"
+                data-bpm-edit
+                aria-label="Edit tempo"
+                onClick={() => {
+                  if (movedRef.current) return
+                  setDraft(String(shown))
+                }}
+                className="absolute inset-x-[11px] top-1/2 z-30 h-[42px] -translate-y-1/2 rounded-[12px] bg-transparent"
+              />
+            )}
             <div className="pointer-events-none absolute inset-x-[11px] top-1/2 z-10 h-[42px] -translate-y-1/2 rounded-[12px] bg-[#A855F7]/18 ring-1 ring-[#C084FC]/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_0_14px_rgba(168,85,247,0.28)]" />
             <div className="pointer-events-none absolute inset-x-3 top-1/2 z-20 h-px -translate-y-1/2 bg-white/35" />
             <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-10 bg-gradient-to-b from-[#070a12] via-[#070a12]/55 to-transparent" />
