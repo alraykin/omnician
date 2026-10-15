@@ -225,10 +225,9 @@ assert.match(
   readFileSync(new URL('../src/components/rhythm/EditorTempoSheet.tsx', import.meta.url), 'utf8'),
   /data-tap/,
 )
-assert.match(
-  readFileSync(new URL('../src/components/rhythm/ListenTempo.tsx', import.meta.url), 'utf8'),
-  /z-\[100\]/,
-)
+assert.doesNotMatch(pageSrc, /ListenTempoSheet/)
+assert.doesNotMatch(pageSrc, /listenDemo/)
+assert.doesNotMatch(pageSrc, /data-listen/)
 assert.match(overlaySrc, /safe-area-inset/)
 assert.match(overlaySrc, /sawLandscape/)
 assert.match(overlaySrc, /IntensitySwitch/)

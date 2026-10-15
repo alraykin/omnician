@@ -1,8 +1,7 @@
 /**
  * WebKit session cycles. Headless WebKit cannot own a real iPhone audio
- * session; this still proves route teardown, Listen close, Listen ½×/1×/2×
- * preview, debug overlay, and Play start/stop. Listen uses listenDemo so
- * getUserMedia never blocks the preview path.
+ * session; this still proves route teardown, Tuner capture, debug overlay,
+ * and Play start/stop. Click has no Listen control.
  *
  *   BASE_URL=http://127.0.0.1:43121 node scripts/ios-audio-cycles.mjs
  */
@@ -146,10 +145,11 @@ async function main() {
     await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded', timeout: 15000 })
   }
 
-  await go('/rhythm?mode=click&debug=audio&listenDemo=120')
+  await go('/rhythm?mode=click&debug=audio')
   await page.waitForSelector('[data-audio-debug="on"]', { timeout: 8000 })
-  await page.waitForSelector('[data-listen-panel="open"]', { timeout: 8000 })
-  console.log('overlay + listen sheet up')
+  assert.equal(await page.locator('[data-listen]').count(), 0, 'Click has no Listen control')
+  assert.equal(await page.locator('[data-listen-panel]').count(), 0, 'Listen sheet is not mounted')
+  console.log('overlay up, Listen gone')
 
   for (let i = 0; i < CYCLES; i += 1) {
     await go('/tuner?debug=audio')
@@ -161,8 +161,7 @@ async function main() {
         window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))
       })
       await go('/rhythm?mode=drums&debug=audio')
-      await go('/rhythm?mode=click&debug=audio&listenDemo=128')
-      await page.waitForSelector('[data-listen-panel="open"]', { timeout: 8000 })
+      await go('/rhythm?mode=click&debug=audio')
     }
     if ((i + 1) % 10 === 0) console.log(`nav ${i + 1}/${CYCLES}`)
   }
@@ -212,32 +211,7 @@ async function main() {
   assert.equal(recovered.lastRecovery, 'after-mic-resume', 'Play after mic resume keeps the same context')
   console.log('ok  Play after mic-used flag rebuilds', recovered)
 
-  const closeListenSheet = async () => {
-    const closeListen = page.locator('[data-listen-panel="open"] [aria-label="Cancel"]')
-    if (await closeListen.count()) await closeListen.first().evaluate((node) => node.click())
-    else await page.keyboard.press('Escape')
-  }
-
-  const hearListenPreviews = async () => {
-    await page.waitForSelector('[data-listen-result="ready"]', { timeout: 8000 })
-    for (const alt of ['½×', '1×', '2×']) {
-      const chip = page.locator(`[data-listen-alt="${alt}"]`).first()
-      await chip.evaluate((node) => node.click())
-      await page.waitForTimeout(120)
-      assert.equal(
-        await page.locator('[data-listen-panel="open"]').count(),
-        1,
-        `Listen sheet stayed open after ${alt}`,
-      )
-      assert.equal(
-        await page.locator('[data-listen-result="ready"]').count(),
-        1,
-        `Listen result stayed after ${alt}`,
-      )
-    }
-  }
-
-  // Click Play/Stop → Tuner → Click Play → Listen → close → Play → Listen ½×/1×/2× → Play
+  // Click Play/Stop → Tuner → Click Play
   for (let round = 0; round < 3; round += 1) {
     await go('/rhythm?mode=click&debug=audio')
     await click('[data-transport="play"]')
@@ -248,19 +222,7 @@ async function main() {
     await page.waitForTimeout(200)
     await click('[data-transport="play"]')
     await click('[data-transport="play"]')
-    await click('[data-listen]')
-    await page.waitForTimeout(250)
-    await closeListenSheet()
-    await click('[data-transport="play"]')
-    await click('[data-transport="play"]')
-    console.log(`round ${round + 1} after Listen Play`, await snap())
-    await go('/rhythm?mode=click&debug=audio&listenDemo=120')
-    await page.waitForSelector('[data-listen-panel="open"]', { timeout: 8000 })
-    await hearListenPreviews()
-    await closeListenSheet()
-    await click('[data-transport="play"]')
-    await click('[data-transport="play"]')
-    console.log(`round ${round + 1} after Tuner+Listen+previews`, await snap())
+    console.log(`round ${round + 1} after Tuner Play`, await snap())
   }
 
   let plays = 0

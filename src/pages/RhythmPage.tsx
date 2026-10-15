@@ -16,7 +16,6 @@ import { DrumEditorOverlay } from '@/components/rhythm/DrumEditorOverlay'
 import { DrumRecorderSheet, type DrumRecorderDemo } from '@/components/rhythm/DrumRecorderSheet'
 import { RecordFab } from '@/components/rhythm/RecordFab'
 import { KitFaders } from '@/components/rhythm/KitFaders'
-import { ListenTempoSheet } from '@/components/rhythm/ListenTempo'
 import { RhythmTempoCard } from '@/components/rhythm/RhythmTempoCard'
 import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
@@ -112,9 +111,6 @@ import {
   type UserBeat,
 } from '@/lib/user-beats'
 import { type SpeedBuilder, type SpeedBuilderCue } from '@/lib/speed-builder'
-import { detectTempo, synthesizeClickTrack, type TempoEstimate } from '@/lib/tempo-detect'
-import { stopListenTempoPreview } from '@/lib/listen-preview'
-import { getTempoListener } from '@/lib/tempo-listen'
 import {
   getRhythmStyles,
   barsForPreset,
@@ -164,9 +160,6 @@ export function RhythmPage() {
   const [pickerBeat, setPickerBeat] = useState<number | null>(null)
   const [speedBuilder, setSpeedBuilder] = useState<SpeedBuilder>(prefs.speedBuilder)
   const [tempoCue, setTempoCue] = useState<SpeedBuilderCue | null>(null)
-  const [listenOpen, setListenOpen] = useState(false)
-  const [listenSeed, setListenSeed] = useState<TempoEstimate | null>(null)
-  const [tempoNote, setTempoNote] = useState<string | null>(null)
   const [importedName, setImportedName] = useState<string | null>(null)
   const [drumInput, setDrumInput] = useState<InputDivision>(() => normalizeDrumInput(prefs.drumInput))
   const [importNote, setImportNote] = useState<string | null>(null)
@@ -562,7 +555,6 @@ export function RhythmPage() {
     if (clamped === bpm) return
     if (tick) playWheelTick()
     setBpm(clamped)
-    setTempoNote(null)
   }
 
   const tapTempo = () => {
@@ -577,28 +569,7 @@ export function RhythmPage() {
     }
     const avg = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length
     setBpm(clampBpm(60000 / avg))
-    setTempoNote(null)
   }
-
-  const applyDetectedTempo = (next: number, note: string) => {
-    changeBpm(next)
-    setTempoNote(note)
-  }
-
-  useEffect(() => {
-    const raw = searchParams.get('listenDemo')
-    if (!raw) return
-    const demoBpm = Number(raw)
-    if (!Number.isFinite(demoBpm) || demoBpm < 40 || demoBpm > 240) return
-    const sr = 44100
-    const samples = synthesizeClickTrack(demoBpm, sr, 8)
-    const estimate = detectTempo(samples, sr)
-    if (!estimate) return
-    setListenSeed(estimate)
-    setListenOpen(true)
-    // Only seed from the URL once so mode switches don't reopen the sheet.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const onToggleCell = useCallback(
     (targetBar: number, voice: VoiceId, beat: number, slot: number, on: boolean, playPreview: boolean) => {
@@ -691,12 +662,6 @@ export function RhythmPage() {
   }
 
   const startStop = useCallback(() => {
-    if (listenOpen) {
-      stopListenTempoPreview()
-      setListenOpen(false)
-      setListenSeed(null)
-      void getTempoListener().cancel()
-    }
     if (playing) {
       halt('user-stop')
       setPlaying(false)
@@ -710,13 +675,7 @@ export function RhythmPage() {
       }
     })
     setPlaying(true)
-  }, [ensureKit, halt, listenOpen, playing, speedBuilder.announce, speedBuilder.enabled, speedBuilder.fromPct])
-
-  useEffect(() => {
-    return () => {
-      getTempoListener().release()
-    }
-  }, [])
+  }, [ensureKit, halt, playing, speedBuilder.announce, speedBuilder.enabled, speedBuilder.fromPct])
 
   useEffect(() => {
     return onCaptureStarting(() => {
@@ -1091,17 +1050,6 @@ export function RhythmPage() {
     >
       <div className="relative flex min-h-0 flex-1 flex-col wide:block">
         <SpeedBuilderPopup cue={tempoCue} />
-        <ListenTempoSheet
-          open={listenOpen}
-          onClose={() => {
-            setListenOpen(false)
-            setListenSeed(null)
-          }}
-          onUse={applyDetectedTempo}
-          speedBuilder={speedBuilder}
-          currentBpm={bpm}
-          seed={listenSeed}
-        />
         <ClickPresetsSheet
           open={clickPresetsOpen}
           snap={clickSnap}
@@ -1117,11 +1065,6 @@ export function RhythmPage() {
           data-rhythm-scroll
           className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain [scrollbar-width:thin] [touch-action:pan-y] wide:overflow-x-clip wide:overflow-y-visible wide:overscroll-auto"
         >
-          {tempoNote ? (
-            <p className="mt-1.5 text-center text-xs leading-5 text-slate-400" data-tempo-note>
-              {tempoNote}
-            </p>
-          ) : null}
           {importNote && mode === 'drums' ? (
             <p className="mt-1.5 text-center text-xs leading-5 text-slate-400" data-midi-import-note>
               {importNote}

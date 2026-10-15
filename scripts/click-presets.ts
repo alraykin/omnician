@@ -69,7 +69,9 @@ const summary = clickPresetSummary(snap, { alwaysSpeed: true })
 assert.match(summary, /88 BPM/)
 assert.match(summary, /1\/4/)
 assert.match(summary, /Wood/)
+assert.match(summary, /1 bar/)
 assert.match(summary, /Speed 70 → 100%/)
+assert.match(clickPresetSummary(shuffled), /2 bars/)
 
 const parsed = parseClickPresetStore({
   loadedId: 'cp-warm',
@@ -84,6 +86,8 @@ const page = readFileSync(new URL('../src/pages/RhythmPage.tsx', import.meta.url
 assert.match(page, /ClickPresetChip/)
 assert.match(page, /ClickPresetsSheet/)
 assert.match(page, /clickPresets/)
+assert.doesNotMatch(page, /ListenTempoSheet/)
+assert.doesNotMatch(page, /listenDemo/)
 const sheet = readFileSync(new URL('../src/components/rhythm/ClickPresets.tsx', import.meta.url), 'utf8')
 assert.match(sheet, /Save current/)
 assert.match(sheet, /Loaded/)
