@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
+import { SheetBackdrop, SheetCloseX } from '@/components/SheetClose'
 import { FactoryEditorBar, FactoryHistorySheet, FactoryNameSheet } from '@/components/FactoryEditorBar'
 import { ClickPresetChip, ClickPresetsSheet } from '@/components/rhythm/ClickPresets'
 import { ClickSoundPicker } from '@/components/rhythm/ClickSoundPicker'
@@ -1948,23 +1949,16 @@ function PresetSheet({
         compact ? 'items-center p-1.5' : 'items-end p-4 sm:items-center',
       )}
     >
-      {compact ? (
-        <button
-          type="button"
-          aria-label="Close beat library"
-          className="absolute inset-0 cursor-default"
-          onClick={onClose}
-        />
-      ) : null}
+      <SheetBackdrop label="Close beat library" onClose={onClose} />
       <div
-        onClick={compact ? (event) => event.stopPropagation() : undefined}
+        onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-labelledby="rhythm-presets-title"
         data-factory-reorder={factoryReorder ? '1' : '0'}
         className={cn(
-          'w-full rounded-3xl border border-white/10 bg-[#0F1422]',
+          'relative z-10 w-full rounded-3xl border border-white/10 bg-[#0F1422]',
           compact
-            ? 'relative z-10 flex max-h-[calc(100svh-0.6rem)] max-w-[min(56rem,calc(100vw-0.6rem))] flex-col overflow-hidden rounded-2xl p-3'
+            ? 'flex max-h-[calc(100svh-0.6rem)] max-w-[min(56rem,calc(100vw-0.6rem))] flex-col overflow-hidden rounded-2xl p-3'
             : 'max-h-[90svh] max-w-lg overflow-y-auto p-5 md:max-w-2xl lg:max-w-4xl',
         )}
       >
@@ -1975,11 +1969,7 @@ function PresetSheet({
           >
             Beat library
           </h2>
-          {compact ? (
-            <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 px-3" onClick={onClose}>
-              Close
-            </Button>
-          ) : null}
+          <SheetCloseX label="Close beat library" onClose={onClose} />
         </div>
         {factoryReorder ? (
           <p className="mt-1 shrink-0 text-sm text-slate-400">
@@ -2029,11 +2019,6 @@ function PresetSheet({
             />
           ) : null}
         </div>
-        {compact ? null : (
-          <Button type="button" variant="outline" className="mt-4 w-full" onClick={onClose}>
-            Close
-          </Button>
-        )}
       </div>
     </div>,
     document.body,

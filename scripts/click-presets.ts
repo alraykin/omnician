@@ -94,5 +94,8 @@ assert.match(sheet, /Loaded/)
 assert.match(sheet, /data-click-preset-save/)
 assert.match(sheet, /data-click-preset-edit/)
 assert.match(sheet, /data-click-preset-delete/)
+assert.match(sheet, /SheetBackdrop/)
+assert.match(sheet, /SheetCloseX/)
+assert.doesNotMatch(sheet, />Done</)
 
 console.log('click-presets: ok')

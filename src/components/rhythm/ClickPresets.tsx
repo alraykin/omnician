@@ -2,6 +2,7 @@ import { Bookmark, Check, ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { SheetBackdrop, SheetCloseX } from '@/components/SheetClose'
 import { Button } from '@/components/ui/button'
 import {
   clickPresetSummary,
@@ -87,7 +88,7 @@ export function ClickPresetsSheet({
       data-click-presets-sheet
       className="fixed inset-0 z-[90] flex items-end justify-center bg-black/65 p-3 pb-[calc(0.5rem+var(--tabbar-clearance))] sm:items-center sm:p-6"
     >
-      <button type="button" aria-label="Close click presets" className="absolute inset-0 cursor-default" onClick={onClose} />
+      <SheetBackdrop label="Close click presets" onClose={onClose} />
       <div
         role="dialog"
         aria-modal="true"
@@ -104,9 +105,7 @@ export function ClickPresetsSheet({
               Tempo, meter, sound, subdivision, accents, bars, Speed Builder
             </p>
           </div>
-          <Button type="button" size="sm" className="h-8 shrink-0 rounded-full px-3.5" {...activateOnPointer(onClose)}>
-            Done
-          </Button>
+          <SheetCloseX label="Close click presets" onClose={onClose} />
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5">

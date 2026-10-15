@@ -1,6 +1,7 @@
-import { Minus, Plus, X } from 'lucide-react'
+import { Minus, Plus } from 'lucide-react'
 import { createPortal } from 'react-dom'
 
+import { SheetBackdrop, SheetCloseX } from '@/components/SheetClose'
 import { BpmWheel } from '@/components/rhythm/BpmWheel'
 import { Button } from '@/components/ui/button'
 import { activateOnPointer } from '@/lib/utils'
@@ -26,12 +27,7 @@ export function EditorTempoSheet({
       data-editor-tempo-sheet
       className="fixed inset-0 z-[90] flex items-center justify-center bg-black/65 p-1.5"
     >
-      <button
-        type="button"
-        aria-label="Close tempo"
-        className="absolute inset-0 cursor-default"
-        onClick={onClose}
-      />
+      <SheetBackdrop label="Close tempo" onClose={onClose} />
       <div
         role="dialog"
         aria-modal="true"
@@ -49,14 +45,6 @@ export function EditorTempoSheet({
             {shown} BPM
           </p>
           <p className="mt-1 text-[0.62rem] leading-4 text-slate-500">Drag, tap, or type</p>
-          <button
-            type="button"
-            aria-label="Close tempo"
-            {...activateOnPointer(onClose)}
-            className="mt-auto flex size-8 items-center justify-center rounded-full border border-white/12 text-slate-300"
-          >
-            <X className="size-3.5" />
-          </button>
         </div>
         <BpmWheel compact value={bpm} onChange={(next) => onBpm(next, true)} />
         <div
@@ -96,6 +84,7 @@ export function EditorTempoSheet({
             5
           </Button>
         </div>
+        <SheetCloseX label="Close tempo" onClose={onClose} className="self-start" />
       </div>
     </div>,
     document.body,
