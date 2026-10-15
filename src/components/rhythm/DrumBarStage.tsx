@@ -91,15 +91,15 @@ export const DrumBarStage = memo(function DrumBarStage({
       />
       <p className="mt-1.5 hidden text-center text-[0.6rem] leading-4 text-slate-500 min-[741px]:block">
         <span className="mr-3 inline-flex items-center gap-1.5">
-          <span className="inline-block size-3 rounded-full bg-[#A855F7]" />
+          <span className="drum-hit-diamond drum-hit-legend" />
           hit
         </span>
         <span className="mr-3 inline-flex items-center gap-1.5">
-          <span className="inline-block size-3 rounded-full bg-[#6D28D9]/50" />
+          <span data-soft="1" className="drum-hit-diamond drum-hit-legend" />
           soft
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block size-3 rounded-full border border-dashed border-white/30" />
+          <span className="inline-block size-2.5 rotate-45 border border-white/30" />
           empty
         </span>
       </p>

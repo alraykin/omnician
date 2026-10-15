@@ -950,3 +950,115 @@ html.drum-editor-open [data-drum-editor] {
 .bpm-wheel-shade-right {
   background: linear-gradient(to left, rgba(0, 0, 0, 0.42), transparent);
 }
+
+/* Flat DAW drum grid — thin lines, diamonds on the line, generous hit areas. */
+[data-drum-flat] {
+  --grid-sub: rgba(148, 163, 184, 0.16);
+  --grid-beat: rgba(203, 213, 225, 0.4);
+  --grid-bar: rgba(241, 245, 249, 0.7);
+  --grid-row: rgba(148, 163, 184, 0.14);
+}
+
+[data-drum-flat] [data-count-strip] {
+  box-shadow: 0 1px 0 var(--grid-beat);
+}
+
+[data-drum-flat] [data-voice-row] {
+  box-shadow: 0 1px 0 var(--grid-row);
+}
+
+[data-drum-flat] [data-grid-line='sub'] {
+  box-shadow: inset 1px 0 0 var(--grid-sub);
+}
+
+[data-drum-flat] [data-grid-line='beat'] {
+  box-shadow: inset 1px 0 0 var(--grid-beat);
+}
+
+[data-drum-flat] [data-grid-line='bar'] {
+  box-shadow: inset 1px 0 0 var(--grid-bar);
+}
+
+[data-drum-flat] [data-grid-end='bar'][data-grid-line='sub'] {
+  box-shadow:
+    inset 1px 0 0 var(--grid-sub),
+    inset -1px 0 0 var(--grid-bar);
+}
+
+[data-drum-flat] [data-grid-end='bar'][data-grid-line='beat'] {
+  box-shadow:
+    inset 1px 0 0 var(--grid-beat),
+    inset -1px 0 0 var(--grid-bar);
+}
+
+[data-drum-flat] [data-grid-end='bar'][data-grid-line='bar'] {
+  box-shadow:
+    inset 1px 0 0 var(--grid-bar),
+    inset -1px 0 0 var(--grid-bar);
+}
+
+[data-drum-flat] [data-box-slot] {
+  min-width: 0;
+}
+
+[data-drum-grid][data-drum-flat] [data-box-slot] {
+  min-height: 2rem;
+}
+
+[data-drum-editor-grid][data-drum-flat] [data-box-slot] {
+  min-height: 0;
+}
+
+[data-drum-flat] [data-drop-target] {
+  background: rgba(168, 85, 247, 0.22);
+}
+
+[data-editor-playhead],
+[data-grid-playhead] {
+  background: #ff4d6d;
+}
+
+[data-playhead-cap] {
+  border-top-color: #ff4d6d;
+}
+
+.drum-hit-diamond {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  z-index: 2;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  background: #a855f7;
+  transform: translate(-50%, -50%) rotate(45deg);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.72);
+}
+
+.drum-hit-diamond[data-soft='1'] {
+  width: 7px;
+  height: 7px;
+  opacity: 0.42;
+  box-shadow: none;
+}
+
+.drum-hit-diamond[data-move-hide='1'] {
+  opacity: 0;
+}
+
+.drum-hit-ghost {
+  position: fixed;
+  left: auto;
+  top: auto;
+  z-index: 50;
+  pointer-events: none;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.drum-hit-legend {
+  position: relative;
+  left: auto;
+  top: auto;
+  display: inline-block;
+  transform: rotate(45deg);
+}

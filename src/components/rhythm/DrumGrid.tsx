@@ -1,7 +1,9 @@
-import { memo, useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 
+import { CountStrip, HitDiamond, PlayheadLine, gridLineProps } from '@/components/rhythm/DrumFlatBits'
 import { type TransportClock } from '@/hooks/useRhythmEngine'
-import { beatFromFrac, fracInBar } from '@/lib/editor-playhead'
+import { fracInBar } from '@/lib/editor-playhead'
+import { gridLineKind, isBarEndSlot } from '@/lib/drum-flat-grid'
 import {
   beatBoxView,
   INPUT_CHIPS,
@@ -112,60 +114,10 @@ function needsMoveArm(pointerType: string) {
   return pointerType === 'touch' || (pointerType !== 'mouse' && isCoarsePointer())
 }
 
-/** 12px dots sit 2px in from the slot’s left edge and shrink if the slot is narrower. */
-const HIT_INSET_PX = 2
-
-function HitDot({
-  soft,
-  className,
-  style,
-}: {
-  soft: boolean
-  className?: string
-  style?: { left: string }
-}) {
-  return (
-    <span
-      data-hit-dot
-      data-hit-align="start"
-      data-soft={soft ? '1' : '0'}
-      className={cn(
-        'aspect-square h-auto w-3 max-w-full shrink-0 rounded-full',
-        soft ? 'bg-[#6D28D9]/50' : 'bg-[#A855F7]',
-        className,
-      )}
-      style={style}
-    />
-  )
-}
-
 function slotFromPoint(x: number, y: number, input: InputDivision, root?: HTMLElement | null) {
   const node = document.elementFromPoint(x, y)
   if (!node || (root && !root.contains(node))) return null
   return readSlot(node, x, input)
-}
-
-function BeatTrack({
-  columns,
-  className,
-  children,
-  labels,
-}: {
-  columns: number
-  className?: string
-  children: ReactNode
-  labels?: boolean
-}) {
-  return (
-    <div
-      data-beats-per-row={columns}
-      {...(labels ? { 'data-beat-labels': '' } : {})}
-      className={cn('grid min-w-0 gap-x-1', className)}
-      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
-    >
-      {children}
-    </div>
-  )
 }
 
 function voicePreviewHandlers(onPreview: (voice: VoiceId) => void, voice: VoiceId) {
@@ -182,6 +134,7 @@ function voicePreviewHandlers(onPreview: (voice: VoiceId) => void, voice: VoiceI
 function KitBlock({
   block,
   columns,
+  barBeats,
   pattern,
   input,
   onPreview,
@@ -190,6 +143,7 @@ function KitBlock({
 }: {
   block: KitBeatBlock
   columns: number
+  barBeats: number
   pattern: Pattern
   input: InputDivision
   onPreview: (voice: VoiceId) => void
@@ -202,104 +156,111 @@ function KitBlock({
       data-kit-block={block.index}
       data-kit-block-start={block.start}
       data-kit-block-count={block.count}
-      className="grid w-full min-w-0 grid-cols-[3.85rem_minmax(0,1fr)] gap-x-1 gap-y-px sm:grid-cols-[4.4rem_minmax(0,1fr)] sm:gap-y-1 md:grid-cols-[5.1rem_minmax(0,1fr)]"
+      data-beats-per-row={columns}
+      className="flex w-full min-w-0 gap-x-1 sm:gap-x-1.5"
     >
-      <div aria-hidden />
-      <BeatTrack
-        labels
-        columns={columns}
-        className="mb-px text-[0.55rem] font-semibold uppercase tracking-wider text-slate-500 sm:mb-0.5 sm:text-[0.6rem]"
+      <div
+        data-kit-labels
+        className="grid w-[3.85rem] shrink-0 grid-rows-[1.15rem_repeat(14,minmax(2rem,1fr))] sm:w-[4.4rem] md:w-[5.1rem]"
       >
-        {beats.map((beat) => (
-          <span
-            key={`beat-${beat}`}
-            data-beat-label={beat + 1}
-            className="min-w-0 border border-transparent px-px py-px text-left tabular-nums leading-none"
-          >
-            {beat + 1}
-          </span>
-        ))}
-      </BeatTrack>
-
-      {VOICES.map((voice) => {
-        const hits = pattern[voice] ?? []
-        return (
-          <div key={`${block.index}-${voice}`} className="contents">
+        <div aria-hidden />
+        {VOICES.map((voice) => {
+          const lit = (pattern[voice] ?? []).length > 0
+          return (
             <button
+              key={voice}
               type="button"
               data-voice={voice}
+              data-row-lit={lit ? '1' : '0'}
               {...voicePreviewHandlers(onPreview, voice)}
-              className="flex min-w-0 items-center self-stretch touch-manipulation whitespace-nowrap rounded-md py-0 pr-0.5 text-left text-[0.52rem] font-semibold leading-none tracking-tight text-slate-300 hover:bg-white/6 hover:text-white sm:text-[0.62rem] md:text-[0.68rem] wide:text-[0.58rem]"
+              className={cn(
+                'flex min-h-[2rem] min-w-0 items-center self-stretch touch-manipulation whitespace-nowrap py-0 pr-0.5 text-left text-[0.52rem] font-semibold leading-none tracking-tight sm:text-[0.62rem] md:text-[0.68rem] wide:text-[0.58rem]',
+                lit ? 'text-slate-100 hover:text-white' : 'text-slate-500 hover:text-slate-200',
+              )}
             >
               {VOICE_LABELS[voice]}
             </button>
-            <BeatTrack columns={columns} className="touch-none">
-              {beats.map((beat) => {
-                const view = beatBoxView(hits, beat, input)
-                const filledInput = Array.from({ length: input }, (_, slot) =>
-                  hits.some(
-                    (hit) =>
-                      hit.beat === beat &&
-                      hit.num * input === slot * hit.den,
-                  ),
-                )
-                  .map((on, slot) => (on ? String(slot) : ''))
-                  .filter(Boolean)
-                  .join(',')
-                return (
-                  <div
-                    key={`${voice}-${beat}`}
-                    data-beat-box
-                    data-voice-cell={voice}
-                    data-beat={beat}
-                    data-division={view.division}
-                    data-empty={view.empty ? '1' : '0'}
-                    data-triplet={view.triplet ? '1' : '0'}
-                    data-dots={view.dots ? '1' : '0'}
-                    data-input-filled={filledInput}
-                    className="relative flex min-w-0 items-center overflow-hidden rounded-md border border-white/8 bg-white/[0.03] px-px py-0 sm:rounded-lg sm:py-0.5"
-                  >
-                    <div className="relative flex w-full min-w-0 gap-0.5">
+          )
+        })}
+      </div>
+      <div data-kit-block-track className="relative min-w-0 flex-1">
+        <div
+          className="grid min-w-0 grid-rows-[1.15rem_repeat(14,minmax(2rem,1fr))]"
+          style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}
+        >
+          <CountStrip beats={block.count} beatOffset={block.start} input={input} columns={columns} />
+          {VOICES.map((voice) => {
+            const hits = pattern[voice] ?? []
+            return (
+              <div
+                key={`${block.index}-${voice}`}
+                data-voice-row
+                data-row-lit={hits.length > 0 ? '1' : '0'}
+                className="grid min-h-[2rem] min-w-0 touch-none"
+                style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+              >
+                {beats.map((beat) => {
+                  const view = beatBoxView(hits, beat, input)
+                  const filledInput = Array.from({ length: input }, (_, slot) =>
+                    hits.some((hit) => hit.beat === beat && hit.num * input === slot * hit.den),
+                  )
+                    .map((on, slot) => (on ? String(slot) : ''))
+                    .filter(Boolean)
+                    .join(',')
+                  return (
+                    <div
+                      key={`${voice}-${beat}`}
+                      data-beat-box
+                      data-voice-cell={voice}
+                      data-beat={beat}
+                      data-division={view.division}
+                      data-empty={view.empty ? '1' : '0'}
+                      data-triplet={view.triplet ? '1' : '0'}
+                      data-dots={view.dots ? '1' : '0'}
+                      data-input-filled={filledInput}
+                      className="relative flex min-h-[2rem] min-w-0"
+                    >
                       {view.slots.map((slot) => {
                         const isSource =
                           moveFrom?.voice === voice && moveFrom.beat === beat && moveFrom.slot === slot.slot
                         const isTarget =
                           moveTo?.voice === voice && moveTo.beat === beat && moveTo.slot === slot.slot
                         return (
-                        <span
-                          key={slot.slot}
-                          data-box-slot={slot.slot}
-                          data-filled={slot.filled ? '1' : '0'}
-                          data-soft={slot.soft ? '1' : '0'}
-                          {...(isSource ? { 'data-move-source': '1' } : {})}
-                          {...(isTarget ? { 'data-drop-target': '1' } : {})}
-                          className={cn(
-                            'flex h-4 min-w-0 flex-1 items-center justify-start overflow-hidden rounded-md border border-dashed border-white/18 bg-transparent pl-[2px] sm:h-6 md:h-7 wide:!h-5',
-                            isTarget && 'border-solid border-[#A855F7] bg-[#A855F7]/30',
-                          )}
-                        >
-                          {slot.filled ? <HitDot soft={slot.soft} className={isSource ? 'opacity-0' : undefined} /> : null}
-                        </span>
+                          <span
+                            key={slot.slot}
+                            data-box-slot={slot.slot}
+                            data-filled={slot.filled ? '1' : '0'}
+                            data-soft={slot.soft ? '1' : '0'}
+                            {...gridLineProps(
+                              gridLineKind(beat, slot.slot),
+                              isBarEndSlot(beat, slot.slot, barBeats, input),
+                            )}
+                            {...(isSource ? { 'data-move-source': '1' } : {})}
+                            {...(isTarget ? { 'data-drop-target': '1' } : {})}
+                            className="relative h-full min-h-[2rem] min-w-0 flex-1"
+                          >
+                            {slot.filled ? <HitDiamond soft={slot.soft} hide={isSource} /> : null}
+                          </span>
                         )
                       })}
                       {view.dots
                         ? view.dotsAt.map((frac, index) => (
-                            <HitDot
+                            <HitDiamond
                               key={`off-${frac}`}
                               soft={view.dotsSoft[index] === true}
-                              className="pointer-events-none absolute top-1/2 -translate-y-1/2"
-                              style={{ left: `calc(${frac * 100}% + ${HIT_INSET_PX}px)` }}
+                              style={{ left: `${frac * 100}%` }}
                             />
                           ))
                         : null}
                     </div>
-                  </div>
-                )
-              })}
-            </BeatTrack>
-          </div>
-        )
-      })}
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+        <PlayheadLine mark="grid" />
+      </div>
     </div>
   )
 }
@@ -411,37 +372,61 @@ export const DrumGrid = memo(function DrumGrid({
   useEffect(() => {
     const root = rootRef.current
     if (!root) return
-    const nowClass = 'is-now'
-    let painted: Element[] = []
     let lastBeat = Number.NaN
     let raf = 0
-    const paint = (beat: number) => {
+    const heads = () => root.querySelectorAll<HTMLElement>('[data-grid-playhead]')
+    const hideHeads = () => {
+      heads().forEach((line) => {
+        line.hidden = true
+        line.setAttribute('data-playhead-on', '0')
+      })
+    }
+    const paintBeat = (beat: number) => {
       if (beat === lastBeat) return
       lastBeat = beat
-      for (const node of painted) node.classList.remove(nowClass)
-      painted = []
-      if (beat < 0) {
-        root.removeAttribute('data-playhead-beat')
-        return
-      }
-      root.setAttribute('data-playhead-beat', String(beat))
-      const nodes = root.querySelectorAll(`[data-beat-box][data-beat="${beat}"]`)
-      nodes.forEach((node) => {
-        node.classList.add(nowClass)
-        painted.push(node)
-      })
+      if (beat < 0) root.removeAttribute('data-playhead-beat')
+      else root.setAttribute('data-playhead-beat', String(beat))
     }
     const tick = () => {
       const clock = getClock()
       const live = playing && clock.playing && !clock.precount && clock.barIndex === barIndex
-      const beat = live ? beatFromFrac(fracInBar(clock), beats) : -1
-      paint(beat)
+      if (!live) {
+        hideHeads()
+        paintBeat(-1)
+        raf = window.requestAnimationFrame(tick)
+        return
+      }
+      const frac = fracInBar(clock)
+      const pos = frac * beats
+      paintBeat(Math.min(beats - 1, Math.max(0, Math.floor(pos))))
+      const cols = Number(root.getAttribute('data-kit-block-beats')) || beats
+      heads().forEach((line) => {
+        const block = line.closest('[data-kit-block]')
+        const track = block?.querySelector<HTMLElement>('[data-kit-block-track]')
+        if (!block || !track) {
+          line.hidden = true
+          return
+        }
+        const start = Number(block.getAttribute('data-kit-block-start'))
+        const count = Number(block.getAttribute('data-kit-block-count'))
+        const inBlock = pos >= start && pos < start + count
+        if (!inBlock) {
+          line.hidden = true
+          line.setAttribute('data-playhead-on', '0')
+          return
+        }
+        const x = ((pos - start) / cols) * track.clientWidth
+        line.hidden = false
+        line.setAttribute('data-playhead-on', '1')
+        line.setAttribute('data-playhead-x', String(Math.round(x)))
+        line.style.transform = `translateX(${x}px)`
+      })
       raf = window.requestAnimationFrame(tick)
     }
     raf = window.requestAnimationFrame(tick)
     return () => {
       window.cancelAnimationFrame(raf)
-      paint(-1)
+      hideHeads()
     }
   }, [getClock, barIndex, playing, beats])
 
@@ -524,6 +509,7 @@ export const DrumGrid = memo(function DrumGrid({
     <div
       ref={rootRef}
       data-drum-grid
+      data-drum-flat="1"
       data-beat-boxes
       data-bar-index={barIndex}
       data-drum-input={input}
@@ -611,11 +597,9 @@ export const DrumGrid = memo(function DrumGrid({
         <span
           ref={ghostRef}
           data-hit-ghost
+          data-hit-diamond
           data-soft={moving.soft ? '1' : '0'}
-          className={cn(
-            'pointer-events-none fixed z-50 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_0_0_4px_rgba(168,85,247,0.28)]',
-            moving.soft ? 'bg-[#6D28D9]/50' : 'bg-[#A855F7]',
-          )}
+          className={cn('drum-hit-diamond drum-hit-ghost', moving.soft && 'opacity-40')}
           style={{ left: pointerPosRef.current.x, top: pointerPosRef.current.y }}
         />
       ) : null}
@@ -632,6 +616,7 @@ export const DrumGrid = memo(function DrumGrid({
             key={block.index}
             block={block}
             columns={columns}
+            barBeats={beats}
             pattern={pattern}
             input={input}
             onPreview={onPreview}

@@ -1,8 +1,10 @@
 import { memo, useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 
+import { CountStrip, HitDiamond, PlayheadLine, gridLineProps } from '@/components/rhythm/DrumFlatBits'
 import { type TransportClock } from '@/hooks/useRhythmEngine'
 import { beatBoxView, inputSlotFromX, type InputDivision } from '@/lib/beat-boxes'
 import { BAR_LONG_PRESS_MS, MOVE_ARM_MS } from '@/lib/bar-press'
+import { gridLineKind, isBarEndSlot } from '@/lib/drum-flat-grid'
 import { fracInBar } from '@/lib/editor-playhead'
 import { HOLD_NUDGE_CLASS } from '@/lib/hold-repeat'
 import { VOICE_LABELS, VOICES, type RhythmBar, type VoiceId } from '@/lib/rhythm'
@@ -36,32 +38,7 @@ type PendingPaint = {
   softened: boolean
 }
 
-const HIT_INSET_PX = 2
 const SWIPE_PX = 56
-
-function HitDot({
-  soft,
-  className,
-  style,
-}: {
-  soft: boolean
-  className?: string
-  style?: { left: string }
-}) {
-  return (
-    <span
-      data-hit-dot
-      data-hit-align="start"
-      data-soft={soft ? '1' : '0'}
-      className={cn(
-        'aspect-square h-auto w-3 max-w-full shrink-0 rounded-full',
-        soft ? 'bg-[#6D28D9]/50' : 'bg-[#A855F7]',
-        className,
-      )}
-      style={style}
-    />
-  )
-}
 
 function lightHaptic() {
   try {
@@ -378,6 +355,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
     <div
       ref={rootRef}
       data-drum-editor-grid
+      data-drum-flat="1"
       data-editor-one-bar="1"
       data-editor-bar={shown}
       data-drum-input={input}
@@ -483,51 +461,46 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
         <span
           ref={ghostRef}
           data-hit-ghost
+          data-hit-diamond
           data-soft={moving.soft ? '1' : '0'}
-          className={cn(
-            'pointer-events-none fixed z-50 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_0_0_4px_rgba(168,85,247,0.28)]',
-            moving.soft ? 'bg-[#6D28D9]/50' : 'bg-[#A855F7]',
-          )}
+          className={cn('drum-hit-diamond drum-hit-ghost', moving.soft && 'opacity-40')}
           style={{ left: pointerPosRef.current.x, top: pointerPosRef.current.y }}
         />
       ) : null}
       <div
         data-editor-labels
-        className="grid w-[4.4rem] shrink-0 grid-rows-[1.15rem_repeat(14,minmax(0,1fr))] gap-y-px border-r border-white/8 bg-[#0B0F1A] pr-1"
+        className="grid w-[4.4rem] shrink-0 grid-rows-[1.15rem_repeat(14,minmax(0,1fr))] bg-[#0B0F1A] pr-1.5"
       >
         <div aria-hidden />
-        {VOICES.map((voice) => (
-          <button
-            key={voice}
-            type="button"
-            data-voice={voice}
-            {...voicePreviewHandlers(onPreview, voice)}
-            className="flex min-h-0 items-center truncate text-left text-[0.58rem] font-semibold leading-none text-slate-300"
-          >
-            {VOICE_LABELS[voice]}
-          </button>
-        ))}
+        {VOICES.map((voice) => {
+          const lit = (bar.pattern[voice] ?? []).length > 0
+          return (
+            <button
+              key={voice}
+              type="button"
+              data-voice={voice}
+              data-row-lit={lit ? '1' : '0'}
+              {...voicePreviewHandlers(onPreview, voice)}
+              className={cn(
+                'flex min-h-0 items-center truncate text-left text-[0.58rem] font-semibold leading-none',
+                lit ? 'text-slate-100' : 'text-slate-500',
+              )}
+            >
+              {VOICE_LABELS[voice]}
+            </button>
+          )
+        })}
       </div>
-      <div ref={trackRef} data-editor-track className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+      <div ref={trackRef} data-editor-track className="relative min-h-0 min-w-0 flex-1 overflow-x-visible overflow-y-hidden">
         <div
           data-editor-bar-page={shown}
-          className="grid h-full min-h-0 w-full grid-rows-[1.15rem_repeat(14,minmax(0,1fr))] gap-y-px"
+          className="grid h-full min-h-0 w-full grid-rows-[1.15rem_repeat(14,minmax(0,1fr))]"
         >
-          <div className="flex min-w-0">
-            {Array.from({ length: bar.beats }, (_, beat) => (
-              <span
-                key={beat}
-                data-beat-label={beat + 1}
-                className="min-w-0 flex-1 text-left text-[0.55rem] font-semibold tabular-nums leading-none text-slate-500"
-              >
-                {beat + 1}
-              </span>
-            ))}
-          </div>
+          <CountStrip beats={bar.beats} input={input} />
           {VOICES.map((voice) => {
             const hits = bar.pattern[voice] ?? []
             return (
-              <div key={voice} className="flex min-h-0 min-w-0 gap-px px-px">
+              <div key={voice} data-voice-row data-row-lit={hits.length > 0 ? '1' : '0'} className="flex min-h-0 min-w-0">
                 {Array.from({ length: bar.beats }, (_, beat) => {
                   const view = beatBoxView(hits, beat, input)
                   const filledInput = Array.from({ length: input }, (_, slot) =>
@@ -545,50 +518,46 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
                       data-bar-index={shown}
                       data-division={view.division}
                       data-input-filled={filledInput}
-                      className="relative flex min-h-0 min-w-0 flex-1 items-center overflow-hidden rounded-md border border-white/8 bg-white/[0.03] px-px"
+                      className="relative flex min-h-0 min-w-0 flex-1 touch-manipulation"
                     >
-                      <div className="relative flex h-full w-full min-w-0 items-center gap-0.5">
-                        {view.slots.map((slot) => {
-                          const isSource =
-                            moving?.fromVoice === voice &&
-                            moving.fromBar === shown &&
-                            moving.fromBeat === beat &&
-                            moving.fromSlot === slot.slot
-                          const isTarget =
-                            moveTo?.voice === voice &&
-                            moveTo.bar === shown &&
-                            moveTo.beat === beat &&
-                            moveTo.slot === slot.slot
-                          return (
-                            <span
-                              key={slot.slot}
-                              data-box-slot={slot.slot}
-                              data-filled={slot.filled ? '1' : '0'}
-                              data-soft={slot.soft ? '1' : '0'}
-                              {...(isSource ? { 'data-move-source': '1' } : {})}
-                              {...(isTarget ? { 'data-drop-target': '1' } : {})}
-                              className={cn(
-                                'flex h-[70%] min-h-3.5 min-w-0 flex-1 items-center justify-start overflow-hidden rounded-md border border-dashed border-white/18 bg-transparent pl-[2px]',
-                                isTarget && 'border-solid border-[#A855F7] bg-[#A855F7]/30',
-                              )}
-                            >
-                              {slot.filled ? (
-                                <HitDot soft={slot.soft} className={isSource ? 'opacity-0' : undefined} />
-                              ) : null}
-                            </span>
-                          )
-                        })}
-                        {view.dots
-                          ? view.dotsAt.map((frac, index) => (
-                              <HitDot
-                                key={`off-${frac}`}
-                                soft={view.dotsSoft[index] === true}
-                                className="pointer-events-none absolute top-1/2 -translate-y-1/2"
-                                style={{ left: `calc(${frac * 100}% + ${HIT_INSET_PX}px)` }}
-                              />
-                            ))
-                          : null}
-                      </div>
+                      {view.slots.map((slot) => {
+                        const isSource =
+                          moving?.fromVoice === voice &&
+                          moving.fromBar === shown &&
+                          moving.fromBeat === beat &&
+                          moving.fromSlot === slot.slot
+                        const isTarget =
+                          moveTo?.voice === voice &&
+                          moveTo.bar === shown &&
+                          moveTo.beat === beat &&
+                          moveTo.slot === slot.slot
+                        return (
+                          <span
+                            key={slot.slot}
+                            data-box-slot={slot.slot}
+                            data-filled={slot.filled ? '1' : '0'}
+                            data-soft={slot.soft ? '1' : '0'}
+                            {...gridLineProps(
+                              gridLineKind(beat, slot.slot),
+                              isBarEndSlot(beat, slot.slot, bar.beats, input),
+                            )}
+                            {...(isSource ? { 'data-move-source': '1' } : {})}
+                            {...(isTarget ? { 'data-drop-target': '1' } : {})}
+                            className="relative h-full min-h-0 min-w-0 flex-1"
+                          >
+                            {slot.filled ? <HitDiamond soft={slot.soft} hide={isSource} /> : null}
+                          </span>
+                        )
+                      })}
+                      {view.dots
+                        ? view.dotsAt.map((frac, index) => (
+                            <HitDiamond
+                              key={`off-${frac}`}
+                              soft={view.dotsSoft[index] === true}
+                              style={{ left: `${frac * 100}%` }}
+                            />
+                          ))
+                        : null}
                     </div>
                   )
                 })}
@@ -596,13 +565,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
             )
           })}
         </div>
-        <div
-          ref={playheadRef}
-          data-editor-playhead
-          hidden
-          className="pointer-events-none absolute top-0 bottom-0 z-20 w-0.5 bg-[#FF3B4A] shadow-[0_0_8px_rgba(255,59,74,0.55)]"
-          style={{ left: 0 }}
-        />
+        <PlayheadLine lineRef={playheadRef} mark="editor" />
       </div>
     </div>
   )

@@ -22,6 +22,7 @@ import {
   intensityMark,
 } from '../src/lib/kit-intensity.ts'
 import { isPhoneViewport, isPortraitViewport, PHONE_SHORTEST_PX } from '../src/lib/phone-viewport.ts'
+import { countMark, gridLineKind, HIT_COLOR, PLAYHEAD_COLOR } from '../src/lib/drum-flat-grid.ts'
 import {
   barDurationSec,
   emptyPattern,
@@ -34,6 +35,16 @@ import {
   setHitPos,
   VOICES,
 } from '../src/lib/rhythm.ts'
+
+assert.equal(PLAYHEAD_COLOR, '#FF4D6D')
+assert.equal(HIT_COLOR, '#A855F7')
+assert.deepEqual(countMark(0, 0, 4), { text: '1', kind: 'beat' })
+assert.deepEqual(countMark(2, 1, 4), { text: 'e', kind: 'sub' })
+assert.deepEqual(countMark(2, 2, 4), { text: '&', kind: 'sub' })
+assert.deepEqual(countMark(2, 3, 4), { text: 'a', kind: 'sub' })
+assert.equal(gridLineKind(0, 0), 'bar')
+assert.equal(gridLineKind(1, 0), 'beat')
+assert.equal(gridLineKind(1, 2), 'sub')
 
 assert.equal(PHONE_SHORTEST_PX, 600)
 assert.equal(isPhoneViewport(430, 932), true, 'iPhone portrait is a phone')
@@ -147,7 +158,8 @@ assert.doesNotMatch(overlaySrc, /onIntensityChange/)
 assert.doesNotMatch(overlaySrc, /usePlayhead/)
 assert.doesNotMatch(overlaySrc, /playhead\.bar/)
 assert.match(gridSrc, /data-editor-one-bar/)
-assert.match(gridSrc, /data-editor-playhead/)
+assert.match(gridSrc, /PlayheadLine/)
+assert.match(gridSrc, /mark="editor"/)
 assert.match(gridSrc, /SWIPE_PX/)
 assert.match(gridSrc, /onMoveHit/)
 assert.match(gridSrc, /MOVE_ARM_MS/)
@@ -158,6 +170,13 @@ assert.doesNotMatch(gridSrc, /snap\.bar === shown/)
 assert.doesNotMatch(gridSrc, /playheadStore/)
 assert.doesNotMatch(gridSrc, /kitBeatBlocks/)
 assert.doesNotMatch(gridSrc, /data-editor-one-row/)
+assert.match(gridSrc, /data-drum-flat/)
+assert.match(gridSrc, /gridLineProps/)
+assert.match(gridSrc, /HitDiamond/)
+assert.match(gridSrc, /data-hit-diamond/)
+assert.match(gridSrc, /CountStrip/)
+assert.doesNotMatch(gridSrc, /border-dashed/)
+assert.doesNotMatch(gridSrc, /rounded-full/)
 
 const engineSrc = readFileSync(new URL('../src/hooks/useRhythmEngine.ts', import.meta.url), 'utf8')
 assert.match(engineSrc, /getTransportClock/)
@@ -167,12 +186,22 @@ assert.match(engineSrc, /audioTime: now/)
 
 const deskGridSrc = readFileSync(new URL('../src/components/rhythm/DrumGrid.tsx', import.meta.url), 'utf8')
 assert.match(deskGridSrc, /getClock/)
-assert.match(deskGridSrc, /beatFromFrac/)
 assert.match(deskGridSrc, /fracInBar\(clock\)/)
 assert.match(deskGridSrc, /requestAnimationFrame/)
 assert.doesNotMatch(deskGridSrc, /playheadStore\.subscribe/)
 assert.doesNotMatch(deskGridSrc, /playheadStore\.getSnapshot/)
 assert.doesNotMatch(deskGridSrc, /data-editor-playhead/)
+assert.match(deskGridSrc, /data-drum-flat/)
+assert.match(deskGridSrc, /data-grid-playhead/)
+assert.match(deskGridSrc, /data-hit-diamond/)
+const bitsSrc = readFileSync(new URL('../src/components/rhythm/DrumFlatBits.tsx', import.meta.url), 'utf8')
+assert.match(bitsSrc, /data-editor-playhead/)
+assert.match(bitsSrc, /data-grid-playhead/)
+assert.match(bitsSrc, /data-hit-diamond/)
+assert.match(bitsSrc, /data-playhead-cap/)
+assert.match(cssSrc, /drum-hit-diamond/)
+assert.match(cssSrc, /#ff4d6d/)
+assert.match(cssSrc, /#a855f7/)
 
 const deskStageSrc = readFileSync(new URL('../src/components/rhythm/DrumBarStage.tsx', import.meta.url), 'utf8')
 assert.match(deskStageSrc, /getClock/)
