@@ -85,5 +85,6 @@ assert.match(card, /data-tap/)
 assert.match(card, /data-tempo-taps/)
 assert.doesNotMatch(card, /data-listen/)
 assert.doesNotMatch(card, /Listen/)
+assert.doesNotMatch(card, /Mic/)
 
 console.log('bpm-wheel: ok')

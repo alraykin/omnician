@@ -139,4 +139,14 @@ const page = readFileSync(new URL('../src/pages/RhythmPage.tsx', import.meta.url
 assert.match(page, /setSubdivision/)
 assert.match(page, /data-section="subdivision"/)
 
+const picker = readFileSync(new URL('../src/components/rhythm/ClickSoundPicker.tsx', import.meta.url), 'utf8')
+assert.match(picker, /data-click-sounds="row"/)
+assert.match(picker, /grid-cols-4/)
+assert.match(picker, /whitespace-nowrap/)
+assert.doesNotMatch(picker, /grid-cols-2/)
+assert.doesNotMatch(picker, /data-listen/)
+
+const worker = readFileSync(new URL('../worker/index.ts', import.meta.url), 'utf8')
+assert.match(worker, /no-cache, no-store, must-revalidate/)
+
 console.log('click-subdivision: ok')
