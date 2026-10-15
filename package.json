@@ -36,6 +36,7 @@
     "test:click-presets": "npx --yes tsx scripts/click-presets.ts",
     "test:drum-history": "npx --yes tsx scripts/drum-history.ts",
     "test:bpm-wheel": "npx --yes tsx scripts/bpm-wheel.ts",
+    "test:master-peaks": "npx --yes tsx scripts/master-peaks.ts",
     "test:tuner-layout": "npx --yes tsx scripts/tuner-layout.ts",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-cloudflare.sh"

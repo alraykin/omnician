@@ -191,8 +191,8 @@ function AudioSettings() {
   return (
     <div className="space-y-3 text-sm leading-6 text-slate-400" data-settings-panel="audio">
       <p>
-        <span className="font-semibold text-white">Volume</span> stays on Click and Drums, next to
-        the tempo wheel. It is a live mix control, not a buried preference.
+        <span className="font-semibold text-white">Volume</span> is the device volume. Click and
+        Drums play as loud as they can without clipping; there is no in-app master fader.
       </p>
       <p>
         Kit mix and Intensity stay under the drum grid. Click sound lives on the Click page, with

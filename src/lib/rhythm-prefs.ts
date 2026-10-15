@@ -27,9 +27,7 @@ import {
 import { DEFAULT_KIT_INTENSITY, clampKitIntensity, type KitIntensity } from '@/lib/kit-intensity'
 import {
   DEFAULT_KIT_MIX,
-  DEFAULT_MASTER_VOLUME_DB,
   parseKitMix,
-  parseMasterVolumeDb,
   type KitMix,
 } from '@/lib/kit-mix'
 import { DEFAULT_DRUM_INPUT, normalizeDrumInput, type InputDivision } from '@/lib/beat-boxes'
@@ -72,7 +70,6 @@ export type RhythmPrefs = {
   kitMix: KitMix
   kitIntensity: KitIntensity
   speedBuilder: SpeedBuilder
-  volumeDb: number
   userBeatId: string | null
   drumInput: InputDivision
 }
@@ -90,7 +87,6 @@ function fallback(): RhythmPrefs {
     kitMix: { ...DEFAULT_KIT_MIX },
     kitIntensity: DEFAULT_KIT_INTENSITY,
     speedBuilder: { ...DEFAULT_SPEED_BUILDER },
-    volumeDb: DEFAULT_MASTER_VOLUME_DB,
     userBeatId: null,
     drumInput: DEFAULT_DRUM_INPUT,
   }
@@ -202,7 +198,6 @@ export function loadRhythmPrefs(): RhythmPrefs {
       kitMix?: unknown
       kitIntensity?: unknown
       speedBuilder?: unknown
-      volumeDb?: unknown
       userBeatId?: unknown
       drumInput?: unknown
     }
@@ -240,7 +235,6 @@ export function loadRhythmPrefs(): RhythmPrefs {
         (presetId ? findPreset(presetId)?.styleId : null) ?? matchPreset(drumBars[0] ?? base.drumBars[0])?.styleId,
       ),
       speedBuilder: parseSpeedBuilder(row.speedBuilder),
-      volumeDb: parseMasterVolumeDb(row.volumeDb),
       userBeatId: typeof row.userBeatId === 'string' && row.userBeatId.length > 0 ? row.userBeatId : null,
       drumInput: normalizeDrumInput(row.drumInput),
     }
@@ -264,7 +258,6 @@ export function saveRhythmPrefs(prefs: RhythmPrefs): void {
       kitMix: parseKitMix(prefs.kitMix),
       kitIntensity: clampKitIntensity(prefs.kitIntensity),
       speedBuilder: parseSpeedBuilder(prefs.speedBuilder),
-      volumeDb: parseMasterVolumeDb(prefs.volumeDb),
       userBeatId: prefs.userBeatId,
       drumInput: normalizeDrumInput(prefs.drumInput),
     }),

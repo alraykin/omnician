@@ -9,17 +9,16 @@ import {
   type HitRole,
   type KitIntensity,
 } from '@/lib/kit-intensity'
+import { realizeDrumBar } from '@/lib/kit-intensity-play'
 import {
   DEFAULT_KIT_MIX,
-  DEFAULT_MASTER_VOLUME_DB,
+  KIT_MIX_MAX_DB,
   KIT_VOICE_GROUP,
-  clampKitDb,
-  dbToGain,
   mixFaderToGain,
   type KitMix,
 } from '@/lib/kit-mix'
-import { CLICK_SOUNDS, type ClickSoundId, type VoiceId } from '@/lib/rhythm'
-import type { RhythmStyleId } from '@/lib/rhythm-presets'
+import { CLICK_SOUNDS, hitTimeInBar, VOICES, type ClickSoundId, type VoiceId } from '@/lib/rhythm'
+import { barsForPreset, findPreset, type RhythmStyleId } from '@/lib/rhythm-presets'
 import { clampSbPct, MAX_SB_PCT, MIN_SB_PCT } from '@/lib/speed-builder'
 import { HAT_CHOKE_SEC, nextHatChokeTime } from '@/lib/hat-choke'
 
@@ -118,9 +117,15 @@ const SAMPLE_GAIN: Record<VoiceId, number> = {
   china: 1.92,
 }
 
-/** Faders stay honest at 0 dB. Loudness is this fixed dry gain — no glue compressor. */
-const MASTER_GAIN = Math.pow(10, 2.8 / 20)
-const LIMITER_CEILING = Math.pow(10, -1 / 20)
+/**
+ * Device volume is the user control. Master is a fixed makeup gain into a
+ * peak limiter + brickwall so Intense + faders-up + accented clicks sit as
+ * loud as possible without going above MASTER_CEILING_DB.
+ */
+export const MASTER_CEILING_DB = -0.3
+export const MASTER_GAIN_DB = 5.4
+const MASTER_GAIN = Math.pow(10, MASTER_GAIN_DB / 20)
+const MASTER_CEILING = Math.pow(10, MASTER_CEILING_DB / 20)
 
 /** Medium room after the dry clipper so the tail is never ducked. */
 const REVERB_DECAY = 1.35
@@ -149,7 +154,7 @@ const REVERB_SEND: Record<VoiceId, number> = {
 type HatVoice = { gain: GainNode; start: number; mix: number }
 
 function renderBuffer(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   seconds: number,
   fill: (data: Float32Array, sampleRate: number) => void,
 ): AudioBuffer {
@@ -170,7 +175,7 @@ function tanh(x: number): number {
   return (e - 1) / (e + 1)
 }
 
-function bakeKick(ctx: AudioContext): AudioBuffer {
+function bakeKick(ctx: BaseAudioContext): AudioBuffer {
   return renderBuffer(ctx, 0.55, (data, sr) => {
     let phase = 0
     let clickPhase = 0
@@ -188,7 +193,7 @@ function bakeKick(ctx: AudioContext): AudioBuffer {
   })
 }
 
-function bakeSnare(ctx: AudioContext): AudioBuffer {
+function bakeSnare(ctx: BaseAudioContext): AudioBuffer {
   return renderBuffer(ctx, 0.42, (data, sr) => {
     let p1 = 0
     let p2 = 0
@@ -206,7 +211,7 @@ function bakeSnare(ctx: AudioContext): AudioBuffer {
   })
 }
 
-function bakeHat(ctx: AudioContext, open: boolean): AudioBuffer {
+function bakeHat(ctx: BaseAudioContext, open: boolean): AudioBuffer {
   const seconds = open ? 0.42 : 0.07
   const freqs = open
     ? [880, 1040, 1188, 1340, 1510, 1720, 1980]
@@ -229,7 +234,7 @@ function bakeHat(ctx: AudioContext, open: boolean): AudioBuffer {
   })
 }
 
-function bakeCrash(ctx: AudioContext): AudioBuffer {
+function bakeCrash(ctx: BaseAudioContext): AudioBuffer {
   const freqs = [620, 780, 910, 1080, 1290, 1540, 1810, 2100]
   return renderBuffer(ctx, 1.05, (data, sr) => {
     const phases = freqs.map(() => Math.random() * Math.PI * 2)
@@ -246,7 +251,7 @@ function bakeCrash(ctx: AudioContext): AudioBuffer {
   })
 }
 
-function bakeTom(ctx: AudioContext, freq: number, seconds: number): AudioBuffer {
+function bakeTom(ctx: BaseAudioContext, freq: number, seconds: number): AudioBuffer {
   return renderBuffer(ctx, seconds, (data, sr) => {
     let phase = 0
     for (let i = 0; i < data.length; i += 1) {
@@ -260,7 +265,7 @@ function bakeTom(ctx: AudioContext, freq: number, seconds: number): AudioBuffer 
   })
 }
 
-function bakeRide(ctx: AudioContext): AudioBuffer {
+function bakeRide(ctx: BaseAudioContext): AudioBuffer {
   const freqs = [640, 880, 1120, 1380, 1640, 1980, 2360]
   return renderBuffer(ctx, 0.95, (data, sr) => {
     const phases = freqs.map(() => Math.random() * Math.PI * 2)
@@ -278,7 +283,7 @@ function bakeRide(ctx: AudioContext): AudioBuffer {
   })
 }
 
-function bakeRideBell(ctx: AudioContext): AudioBuffer {
+function bakeRideBell(ctx: BaseAudioContext): AudioBuffer {
   const freqs = [980, 1470, 1960, 2480, 3120]
   return renderBuffer(ctx, 0.55, (data, sr) => {
     const phases = freqs.map(() => Math.random() * Math.PI * 2)
@@ -296,7 +301,7 @@ function bakeRideBell(ctx: AudioContext): AudioBuffer {
   })
 }
 
-function bakeStack(ctx: AudioContext): AudioBuffer {
+function bakeStack(ctx: BaseAudioContext): AudioBuffer {
   const freqs = [540, 780, 1100, 1480, 1860, 2300]
   return renderBuffer(ctx, 0.48, (data, sr) => {
     const phases = freqs.map(() => Math.random() * Math.PI * 2)
@@ -313,7 +318,7 @@ function bakeStack(ctx: AudioContext): AudioBuffer {
   })
 }
 
-function bakeSplash(ctx: AudioContext): AudioBuffer {
+function bakeSplash(ctx: BaseAudioContext): AudioBuffer {
   const freqs = [1100, 1480, 1860, 2240, 2680]
   return renderBuffer(ctx, 0.62, (data, sr) => {
     const phases = freqs.map(() => Math.random() * Math.PI * 2)
@@ -330,7 +335,7 @@ function bakeSplash(ctx: AudioContext): AudioBuffer {
   })
 }
 
-function bakeChina(ctx: AudioContext): AudioBuffer {
+function bakeChina(ctx: BaseAudioContext): AudioBuffer {
   const freqs = [380, 520, 740, 980, 1290, 1680, 2140]
   return renderBuffer(ctx, 1.05, (data, sr) => {
     const phases = freqs.map(() => Math.random() * Math.PI * 2)
@@ -347,7 +352,7 @@ function bakeChina(ctx: AudioContext): AudioBuffer {
   })
 }
 
-function bakeRim(ctx: AudioContext): AudioBuffer {
+function bakeRim(ctx: BaseAudioContext): AudioBuffer {
   return renderBuffer(ctx, 0.14, (data, sr) => {
     let body = 0
     for (let i = 0; i < data.length; i += 1) {
@@ -361,7 +366,7 @@ function bakeRim(ctx: AudioContext): AudioBuffer {
   })
 }
 
-function bakeSynthDrums(ctx: AudioContext): Record<VoiceId, AudioBuffer> {
+function bakeSynthDrums(ctx: BaseAudioContext): Record<VoiceId, AudioBuffer> {
   return {
     kick: bakeKick(ctx),
     snare: bakeSnare(ctx),
@@ -382,7 +387,7 @@ function bakeSynthDrums(ctx: AudioContext): Record<VoiceId, AudioBuffer> {
 
 const decodedCache = new Map<string, AudioBuffer>()
 
-function decodeAudio(ctx: AudioContext, data: ArrayBuffer): Promise<AudioBuffer> {
+function decodeAudio(ctx: BaseAudioContext, data: ArrayBuffer): Promise<AudioBuffer> {
   const copy = data.slice(0)
   return new Promise((resolve, reject) => {
     let settled = false
@@ -407,7 +412,7 @@ function decodeAudio(ctx: AudioContext, data: ArrayBuffer): Promise<AudioBuffer>
   })
 }
 
-async function loadSample(ctx: AudioContext, url: string): Promise<AudioBuffer> {
+async function loadSample(ctx: BaseAudioContext, url: string): Promise<AudioBuffer> {
   const hit = decodedCache.get(url)
   if (hit) return hit
   const response = await fetch(url, { cache: 'force-cache' })
@@ -457,7 +462,7 @@ function pickNearestTier(
 }
 
 async function loadCrocellLayers(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   bank: LayerBank,
   focus: CrocellTier,
 ): Promise<void> {
@@ -483,7 +488,7 @@ async function loadCrocellLayers(
 type ClickPair = { normal: AudioBuffer; accent: AudioBuffer }
 
 function bakeClick(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   fill: (data: Float32Array, sr: number, accent: boolean) => void,
 ): ClickPair {
   const seconds = 0.22
@@ -494,7 +499,7 @@ function bakeClick(
 }
 
 /** Count-in pip — not one of the playable click samples. */
-function bakePrecount(ctx: AudioContext): ClickPair {
+function bakePrecount(ctx: BaseAudioContext): ClickPair {
   return bakeClick(ctx, (data, sr, accent) => {
     const f0 = accent ? 1860 : 1180
     let p = 0
@@ -510,7 +515,7 @@ function bakePrecount(ctx: AudioContext): ClickPair {
   })
 }
 
-function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
+function bakeClicks(ctx: BaseAudioContext): Record<ClickSoundId, ClickPair> {
   const clicks: Record<ClickSoundId, ClickPair> = {
     wood: bakeClick(ctx, (data, sr, accent) => {
       const f0 = accent ? 560 : 430
@@ -561,7 +566,7 @@ function bakeClicks(ctx: AudioContext): Record<ClickSoundId, ClickPair> {
 }
 
 async function loadClicks(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   fallback: Record<ClickSoundId, ClickPair>,
 ): Promise<Record<ClickSoundId, ClickPair>> {
   const clicks = { ...fallback }
@@ -624,7 +629,7 @@ function matchClickLoudness(clicks: Record<ClickSoundId, ClickPair>): Record<Cli
   return clicks
 }
 
-function makeBrickwall(ctx: AudioContext, ceiling: number): WaveShaperNode {
+function makeBrickwall(ctx: BaseAudioContext, ceiling: number): WaveShaperNode {
   const curve = new Float32Array(4096)
   for (let i = 0; i < curve.length; i += 1) {
     const x = (i / (curve.length - 1)) * 2 - 1
@@ -632,8 +637,20 @@ function makeBrickwall(ctx: AudioContext, ceiling: number): WaveShaperNode {
   }
   const shaper = ctx.createWaveShaper()
   shaper.curve = curve
-  shaper.oversample = '2x'
+  // No oversample: interpolation can ring above the ceiling.
+  shaper.oversample = 'none'
   return shaper
+}
+
+/** Fast peak limiter just under the brickwall so stacked hits aren't hard-clipped raw. */
+function makePeakLimiter(ctx: BaseAudioContext): DynamicsCompressorNode {
+  const limiter = ctx.createDynamicsCompressor()
+  limiter.threshold.value = -1.2
+  limiter.knee.value = 0
+  limiter.ratio.value = 20
+  limiter.attack.value = 0.001
+  limiter.release.value = 0.06
+  return limiter
 }
 
 function mulberry32(seed: number): () => number {
@@ -648,7 +665,7 @@ function mulberry32(seed: number): () => number {
 }
 
 /** Medium room / plate IR: predelay, dense early field, smooth damped tail. */
-function bakeRoomIR(ctx: AudioContext): AudioBuffer {
+function bakeRoomIR(ctx: BaseAudioContext): AudioBuffer {
   const sr = ctx.sampleRate
   const n = Math.max(1, Math.floor(sr * REVERB_IR_SECONDS))
   const ir = ctx.createBuffer(2, n, sr)
@@ -697,7 +714,7 @@ function bakeRoomIR(ctx: AudioContext): AudioBuffer {
   return ir
 }
 
-function makeReverbBus(ctx: AudioContext, dest: AudioNode): { send: GainNode; wet: GainNode } {
+function makeReverbBus(ctx: BaseAudioContext, dest: AudioNode): { send: GainNode; wet: GainNode } {
   const send = ctx.createGain()
   send.gain.value = 1
   const hp = ctx.createBiquadFilter()
@@ -716,7 +733,7 @@ function makeReverbBus(ctx: AudioContext, dest: AudioNode): { send: GainNode; we
   return { send, wet }
 }
 
-function makeKickBus(ctx: AudioContext, dest: AudioNode): AudioNode {
+function makeKickBus(ctx: BaseAudioContext, dest: AudioNode): AudioNode {
   const body = ctx.createBiquadFilter()
   body.type = 'peaking'
   body.frequency.value = 230
@@ -731,7 +748,7 @@ function makeKickBus(ctx: AudioContext, dest: AudioNode): AudioNode {
   return body
 }
 
-function bakeWheelTick(ctx: AudioContext): AudioBuffer {
+function bakeWheelTick(ctx: BaseAudioContext): AudioBuffer {
   return renderBuffer(ctx, 0.034, (data, sr) => {
     let ping = 0
     let thud = 0
@@ -805,7 +822,6 @@ export function getOrCreateRhythmKit(): RhythmKit | null {
     sharedKit = new RhythmKit(ctx)
     if (previous) {
       sharedKit.setMix(previous.getMix())
-      sharedKit.setMasterVolume(previous.getVolumeDb())
       sharedKit.setPerformance(previous.styleId, previous.intensity)
     }
     void sharedKit.unlock()
@@ -837,17 +853,19 @@ function exposeDrumDebug(): void {
         brightnessDb: kit?.brightnessDb ?? null,
         loadedLayers: kit?.loadedLayerCount() ?? 0,
         scheduled: kit?.scheduledVoices() ?? [],
-        baseLatencyMs: kit ? Math.round(kit.ctx.baseLatency * 1000) : null,
+        baseLatencyMs:
+          kit && 'baseLatency' in kit.ctx ? Math.round((kit.ctx.baseLatency as number) * 1000) : null,
         outputLatencyMs:
           kit && 'outputLatency' in kit.ctx ? Math.round((kit.ctx.outputLatency as number) * 1000) : null,
         voices: kit ? kit.voiceIds() : [],
+        probeMasterPeaks,
       }
     },
   })
 }
 
 export class RhythmKit {
-  readonly ctx: AudioContext
+  readonly ctx: BaseAudioContext
   intensity: KitIntensity = DEFAULT_KIT_INTENSITY
   styleId: RhythmStyleId = DEFAULT_INTENSITY_STYLE
   brightnessDb = 0
@@ -862,7 +880,6 @@ export class RhythmKit {
   private readonly layers: LayerBank = {}
   private readonly rr = new Map<string, number>()
   private mix: KitMix = { ...DEFAULT_KIT_MIX }
-  private volumeDb = DEFAULT_MASTER_VOLUME_DB
   private openHats: HatVoice[] = []
   private closedHat: HatVoice | null = null
   private closedHatTimes: number[] = []
@@ -873,12 +890,14 @@ export class RhythmKit {
   private gainRestoreTimer = 0
   private readonly ready: Promise<void>
 
-  constructor(ctx: AudioContext) {
+  constructor(ctx: BaseAudioContext) {
     this.ctx = ctx
     this.master = ctx.createGain()
-    this.master.gain.value = this.playbackGain()
-    const wall = makeBrickwall(ctx, LIMITER_CEILING)
-    this.master.connect(wall)
+    this.master.gain.value = MASTER_GAIN
+    const limiter = makePeakLimiter(ctx)
+    const wall = makeBrickwall(ctx, MASTER_CEILING)
+    this.master.connect(limiter)
+    limiter.connect(wall)
     wall.connect(ctx.destination)
     this.color = ctx.createBiquadFilter()
     this.color.type = 'highshelf'
@@ -887,9 +906,9 @@ export class RhythmKit {
     this.color.gain.value = 0
     this.color.connect(this.master)
     this.kickBus = makeKickBus(ctx, this.color)
-    const room = makeReverbBus(ctx, ctx.destination)
+    const room = makeReverbBus(ctx, limiter)
     this.reverbSend = room.send
-    this.reverbSend.gain.value = this.playbackGain()
+    this.reverbSend.gain.value = MASTER_GAIN
     this.reverbWet = room.wet
     this.drums = bakeSynthDrums(ctx)
     this.clicks = bakeClicks(ctx)
@@ -904,7 +923,7 @@ export class RhythmKit {
       .catch(() => undefined)
   }
 
-  static async create(ctx: AudioContext): Promise<RhythmKit> {
+  static async create(ctx: BaseAudioContext): Promise<RhythmKit> {
     const kit = new RhythmKit(ctx)
     await kit.ready
     return kit
@@ -945,7 +964,12 @@ export class RhythmKit {
     }
   }
 
+  whenReady(): Promise<void> {
+    return this.ready
+  }
+
   async unlock(): Promise<void> {
+    if (typeof OfflineAudioContext !== 'undefined' && this.ctx instanceof OfflineAudioContext) return
     await resumeSharedAudioContext()
   }
 
@@ -1019,29 +1043,6 @@ export class RhythmKit {
 
   getMix(): KitMix {
     return { ...this.mix }
-  }
-
-  getVolumeDb(): number {
-    return this.volumeDb
-  }
-
-  setMasterVolume(db: number): void {
-    this.volumeDb = clampKitDb(db, DEFAULT_MASTER_VOLUME_DB)
-    const gain = this.playbackGain()
-    const now = this.ctx.currentTime
-    try {
-      this.master.gain.cancelScheduledValues(now)
-      this.master.gain.setValueAtTime(gain, now)
-      this.reverbSend.gain.cancelScheduledValues(now)
-      this.reverbSend.gain.setValueAtTime(gain, now)
-    } catch {
-      this.master.gain.value = gain
-      this.reverbSend.gain.value = gain
-    }
-  }
-
-  private playbackGain(): number {
-    return MASTER_GAIN * dbToGain(this.volumeDb)
   }
 
   hit(voice: VoiceId, time: number, role: HitRole = 'normal', play: DrumPlayOpts = {}): void {
@@ -1144,7 +1145,7 @@ export class RhythmKit {
     this.openHats = []
     this.closedHat = null
     this.closedHatTimes = []
-    const restore = this.playbackGain()
+    const restore = MASTER_GAIN
     try {
       this.reverbWet.gain.cancelScheduledValues(now)
       this.reverbWet.gain.setValueAtTime(REVERB_RETURN, now)
@@ -1311,4 +1312,78 @@ export class RhythmKit {
   private pruneHatState(now: number): void {
     this.closedHatTimes = this.closedHatTimes.filter((time) => time > now - 16)
   }
+}
+
+function peakDbFromBuffer(buffer: AudioBuffer): number {
+  let peak = 0
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+    const data = buffer.getChannelData(channel)
+    for (let i = 0; i < data.length; i += 1) {
+      const abs = Math.abs(data[i] ?? 0)
+      if (abs > peak) peak = abs
+    }
+  }
+  if (peak <= 1e-9) return -120
+  return 20 * Math.log10(peak)
+}
+
+const MAX_MIX: KitMix = {
+  kick: KIT_MIX_MAX_DB,
+  snare: KIT_MIX_MAX_DB,
+  cymbals: KIT_MIX_MAX_DB,
+  toms: KIT_MIX_MAX_DB,
+}
+
+async function renderOfflinePeak(seconds: number, run: (kit: RhythmKit) => void): Promise<number> {
+  const ctx = new OfflineAudioContext(2, Math.max(1, Math.ceil(48000 * seconds)), 48000)
+  const kit = new RhythmKit(ctx)
+  await kit.whenReady()
+  kit.setPerformance('rock', 'high')
+  kit.setMix(MAX_MIX)
+  run(kit)
+  return peakDbFromBuffer(await ctx.startRendering())
+}
+
+export type MasterPeakReport = {
+  ceilingDb: number
+  stackedDrumsDb: number
+  rockIntenseDb: number
+  clicks: Record<ClickSoundId, number>
+  maxDb: number
+}
+
+/** Offline render of Intense + faders-up drums and accented clicks through the live master chain. */
+export async function probeMasterPeaks(): Promise<MasterPeakReport> {
+  const stackedDrumsDb = await renderOfflinePeak(2.2, (kit) => {
+    const when = 0.04
+    for (const voice of VOICES) {
+      kit.hit(voice, when, voice === 'snare' ? 'backbeat' : 'normal')
+    }
+  })
+
+  const rockIntenseDb = await renderOfflinePeak(3.2, (kit) => {
+    const preset = findPreset('rock-44')
+    const bar = preset ? barsForPreset(preset)[0] : undefined
+    if (!bar) return
+    const realized = realizeDrumBar(bar, 'high')
+    for (const ev of realized.hits) {
+      const when = 0.04 + hitTimeInBar(ev.hit, 120, bar.beatUnit)
+      kit.hit(ev.voice, when, ev.role, {
+        vel: ev.vel,
+        tier: ev.tier,
+        blendTier: ev.blendTier,
+        blendMix: ev.blendMix,
+      })
+    }
+  })
+
+  const clicks = {} as Record<ClickSoundId, number>
+  for (const sound of CLICK_SOUNDS) {
+    clicks[sound] = await renderOfflinePeak(1.1, (kit) => {
+      kit.click(0.04, 2, sound, true)
+    })
+  }
+
+  const maxDb = Math.max(stackedDrumsDb, rockIntenseDb, ...Object.values(clicks))
+  return { ceilingDb: MASTER_CEILING_DB, stackedDrumsDb, rockIntenseDb, clicks, maxDb }
 }

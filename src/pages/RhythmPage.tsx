@@ -143,7 +143,6 @@ export function RhythmPage() {
   const [saveAsNew, setSaveAsNew] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [kitMix, setKitMix] = useState<KitMix>(prefs.kitMix)
-  const [volumeDb, setVolumeDb] = useState(prefs.volumeDb)
   const [kitIntensity, setKitIntensity] = useState<KitIntensity>(prefs.kitIntensity)
   const [playing, setPlaying] = useState(false)
   const [recorderOpen, setRecorderOpen] = useState(() => {
@@ -304,7 +303,6 @@ export function RhythmPage() {
     bars,
     clickSound,
     kitMix,
-    volumeDb,
     kitIntensity,
     kitStyle: kitStyleId,
     speedBuilder,
@@ -351,7 +349,6 @@ export function RhythmPage() {
         drumBarIndex,
         presetId: matched?.id ?? presetId,
         kitMix,
-        volumeDb,
         kitIntensity,
         speedBuilder,
         userBeatId,
@@ -368,7 +365,6 @@ export function RhythmPage() {
     bpm,
     kitIntensity,
     kitMix,
-    volumeDb,
     matched?.id,
     mode,
     presetId,
@@ -1089,11 +1085,9 @@ export function RhythmPage() {
                 playing={playing}
                 mode={mode}
                 speedBuilder={speedBuilder}
-                volumeDb={volumeDb}
                 onSpeedBuilder={setSpeedBuilder}
                 onBpm={changeBpm}
                 onTap={tapTempo}
-                onVolume={setVolumeDb}
               />
 
               <section
@@ -1256,11 +1250,9 @@ export function RhythmPage() {
                 playing={playing}
                 mode={mode}
                 speedBuilder={speedBuilder}
-                volumeDb={volumeDb}
                 onSpeedBuilder={setSpeedBuilder}
                 onBpm={changeBpm}
                 onTap={tapTempo}
-                onVolume={setVolumeDb}
               />
               <section
                 className="rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1.5"

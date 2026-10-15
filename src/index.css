@@ -492,56 +492,6 @@ html.drum-editor-open [data-listen-panel] {
   display: none;
 }
 
-.kit-fader-channel[data-volume='true'] {
-  --kit-fader-name-h: 0.92rem;
-  --kit-fader-track-h: auto;
-  --kit-fader-foot-h: 0.9rem;
-  --kit-fader-cap-half: 0.32rem;
-  --kit-fader-slot-w: 0.4rem;
-  --kit-fader-cap-w: 1.22rem;
-  --kit-fader-cap-h: 0.64rem;
-  position: relative;
-  width: 2.15rem;
-  height: 100%;
-  min-height: 100%;
-  align-self: stretch;
-  padding: 0;
-}
-
-.kit-fader-channel[data-volume='true'] .kit-fader-well {
-  flex: 1 1 auto;
-  height: auto;
-  min-height: 5.6rem;
-}
-
-@media (min-width: 768px) {
-  .kit-fader-channel[data-volume='true'] {
-    --kit-fader-cap-half: 0.4rem;
-    --kit-fader-slot-w: 0.5rem;
-    --kit-fader-cap-w: 1.42rem;
-    --kit-fader-cap-h: 0.8rem;
-    width: 2.35rem;
-  }
-
-  .kit-fader-channel[data-volume='true'] .kit-fader-well {
-    min-height: 6.4rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .kit-fader-channel[data-volume='true'] {
-    --kit-fader-cap-half: 0.44rem;
-    --kit-fader-slot-w: 0.54rem;
-    --kit-fader-cap-w: 1.5rem;
-    --kit-fader-cap-h: 0.88rem;
-    width: 2.45rem;
-  }
-
-  .kit-fader-channel[data-volume='true'] .kit-fader-well {
-    min-height: 7.2rem;
-  }
-}
-
 .kit-fader-channel:focus-visible {
   outline: 2px solid #a855f7;
   outline-offset: 2px;

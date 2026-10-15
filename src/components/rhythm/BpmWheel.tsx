@@ -404,7 +404,7 @@ export function BpmWheel({ value, onChange, compact = false }: BpmWheelProps) {
           }}
           className={cn(
             'bpm-wheel relative select-none rounded-[26px] p-[5px] outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7]/70',
-            compact ? 'h-[152px] w-[68px]' : 'h-[164px] w-[72px]',
+            compact ? 'h-[176px] w-[76px]' : 'h-[176px] w-[76px]',
           )}
           onKeyDown={(event) => {
             if (editing) return

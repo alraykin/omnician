@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 
 import { DEFAULT_INTENSITY_STYLE, DEFAULT_KIT_INTENSITY, type HitRole, type KitIntensity } from '@/lib/kit-intensity'
 import { realizeDrumBar } from '@/lib/kit-intensity-play'
-import { DEFAULT_KIT_MIX, DEFAULT_MASTER_VOLUME_DB, type KitMix } from '@/lib/kit-mix'
+import { DEFAULT_KIT_MIX, type KitMix } from '@/lib/kit-mix'
 import { noteTransportStop, onCaptureStarting } from '@/lib/audio-context'
 import { claimListenPreview } from '@/lib/listen-preview'
 import {
@@ -132,7 +132,6 @@ export function useRhythmEngine({
   bars,
   clickSound,
   kitMix = DEFAULT_KIT_MIX,
-  volumeDb = DEFAULT_MASTER_VOLUME_DB,
   kitIntensity = DEFAULT_KIT_INTENSITY,
   kitStyle = DEFAULT_INTENSITY_STYLE,
   speedBuilder = DEFAULT_SPEED_BUILDER,
@@ -149,7 +148,6 @@ export function useRhythmEngine({
   bars: readonly RhythmBar[]
   clickSound: ClickSoundId
   kitMix?: KitMix
-  volumeDb?: number
   kitIntensity?: KitIntensity
   kitStyle?: RhythmStyleId
   speedBuilder?: SpeedBuilder
@@ -186,7 +184,6 @@ export function useRhythmEngine({
   const liveModeRef = useRef(mode)
   const liveBarsRef = useRef(bars)
   const kitMixRef = useRef(kitMix)
-  const volumeDbRef = useRef(volumeDb)
   const intensityRef = useRef(kitIntensity)
   const styleRef = useRef(kitStyle)
   const speedBuilderRef = useRef(speedBuilder)
@@ -216,7 +213,6 @@ export function useRhythmEngine({
   pendingModeRef.current = mode
   pendingBarsRef.current = bars
   kitMixRef.current = kitMix
-  volumeDbRef.current = volumeDb
   intensityRef.current = kitIntensity
   styleRef.current = kitStyle
   speedBuilderRef.current = speedBuilder
@@ -244,7 +240,6 @@ export function useRhythmEngine({
     const kit = getOrCreateRhythmKit()
     if (!kit) return null
     kit.setMix(kitMixRef.current)
-    kit.setMasterVolume(volumeDbRef.current)
     kit.setPerformance(styleRef.current, intensityRef.current)
     kitRef.current = kit
     return kit
@@ -347,10 +342,6 @@ export function useRhythmEngine({
   useEffect(() => {
     kitRef.current?.setMix(kitMix)
   }, [kitMix])
-
-  useEffect(() => {
-    kitRef.current?.setMasterVolume(volumeDb)
-  }, [volumeDb])
 
   useLayoutEffect(() => {
     kitRef.current?.setPerformance(kitStyle, kitIntensity)
@@ -774,7 +765,8 @@ export function useRhythmEngine({
         const observed = watchClock(clockWatchRef.current, audioTime, performance.now())
         if (observed.frozen && !freezeResumeRef.current) {
           freezeResumeRef.current = true
-          void kit.ctx.resume().catch(() => undefined)
+          const live = kit.ctx as AudioContext
+          if (typeof live.resume === 'function') void live.resume().catch(() => undefined)
         }
         const now = observed.frozen ? observed.virtualNow : audioTime
         const rebased = rebaseNoteTime(nextTimeRef.current, now, START_LEAD_SEC, observed.frozen)
@@ -993,10 +985,12 @@ export function useRhythmEngine({
       barIndex: index,
       precount: sbPhaseRef.current === 'precount',
       playing: playingRef.current,
-      outputLatency:
-        ctx && typeof ctx.outputLatency === 'number' && ctx.outputLatency > 0
-          ? ctx.outputLatency
-          : ctx?.baseLatency ?? 0,
+      outputLatency: (() => {
+        if (!ctx) return 0
+        const live = ctx as AudioContext
+        if (typeof live.outputLatency === 'number' && live.outputLatency > 0) return live.outputLatency
+        return live.baseLatency ?? 0
+      })(),
     }
   }, [])
 

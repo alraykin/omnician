@@ -10,7 +10,6 @@ import {
   KIT_MIX_MIN_DB,
   clampKitDb,
   formatKitDb,
-  formatMasterVolume,
   mixDbToPos,
   mixPosToDb,
   type KitGroupId,
@@ -73,44 +72,6 @@ export function KitFaders({ mix, intensity, onChange, onIntensityChange }: KitFa
   )
 }
 
-export function VolumeFader({
-  db,
-  onChange,
-}: {
-  db: number
-  onChange: (db: number) => void
-}) {
-  const [held, setHeld] = useState(false)
-  const readout = formatMasterVolume(db)
-
-  return (
-    <>
-      <MixFader
-        id="volume"
-        label="Volume"
-        pos={mixDbToPos(db)}
-        held={held}
-        compact
-        readout={readout}
-        ariaValueMin={KIT_MIX_MIN_DB}
-        ariaValueMax={KIT_MIX_MAX_DB}
-        ariaValueNow={Math.round(db * 10) / 10}
-        ariaValueText={`${readout}, ${formatKitDb(db)}`}
-        onChangePos={(pos) => onChange(mixPosToDb(pos))}
-        onNudge={(delta, large) => onChange(clampKitDb(db + (large ? 0.25 : 0.5) * delta))}
-        onHome={() => onChange(KIT_MIX_MAX_DB)}
-        onEnd={() => onChange(KIT_MIX_MIN_DB)}
-        onReset={() => onChange(0)}
-        onHoldStart={() => setHeld(true)}
-        onHoldEnd={() => setHeld(false)}
-      />
-      {held && typeof document !== 'undefined'
-        ? createPortal(<MixFaderZoom label="Volume" pos={mixDbToPos(db)} readout={readout} />, document.body)
-        : null}
-    </>
-  )
-}
-
 function snapTo(pos: number, snaps?: number[]): number {
   const clamped = Math.min(1, Math.max(0, pos))
   if (!snaps?.length) return clamped
@@ -128,7 +89,6 @@ function MixFader({
   label,
   pos,
   held,
-  compact = false,
   readout,
   ariaValueMin,
   ariaValueMax,
@@ -148,7 +108,6 @@ function MixFader({
   label: string
   pos: number
   held: boolean
-  compact?: boolean
   readout: string
   ariaValueMin: number
   ariaValueMax: number
@@ -217,7 +176,6 @@ function MixFader({
       ref={channelRef}
       className="kit-fader-channel"
       data-kit-fader={id}
-      data-volume={compact ? 'true' : undefined}
       data-section={id === 'intensity' ? 'kit-intensity' : undefined}
       data-kit-intensity={id === 'intensity' ? readout.toLowerCase() : undefined}
       data-held={held ? 'true' : 'false'}
