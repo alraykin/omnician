@@ -82,8 +82,8 @@ export function CountStrip({
                   data-count={mark.kind}
                   {...(slot === 0 ? { 'data-beat-label': beat + 1 } : {})}
                   className={cn(
-                    'min-w-0 flex-1 truncate text-center text-[0.62rem] font-semibold tabular-nums leading-none',
-                    mark.kind === 'beat' ? 'text-slate-200' : 'text-slate-400',
+                    'min-w-0 flex-1 truncate text-left text-[0.62rem] font-semibold tabular-nums leading-none text-slate-200',
+                    slot === 0 ? 'pl-0.5' : 'text-transparent',
                   )}
                 >
                   {mark.text}

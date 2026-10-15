@@ -1,23 +1,15 @@
 import { type InputDivision } from '@/lib/beat-boxes'
 
-/** Syllables after the beat number, aligned to the input grid. */
-const SUB_SYLLABLES: Record<InputDivision, readonly string[]> = {
-  2: ['&'],
-  3: ['trip', 'let'],
-  4: ['e', '&', 'a'],
-  6: ['trip', 'let', 'trip', 'let', ''],
-  8: ['', 'e', '', '&', '', 'a', ''],
-}
-
 export type CountKind = 'beat' | 'sub'
 
+/** Beat numbers only — subdivision syllables (e & a) stay off the grid. */
 export function countMark(
   beat: number,
   slot: number,
-  input: InputDivision,
+  _input?: InputDivision,
 ): { text: string; kind: CountKind } {
   if (slot <= 0) return { text: String(beat + 1), kind: 'beat' }
-  return { text: SUB_SYLLABLES[input][slot - 1] ?? '', kind: 'sub' }
+  return { text: '', kind: 'sub' }
 }
 
 export type GridLineKind = 'bar' | 'beat' | 'sub'
