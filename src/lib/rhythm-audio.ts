@@ -123,7 +123,7 @@ const SAMPLE_GAIN: Record<VoiceId, number> = {
  * loud as possible without going above MASTER_CEILING_DB.
  */
 export const MASTER_CEILING_DB = -0.3
-export const MASTER_GAIN_DB = 5.4
+export const MASTER_GAIN_DB = 6.5
 const MASTER_GAIN = Math.pow(10, MASTER_GAIN_DB / 20)
 const MASTER_CEILING = Math.pow(10, MASTER_CEILING_DB / 20)
 
