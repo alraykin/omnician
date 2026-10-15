@@ -67,7 +67,7 @@ export function CountStrip({
   return (
     <div
       data-count-strip
-      className="grid h-[1.15rem] min-w-0 items-end"
+      className="grid h-[1.25rem] min-w-0 items-end pb-0.5"
       style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
     >
       {Array.from({ length: beats }, (_, index) => {
@@ -82,8 +82,8 @@ export function CountStrip({
                   data-count={mark.kind}
                   {...(slot === 0 ? { 'data-beat-label': beat + 1 } : {})}
                   className={cn(
-                    'min-w-0 flex-1 truncate text-center text-[0.52rem] font-semibold tabular-nums leading-none',
-                    mark.kind === 'beat' ? 'text-slate-300' : 'text-slate-500',
+                    'min-w-0 flex-1 truncate text-center text-[0.62rem] font-semibold tabular-nums leading-none',
+                    mark.kind === 'beat' ? 'text-slate-200' : 'text-slate-400',
                   )}
                 >
                   {mark.text}

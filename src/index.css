@@ -953,10 +953,10 @@ html.drum-editor-open [data-drum-editor] {
 
 /* Flat DAW drum grid — thin lines, diamonds on the line, generous hit areas. */
 [data-drum-flat] {
-  --grid-sub: rgba(148, 163, 184, 0.16);
-  --grid-beat: rgba(203, 213, 225, 0.4);
-  --grid-bar: rgba(241, 245, 249, 0.7);
-  --grid-row: rgba(148, 163, 184, 0.14);
+  --grid-sub: rgba(148, 163, 184, 0.2);
+  --grid-beat: rgba(226, 232, 240, 0.48);
+  --grid-bar: rgba(248, 250, 252, 0.82);
+  --grid-row: rgba(148, 163, 184, 0.16);
 }
 
 [data-drum-flat] [data-count-strip] {

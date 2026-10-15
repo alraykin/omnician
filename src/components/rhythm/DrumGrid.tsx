@@ -161,7 +161,7 @@ function KitBlock({
     >
       <div
         data-kit-labels
-        className="grid w-[3.85rem] shrink-0 grid-rows-[1.15rem_repeat(14,minmax(2rem,1fr))] sm:w-[4.4rem] md:w-[5.1rem]"
+        className="grid w-[3.85rem] shrink-0 grid-rows-[1.25rem_repeat(14,minmax(2rem,1fr))] sm:w-[4.4rem] md:w-[5.1rem]"
       >
         <div aria-hidden />
         {VOICES.map((voice) => {
@@ -185,7 +185,7 @@ function KitBlock({
       </div>
       <div data-kit-block-track className="relative min-w-0 flex-1">
         <div
-          className="grid min-w-0 grid-rows-[1.15rem_repeat(14,minmax(2rem,1fr))]"
+          className="grid min-w-0 grid-rows-[1.25rem_repeat(14,minmax(2rem,1fr))]"
           style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}
         >
           <CountStrip beats={block.count} beatOffset={block.start} input={input} columns={columns} />

@@ -362,7 +362,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
       data-moving={moving ? '1' : '0'}
       data-bar-count={bars.length}
       onContextMenu={(event) => event.preventDefault()}
-      className={cn(HOLD_NUDGE_CLASS, 'flex min-h-0 min-w-0 flex-1')}
+      className={cn(HOLD_NUDGE_CLASS, 'flex h-full min-h-0 min-w-0 flex-1')}
       onPointerDown={startPaint}
       onClick={(event) => event.preventDefault()}
       onPointerMove={(event) => {
@@ -469,7 +469,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
       ) : null}
       <div
         data-editor-labels
-        className="grid w-[4.4rem] shrink-0 grid-rows-[1.15rem_repeat(14,minmax(0,1fr))] bg-[#0B0F1A] pr-1.5"
+        className="grid h-full w-[4.4rem] shrink-0 grid-rows-[1.25rem_repeat(14,minmax(0,1fr))] bg-[#0B0F1A] pr-1.5"
       >
         <div aria-hidden />
         {VOICES.map((voice) => {
@@ -494,7 +494,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
       <div ref={trackRef} data-editor-track className="relative min-h-0 min-w-0 flex-1 overflow-x-visible overflow-y-hidden">
         <div
           data-editor-bar-page={shown}
-          className="grid h-full min-h-0 w-full grid-rows-[1.15rem_repeat(14,minmax(0,1fr))]"
+          className="grid h-full min-h-0 w-full grid-rows-[1.25rem_repeat(14,minmax(0,1fr))]"
         >
           <CountStrip beats={bar.beats} input={input} />
           {VOICES.map((voice) => {
