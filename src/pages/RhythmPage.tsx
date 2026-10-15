@@ -69,7 +69,6 @@ import {
   type InputDivision,
 } from '@/lib/beat-boxes'
 import { onCaptureStarting, preparePlaybackFromGesture } from '@/lib/audio-context'
-import { requestRawMic } from '@/lib/mic-capture'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
 import {
@@ -493,17 +492,6 @@ export function RhythmPage() {
     const avg = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length
     setBpm(clampBpm(60000 / avg))
     setTempoNote(null)
-  }
-
-  const openListen = () => {
-    if (playing) {
-      halt('listen-open')
-      setPlaying(false)
-    }
-    const micPromise = requestRawMic()
-    setListenSeed(null)
-    setListenOpen(true)
-    void getTempoListener().startMic(micPromise)
   }
 
   const applyDetectedTempo = (next: number, note: string) => {
@@ -1024,7 +1012,6 @@ export function RhythmPage() {
                 onSpeedBuilder={setSpeedBuilder}
                 onBpm={changeBpm}
                 onTap={tapTempo}
-                onListen={openListen}
                 onVolume={setVolumeDb}
               />
 
@@ -1191,7 +1178,6 @@ export function RhythmPage() {
                 onSpeedBuilder={setSpeedBuilder}
                 onBpm={changeBpm}
                 onTap={tapTempo}
-                onListen={openListen}
                 onVolume={setVolumeDb}
               />
               <section
@@ -1467,7 +1453,6 @@ export function RhythmPage() {
           onCloseLibrary={() => setPickerOpen(false)}
           onBpm={changeBpm}
           onTapTempo={tapTempo}
-          onListen={openListen}
         />
       ) : null}
 

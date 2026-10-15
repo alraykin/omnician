@@ -54,7 +54,6 @@ export function DrumEditorOverlay({
   onCloseLibrary,
   onBpm,
   onTapTempo,
-  onListen,
 }: {
   beatName: string
   bpm: number
@@ -95,7 +94,6 @@ export function DrumEditorOverlay({
   onCloseLibrary: () => void
   onBpm: (next: number, tick?: boolean) => void
   onTapTempo: () => void
-  onListen: () => void
 }) {
   const portrait = usePortraitViewport()
   const [mixerOpen, setMixerOpen] = useState(false)
@@ -284,10 +282,6 @@ export function DrumEditorOverlay({
               liveBpm={liveBpm || bpm}
               onBpm={onBpm}
               onTap={onTapTempo}
-              onListen={() => {
-                setTempoOpen(false)
-                onListen()
-              }}
               onClose={() => setTempoOpen(false)}
             />
           ) : null}

@@ -201,7 +201,7 @@ assert.match(overlaySrc, /data-editor-bpm/)
 assert.match(overlaySrc, /onOpenLibrary/)
 assert.match(overlaySrc, /EditorTempoSheet/)
 assert.match(overlaySrc, /onTapTempo/)
-assert.match(overlaySrc, /onListen/)
+assert.doesNotMatch(overlaySrc, /onListen/)
 assert.match(pageSrc, /editorLibrary/)
 assert.match(pageSrc, /compact=\{editorOpen\}/)
 assert.match(pageSrc, /data-beat-library-sheet/)
@@ -215,7 +215,7 @@ assert.match(
   readFileSync(new URL('../src/components/rhythm/EditorTempoSheet.tsx', import.meta.url), 'utf8'),
   /BpmWheel compact/,
 )
-assert.match(
+assert.doesNotMatch(
   readFileSync(new URL('../src/components/rhythm/EditorTempoSheet.tsx', import.meta.url), 'utf8'),
   /data-listen/,
 )

@@ -1,4 +1,4 @@
-import { Mic, Minus, Plus, X } from 'lucide-react'
+import { Minus, Plus, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 
 import { BpmWheel } from '@/components/rhythm/BpmWheel'
@@ -10,14 +10,12 @@ export function EditorTempoSheet({
   liveBpm,
   onBpm,
   onTap,
-  onListen,
   onClose,
 }: {
   bpm: number
   liveBpm: number
   onBpm: (next: number, tick?: boolean) => void
   onTap: () => void
-  onListen: () => void
   onClose: () => void
 }) {
   if (typeof document === 'undefined') return null
@@ -61,52 +59,41 @@ export function EditorTempoSheet({
           </button>
         </div>
         <BpmWheel compact value={bpm} onChange={(next) => onBpm(next, true)} />
-        <div data-tempo-taps className="flex w-[7.1rem] shrink-0 flex-col gap-0.5">
-          <div className="grid w-full grid-cols-3 gap-0.5">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label="Slower by 5"
-              className="h-8 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
-              {...activateOnPointer(() => onBpm(bpm - 5, true))}
-            >
-              <Minus className="size-3" />
-              5
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              data-tap
-              className="h-8 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
-              {...activateOnPointer(onTap)}
-            >
-              Tap
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label="Faster by 5"
-              className="h-8 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
-              {...activateOnPointer(() => onBpm(bpm + 5, true))}
-            >
-              <Plus className="size-3" />
-              5
-            </Button>
-          </div>
+        <div
+          data-tempo-taps
+          className="grid w-[7.1rem] shrink-0 grid-cols-3 gap-0.5 self-center"
+        >
           <Button
             type="button"
             variant="outline"
             size="sm"
-            data-listen
-            aria-label="Listen for tempo"
-            className="h-8 w-full min-w-0 gap-1 px-1.5 text-[0.7rem] touch-manipulation"
-            {...activateOnPointer(onListen)}
+            aria-label="Slower by 5"
+            className="h-9 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
+            {...activateOnPointer(() => onBpm(bpm - 5, true))}
           >
-            <Mic className="size-3" />
-            Listen
+            <Minus className="size-3" />
+            5
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-tap
+            className="h-9 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
+            {...activateOnPointer(onTap)}
+          >
+            Tap
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-label="Faster by 5"
+            className="h-9 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
+            {...activateOnPointer(() => onBpm(bpm + 5, true))}
+          >
+            <Plus className="size-3" />
+            5
           </Button>
         </div>
       </div>

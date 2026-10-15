@@ -1,4 +1,4 @@
-import { Minus, Plus, Mic } from 'lucide-react'
+import { Minus, Plus } from 'lucide-react'
 
 import { BpmWheel } from '@/components/rhythm/BpmWheel'
 import { VolumeFader } from '@/components/rhythm/KitFaders'
@@ -18,7 +18,6 @@ export function RhythmTempoCard({
   onSpeedBuilder,
   onBpm,
   onTap,
-  onListen,
   onVolume,
 }: {
   bpm: number
@@ -30,7 +29,6 @@ export function RhythmTempoCard({
   onSpeedBuilder: (next: SpeedBuilder) => void
   onBpm: (next: number, tick?: boolean) => void
   onTap: () => void
-  onListen: () => void
   onVolume: (db: number) => void
 }) {
   const showLive = playing && speedBuilder.enabled
@@ -63,53 +61,39 @@ export function RhythmTempoCard({
           />
           <div
             data-tempo-taps
-            className="relative z-20 flex w-full flex-col gap-0.5 self-end"
+            className="relative z-20 grid w-full grid-cols-3 gap-0.5"
           >
-            <div className="grid w-full grid-cols-3 gap-0.5">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-label="Slower by 5"
-                className="h-7 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
-                {...activateOnPointer(() => onBpm(bpm - 5, true))}
-              >
-                <Minus className="size-3" />
-                5
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                data-tap
-                className="h-7 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
-                {...activateOnPointer(onTap)}
-              >
-                Tap
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-label="Faster by 5"
-                className="h-7 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
-                {...activateOnPointer(() => onBpm(bpm + 5, true))}
-              >
-                <Plus className="size-3" />
-                5
-              </Button>
-            </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              data-listen
-              aria-label="Listen for tempo"
-              className="h-7 w-full min-w-0 gap-1 px-1.5 text-[0.7rem] touch-manipulation"
-              {...activateOnPointer(onListen)}
+              aria-label="Slower by 5"
+              className="h-8 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
+              {...activateOnPointer(() => onBpm(bpm - 5, true))}
             >
-              <Mic className="size-3" />
-              Listen
+              <Minus className="size-3" />
+              5
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-tap
+              className="h-8 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
+              {...activateOnPointer(onTap)}
+            >
+              Tap
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="Faster by 5"
+              className="h-8 w-full min-w-0 px-1 text-[0.7rem] touch-manipulation"
+              {...activateOnPointer(() => onBpm(bpm + 5, true))}
+            >
+              <Plus className="size-3" />
+              5
             </Button>
           </div>
         </div>
