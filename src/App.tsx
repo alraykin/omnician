@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
 
 import { AudioDebugOverlay } from '@/components/AudioDebugOverlay'
+import { PhonePortraitGuard } from '@/components/PhonePortraitGuard'
 import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { AudioLabPage } from '@/pages/AudioLabPage'
 import { HomePage } from '@/pages/HomePage'
@@ -23,6 +24,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AudioDebugGate />
+      <PhonePortraitGuard />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/tuner" element={<TunerPage />} />

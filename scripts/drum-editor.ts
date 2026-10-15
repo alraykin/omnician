@@ -154,7 +154,36 @@ assert.match(pageSrc, /DrumEditorOverlay/)
 assert.match(pageSrc, /moveHitAcrossBars/)
 assert.match(pageSrc, /factory\.visible/)
 assert.match(readFileSync(new URL('../src/lib/phone-viewport.ts', import.meta.url), 'utf8'), /orientation\.lock/)
+assert.match(readFileSync(new URL('../src/lib/phone-viewport.ts', import.meta.url), 'utf8'), /tryLockPortrait/)
+assert.match(readFileSync(new URL('../src/lib/phone-viewport.ts', import.meta.url), 'utf8'), /tryLock\('portrait'\)/)
+assert.match(readFileSync(new URL('../src/lib/phone-viewport.ts', import.meta.url), 'utf8'), /setDrumEditorOpen/)
 assert.match(overlaySrc, /tryLockLandscape/)
+assert.match(overlaySrc, /setDrumEditorOpen\(true\)/)
+assert.match(
+  readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+  /PhonePortraitGuard/,
+)
+assert.match(
+  readFileSync(new URL('../src/components/PhonePortraitGuard.tsx', import.meta.url), 'utf8'),
+  /data-rotate-back/,
+)
+assert.match(
+  readFileSync(new URL('../src/components/PhonePortraitGuard.tsx', import.meta.url), 'utf8'),
+  /Rotate your phone back/,
+)
+assert.match(
+  readFileSync(new URL('../src/components/PhonePortraitGuard.tsx', import.meta.url), 'utf8'),
+  /tryLockPortrait/,
+)
+assert.match(
+  readFileSync(new URL('../src/components/PhonePortraitGuard.tsx', import.meta.url), 'utf8'),
+  /editorOpen/,
+)
+assert.match(
+  readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8'),
+  /"orientation": "portrait"/,
+)
+assert.match(cssSrc, /phone-rotate-back/)
 assert.match(overlaySrc, /data-rotate-hint/)
 assert.match(overlaySrc, /Back to Drums/)
 assert.match(overlaySrc, /data-editor-mixer/)

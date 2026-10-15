@@ -14,7 +14,12 @@ import { usePortraitViewport } from '@/hooks/usePhoneViewport'
 import { type InputDivision } from '@/lib/beat-boxes'
 import { type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
-import { readPortraitViewport, tryLockLandscape, unlockOrientation } from '@/lib/phone-viewport'
+import {
+  readPortraitViewport,
+  setDrumEditorOpen,
+  tryLockLandscape,
+  unlockOrientation,
+} from '@/lib/phone-viewport'
 import { MAX_BARS, type BeatUnit, type RhythmBar, type VoiceId } from '@/lib/rhythm'
 import { activateOnPointer, cn } from '@/lib/utils'
 
@@ -108,9 +113,11 @@ export function DrumEditorOverlay({
   useEffect(() => {
     const html = document.documentElement
     html.classList.add('drum-editor-open')
+    setDrumEditorOpen(true)
     void tryLockLandscape()
     return () => {
       html.classList.remove('drum-editor-open')
+      setDrumEditorOpen(false)
       unlockOrientation()
     }
   }, [])

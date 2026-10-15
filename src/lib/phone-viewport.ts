@@ -34,18 +34,27 @@ export function subscribeViewport(onChange: () => void): () => void {
   }
 }
 
-export async function tryLockLandscape(): Promise<'locked' | 'unsupported'> {
+async function tryLock(lock: 'portrait' | 'landscape'): Promise<'locked' | 'unsupported'> {
   if (typeof screen === 'undefined') return 'unsupported'
   const orientation = screen.orientation as ScreenOrientation & {
     lock?: (lock: string) => Promise<void>
   }
   if (typeof orientation?.lock !== 'function') return 'unsupported'
   try {
-    await orientation.lock('landscape')
+    await orientation.lock(lock)
     return 'locked'
   } catch {
     return 'unsupported'
   }
+}
+
+/** Installed PWAs that support the Screen Orientation API. Safari iOS usually rejects this. */
+export function tryLockPortrait(): Promise<'locked' | 'unsupported'> {
+  return tryLock('portrait')
+}
+
+export function tryLockLandscape(): Promise<'locked' | 'unsupported'> {
+  return tryLock('landscape')
 }
 
 export function unlockOrientation() {
@@ -53,5 +62,25 @@ export function unlockOrientation() {
     screen.orientation?.unlock?.()
   } catch {
     /* iOS and some desktop browsers reject unlock */
+  }
+}
+
+let drumEditorOpen = false
+const editorListeners = new Set<() => void>()
+
+export function setDrumEditorOpen(open: boolean) {
+  if (drumEditorOpen === open) return
+  drumEditorOpen = open
+  editorListeners.forEach((fn) => fn())
+}
+
+export function readDrumEditorOpen(): boolean {
+  return drumEditorOpen
+}
+
+export function subscribeDrumEditorOpen(onChange: () => void): () => void {
+  editorListeners.add(onChange)
+  return () => {
+    editorListeners.delete(onChange)
   }
 }

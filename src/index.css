@@ -110,6 +110,13 @@ html.drum-editor-open [data-drum-editor] {
   touch-action: manipulation;
 }
 
+html.phone-rotate-back,
+html.phone-rotate-back body,
+html.phone-rotate-back #root {
+  overflow: hidden;
+  touch-action: none;
+}
+
 html.drum-editor-open [data-beat-library-sheet],
 html.drum-editor-open [data-editor-tempo-sheet],
 html.drum-editor-open [data-listen-panel] {
