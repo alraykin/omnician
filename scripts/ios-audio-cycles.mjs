@@ -145,7 +145,7 @@ async function main() {
     await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded', timeout: 15000 })
   }
 
-  await go('/rhythm?mode=click&debug=audio')
+  await go('/click?debug=audio')
   await page.waitForSelector('[data-audio-debug="on"]', { timeout: 8000 })
   assert.equal(await page.locator('[data-listen]').count(), 0, 'Click has no Listen control')
   assert.equal(await page.locator('[data-listen-panel]').count(), 0, 'Listen sheet is not mounted')
@@ -153,20 +153,20 @@ async function main() {
 
   for (let i = 0; i < CYCLES; i += 1) {
     await go('/tuner?debug=audio')
-    await go('/rhythm?mode=click&debug=audio')
+    await go('/click?debug=audio')
     if (i % 5 === 4) {
       await page.evaluate(() => {
         document.dispatchEvent(new Event('visibilitychange'))
         window.dispatchEvent(new Event('pagehide'))
         window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))
       })
-      await go('/rhythm?mode=drums&debug=audio')
-      await go('/rhythm?mode=click&debug=audio')
+      await go('/drums?debug=audio')
+      await go('/click?debug=audio')
     }
     if ((i + 1) % 10 === 0) console.log(`nav ${i + 1}/${CYCLES}`)
   }
 
-  await page.goto(`${BASE}/rhythm?mode=click&debug=audio`, {
+  await page.goto(`${BASE}/click?debug=audio`, {
     waitUntil: 'domcontentloaded',
     timeout: 15000,
   })
@@ -213,7 +213,7 @@ async function main() {
 
   // Click Play/Stop → Tuner → Click Play
   for (let round = 0; round < 3; round += 1) {
-    await go('/rhythm?mode=click&debug=audio')
+    await go('/click?debug=audio')
     await click('[data-transport="play"]')
     await click('[data-transport="play"]')
     await click('[data-tab="tuner"]')

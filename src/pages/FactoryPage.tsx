@@ -12,7 +12,7 @@ export function FactoryPage() {
 
   useEffect(() => {
     void fetchFactorySession().then((ok) => {
-      if (ok) navigate('/rhythm?mode=drums', { replace: true })
+      if (ok) navigate('/drums', { replace: true })
     })
   }, [navigate])
 
@@ -23,7 +23,7 @@ export function FactoryPage() {
     const result = await factoryLogin(password)
     setBusy(false)
     if (result.ok) {
-      navigate('/rhythm?mode=drums', { replace: true })
+      navigate('/drums', { replace: true })
       return
     }
     setError(result.error)

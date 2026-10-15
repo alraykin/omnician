@@ -24,13 +24,13 @@ export const HOME_TOOLS: readonly HomeTool[] = [
     id: 'click',
     name: 'Click',
     blurb: 'A metronome you can lock into.',
-    to: '/rhythm?mode=click',
+    to: '/click',
   },
   {
     id: 'drums',
     name: 'Drums',
     blurb: 'Play a groove at your tempo.',
-    to: '/rhythm?mode=drums',
+    to: '/drums',
   },
 ]
 

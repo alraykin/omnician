@@ -11,6 +11,8 @@ import { RhythmPage } from '@/pages/RhythmPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { SilentLabPage } from '@/pages/SilentLabPage'
 import { TunerPage } from '@/pages/TunerPage'
+import { legacyRhythmLocation } from '@/lib/tool-routes'
+import type { RhythmMode } from '@/lib/rhythm'
 
 function AudioDebugGate() {
   const [params] = useSearchParams()
@@ -18,6 +20,11 @@ function AudioDebugGate() {
   if (pathname === '/audio-lab' || pathname === '/lab/silent') return null
   if (params.get('debug') !== 'audio') return null
   return <AudioDebugOverlay />
+}
+
+function LegacyRhythmRedirect({ force }: { force?: RhythmMode }) {
+  const [params] = useSearchParams()
+  return <Navigate to={legacyRhythmLocation(params.toString(), force)} replace />
 }
 
 export default function App() {
@@ -29,10 +36,14 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/tuner" element={<TunerPage />} />
         <Route path="/tuner/*" element={<TunerPage />} />
-        <Route path="/rhythm" element={<RhythmPage />} />
-        <Route path="/rhythm/*" element={<RhythmPage />} />
-        <Route path="/metronome" element={<Navigate to="/rhythm?mode=click" replace />} />
-        <Route path="/drum-machine" element={<Navigate to="/rhythm?mode=drums" replace />} />
+        <Route element={<RhythmPage />}>
+          <Route path="/click" element={null} />
+          <Route path="/drums" element={null} />
+        </Route>
+        <Route path="/rhythm" element={<LegacyRhythmRedirect />} />
+        <Route path="/rhythm/*" element={<LegacyRhythmRedirect />} />
+        <Route path="/metronome" element={<LegacyRhythmRedirect force="click" />} />
+        <Route path="/drum-machine" element={<LegacyRhythmRedirect force="drums" />} />
         <Route path="/audio-lab" element={<AudioLabPage />} />
         <Route path="/lab/silent" element={<SilentLabPage />} />
         <Route path="/settings" element={<SettingsPage />} />

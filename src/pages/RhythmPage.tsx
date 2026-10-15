@@ -1,7 +1,7 @@
 import { Check, ChevronDown, FileUp, GripVertical, Pencil, Play, Plus, Redo2, Square, Trash2, Undo2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
 import { FactoryEditorBar, FactoryHistorySheet, FactoryNameSheet } from '@/components/FactoryEditorBar'
@@ -111,6 +111,7 @@ import {
   type UserBeat,
 } from '@/lib/user-beats'
 import { type SpeedBuilder, type SpeedBuilderCue } from '@/lib/speed-builder'
+import { modeFromPath, toolPath } from '@/lib/tool-routes'
 import {
   getRhythmStyles,
   barsForPreset,
@@ -123,13 +124,11 @@ import {
 } from '@/lib/rhythm-presets'
 
 export function RhythmPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
   const prefs = useMemo(() => loadRhythmPrefs(), [])
-  const urlMode = searchParams.get('mode')
+  const mode: RhythmMode = modeFromPath(location.pathname) ?? prefs.mode
   const [bpm, setBpm] = useState(prefs.bpm)
-  const [mode, setMode] = useState<RhythmMode>(
-    urlMode === 'drums' || urlMode === 'click' ? urlMode : prefs.mode,
-  )
   const [clickSound, setClickSound] = useState<ClickSoundId>(prefs.clickSound)
   const [clickBars, setClickBars] = useState<RhythmBar[]>(prefs.clickBars)
   const [drumBars, setDrumBars] = useState<RhythmBar[]>(prefs.drumBars)
@@ -391,19 +390,21 @@ export function RhythmPage() {
     if (!portrait) setEditorOpen(true)
   }, [mode, phone, portrait])
 
+  const goMode = useCallback(
+    (next: RhythmMode) => {
+      if (next === mode) return
+      navigate({ pathname: toolPath(next), search: location.search }, { replace: true })
+    },
+    [location.search, mode, navigate],
+  )
+
+  const modeRef = useRef(mode)
   useEffect(() => {
-    if (urlMode === 'click' || urlMode === 'drums') {
-      if (urlMode !== mode) {
-        setAccentEdit(false)
-        setPickerBeat(null)
-        setMode(urlMode)
-      }
-      return
-    }
-    const params = new URLSearchParams(searchParams)
-    params.set('mode', mode)
-    setSearchParams(params, { replace: true })
-  }, [urlMode, mode, searchParams, setSearchParams])
+    if (modeRef.current === mode) return
+    modeRef.current = mode
+    setAccentEdit(false)
+    setPickerBeat(null)
+  }, [mode])
 
   const setGroupMix = (group: KitGroupId, db: number) => {
     setKitMix((currentMix) => ({ ...currentMix, [group]: db }))
@@ -750,14 +751,14 @@ export function RhythmPage() {
 
   const openRecorder = useCallback(() => {
     if (!RECORDER_ENABLED) return
-    if (mode !== 'drums') setMode('drums')
+    if (mode !== 'drums') goMode('drums')
     if (playing) {
       halt('recorder-open')
       setPlaying(false)
     }
     setRecording(false)
     setRecorderOpen(true)
-  }, [halt, mode, playing])
+  }, [goMode, halt, mode, playing])
 
   const closeRecorder = useCallback(() => {
     if (recording || playing) {
@@ -957,11 +958,11 @@ export function RhythmPage() {
     }
     if (query.get('library') === '1') setPickerOpen(true)
     if (query.get('editor') === '1' || query.get('editorLibrary') === '1' || query.get('editorTempo') === '1') {
-      setMode('drums')
+      goMode('drums')
       setEditorOpen(true)
     }
     if (query.get('clickPresets') === '1') {
-      setMode('click')
+      goMode('click')
       setClickPresetsOpen(true)
     }
     if (query.get('editorLibrary') === '1') setPickerOpen(true)
@@ -977,7 +978,7 @@ export function RhythmPage() {
       setDraftNew(true)
       setImportedName('Beat boxes')
       setDrumInput(DEFAULT_DRUM_INPUT)
-      setMode('drums')
+      goMode('drums')
     }
     if (query.get('ghost') === '1') {
       const preset = findPreset('rock-44')
@@ -993,7 +994,7 @@ export function RhythmPage() {
         setUserBeatId(null)
         setDraftNew(false)
         setImportedName(null)
-        setMode('drums')
+        goMode('drums')
         setDrumInput(4)
       }
     }
@@ -1013,7 +1014,7 @@ export function RhythmPage() {
           setUserBeatId(null)
           setDraftNew(false)
           setImportedName(null)
-          setMode('drums')
+          goMode('drums')
         }
       }
     }

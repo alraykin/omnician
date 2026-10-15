@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 import { TunerLink } from '@/components/TunerLink'
 import { releaseAllCapture } from '@/lib/audio-context'
 import { getTempoListener } from '@/lib/tempo-listen'
 import { primeRhythmKit } from '@/lib/rhythm-audio'
+import { CLICK_PATH, DRUMS_PATH, TUNER_PATH } from '@/lib/tool-routes'
 import { leaveTunerPage } from '@/lib/tuner-session'
 import { cn } from '@/lib/utils'
 
@@ -18,15 +19,16 @@ const TABS: {
   prime?: () => void
 }[] = [
   { id: 'home', label: 'Home', to: '/' },
-  { id: 'tuner', label: 'Tuner', to: '/tuner' },
-  { id: 'click', label: 'Click', to: '/rhythm?mode=click', prime: primeRhythmKit },
-  { id: 'drums', label: 'Drums', to: '/rhythm?mode=drums', prime: primeRhythmKit },
+  { id: 'tuner', label: 'Tuner', to: TUNER_PATH },
+  { id: 'click', label: 'Click', to: CLICK_PATH, prime: primeRhythmKit },
+  { id: 'drums', label: 'Drums', to: DRUMS_PATH, prime: primeRhythmKit },
 ]
 
-function activeTab(pathname: string, mode: string | null): TabId {
-  if (pathname.startsWith('/tuner')) return 'tuner'
-  if (pathname.startsWith('/rhythm') || pathname === '/metronome' || pathname === '/drum-machine') {
-    return mode === 'drums' ? 'drums' : 'click'
+function activeTab(pathname: string): TabId {
+  if (pathname.startsWith(TUNER_PATH)) return 'tuner'
+  if (pathname.startsWith(DRUMS_PATH) || pathname === '/drum-machine') return 'drums'
+  if (pathname.startsWith(CLICK_PATH) || pathname === '/metronome' || pathname.startsWith('/rhythm')) {
+    return 'click'
   }
   return 'home'
 }
@@ -47,8 +49,7 @@ export function AppTabBar({
   className?: string
 }) {
   const location = useLocation()
-  const [params] = useSearchParams()
-  const current = activeTab(location.pathname, params.get('mode'))
+  const current = activeTab(location.pathname)
   const currentLabel = TABS.find((tab) => tab.id === current)?.label ?? 'Omnician'
 
   return (
