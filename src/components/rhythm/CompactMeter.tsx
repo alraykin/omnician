@@ -158,16 +158,28 @@ export function CompactMeter({
   beats,
   beatUnit,
   onChange,
+  compact = false,
 }: {
   beats: number
   beatUnit: BeatUnit
   onChange: (beats: number, beatUnit: BeatUnit) => void
+  compact?: boolean
 }) {
   const unitIndex = BEAT_UNITS.indexOf(beatUnit)
 
   return (
-    <div data-section="meter" className="flex items-center justify-between gap-2">
-      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">Meter</p>
+    <div
+      data-section="meter"
+      className={cn('flex items-center gap-2', compact ? 'justify-start' : 'justify-between')}
+    >
+      <p
+        className={cn(
+          'font-semibold uppercase tracking-[0.16em] text-slate-500',
+          compact ? 'text-[0.58rem] tracking-[0.12em]' : 'text-[0.65rem]',
+        )}
+      >
+        Meter
+      </p>
       <div className="flex items-center gap-1.5" data-meter={`${beats}/${beatUnit}`}>
         <Stepper
           label="beats"

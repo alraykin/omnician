@@ -1,10 +1,11 @@
-import { Check, ChevronDown, FileUp, GripVertical, Pencil, Play, Plus, Square, Trash2, X } from 'lucide-react'
+import { Check, ChevronDown, FileUp, GripVertical, Pencil, Play, Plus, Redo2, Square, Trash2, Undo2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
 import { FactoryEditorBar, FactoryHistorySheet, FactoryNameSheet } from '@/components/FactoryEditorBar'
+import { ClickPresetChip, ClickPresetsSheet } from '@/components/rhythm/ClickPresets'
 import { ClickSoundPicker } from '@/components/rhythm/ClickSoundPicker'
 import { BarStrip } from '@/components/rhythm/BarStrip'
 import { type BarMenuAction } from '@/components/rhythm/BarMenu'
@@ -80,6 +81,24 @@ import {
 } from '@/lib/auto-complete'
 import { loadRhythmPrefs, saveRhythmPrefs } from '@/lib/rhythm-prefs'
 import {
+  createClickPreset,
+  deleteClickPreset,
+  findClickPreset,
+  loadClickPresetStore,
+  nextClickPresetName,
+  renameClickPreset,
+  saveClickPresetStore,
+  upsertClickPreset,
+  type ClickPresetStore,
+} from '@/lib/click-presets'
+import {
+  captureDrumSnapshot,
+  emptyDrumHistory,
+  pushDrumHistory,
+  redoDrumHistory,
+  undoDrumHistory,
+} from '@/lib/drum-history'
+import {
   barsEqual,
   createUserBeat,
   deleteUserBeat,
@@ -154,12 +173,14 @@ export function RhythmPage() {
   const midiFileRef = useRef<HTMLInputElement>(null)
   const tapTimes = useRef<number[]>([])
   const [clipBar, setClipBar] = useState<RhythmBar | null>(null)
-  const [drumUndo, setDrumUndo] = useState<{
-    bars: RhythmBar[]
-    index: number
-    fillVariant: number
-  } | null>(null)
   const [fillVariant, setFillVariant] = useState(0)
+  const [clickPresetStore, setClickPresetStore] = useState<ClickPresetStore>(() => loadClickPresetStore())
+  const [clickPresetsOpen, setClickPresetsOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return new URLSearchParams(window.location.search).get('clickPresets') === '1'
+  })
+  const historyRef = useRef(emptyDrumHistory())
+  const [historyUi, setHistoryUi] = useState({ undo: 0, redo: 0 })
   const [autoConfirm, setAutoConfirm] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const phone = usePhoneViewport()
@@ -168,13 +189,17 @@ export function RhythmPage() {
 
   useEffect(() => subscribeRhythmStyles(() => setStyleTick((value) => value + 1)), [])
 
+  const drumHistoryResetRef = useRef(() => {})
   const factory = useFactoryEditor({
     mode,
     presetId,
     bpm,
     drumBars,
     setBpm,
-    setDrumBars,
+    setDrumBars: (next) => {
+      drumHistoryResetRef.current()
+      setDrumBars(next)
+    },
     setDrumBarIndex,
     setPresetId,
     setUserBeatId,
@@ -210,6 +235,68 @@ export function RhythmPage() {
               ? `${savedPreset.name} · edited`
               : 'Custom beat'
   const needsSave = draftNew || userDirty || edited
+  const loadedClickPreset = findClickPreset(clickPresetStore, clickPresetStore.loadedId)
+  const clickSnap = {
+    bpm,
+    clickSound,
+    bars: clickBars,
+    speedBuilder,
+  }
+
+  const drumSessionRef = useRef({
+    bars: drumBars,
+    index: drumBarIndex,
+    fillVariant,
+    drumInput,
+  })
+  drumSessionRef.current = { bars: drumBars, index: drumBarIndex, fillVariant, drumInput }
+
+  const snapshotNow = () =>
+    captureDrumSnapshot(
+      drumSessionRef.current.bars,
+      drumSessionRef.current.index,
+      drumSessionRef.current.fillVariant,
+      drumSessionRef.current.drumInput,
+    )
+
+  const rememberDrums = () => {
+    historyRef.current = pushDrumHistory(historyRef.current, snapshotNow())
+    setHistoryUi({ undo: historyRef.current.past.length, redo: historyRef.current.future.length })
+  }
+
+  const resetDrumHistory = () => {
+    historyRef.current = emptyDrumHistory()
+    setHistoryUi({ undo: 0, redo: 0 })
+  }
+  drumHistoryResetRef.current = resetDrumHistory
+
+  const applyDrumSnapshot = (snapshot: ReturnType<typeof captureDrumSnapshot>) => {
+    setDrumBars(snapshot.bars.map(cloneBar))
+    setDrumBarIndex(snapshot.barIndex)
+    setFillVariant(snapshot.fillVariant)
+    setDrumInput(snapshot.drumInput)
+  }
+
+  const undoDrums = () => {
+    const result = undoDrumHistory(historyRef.current, snapshotNow())
+    if (!result) return
+    historyRef.current = result.history
+    setHistoryUi({ undo: result.history.past.length, redo: result.history.future.length })
+    applyDrumSnapshot(result.snapshot)
+  }
+
+  const redoDrums = () => {
+    const result = redoDrumHistory(historyRef.current, snapshotNow())
+    if (!result) return
+    historyRef.current = result.history
+    setHistoryUi({ undo: result.history.past.length, redo: result.history.future.length })
+    applyDrumSnapshot(result.snapshot)
+  }
+
+  const persistClickPresets = (next: ClickPresetStore) => {
+    setClickPresetStore(next)
+    saveClickPresetStore(next)
+  }
 
   useEffect(() => {
     if (mode !== 'click' || pickerBeat === null) return
@@ -339,14 +426,23 @@ export function RhythmPage() {
 
   const setMeter = (beats: number, beatUnit: BeatUnit) => {
     if (!current) return
+    if (current.beats === beats && current.beatUnit === beatUnit) return
+    if (mode === 'drums') rememberDrums()
     patchBar(barIndex, updateBarMeter(current, beats, beatUnit, current.subdivision))
     if (mode === 'drums') markDrumEdit()
   }
 
   const setSubdivision = (subdivision: SubdivisionId) => {
+    if (mode === 'drums') rememberDrums()
     setBars((currentBars) => currentBars.map((bar) => setBarSubdivision(bar, subdivision)))
     if (mode === 'drums') markDrumEdit()
     setPickerBeat(null)
+  }
+
+  const changeDrumInput = (next: InputDivision) => {
+    if (next === drumInput) return
+    rememberDrums()
+    setDrumInput(next)
   }
 
   const loadPreset = (id: string) => {
@@ -365,10 +461,12 @@ export function RhythmPage() {
     setImportedName(null)
     setImportNote(null)
     setPickerOpen(false)
+    resetDrumHistory()
   }
 
   const addBar = () => {
     if (bars.length >= MAX_BARS || !current) return
+    if (mode === 'drums') rememberDrums()
     const next = cloneBar(current)
     next.beatAccents = defaultBeatAccents(next.beats, next.beatUnit)
     setBars((currentBars) => [...currentBars, next])
@@ -377,24 +475,21 @@ export function RhythmPage() {
 
   const removeBar = (index: number) => {
     if (bars.length <= 1) return
+    if (mode === 'drums') rememberDrums()
     const next = bars.filter((_, item) => item !== index)
     setBars(next)
     setBarIndex(Math.min(index, next.length - 1))
   }
 
   const applyDrumBars = (next: RhythmBar[], index: number) => {
+    rememberDrums()
     setDrumBars(next.map(cloneBar))
     setDrumBarIndex(Math.min(Math.max(0, index), next.length - 1))
     markDrumEdit()
   }
 
-  const snapshotDrums = () => {
-    setDrumUndo({ bars: drumBars.map(cloneBar), index: drumBarIndex, fillVariant })
-  }
-
   const runAutoComplete = () => {
     if (seedBars(drumBars).length === 0) return
-    snapshotDrums()
     setFillVariant(0)
     const next = autoCompleteBars(drumBars, 0)
     applyDrumBars(next, next.length - 1)
@@ -412,18 +507,9 @@ export function RhythmPage() {
 
   const retryFill = () => {
     if (drumBars.length < MAX_BARS || seedBars(drumBars).length === 0) return
-    snapshotDrums()
     const nextVariant = nextFillVariant(fillVariant)
     setFillVariant(nextVariant)
     applyDrumBars(replaceFillBar(drumBars, nextVariant), MAX_BARS - 1)
-  }
-
-  const undoDrums = () => {
-    if (!drumUndo) return
-    setDrumBars(drumUndo.bars.map(cloneBar))
-    setDrumBarIndex(drumUndo.index)
-    setFillVariant(drumUndo.fillVariant)
-    setDrumUndo(null)
   }
 
   const onDrumBarMenu = (index: number, action: BarMenuAction) => {
@@ -517,20 +603,17 @@ export function RhythmPage() {
   const onToggleCell = useCallback(
     (targetBar: number, voice: VoiceId, beat: number, slot: number, on: boolean, playPreview: boolean) => {
       const target = hitForInputSlot(beat, slot, drumInput)
+      const barsNow = drumSessionRef.current.bars
+      const bar = barsNow[targetBar]
+      if (!bar || beat < 0 || beat >= bar.beats) return
+      const nextPattern = setHitPos(bar.pattern, voice, target, on)
+      if (nextPattern === bar.pattern) return
+      rememberDrums()
       if (playPreview) preview(voice, 'normal')
-      let changed = false
-      setDrumBars((currentBars) => {
-        const bar = currentBars[targetBar]
-        if (!bar) return currentBars
-        if (beat < 0 || beat >= bar.beats) return currentBars
-        const nextPattern = setHitPos(bar.pattern, voice, target, on)
-        if (nextPattern === bar.pattern) return currentBars
-        changed = true
-        return currentBars.map((item, index) =>
-          index === targetBar ? { ...item, pattern: nextPattern } : item,
-        )
-      })
-      if (changed && !draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
+      setDrumBars(
+        barsNow.map((item, index) => (index === targetBar ? { ...item, pattern: nextPattern } : item)),
+      )
+      if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
     },
     [draftNew, drumInput, matched?.id, presetId, preview, userBeatId],
   )
@@ -548,33 +631,30 @@ export function RhythmPage() {
     ) => {
       const from = hitForInputSlot(fromBeat, fromSlot, drumInput)
       const to = hitForInputSlot(toBeat, toSlot, drumInput)
+      const barsNow = drumSessionRef.current.bars
+      const destBar = barsNow[toBarIndex] ?? barsNow[targetBar]
+      if (!destBar || toBeat < 0 || toBeat >= destBar.beats) return
       let destSoft = false
-      let changed = false
-      setDrumBars((currentBars) => {
-        const destBar = currentBars[toBarIndex] ?? currentBars[targetBar]
-        if (!destBar) return currentBars
-        if (toBeat < 0 || toBeat >= destBar.beats) return currentBars
-        if (toBarIndex === targetBar) {
-          const bar = currentBars[targetBar]
-          if (!bar) return currentBars
-          const nextPattern = moveHitPos(bar.pattern, fromVoice, from, toVoice, to)
-          if (nextPattern === bar.pattern) return currentBars
-          changed = true
-          destSoft = (nextPattern[toVoice] ?? []).some((hit) => sameHit(hit, to) && isHitSoft(hit))
-          return currentBars.map((item, index) =>
-            index === targetBar ? { ...item, pattern: nextPattern } : item,
-          )
-        }
-        const next = moveHitAcrossBars(currentBars, targetBar, fromVoice, from, toBarIndex, toVoice, to)
-        if (next === currentBars) return currentBars
-        changed = true
+      let nextBars: RhythmBar[] | null = null
+      if (toBarIndex === targetBar) {
+        const bar = barsNow[targetBar]
+        if (!bar) return
+        const nextPattern = moveHitPos(bar.pattern, fromVoice, from, toVoice, to)
+        if (nextPattern === bar.pattern) return
+        destSoft = (nextPattern[toVoice] ?? []).some((hit) => sameHit(hit, to) && isHitSoft(hit))
+        nextBars = barsNow.map((item, index) =>
+          index === targetBar ? { ...item, pattern: nextPattern } : item,
+        )
+      } else {
+        const next = moveHitAcrossBars(barsNow, targetBar, fromVoice, from, toBarIndex, toVoice, to)
+        if (next === barsNow) return
         destSoft = (next[toBarIndex]?.pattern[toVoice] ?? []).some((hit) => sameHit(hit, to) && isHitSoft(hit))
-        return next
-      })
-      if (changed) {
-        preview(toVoice, destSoft ? 'ghost' : 'normal')
-        if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
+        nextBars = next
       }
+      rememberDrums()
+      setDrumBars(nextBars)
+      preview(toVoice, destSoft ? 'ghost' : 'normal')
+      if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
     },
     [draftNew, drumInput, matched?.id, presetId, preview, userBeatId],
   )
@@ -582,25 +662,18 @@ export function RhythmPage() {
   const onToggleSoft = useCallback(
     (targetBar: number, voice: VoiceId, beat: number, slot: number) => {
       const target = hitForInputSlot(beat, slot, drumInput)
-      let nextSoft = false
-      let changed = false
-      setDrumBars((currentBars) => {
-        const bar = currentBars[targetBar]
-        if (!bar) return currentBars
-        if (beat < 0 || beat >= bar.beats) return currentBars
-        const nextPattern = placeOrToggleSoft(bar.pattern, voice, target)
-        if (nextPattern === bar.pattern) return currentBars
-        const placed = (nextPattern[voice] ?? []).find((hit) => sameHit(hit, target))
-        nextSoft = Boolean(placed && isHitSoft(placed))
-        changed = true
-        return currentBars.map((item, index) =>
-          index === targetBar ? { ...item, pattern: nextPattern } : item,
-        )
-      })
-      if (changed) {
-        preview(voice, nextSoft ? 'ghost' : 'normal')
-        if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
-      }
+      const barsNow = drumSessionRef.current.bars
+      const bar = barsNow[targetBar]
+      if (!bar || beat < 0 || beat >= bar.beats) return
+      const nextPattern = placeOrToggleSoft(bar.pattern, voice, target)
+      if (nextPattern === bar.pattern) return
+      const placed = (nextPattern[voice] ?? []).find((hit) => sameHit(hit, target))
+      rememberDrums()
+      setDrumBars(
+        barsNow.map((item, index) => (index === targetBar ? { ...item, pattern: nextPattern } : item)),
+      )
+      preview(voice, placed && isHitSoft(placed) ? 'ghost' : 'normal')
+      if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
     },
     [draftNew, drumInput, matched?.id, presetId, preview, userBeatId],
   )
@@ -670,6 +743,25 @@ export function RhythmPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [recorderOpen, startStop])
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (mode !== 'drums') return
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        target.closest('input, textarea, select, [contenteditable="true"]')
+      ) {
+        return
+      }
+      event.preventDefault()
+      if (event.shiftKey) redoDrums()
+      else undoDrums()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [mode])
+
   const recorderDemo = useMemo((): DrumRecorderDemo | undefined => {
     if (!RECORDER_ENABLED || typeof window === 'undefined') return undefined
     const query = new URLSearchParams(window.location.search)
@@ -733,6 +825,7 @@ export function RhythmPage() {
 
   const patchRecordBar = useCallback(
     (index: number, next: RhythmBar) => {
+      rememberDrums()
       setDrumBars((currentBars) =>
         currentBars.map((item, itemIndex) => (itemIndex === index ? next : item)),
       )
@@ -743,6 +836,7 @@ export function RhythmPage() {
 
   const replaceRecordBars = useCallback(
     (next: RhythmBar[]) => {
+      rememberDrums()
       setDrumBars(next.map(cloneBar))
       if (!draftNew && !userBeatId) setPresetId(matched?.id ?? presetId)
     },
@@ -752,6 +846,30 @@ export function RhythmPage() {
   const persistBeats = (next: UserBeat[]) => {
     setUserBeats(next)
     saveUserBeats(next)
+  }
+
+  const saveCurrentClickPreset = () => {
+    const preset = createClickPreset(nextClickPresetName(clickPresetStore.presets), clickSnap)
+    persistClickPresets(upsertClickPreset(clickPresetStore, preset))
+  }
+
+  const loadClickPresetById = (id: string) => {
+    const preset = findClickPreset(clickPresetStore, id)
+    if (!preset) return
+    setBpm(preset.bpm)
+    setClickSound(preset.clickSound)
+    setClickBars(preset.bars.map(cloneBar))
+    setClickBarIndex(0)
+    setSpeedBuilder({ ...preset.speedBuilder })
+    persistClickPresets({ ...clickPresetStore, loadedId: id })
+  }
+
+  const renameClickPresetById = (id: string, name: string) => {
+    persistClickPresets(renameClickPreset(clickPresetStore, id, name))
+  }
+
+  const deleteClickPresetById = (id: string) => {
+    persistClickPresets(deleteClickPreset(clickPresetStore, id))
   }
 
   const startNewBeat = useCallback((opts?: { keepBpm?: boolean }) => {
@@ -771,6 +889,7 @@ export function RhythmPage() {
     setRecordCountIn(true)
     setSpeedBuilder((current) => ({ ...current, precount: true }))
     setPickerOpen(false)
+    resetDrumHistory()
   }, [halt, playing])
 
   const startNewBeatAndRecord = useCallback(() => {
@@ -806,6 +925,7 @@ export function RhythmPage() {
         setImportedName(result.name)
         setImportNote(importNoteLine(result))
         setPickerOpen(false)
+        resetDrumHistory()
       } catch {
         setImportNote('Couldn’t read that MIDI file.')
       }
@@ -843,6 +963,7 @@ export function RhythmPage() {
     setImportedName(null)
     setImportNote(null)
     setPickerOpen(false)
+    resetDrumHistory()
   }
 
   const renameSaved = (id: string, name: string) => {
@@ -879,6 +1000,10 @@ export function RhythmPage() {
     if (query.get('editor') === '1' || query.get('editorLibrary') === '1' || query.get('editorTempo') === '1') {
       setMode('drums')
       setEditorOpen(true)
+    }
+    if (query.get('clickPresets') === '1') {
+      setMode('click')
+      setClickPresetsOpen(true)
     }
     if (query.get('editorLibrary') === '1') setPickerOpen(true)
     if (query.get('beatboxes') === '1') {
@@ -977,6 +1102,17 @@ export function RhythmPage() {
           currentBpm={bpm}
           seed={listenSeed}
         />
+        <ClickPresetsSheet
+          open={clickPresetsOpen}
+          snap={clickSnap}
+          presets={clickPresetStore.presets}
+          loadedId={clickPresetStore.loadedId}
+          onClose={() => setClickPresetsOpen(false)}
+          onSaveCurrent={saveCurrentClickPreset}
+          onLoad={loadClickPresetById}
+          onRename={renameClickPresetById}
+          onDelete={deleteClickPresetById}
+        />
         <div
           data-rhythm-scroll
           className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain [scrollbar-width:thin] [touch-action:pan-y] wide:overflow-x-clip wide:overflow-y-visible wide:overscroll-auto"
@@ -993,10 +1129,15 @@ export function RhythmPage() {
           ) : null}
 
           {mode === 'click' ? (
+          <div data-rhythm-mode="click" className="mt-1.5 flex flex-col gap-1.5">
+          <ClickPresetChip
+            name={loadedClickPreset?.name ?? 'Click presets'}
+            onOpen={() => setClickPresetsOpen(true)}
+          />
           <div
             data-rhythm-layout
             data-rhythm-mode="click"
-            className="mt-1.5 flex flex-col gap-1.5 wide:flex-row wide:items-start wide:gap-3 xl:gap-4"
+            className="flex flex-col gap-1.5 wide:flex-row wide:items-start wide:gap-3 xl:gap-4"
           >
             <div
               className="flex h-fit w-full shrink-0 flex-col gap-1.5 wide:w-[min(32.5rem,48%)] wide:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem]"
@@ -1157,6 +1298,7 @@ export function RhythmPage() {
             </section>
 
             </div>
+          </div>
           </div>
           ) : (
           <div
@@ -1340,20 +1482,34 @@ export function RhythmPage() {
                             Try another fill
                           </button>
                         ) : null}
-                        {drumUndo ? (
-                          <button
-                            type="button"
-                            data-auto-undo
-                            onClick={undoDrums}
-                            className="h-7 rounded-md bg-[#A855F7] px-2 text-[0.7rem] font-semibold text-white"
-                          >
-                            Undo
-                          </button>
-                        ) : null}
                       </>
                     ) : undefined
                   }
                 />
+              </div>
+              <div className="mb-1.5 flex items-center gap-1 phone:hidden" data-drum-history>
+                <button
+                  type="button"
+                  data-drum-undo
+                  aria-label="Undo"
+                  disabled={historyUi.undo <= 0}
+                  onClick={undoDrums}
+                  className="flex h-8 items-center gap-1 rounded-full border border-white/12 px-2.5 text-[0.72rem] font-semibold text-slate-100 disabled:opacity-30"
+                >
+                  <Undo2 className="size-3.5" />
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  data-drum-redo
+                  aria-label="Redo"
+                  disabled={historyUi.redo <= 0}
+                  onClick={redoDrums}
+                  className="flex h-8 items-center gap-1 rounded-full border border-white/12 px-2.5 text-[0.72rem] font-semibold text-slate-100 disabled:opacity-30"
+                >
+                  <Redo2 className="size-3.5" />
+                  Redo
+                </button>
               </div>
               <div className="phone:hidden">
                 <DrumBarStage
@@ -1362,7 +1518,7 @@ export function RhythmPage() {
                   playing={playing}
                   getClock={getTransportClock}
                   input={drumInput}
-                  onInput={setDrumInput}
+                  onInput={changeDrumInput}
                   onToggle={onToggleCell}
                   onToggleSoft={onToggleSoft}
                   onMoveHit={onMoveHit}
@@ -1438,7 +1594,7 @@ export function RhythmPage() {
           }}
           onClose={() => setEditorOpen(false)}
           onTogglePlay={() => void startStop()}
-          onInput={setDrumInput}
+          onInput={changeDrumInput}
           onMeter={setMeter}
           onSelectBar={chooseDrumBar}
           onAddBar={addBar}
@@ -1453,6 +1609,10 @@ export function RhythmPage() {
           onCloseLibrary={() => setPickerOpen(false)}
           onBpm={changeBpm}
           onTapTempo={tapTempo}
+          canUndo={historyUi.undo > 0}
+          canRedo={historyUi.redo > 0}
+          onUndo={undoDrums}
+          onRedo={redoDrums}
         />
       ) : null}
 

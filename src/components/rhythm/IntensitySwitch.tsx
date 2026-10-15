@@ -27,7 +27,7 @@ export function IntensitySwitch({
       data-intensity-mark={mark}
       className={cn(
         'grid grid-cols-2 rounded-full border border-white/12 bg-white/4 p-0.5',
-        compact ? 'h-9 min-w-[10.5rem]' : 'h-10',
+        compact ? 'h-8 min-w-[8.4rem]' : 'h-10',
       )}
     >
       {INTENSITY_MARKS.map((id) => {

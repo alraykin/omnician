@@ -1,4 +1,4 @@
-import { ChevronDown, LayoutGrid, Play, Square, X } from 'lucide-react'
+import { ChevronDown, LayoutGrid, Play, Redo2, SlidersHorizontal, Square, Undo2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -54,6 +54,10 @@ export function DrumEditorOverlay({
   onCloseLibrary,
   onBpm,
   onTapTempo,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: {
   beatName: string
   bpm: number
@@ -94,6 +98,10 @@ export function DrumEditorOverlay({
   onCloseLibrary: () => void
   onBpm: (next: number, tick?: boolean) => void
   onTapTempo: () => void
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
 }) {
   const portrait = usePortraitViewport()
   const [mixerOpen, setMixerOpen] = useState(false)
@@ -149,14 +157,14 @@ export function DrumEditorOverlay({
         <RotateHint beatName={beatName} onClose={onClose} />
       ) : (
         <>
-          <header className="flex shrink-0 items-center gap-1.5 px-1 pb-1">
+          <header className="flex shrink-0 items-center gap-1 px-1 pb-0.5">
             <button
               type="button"
               data-editor-done
               {...activateOnPointer(onClose)}
-              className="flex h-9 items-center gap-1 rounded-full px-2.5 text-[0.82rem] font-semibold text-slate-200"
+              className="flex h-8 items-center gap-0.5 rounded-full px-1.5 text-[0.78rem] font-semibold text-slate-200"
             >
-              <X className="size-4" />
+              <X className="size-3.5" />
               Done
             </button>
             <button
@@ -168,39 +176,33 @@ export function DrumEditorOverlay({
                 setMixerOpen(false)
                 onOpenLibrary()
               })}
-              className="min-w-0 flex-1 rounded-lg px-1 py-0.5 text-left hover:bg-white/6"
+              className="min-w-0 max-w-[9.5rem] shrink rounded-lg px-1 py-0.5 text-left hover:bg-white/6"
             >
-              <p className="text-[0.58rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Edit beat</p>
-              <p className="flex min-w-0 items-center gap-0.5 truncate text-[0.82rem] font-semibold leading-none text-white">
+              <p className="text-[0.52rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Edit beat</p>
+              <p className="flex min-w-0 items-center gap-0.5 truncate text-[0.78rem] font-semibold leading-none text-white">
                 <span className="truncate">{beatName}</span>
-                <ChevronDown className="size-3.5 shrink-0 text-slate-400" />
+                <ChevronDown className="size-3 shrink-0 text-slate-400" />
               </p>
             </button>
-            <IntensitySwitch compact value={kitIntensity} onChange={onIntensity} />
             <button
               type="button"
-              data-editor-mixer
-              aria-expanded={mixerOpen}
-              aria-pressed={mixerOpen}
-              {...activateOnPointer(() => setMixerOpen((open) => !open))}
-              className={cn(
-                'flex h-9 items-center rounded-full px-3 text-[0.72rem] font-semibold uppercase tracking-[0.12em]',
-                mixerOpen ? 'bg-[#A855F7] text-white' : 'border border-white/12 bg-white/4 text-slate-100',
-              )}
+              data-editor-undo
+              aria-label="Undo"
+              disabled={!canUndo}
+              {...activateOnPointer(onUndo)}
+              className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/14 text-slate-100 disabled:opacity-30"
             >
-              Mixer
+              <Undo2 className="size-3.5" />
             </button>
             <button
               type="button"
-              data-editor-play
-              {...activateOnPointer(onTogglePlay)}
-              className={cn(
-                'flex h-9 items-center gap-1.5 rounded-full px-3 text-[0.78rem] font-semibold',
-                playing ? 'bg-[#7F1D1D] text-white' : 'bg-[#A855F7] text-white',
-              )}
+              data-editor-redo
+              aria-label="Redo"
+              disabled={!canRedo}
+              {...activateOnPointer(onRedo)}
+              className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/14 text-slate-100 disabled:opacity-30"
             >
-              {playing ? <Square className="size-3.5 fill-current" /> : <Play className="size-3.5 fill-current" />}
-              {playing ? 'Stop' : 'Play'}
+              <Redo2 className="size-3.5" />
             </button>
             <button
               type="button"
@@ -213,21 +215,50 @@ export function DrumEditorOverlay({
                 setTempoOpen((open) => !open)
               })}
               className={cn(
-                'flex h-9 min-w-[4.2rem] items-center justify-end rounded-full px-3 text-[0.82rem] font-semibold tabular-nums',
-                tempoOpen ? 'bg-[#A855F7] text-white' : 'text-white hover:bg-white/8',
+                'flex h-8 shrink-0 items-center rounded-full px-2.5 text-[0.78rem] font-semibold tabular-nums',
+                tempoOpen ? 'bg-[#A855F7] text-white' : 'border border-white/12 bg-white/6 text-white',
               )}
             >
               {shownBpm} BPM
             </button>
+            {current ? (
+              <div className="min-w-0 shrink-0">
+                <CompactMeter compact beats={current.beats} beatUnit={current.beatUnit} onChange={onMeter} />
+              </div>
+            ) : null}
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              <IntensitySwitch compact value={kitIntensity} onChange={onIntensity} />
+              <button
+                type="button"
+                data-editor-mixer
+                aria-expanded={mixerOpen}
+                aria-pressed={mixerOpen}
+                {...activateOnPointer(() => setMixerOpen((open) => !open))}
+                className={cn(
+                  'flex h-8 items-center gap-1 rounded-full px-2.5 text-[0.68rem] font-semibold',
+                  mixerOpen ? 'bg-[#A855F7] text-white' : 'border border-white/12 bg-white/4 text-slate-100',
+                )}
+              >
+                <SlidersHorizontal className="size-3" />
+                Mixer
+              </button>
+              <button
+                type="button"
+                data-editor-play
+                aria-label={playing ? 'Stop' : 'Play'}
+                {...activateOnPointer(onTogglePlay)}
+                className={cn(
+                  'flex size-8 items-center justify-center rounded-xl',
+                  playing ? 'bg-[#E11D48] text-white' : 'bg-[#A855F7] text-white',
+                )}
+              >
+                {playing ? <Square className="size-3.5 fill-current" /> : <Play className="size-3.5 fill-current" />}
+              </button>
+            </div>
           </header>
 
           <div className="flex shrink-0 flex-wrap items-center gap-2 px-1 pb-1">
-            <DrumInputChips value={input} beatUnit={current?.beatUnit ?? 4} onChange={onInput} className="w-[14.5rem] shrink-0" />
-            {current ? (
-              <div className="min-w-0 shrink-0">
-                <CompactMeter beats={current.beats} beatUnit={current.beatUnit} onChange={onMeter} />
-              </div>
-            ) : null}
+            <DrumInputChips value={input} beatUnit={current?.beatUnit ?? 4} onChange={onInput} className="w-[13.5rem] shrink-0" />
             <div className="min-w-0 flex-1">
               <BarStrip
                 store={playheadStore}
