@@ -206,6 +206,11 @@ assert.match(overlaySrc, /onTapTempo/)
 assert.doesNotMatch(overlaySrc, /onListen/)
 assert.match(pageSrc, /editorLibrary/)
 assert.match(pageSrc, /compact=\{editorOpen\}/)
+assert.doesNotMatch(pageSrc, /headerTrailing/)
+assert.doesNotMatch(
+  readFileSync(new URL('../src/components/AppTabBar.tsx', import.meta.url), 'utf8'),
+  /data-header-trailing/,
+)
 assert.match(pageSrc, /data-beat-library-sheet/)
 assert.match(pageSrc, /data-library-layout/)
 assert.match(pageSrc, /z-\[90\]/)

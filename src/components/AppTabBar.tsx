@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
 import { TunerLink } from '@/components/TunerLink'
@@ -42,10 +41,8 @@ export function leaveForTab(next: TabId) {
 }
 
 export function AppTabBar({
-  trailing,
   className,
 }: {
-  trailing?: ReactNode
   className?: string
 }) {
   const location = useLocation()
@@ -113,11 +110,6 @@ export function AppTabBar({
           )
         })}
       </nav>
-      {trailing ? (
-        <div className="shrink-0 pr-1" data-header-trailing>
-          {trailing}
-        </div>
-      ) : null}
     </div>
   )
 }

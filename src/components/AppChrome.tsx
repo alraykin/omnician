@@ -13,7 +13,6 @@ type AppChromeProps = {
   /** Let Click/Drums use the leftover desktop width for the grid. */
   fluid?: boolean
   compact?: boolean
-  headerTrailing?: ReactNode
   /** Home hides the tool switcher. Tuner / Click / Drums keep it. */
   hideTabs?: boolean
 }
@@ -46,7 +45,6 @@ export function AppChrome({
   wide = false,
   fluid = false,
   compact = false,
-  headerTrailing,
   hideTabs = false,
 }: AppChromeProps) {
   const shell = fluid ? SHELL.fluid : wide ? SHELL.wide : SHELL.default
@@ -72,7 +70,7 @@ export function AppChrome({
             <HomeWordmarkLink compact={compact} />
           </div>
           <div className="min-w-0 flex-1">
-            <AppTabBar trailing={headerTrailing} />
+            <AppTabBar />
           </div>
           <SettingsGearButton />
         </header>

@@ -1044,11 +1044,6 @@ export function RhythmPage() {
       wide
       fluid
       compact
-      headerTrailing={
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-slate-400">
-          {liveMeter}
-        </p>
-      }
     >
       <div className="relative flex min-h-0 flex-1 flex-col wide:block">
         <SpeedBuilderPopup cue={tempoCue} />
