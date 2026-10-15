@@ -12,6 +12,7 @@ const audio = readFileSync(new URL('../src/lib/rhythm-audio.ts', import.meta.url
 assert.match(audio, /makePeakLimiter/)
 assert.match(audio, /MASTER_CEILING/)
 assert.match(audio, /probeMasterPeaks/)
+assert.match(audio, /level === 2 \? 0\.87/)
 assert.doesNotMatch(audio, /volumeDb/)
 assert.doesNotMatch(audio, /setMasterVolume/)
 assert.doesNotMatch(audio, /LIMITER_CEILING = Math\.pow\(10, -1 \/ 20\)/)

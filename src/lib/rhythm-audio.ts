@@ -982,8 +982,9 @@ export class RhythmKit {
     const pair = this.clicks[sound] ?? this.clicks.wood
     // Off/soft share the tick; strong uses the accent one-shot (timbre, not just louder).
     const buffer = level === 2 ? pair.accent : pair.normal
-    // Clicks stay dry (no send) through the static master + clipper.
-    const baseGain = level === 2 ? 0.55 : level === 1 ? 0.4 : 0.22
+    // Clicks stay dry (no send) through the limiter + brickwall. Accent gain is
+    // hot enough that the quietest voice (wood) still reaches MASTER_CEILING.
+    const baseGain = level === 2 ? 0.87 : level === 1 ? 0.63 : 0.35
     const baseRate = level === 1 ? 1.03 : 1
     // Within-beat pulses sit a little higher so they never match a main-beat click.
     const rate = onBeat ? baseRate : baseRate * 1.09
