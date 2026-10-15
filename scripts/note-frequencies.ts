@@ -1,7 +1,8 @@
 /**
  * Every preset string target, fork tone, and displayed Hz must follow
  * f = A4ref * 2^((midi-69)/12) with A4 = MIDI 69 and scientific octave
- * numbering (E2 = 82.41 Hz, A2 = 110 Hz, E4 = 329.63 Hz, B0 = 30.87 Hz).
+ * numbering (E0 = 20.60 Hz, E1 = 41.20 Hz, E2 = 82.41 Hz, A2 = 110 Hz,
+ * E4 = 329.63 Hz, E6 = 1318.51 Hz, C8 = 4186.01 Hz, B0 = 30.87 Hz).
  */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -9,7 +10,9 @@ import { readFileSync } from 'node:fs'
 import {
   A4_HZ,
   CONCERT_ANCHORS,
+  centsBetween,
   formatHz,
+  hzCents,
   midiFromNote,
   midiToFreq,
   pitchClassName,
@@ -43,16 +46,33 @@ for (const anchor of CONCERT_ANCHORS) {
 }
 
 note(Math.abs(midiToFreq(69, 440) - 440) < 1e-12, 'A4 MIDI 69 must be the A4 reference')
+note(midiFromNote(4, 0) === 16, 'midiFromNote(E, 0) must be 16')
+note(midiFromNote(4, 1) === 28, 'midiFromNote(E, 1) must be 28')
 note(midiFromNote(4, 2) === 40, 'midiFromNote(E, 2) must be 40')
 note(midiFromNote(9, 2) === 45, 'midiFromNote(A, 2) must be 45')
 note(midiFromNote(4, 4) === 64, 'midiFromNote(E, 4) must be 64')
+note(midiFromNote(4, 6) === 88, 'midiFromNote(E, 6) must be 88')
+note(midiFromNote(0, 8) === 108, 'midiFromNote(C, 8) must be 108')
 note(midiFromNote(11, 0) === 23, 'midiFromNote(B, 0) must be 23')
 
+note(formatHz(midiToFreq(16, 440)) === '20.60 Hz', `E0 displayed ${formatHz(midiToFreq(16, 440))}`)
+note(formatHz(midiToFreq(28, 440)) === '41.20 Hz', `E1 displayed ${formatHz(midiToFreq(28, 440))}`)
 note(formatHz(midiToFreq(23, 440)) === '30.87 Hz', `B0 displayed ${formatHz(midiToFreq(23, 440))}`)
 note(formatHz(midiToFreq(40, 440)) === '82.41 Hz', `E2 displayed ${formatHz(midiToFreq(40, 440))}`)
 note(formatHz(midiToFreq(45, 440)) === '110 Hz', `A2 displayed ${formatHz(midiToFreq(45, 440))}`)
 note(formatHz(midiToFreq(64, 440)) === '329.63 Hz', `E4 displayed ${formatHz(midiToFreq(64, 440))}`)
+note(formatHz(midiToFreq(88, 440)) === '1318.51 Hz', `E6 displayed ${formatHz(midiToFreq(88, 440))}`)
+note(formatHz(midiToFreq(108, 440)) === '4186.01 Hz', `C8 displayed ${formatHz(midiToFreq(108, 440))}`)
 note(formatHz(440) === '440 Hz', `A4 displayed ${formatHz(440)}`)
+
+{
+  const e4 = midiToFreq(64, 440)
+  const sharp = e4 * 2 ** (5 / 1200)
+  note(Math.abs(hzCents(sharp, e4) - 5) < 1e-9, 'cents = 1200*log2(f/target)')
+  note(Math.abs(centsBetween(sharp, 64, 440) - 5) < 1e-9, 'centsBetween uses 1200*log2(f/targetHz)')
+  const notesSrc = readFileSync(new URL('../src/lib/notes.ts', import.meta.url), 'utf8')
+  note(notesSrc.includes('return 1200 * Math.log2(frequency / targetHz)'), 'hzCents is 1200*log2')
+}
 
 let stringsChecked = 0
 let presetsChecked = 0
@@ -95,8 +115,8 @@ for (const preset of BUILTIN_PRESETS) {
   }
 }
 
-note(presetsChecked >= 40, `expected many presets, got ${presetsChecked}`)
-note(stringsChecked >= 200, `expected many strings, got ${stringsChecked}`)
+note(presetsChecked >= 80, `expected many presets, got ${presetsChecked}`)
+note(stringsChecked === 550, `expected 550 verified strings, got ${stringsChecked}`)
 
 const guitar = BUILTIN_PRESETS.find((item) => item.id === 'guitar-6-standard')
 assert.ok(guitar)
@@ -139,9 +159,10 @@ const toneSrc = readFileSync(new URL('../src/lib/reference-tone.ts', import.meta
 note(toneSrc.includes('fundamental.frequency.setValueAtTime(frequency, now)'), 'fork oscillator uses the passed Hz')
 note(toneSrc.includes('playing.osc[0]?.frequency.setTargetAtTime(frequency, now, 0.02)'), 'fork retune writes the new Hz')
 
-const notesSrc = readFileSync(new URL('../src/lib/notes.ts', import.meta.url), 'utf8')
 note(
-  notesSrc.includes('return a4 * 2 ** ((midi - 69) / 12)'),
+  readFileSync(new URL('../src/lib/notes.ts', import.meta.url), 'utf8').includes(
+    'return a4 * 2 ** ((midi - 69) / 12)',
+  ),
   'midiToFreq is exactly f = A4ref * 2^((midi-69)/12)',
 )
 

@@ -144,11 +144,15 @@ export function midiToFreq(midi: number, a4 = A4_HZ): number {
 
 /** Concert-pitch anchors used to pin octave numbering and the A4=MIDI 69 formula. */
 export const CONCERT_ANCHORS = [
+  { name: 'E0', midi: 16, hz: 20.601722307054366 },
   { name: 'B0', midi: 23, hz: 30.86770632850775 },
+  { name: 'E1', midi: 28, hz: 41.20344461410874 },
   { name: 'E2', midi: 40, hz: 82.40688922821748 },
   { name: 'A2', midi: 45, hz: 110 },
   { name: 'E4', midi: 64, hz: 329.6275569128699 },
   { name: 'A4', midi: 69, hz: 440 },
+  { name: 'E6', midi: 88, hz: 1318.5102276514797 },
+  { name: 'C8', midi: 108, hz: 4186.009044809578 },
 ] as const
 
 export function stringTargetHz(
@@ -173,6 +177,12 @@ export function freqToMidi(frequency: number, a4 = A4_HZ): number {
   return 69 + 12 * Math.log2(frequency / a4)
 }
 
+/** Cents between two frequencies: 1200·log2(f / target). */
+export function hzCents(frequency: number, targetHz: number): number {
+  if (!(frequency > 0) || !(targetHz > 0)) return Number.NaN
+  return 1200 * Math.log2(frequency / targetHz)
+}
+
 export function analyzeFrequency(frequency: number, a4 = A4_HZ): DetectedNote {
   const midiExact = freqToMidi(frequency, a4)
   const midi = Math.round(midiExact)
@@ -181,7 +191,7 @@ export function analyzeFrequency(frequency: number, a4 = A4_HZ): DetectedNote {
   return {
     frequency,
     midi,
-    cents: (midiExact - midi) * 100,
+    cents: hzCents(frequency, midiToFreq(midi, a4)),
     octave: pitch.octave,
     sharpName: pitch.sharpName,
     flatName: pitch.flatName,
@@ -194,7 +204,7 @@ export function centsBetween(
   targetMidi: number,
   a4 = A4_HZ,
 ): number {
-  return (freqToMidi(frequency, a4) - targetMidi) * 100
+  return hzCents(frequency, midiToFreq(targetMidi, a4))
 }
 
 export const STRING_LOCK_CENTS = 90

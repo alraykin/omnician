@@ -11,6 +11,7 @@ export {
   estimatePitch,
   mpmPitch,
   windowForHz,
+  yinPitch,
   type PitchEstimate,
   type PitchScratch,
-} from '@/lib/mpm'
+} from '@/lib/yin'

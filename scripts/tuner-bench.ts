@@ -3,6 +3,7 @@ import { PitchDetector } from 'pitchy'
 import { createSmoothState, pushEstimate } from '../src/lib/pitch-smooth.ts'
 import { createPitchScratch, estimateFromFilled } from '../src/lib/yin.ts'
 
+
 const SR = 48000
 
 type SignalKind = 'sine' | 'pluck'

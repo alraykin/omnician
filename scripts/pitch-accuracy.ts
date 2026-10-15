@@ -11,7 +11,7 @@ import {
   createPitchScratch,
   estimateFromFilled,
   windowForHz,
-} from '../src/lib/mpm.ts'
+} from '../src/lib/yin.ts'
 import { filterBuffer } from '../src/lib/pitch-filter.ts'
 import { createSmoothState, pushEstimate } from '../src/lib/pitch-smooth.ts'
 

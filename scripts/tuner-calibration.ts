@@ -12,14 +12,14 @@ import {
   MIN_WINDOW,
   createPitchScratch,
   estimateFromFilled,
-} from '../src/lib/mpm.ts'
+} from '../src/lib/yin.ts'
 import { analyzeFrequency, midiToFreq, nearestString, pitchClassName } from '../src/lib/notes.ts'
 import { filterBuffer } from '../src/lib/pitch-filter.ts'
 import { createSmoothState, pushEstimate } from '../src/lib/pitch-smooth.ts'
 import { BUILTIN_PRESETS } from '../src/lib/presets.ts'
 
-export const MIDI_LO = 23 // B0
-export const MIDI_HI = 88 // E6
+export const MIDI_LO = 16 // E0
+export const MIDI_HI = 108 // C8
 export const OFFSETS = [-50, -20, -5, 0, 5, 20, 50] as const
 export const A4S = [432, 440, 444] as const
 export const RATES = [44100, 48000] as const
@@ -62,12 +62,14 @@ export type RangeRow = {
 }
 
 const RANGES: Array<{ range: string; midiLo: number; midiHi: number }> = [
+  { range: 'E0–A♯0 (sub-bass)', midiLo: 16, midiHi: 22 },
   { range: 'B0–D♯1 (sub-bass)', midiLo: 23, midiHi: 27 },
   { range: 'E1–B1 (bass)', midiLo: 28, midiHi: 35 },
   { range: 'C2–B2 (low guitar)', midiLo: 36, midiHi: 47 },
   { range: 'C3–B3 (mid)', midiLo: 48, midiHi: 59 },
   { range: 'C4–B4 (treble)', midiLo: 60, midiHi: 71 },
   { range: 'C5–E6 (high)', midiLo: 72, midiHi: 88 },
+  { range: 'F6–C8 (top)', midiLo: 89, midiHi: 108 },
 ]
 
 function noteName(midi: number): string {
@@ -148,7 +150,7 @@ export function enumerateCases(opts?: { quick?: boolean }): CalCase[] {
   const cases: CalCase[] = []
   const midis: number[] = []
   if (opts?.quick) {
-    for (const midi of [23, 26, 28, 35, 40, 45, 52, 59, 64, 69, 76, 81, 88]) midis.push(midi)
+    for (const midi of [16, 23, 26, 28, 35, 40, 45, 52, 59, 64, 69, 76, 81, 88, 100, 108]) midis.push(midi)
   } else {
     for (let midi = MIDI_LO; midi <= MIDI_HI; midi += 1) midis.push(midi)
   }

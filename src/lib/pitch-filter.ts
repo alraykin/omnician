@@ -1,7 +1,11 @@
-/** Fixed pre-filters for pitch: DC block, 6 Hz high-pass, 3.6 kHz low-pass. No AGC. */
+/** Pre-filters for pitch: DC block, rumble high-pass below E0, anti-alias low-pass. No AGC. */
 
-export const HP_HZ = 6
-export const LP_HZ = 3600
+import { MIN_HZ } from '@/lib/yin'
+
+/** Rumble / DC: well below E0 (~20.6 Hz). */
+export const HP_HZ = 8
+/** Pass C8 (~4186 Hz) with headroom. */
+export const LP_HZ = 8000
 
 export type Biquad = {
   b0: number
@@ -28,7 +32,9 @@ export type PitchFilter = {
 }
 
 function rbj(type: 'highpass' | 'lowpass', freq: number, q: number, sampleRate: number): Biquad {
-  const w0 = (2 * Math.PI * freq) / sampleRate
+  const nyquist = sampleRate * 0.45
+  const clamped = Math.max(MIN_HZ * 0.25, Math.min(freq, nyquist))
+  const w0 = (2 * Math.PI * clamped) / sampleRate
   const cos = Math.cos(w0)
   const sin = Math.sin(w0)
   const alpha = sin / (2 * q)
@@ -62,7 +68,7 @@ function rbj(type: 'highpass' | 'lowpass', freq: number, q: number, sampleRate: 
 
 export function createPitchFilter(sampleRate: number): PitchFilter {
   return {
-    dc: { r: 0.999, x1: 0, y1: 0 },
+    dc: { r: 0.995, x1: 0, y1: 0 },
     hp: rbj('highpass', HP_HZ, 0.7071, sampleRate),
     lp: rbj('lowpass', LP_HZ, 0.7071, sampleRate),
   }
