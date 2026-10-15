@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 
 import { DEFAULT_DRUM_INPUT } from '../src/lib/beat-boxes.ts'
 import {
+  beatFromFrac,
   editorBarWidthPx,
   editorBeatWidthPx,
   editorPatternWidthPx,
@@ -22,8 +23,10 @@ import {
 } from '../src/lib/kit-intensity.ts'
 import { isPhoneViewport, isPortraitViewport, PHONE_SHORTEST_PX } from '../src/lib/phone-viewport.ts'
 import {
+  barDurationSec,
   emptyPattern,
   isHitSoft,
+  locateHeardBar,
   makeBar,
   moveHitAcrossBars,
   reduceHit,
@@ -77,6 +80,28 @@ const mid = playheadOffsetPx({
 assert.equal(mid, editorBarWidthPx(4, 4) + editorBarWidthPx(4, 4) * 0.5)
 assert.equal(fracInBar({ audioTime: 2, barStart: 1, barDur: 2, outputLatency: 0, precount: false, playing: true }), 0.5)
 assert.equal(fracInBar({ audioTime: 2, barStart: 1, barDur: 2, outputLatency: 0, precount: true, playing: true }), 0)
+assert.equal(fracInBar({ audioTime: 3, barStart: 1, barDur: 2, playing: true }), 0, 'exact bar end wraps to 0')
+assert.equal(fracInBar({ audioTime: 2.5, barStart: 0, barDur: 2, playing: true }), 0.25, 'past the bar wraps instead of clamping')
+assert.equal(beatFromFrac(0, 4), 0)
+assert.equal(beatFromFrac(0.49, 4), 1)
+assert.equal(beatFromFrac(0.99, 4), 3)
+
+const barDur88 = barDurationSec(4, 88, 4)
+assert.ok(Math.abs(barDur88 - 2.727272) < 0.001)
+const heardMid = locateHeardBar(1.5, barDur88, 1, [barDur88, barDur88])
+assert.equal(heardMid.index, 0, 'lookahead tip is the next bar; audible time is still bar 0')
+assert.ok(Math.abs(heardMid.start) < 1e-9)
+const fracPastTwoBeats = fracInBar({
+  audioTime: 1.5,
+  barStart: heardMid.start,
+  barDur: barDur88,
+  playing: true,
+})
+assert.ok(fracPastTwoBeats > 0.5 && fracPastTwoBeats < 0.6, `expected ~0.55 through the bar, got ${fracPastTwoBeats}`)
+assert.ok(
+  fracInBar({ audioTime: 2.5, barStart: 0, barDur: barDur88, playing: true }) > 0.9,
+  'playhead keeps sweeping after the 1.5s lookahead window',
+)
 
 const stay = followPlayheadScroll({ scrollLeft: 0, clientWidth: 400, playheadX: 120 })
 assert.equal(stay, null)
@@ -119,13 +144,41 @@ assert.match(overlaySrc, /sawLandscape/)
 assert.match(overlaySrc, /IntensitySwitch/)
 assert.match(overlaySrc, /canSwipe=\{!playing\}/)
 assert.doesNotMatch(overlaySrc, /onIntensityChange/)
+assert.doesNotMatch(overlaySrc, /usePlayhead/)
+assert.doesNotMatch(overlaySrc, /playhead\.bar/)
 assert.match(gridSrc, /data-editor-one-bar/)
 assert.match(gridSrc, /data-editor-playhead/)
 assert.match(gridSrc, /SWIPE_PX/)
 assert.match(gridSrc, /onMoveHit/)
 assert.match(gridSrc, /MOVE_ARM_MS/)
+assert.match(gridSrc, /requestAnimationFrame/)
+assert.match(gridSrc, /fracInBar\(clock\)/)
+assert.match(gridSrc, /onSelectBarRef/)
+assert.doesNotMatch(gridSrc, /snap\.bar === shown/)
+assert.doesNotMatch(gridSrc, /playheadStore/)
 assert.doesNotMatch(gridSrc, /kitBeatBlocks/)
 assert.doesNotMatch(gridSrc, /data-editor-one-row/)
+
+const engineSrc = readFileSync(new URL('../src/hooks/useRhythmEngine.ts', import.meta.url), 'utf8')
+assert.match(engineSrc, /getTransportClock/)
+assert.match(engineSrc, /locateHeardBar\(/)
+assert.match(engineSrc, /barStart: heard\.start/)
+assert.match(engineSrc, /audioTime: now/)
+
+const deskGridSrc = readFileSync(new URL('../src/components/rhythm/DrumGrid.tsx', import.meta.url), 'utf8')
+assert.match(deskGridSrc, /getClock/)
+assert.match(deskGridSrc, /beatFromFrac/)
+assert.match(deskGridSrc, /fracInBar\(clock\)/)
+assert.match(deskGridSrc, /requestAnimationFrame/)
+assert.doesNotMatch(deskGridSrc, /playheadStore\.subscribe/)
+assert.doesNotMatch(deskGridSrc, /playheadStore\.getSnapshot/)
+assert.doesNotMatch(deskGridSrc, /data-editor-playhead/)
+
+const deskStageSrc = readFileSync(new URL('../src/components/rhythm/DrumBarStage.tsx', import.meta.url), 'utf8')
+assert.match(deskStageSrc, /getClock/)
+assert.match(deskStageSrc, /requestAnimationFrame/)
+assert.doesNotMatch(deskStageSrc, /usePlayhead/)
+assert.doesNotMatch(deskStageSrc, /playheadStore/)
 
 const mixerSrc = readFileSync(new URL('../src/components/rhythm/KitMixerPanel.tsx', import.meta.url), 'utf8')
 assert.doesNotMatch(mixerSrc, /intensity/)

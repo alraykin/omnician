@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 
-import { type PlayheadStore } from '@/hooks/useRhythmEngine'
+import { type TransportClock } from '@/hooks/useRhythmEngine'
+import { beatFromFrac, fracInBar } from '@/lib/editor-playhead'
 import {
   beatBoxView,
   INPUT_CHIPS,
@@ -27,7 +28,7 @@ type DrumGridProps = {
   beats: number
   pattern: Pattern
   input: InputDivision
-  playheadStore: PlayheadStore
+  getClock: () => TransportClock
   barIndex: number
   playing: boolean
   onToggle: (voice: VoiceId, beat: number, slot: number, on: boolean, preview: boolean) => void
@@ -307,7 +308,7 @@ export const DrumGrid = memo(function DrumGrid({
   beats,
   pattern,
   input,
-  playheadStore,
+  getClock,
   barIndex,
   playing,
   onToggle,
@@ -412,25 +413,37 @@ export const DrumGrid = memo(function DrumGrid({
     if (!root) return
     const nowClass = 'is-now'
     let painted: Element[] = []
-    const apply = () => {
-      const snap = playheadStore.getSnapshot()
-      const live = playing && snap.bar === barIndex && snap.beat >= 0 && !snap.precount
+    let lastBeat = Number.NaN
+    let raf = 0
+    const paint = (beat: number) => {
+      if (beat === lastBeat) return
+      lastBeat = beat
       for (const node of painted) node.classList.remove(nowClass)
       painted = []
-      if (!live) {
+      if (beat < 0) {
         root.removeAttribute('data-playhead-beat')
         return
       }
-      root.setAttribute('data-playhead-beat', String(snap.beat))
-      const nodes = root.querySelectorAll(`[data-beat-box][data-beat="${snap.beat}"]`)
+      root.setAttribute('data-playhead-beat', String(beat))
+      const nodes = root.querySelectorAll(`[data-beat-box][data-beat="${beat}"]`)
       nodes.forEach((node) => {
         node.classList.add(nowClass)
         painted.push(node)
       })
     }
-    apply()
-    return playheadStore.subscribe(apply)
-  }, [playheadStore, barIndex, playing])
+    const tick = () => {
+      const clock = getClock()
+      const live = playing && clock.playing && !clock.precount && clock.barIndex === barIndex
+      const beat = live ? beatFromFrac(fracInBar(clock), beats) : -1
+      paint(beat)
+      raf = window.requestAnimationFrame(tick)
+    }
+    raf = window.requestAnimationFrame(tick)
+    return () => {
+      window.cancelAnimationFrame(raf)
+      paint(-1)
+    }
+  }, [getClock, barIndex, playing, beats])
 
   const beginMove = useCallback(
     (event: PointerEvent<HTMLDivElement>, pending: PendingPaint) => {

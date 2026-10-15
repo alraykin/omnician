@@ -962,20 +962,33 @@ export function useRhythmEngine({
     const kit = kitRef.current
     const ctx = kit?.ctx
     const audioTime = ctx?.currentTime ?? 0
+    const observed = ctx
+      ? watchClock(clockWatchRef.current, audioTime, performance.now())
+      : clockWatchRef.current
+    const now = observed.frozen ? observed.virtualNow : audioTime
     const captureTime = ctx ? captureAudioTime(ctx) : 0
     const locked = loopBarRef.current
-    const sequence = pendingBarsRef.current
+    const sequence = playingRef.current ? liveBarsRef.current : pendingBarsRef.current
     const len = Math.max(1, sequence.length)
-    const index =
-      locked != null
-        ? ((locked % len) + len) % len
-        : ((barRef.current % len) + len) % len
-    const bar = sequence[index] ?? sequence[0]
     const bpmNow = playbackBpmRef.current
+    const durations = sequence.map((item) => barDurationSec(item.beats, bpmNow, item.beatUnit))
+    const heard = locateHeardBar(
+      now,
+      heardBarStartRef.current || barStartRef.current,
+      heardBarIndexRef.current,
+      durations,
+    )
+    if (playingRef.current && sbPhaseRef.current === 'pattern' && durations.length > 0) {
+      heardBarStartRef.current = heard.start
+      heardBarIndexRef.current = heard.index
+    }
+    const index =
+      locked != null ? ((locked % len) + len) % len : durations.length > 0 ? heard.index : 0
+    const bar = sequence[index] ?? sequence[0]
     return {
-      audioTime,
+      audioTime: now,
       captureTime,
-      barStart: barStartRef.current,
+      barStart: heard.start,
       barDur: bar ? barDurationSec(bar.beats, bpmNow, bar.beatUnit) : 0,
       barIndex: index,
       precount: sbPhaseRef.current === 'precount',

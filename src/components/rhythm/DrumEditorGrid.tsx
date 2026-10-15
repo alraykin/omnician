@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 
-import { type TransportClock, type PlayheadStore } from '@/hooks/useRhythmEngine'
+import { type TransportClock } from '@/hooks/useRhythmEngine'
 import { beatBoxView, inputSlotFromX, type InputDivision } from '@/lib/beat-boxes'
 import { BAR_LONG_PRESS_MS, MOVE_ARM_MS } from '@/lib/bar-press'
 import { fracInBar } from '@/lib/editor-playhead'
@@ -121,7 +121,6 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
   barIndex,
   input,
   playing,
-  playheadStore,
   getClock,
   canSwipe,
   onSelectBar,
@@ -134,7 +133,6 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
   barIndex: number
   input: InputDivision
   playing: boolean
-  playheadStore: PlayheadStore
   getClock: () => TransportClock
   canSwipe: boolean
   onSelectBar: (index: number) => void
@@ -174,6 +172,12 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
 
   const shown = Math.min(Math.max(0, barIndex), Math.max(0, bars.length - 1))
   const bar = bars[shown] ?? bars[0]
+  const onSelectBarRef = useRef(onSelectBar)
+  onSelectBarRef.current = onSelectBar
+  const shownRef = useRef(shown)
+  shownRef.current = shown
+  const playingRef = useRef(playing)
+  playingRef.current = playing
 
   const paintAt = useCallback(
     (targetBar: number, voice: VoiceId, beat: number, slot: number, preview: boolean) => {
@@ -273,18 +277,31 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
     const track = trackRef.current
     if (!line || !track) return
     let raf = 0
+    let lastRequested = -1
+    const hide = () => {
+      line.hidden = true
+      line.setAttribute('data-playhead-on', '0')
+    }
     const tick = () => {
       const clock = getClock()
-      const snap = playheadStore.getSnapshot()
-      const live = playing && clock.playing && !clock.precount && snap.bar === shown
+      const current = shownRef.current
+      const live = playingRef.current && clock.playing && !clock.precount
       if (!live) {
-        line.hidden = true
-        line.setAttribute('data-playhead-on', '0')
+        lastRequested = -1
+        hide()
+      } else if (clock.barIndex !== current) {
+        if (lastRequested !== clock.barIndex) {
+          lastRequested = clock.barIndex
+          onSelectBarRef.current(clock.barIndex)
+        }
+        hide()
       } else {
+        lastRequested = clock.barIndex
         const frac = fracInBar(clock)
         const x = frac * track.clientWidth
         line.hidden = false
         line.setAttribute('data-playhead-on', '1')
+        line.setAttribute('data-playhead-frac', String(frac))
         line.setAttribute('data-playhead-x', String(Math.round(x)))
         line.style.transform = `translateX(${x}px)`
       }
@@ -292,7 +309,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
     }
     raf = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(raf)
-  }, [getClock, playheadStore, playing, shown])
+  }, [getClock])
 
   const startPaint = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {

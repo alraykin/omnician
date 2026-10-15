@@ -27,19 +27,33 @@ export function editorBarOffsetsPx(bars: readonly RhythmBar[], input: InputDivis
   return offsets
 }
 
-/** 0\u20131 through the sounding bar, after output latency. */
+/**
+ * 0–1 through the sounding bar from AudioContext.currentTime vs audible bar start.
+ * Does not clamp to 1 (that stuck the line mid-bar once lookahead jumped).
+ * Values at/past the end wrap so the next bar starts at 0.
+ */
 export function fracInBar(opts: {
   audioTime: number
   barStart: number
   barDur: number
-  outputLatency: number
-  precount: boolean
-  playing: boolean
+  precount?: boolean
+  playing?: boolean
+  outputLatency?: number
 }): number {
-  if (!opts.playing || opts.precount || !(opts.barDur > 0)) return 0
-  const raw = (opts.audioTime - opts.outputLatency - opts.barStart) / opts.barDur
+  if (opts.playing === false || opts.precount || !(opts.barDur > 0)) return 0
+  void opts.outputLatency
+  const raw = (opts.audioTime - opts.barStart) / opts.barDur
   if (!Number.isFinite(raw)) return 0
-  return Math.min(1, Math.max(0, raw))
+  const wrapped = raw - Math.floor(raw)
+  if (wrapped >= 1) return 0
+  if (wrapped < 0) return 0
+  return wrapped
+}
+
+export function beatFromFrac(frac: number, beats: number): number {
+  const n = Math.max(1, Math.floor(beats) || 1)
+  if (!(frac >= 0) || frac >= 1) return 0
+  return Math.min(n - 1, Math.floor(frac * n))
 }
 
 export function playheadOffsetPx(opts: {

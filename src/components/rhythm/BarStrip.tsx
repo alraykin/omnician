@@ -42,7 +42,7 @@ export function BarStrip({
 }) {
   const playhead = usePlayhead(store)
   const counting = playing && playhead.precount
-  const active = counting ? barIndex : playing && playhead.bar >= 0 ? playhead.bar : barIndex
+  const active = barIndex
   const [menuAt, setMenuAt] = useState<{ index: number; x: number; y: number } | null>(null)
   const holdRef = useRef<number>(0)
 
@@ -78,7 +78,7 @@ export function BarStrip({
         </p>
         <div data-bar-chips className="grid min-w-0 flex-1 grid-cols-8 gap-0.5">
           {bars.map((_, index) => {
-            const live = playing && !playhead.precount && playhead.bar === index
+            const live = playing && !playhead.precount && index === active
             const selected = index === active
             const chipClass = cn(
               HOLD_NUDGE_CLASS,

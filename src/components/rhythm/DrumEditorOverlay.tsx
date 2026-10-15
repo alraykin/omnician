@@ -8,7 +8,7 @@ import { DrumEditorGrid } from '@/components/rhythm/DrumEditorGrid'
 import { DrumInputChips } from '@/components/rhythm/DrumGrid'
 import { IntensitySwitch } from '@/components/rhythm/IntensitySwitch'
 import { KitMixerPanel } from '@/components/rhythm/KitMixerPanel'
-import { usePlayhead, type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
+import { type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
 import { usePortraitViewport } from '@/hooks/usePhoneViewport'
 import { type InputDivision } from '@/lib/beat-boxes'
 import { type KitIntensity } from '@/lib/kit-intensity'
@@ -82,15 +82,13 @@ export function DrumEditorOverlay({
   onIntensity: (next: KitIntensity) => void
 }) {
   const portrait = usePortraitViewport()
-  const playhead = usePlayhead(playheadStore)
   const [mixerOpen, setMixerOpen] = useState(false)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   const sawLandscape = useRef(!readPortraitViewport())
-  const current = bars[Math.min(barIndex, bars.length - 1)] ?? bars[0]
+  const viewBar = Math.min(Math.max(0, barIndex), Math.max(0, bars.length - 1))
+  const current = bars[viewBar] ?? bars[0]
   const shownBpm = Math.round(liveBpm || bpm)
-  const viewBar =
-    playing && !playhead.precount && playhead.bar >= 0 ? playhead.bar : barIndex
 
   useEffect(() => {
     const html = document.documentElement
@@ -206,7 +204,6 @@ export function DrumEditorOverlay({
               barIndex={viewBar}
               input={input}
               playing={playing}
-              playheadStore={playheadStore}
               getClock={getClock}
               canSwipe={!playing}
               onSelectBar={onSelectBar}

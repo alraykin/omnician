@@ -1,7 +1,7 @@
-import { memo } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 
 import { DrumGrid, DrumInputChips } from '@/components/rhythm/DrumGrid'
-import { usePlayhead, type PlayheadStore } from '@/hooks/useRhythmEngine'
+import { type TransportClock } from '@/hooks/useRhythmEngine'
 import { type InputDivision } from '@/lib/beat-boxes'
 import { type RhythmBar, type VoiceId } from '@/lib/rhythm'
 
@@ -9,7 +9,7 @@ export const DrumBarStage = memo(function DrumBarStage({
   bars,
   barIndex,
   playing,
-  playheadStore,
+  getClock,
   input,
   onInput,
   onToggle,
@@ -20,7 +20,7 @@ export const DrumBarStage = memo(function DrumBarStage({
   bars: readonly RhythmBar[]
   barIndex: number
   playing: boolean
-  playheadStore: PlayheadStore
+  getClock: () => TransportClock
   input: InputDivision
   onInput: (next: InputDivision) => void
   onToggle: (
@@ -43,8 +43,32 @@ export const DrumBarStage = memo(function DrumBarStage({
   ) => void
   onPreviewVoice: (voice: VoiceId) => void
 }) {
-  const playhead = usePlayhead(playheadStore)
-  const active = playing && !playhead.precount && playhead.bar >= 0 ? playhead.bar : barIndex
+  const barIndexRef = useRef(barIndex)
+  barIndexRef.current = barIndex
+  const [viewBar, setViewBar] = useState(barIndex)
+
+  useEffect(() => {
+    if (!playing) setViewBar(barIndex)
+  }, [playing, barIndex])
+
+  useEffect(() => {
+    if (!playing) return
+    let raf = 0
+    let last = Number.NaN
+    const tick = () => {
+      const clock = getClock()
+      const next = clock.playing && !clock.precount ? clock.barIndex : barIndexRef.current
+      if (next !== last) {
+        last = next
+        setViewBar(next)
+      }
+      raf = window.requestAnimationFrame(tick)
+    }
+    raf = window.requestAnimationFrame(tick)
+    return () => window.cancelAnimationFrame(raf)
+  }, [getClock, playing])
+
+  const active = Math.min(Math.max(0, playing ? viewBar : barIndex), Math.max(0, bars.length - 1))
   const bar = bars[active] ?? bars[0]
   if (!bar) return null
 
@@ -55,7 +79,7 @@ export const DrumBarStage = memo(function DrumBarStage({
         beats={bar.beats}
         pattern={bar.pattern}
         input={input}
-        playheadStore={playheadStore}
+        getClock={getClock}
         barIndex={active}
         playing={playing}
         onToggle={(voice, beat, slot, on, preview) => onToggle(active, voice, beat, slot, on, preview)}

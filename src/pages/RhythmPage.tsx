@@ -21,7 +21,7 @@ import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { useFactoryEditor } from '@/hooks/useFactoryEditor'
-import { usePlayhead, useRhythmEngine, type PlayheadStore } from '@/hooks/useRhythmEngine'
+import { usePlayhead, useRhythmEngine, type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
 import { defaultIntensityForStyle, type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
 import {
@@ -1355,7 +1355,7 @@ export function RhythmPage() {
                   bars={drumBars}
                   barIndex={drumBarIndex}
                   playing={playing}
-                  playheadStore={playheadStore}
+                  getClock={getTransportClock}
                   input={drumInput}
                   onInput={setDrumInput}
                   onToggle={onToggleCell}
@@ -1398,7 +1398,7 @@ export function RhythmPage() {
           )}
         </div>
 
-        <PlayheadBarSync store={playheadStore} playing={playing} onBar={setBarIndex} />
+        <PlayheadBarSync getClock={getTransportClock} playing={playing} onBar={setBarIndex} />
         <TransportDock
           place="sticky"
           className="rhythm-glass z-40 shrink-0 border-t border-white/10 pt-2 pb-[max(0.7rem,env(safe-area-inset-bottom,0px))] wide:hidden phone:!block"
@@ -1661,20 +1661,40 @@ function TransportDock({
 }
 
 function PlayheadBarSync({
-  store,
+  getClock,
   playing,
   onBar,
 }: {
-  store: PlayheadStore
+  getClock: () => TransportClock
   playing: boolean
   onBar: (bar: number) => void
 }) {
-  const playhead = usePlayhead(store)
+  const onBarRef = useRef(onBar)
+  onBarRef.current = onBar
   const wasPlaying = useRef(false)
   useEffect(() => {
-    if (wasPlaying.current && !playing && playhead.bar >= 0 && !playhead.precount) onBar(playhead.bar)
-    wasPlaying.current = playing
-  }, [onBar, playhead.bar, playing])
+    if (!playing) {
+      if (wasPlaying.current) {
+        const clock = getClock()
+        if (!clock.precount && clock.barIndex >= 0) onBarRef.current(clock.barIndex)
+      }
+      wasPlaying.current = false
+      return
+    }
+    wasPlaying.current = true
+    let raf = 0
+    let last = -1
+    const tick = () => {
+      const clock = getClock()
+      if (clock.playing && !clock.precount && clock.barIndex !== last) {
+        last = clock.barIndex
+        onBarRef.current(clock.barIndex)
+      }
+      raf = window.requestAnimationFrame(tick)
+    }
+    raf = window.requestAnimationFrame(tick)
+    return () => window.cancelAnimationFrame(raf)
+  }, [getClock, playing])
   return null
 }
 
