@@ -127,6 +127,16 @@ export const MASTER_GAIN_DB = 6.5
 const MASTER_GAIN = Math.pow(10, MASTER_GAIN_DB / 20)
 const MASTER_CEILING = Math.pow(10, MASTER_CEILING_DB / 20)
 
+/** Per-voice accent gain so each click sample peaks at MASTER_CEILING_DB. */
+export const CLICK_ACCENT_GAIN: Record<ClickSoundId, number> = {
+  wood: 0.87,
+  clave: 0.56,
+  digital: 0.75,
+  mechanical: 0.70,
+}
+const CLICK_SOFT_RATIO = 0.72
+const CLICK_OFF_RATIO = 0.4
+
 /** Medium room after the dry clipper so the tail is never ducked. */
 const REVERB_DECAY = 1.35
 const REVERB_IR_SECONDS = 1.65
@@ -982,9 +992,10 @@ export class RhythmKit {
     const pair = this.clicks[sound] ?? this.clicks.wood
     // Off/soft share the tick; strong uses the accent one-shot (timbre, not just louder).
     const buffer = level === 2 ? pair.accent : pair.normal
-    // Clicks stay dry (no send) through the limiter + brickwall. Accent gain is
-    // hot enough that the quietest voice (wood) still reaches MASTER_CEILING.
-    const baseGain = level === 2 ? 0.87 : level === 1 ? 0.63 : 0.35
+    // Clicks stay dry through the limiter. Each voice has its own accent gain
+    // so wood / clave / digital / mechanical all peak at MASTER_CEILING.
+    const accent = CLICK_ACCENT_GAIN[sound] ?? CLICK_ACCENT_GAIN.wood
+    const baseGain = level === 2 ? accent : level === 1 ? accent * CLICK_SOFT_RATIO : accent * CLICK_OFF_RATIO
     const baseRate = level === 1 ? 1.03 : 1
     // Within-beat pulses sit a little higher so they never match a main-beat click.
     const rate = onBeat ? baseRate : baseRate * 1.09

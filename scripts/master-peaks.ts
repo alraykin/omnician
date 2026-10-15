@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { MASTER_CEILING_DB, MASTER_GAIN_DB } from '../src/lib/rhythm-audio.ts'
+import { CLICK_ACCENT_GAIN, MASTER_CEILING_DB, MASTER_GAIN_DB } from '../src/lib/rhythm-audio.ts'
 import { KIT_MIX_MAX_DB } from '../src/lib/kit-mix.ts'
 
 assert.equal(MASTER_CEILING_DB, -0.3)
@@ -12,7 +12,11 @@ const audio = readFileSync(new URL('../src/lib/rhythm-audio.ts', import.meta.url
 assert.match(audio, /makePeakLimiter/)
 assert.match(audio, /MASTER_CEILING/)
 assert.match(audio, /probeMasterPeaks/)
-assert.match(audio, /level === 2 \? 0\.87/)
+assert.match(audio, /CLICK_ACCENT_GAIN/)
+assert.equal(CLICK_ACCENT_GAIN.wood, 0.87)
+assert.equal(CLICK_ACCENT_GAIN.clave, 0.56)
+assert.equal(CLICK_ACCENT_GAIN.digital, 0.75)
+assert.equal(CLICK_ACCENT_GAIN.mechanical, 0.70)
 assert.doesNotMatch(audio, /volumeDb/)
 assert.doesNotMatch(audio, /setMasterVolume/)
 assert.doesNotMatch(audio, /LIMITER_CEILING = Math\.pow\(10, -1 \/ 20\)/)
