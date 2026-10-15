@@ -1,4 +1,4 @@
-import { Check, ChevronDown, FileUp, GripVertical, LayoutGrid, Pencil, Play, Plus, Smartphone, Square, Trash2, X } from 'lucide-react'
+import { Check, ChevronDown, FileUp, GripVertical, Pencil, Play, Plus, Square, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
@@ -13,7 +13,6 @@ import { CompactMeter } from '@/components/rhythm/CompactMeter'
 import { DrumBarStage } from '@/components/rhythm/DrumBarStage'
 import { DrumEditorOverlay } from '@/components/rhythm/DrumEditorOverlay'
 import { DrumRecorderSheet, type DrumRecorderDemo } from '@/components/rhythm/DrumRecorderSheet'
-import { PatternPreview } from '@/components/rhythm/PatternPreview'
 import { RecordFab } from '@/components/rhythm/RecordFab'
 import { KitFaders } from '@/components/rhythm/KitFaders'
 import { ListenTempoSheet } from '@/components/rhythm/ListenTempo'
@@ -22,6 +21,7 @@ import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { useFactoryEditor } from '@/hooks/useFactoryEditor'
+import { usePhoneViewport, usePortraitViewport } from '@/hooks/usePhoneViewport'
 import { usePlayhead, useRhythmEngine, type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
 import { defaultIntensityForStyle, type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
@@ -57,6 +57,7 @@ import {
 } from '@/lib/rhythm'
 import { loadRecordClick } from '@/lib/drum-recorder'
 import { AUTO_COMPLETE_ENABLED, RECORDER_ENABLED } from '@/lib/features'
+import { setPhoneDrumsSurface } from '@/lib/phone-viewport'
 import { importMidiFile, importNoteLine } from '@/lib/midi-import'
 import { loadMidiMap } from '@/lib/midi-map'
 import {
@@ -162,6 +163,8 @@ export function RhythmPage() {
   const [fillVariant, setFillVariant] = useState(0)
   const [autoConfirm, setAutoConfirm] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
+  const phone = usePhoneViewport()
+  const portrait = usePortraitViewport()
   const [, setStyleTick] = useState(0)
 
   useEffect(() => subscribeRhythmStyles(() => setStyleTick((value) => value + 1)), [])
@@ -298,6 +301,16 @@ export function RhythmPage() {
   useEffect(() => {
     if (mode !== 'drums' && editorOpen) setEditorOpen(false)
   }, [editorOpen, mode])
+
+  useEffect(() => {
+    setPhoneDrumsSurface(mode === 'drums')
+    return () => setPhoneDrumsSurface(false)
+  }, [mode])
+
+  useEffect(() => {
+    if (mode !== 'drums' || !phone) return
+    if (!portrait) setEditorOpen(true)
+  }, [mode, phone, portrait])
 
   useEffect(() => {
     if (urlMode === 'click' || urlMode === 'drums') {
@@ -1376,28 +1389,17 @@ export function RhythmPage() {
                   onIntensityChange={setKitIntensity}
                 />
               </div>
-              <div className="hidden flex-col gap-2 phone:flex" data-phone-drums>
-                <PatternPreview bars={drumBars} input={drumInput} />
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    data-edit-beat
-                    {...activateOnPointer(() => setEditorOpen(true))}
-                    className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-[#A855F7] text-[0.95rem] font-semibold text-white shadow-[0_0_24px_rgba(168,85,247,0.28)]"
-                  >
-                    <LayoutGrid className="size-4" />
-                    Edit beat
-                  </button>
-                  <button
-                    type="button"
-                    data-edit-landscape
-                    {...activateOnPointer(() => setEditorOpen(true))}
-                    className="flex h-12 shrink-0 items-center gap-1.5 rounded-full border border-white/14 bg-white/4 px-3.5 text-[0.82rem] font-semibold text-slate-100"
-                  >
-                    <Smartphone className="size-3.5 rotate-90" />
-                    Landscape
-                  </button>
-                </div>
+              <div
+                className="hidden items-center justify-center phone:flex"
+                data-phone-drums
+              >
+                <p
+                  data-turn-to-edit
+                  className="flex items-center gap-1.5 py-1 text-[0.75rem] font-medium leading-none text-slate-400"
+                >
+                  <TurnDeviceIcon />
+                  Turn device to edit beat
+                </p>
               </div>
             </section>
           </div>
@@ -1623,6 +1625,16 @@ export function RhythmPage() {
         />
       ) : null}
     </AppChrome>
+  )
+}
+
+function TurnDeviceIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-3.5 shrink-0 text-[#C084FC]" aria-hidden>
+      <rect x="5" y="1.5" width="6" height="10" rx="1.3" fill="none" stroke="currentColor" strokeWidth="1.35" />
+      <path d="M3.2 12.2c.6 1.4 2.2 2.2 4 2.1" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M8.4 13.3l-1.3 1.5.2-1.9" fill="currentColor" />
+    </svg>
   )
 }
 

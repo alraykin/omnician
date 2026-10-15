@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
-import { useDrumEditorOpen, usePhoneViewport, usePortraitViewport } from '@/hooks/usePhoneViewport'
+import { useDrumEditorOpen, usePhoneDrumsSurface, usePhoneViewport, usePortraitViewport } from '@/hooks/usePhoneViewport'
 import { tryLockPortrait } from '@/lib/phone-viewport'
 
 /** Phones stay portrait except the landscape drum editor. Desktop and tablets are left alone. */
@@ -9,12 +9,13 @@ export function PhonePortraitGuard() {
   const phone = usePhoneViewport()
   const portrait = usePortraitViewport()
   const editorOpen = useDrumEditorOpen()
-  const blockLandscape = phone && !portrait && !editorOpen
+  const drumsPage = usePhoneDrumsSurface()
+  const blockLandscape = phone && !portrait && !editorOpen && !drumsPage
 
   useEffect(() => {
-    if (!phone || editorOpen) return
+    if (!phone || editorOpen || drumsPage) return
     void tryLockPortrait()
-  }, [phone, editorOpen])
+  }, [phone, editorOpen, drumsPage])
 
   useEffect(() => {
     const html = document.documentElement
@@ -41,7 +42,7 @@ export function PhonePortraitGuard() {
       <RotateBackArt />
       <h1 className="mt-6 text-[1.65rem] font-bold tracking-tight">Rotate your phone back</h1>
       <p className="mt-2 max-w-[22rem] text-[0.92rem] leading-6 text-slate-400">
-        Home, Tuner, Click, Drums, and Settings stay in portrait. Turn the phone upright to keep going.
+        Home, Tuner, Click, and Settings stay in portrait. Turn the phone upright to keep going.
       </p>
     </div>,
     document.body,

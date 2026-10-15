@@ -146,10 +146,14 @@ const previewSrc = readFileSync(new URL('../src/components/rhythm/PatternPreview
 const stageSrc = readFileSync(new URL('../src/pages/RhythmPage.tsx', import.meta.url), 'utf8')
 
 assert.match(cssSrc, /@custom-variant phone/)
-assert.match(pageSrc, /data-edit-beat/)
+assert.doesNotMatch(pageSrc, /data-edit-beat/)
+assert.doesNotMatch(pageSrc, /data-edit-landscape/)
 assert.match(pageSrc, /data-phone-drums/)
+assert.match(pageSrc, /data-turn-to-edit/)
+assert.match(pageSrc, /Turn device to edit beat/)
+assert.match(pageSrc, /setPhoneDrumsSurface/)
+assert.doesNotMatch(pageSrc, /PatternPreview/)
 assert.match(pageSrc, /phone:hidden/)
-assert.match(pageSrc, /PatternPreview/)
 assert.match(pageSrc, /DrumEditorOverlay/)
 assert.match(pageSrc, /moveHitAcrossBars/)
 assert.match(pageSrc, /factory\.visible/)
@@ -178,6 +182,10 @@ assert.match(
 assert.match(
   readFileSync(new URL('../src/components/PhonePortraitGuard.tsx', import.meta.url), 'utf8'),
   /editorOpen/,
+)
+assert.match(
+  readFileSync(new URL('../src/components/PhonePortraitGuard.tsx', import.meta.url), 'utf8'),
+  /drumsPage/,
 )
 assert.match(
   readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8'),

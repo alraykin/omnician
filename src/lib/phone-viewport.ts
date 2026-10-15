@@ -84,3 +84,24 @@ export function subscribeDrumEditorOpen(onChange: () => void): () => void {
     editorListeners.delete(onChange)
   }
 }
+
+let phoneDrumsSurface = false
+const drumsListeners = new Set<() => void>()
+
+/** True while the Drums tool (not Click) is the active rhythm surface. */
+export function setPhoneDrumsSurface(on: boolean) {
+  if (phoneDrumsSurface === on) return
+  phoneDrumsSurface = on
+  drumsListeners.forEach((fn) => fn())
+}
+
+export function readPhoneDrumsSurface(): boolean {
+  return phoneDrumsSurface
+}
+
+export function subscribePhoneDrumsSurface(onChange: () => void): () => void {
+  drumsListeners.add(onChange)
+  return () => {
+    drumsListeners.delete(onChange)
+  }
+}

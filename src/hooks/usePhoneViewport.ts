@@ -2,9 +2,11 @@ import { useSyncExternalStore } from 'react'
 
 import {
   readDrumEditorOpen,
+  readPhoneDrumsSurface,
   readPhoneViewport,
   readPortraitViewport,
   subscribeDrumEditorOpen,
+  subscribePhoneDrumsSurface,
   subscribeViewport,
 } from '@/lib/phone-viewport'
 
@@ -18,4 +20,8 @@ export function usePortraitViewport(): boolean {
 
 export function useDrumEditorOpen(): boolean {
   return useSyncExternalStore(subscribeDrumEditorOpen, readDrumEditorOpen, () => false)
+}
+
+export function usePhoneDrumsSurface(): boolean {
+  return useSyncExternalStore(subscribePhoneDrumsSurface, readPhoneDrumsSurface, () => false)
 }
