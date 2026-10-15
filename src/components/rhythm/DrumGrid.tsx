@@ -162,17 +162,19 @@ function KitBlock({
     >
       <div
         data-kit-labels
-        className="grid w-[3.85rem] shrink-0 grid-rows-[1.25rem_repeat(14,minmax(2rem,1fr))] sm:w-[4.4rem] md:w-[5.1rem]"
+        className="grid w-[3.85rem] shrink-0 grid-rows-[1.25rem_repeat(14,minmax(2rem,1fr))_1px] sm:w-[4.4rem] md:w-[5.1rem]"
       >
         <div aria-hidden />
-        {VOICES.map((voice) => {
+        {VOICES.map((voice, row) => {
           const lit = (pattern[voice] ?? []).length > 0
+          const last = row === VOICES.length - 1
           return (
             <button
               key={voice}
               type="button"
               data-voice={voice}
               data-row-lit={lit ? '1' : '0'}
+              {...(last ? { 'data-grid-last-row': '1' } : {})}
               {...voicePreviewHandlers(onPreview, voice)}
               className={cn(
                 'flex min-h-[2rem] min-w-0 items-center self-stretch touch-manipulation whitespace-nowrap py-0 pr-0.5 text-left text-[0.52rem] font-semibold leading-none tracking-tight sm:text-[0.62rem] md:text-[0.68rem] wide:text-[0.58rem]',
@@ -183,20 +185,23 @@ function KitBlock({
             </button>
           )
         })}
+        <div data-grid-floor aria-hidden />
       </div>
       <div data-kit-block-track className="relative min-w-0 flex-1 pl-1.5">
         <div
-          className="grid min-w-0 grid-rows-[1.25rem_repeat(14,minmax(2rem,1fr))]"
+          className="grid min-w-0 grid-rows-[1.25rem_repeat(14,minmax(2rem,1fr))_1px]"
           style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}
         >
           <CountStrip beats={block.count} beatOffset={block.start} input={input} columns={columns} />
-          {VOICES.map((voice) => {
+          {VOICES.map((voice, row) => {
             const hits = pattern[voice] ?? []
+            const last = row === VOICES.length - 1
             return (
               <div
                 key={`${block.index}-${voice}`}
                 data-voice-row
                 data-row-lit={hits.length > 0 ? '1' : '0'}
+                {...(last ? { 'data-grid-last-row': '1' } : {})}
                 className="grid min-h-[2rem] min-w-0 touch-none"
                 style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
               >
@@ -259,6 +264,7 @@ function KitBlock({
               </div>
             )
           })}
+          <div data-grid-floor aria-hidden />
         </div>
         <PlayheadLine mark="grid" />
       </div>

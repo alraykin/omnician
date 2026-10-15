@@ -476,17 +476,19 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
       ) : null}
       <div
         data-editor-labels
-        className="grid h-full w-[4.4rem] shrink-0 grid-rows-[1.25rem_repeat(14,minmax(0,1fr))] bg-[#0B0F1A] pr-1.5"
+        className="grid h-full w-[4.4rem] shrink-0 grid-rows-[1.25rem_repeat(14,minmax(0,1fr))_1px] bg-[#0B0F1A] pr-1.5"
       >
         <div aria-hidden />
-        {VOICES.map((voice) => {
+        {VOICES.map((voice, row) => {
           const lit = (bar.pattern[voice] ?? []).length > 0
+          const last = row === VOICES.length - 1
           return (
             <button
               key={voice}
               type="button"
               data-voice={voice}
               data-row-lit={lit ? '1' : '0'}
+              {...(last ? { 'data-grid-last-row': '1' } : {})}
               {...voicePreviewHandlers(onPreview, voice)}
               className={cn(
                 'flex min-h-0 items-center truncate text-left text-[0.58rem] font-semibold leading-none',
@@ -497,17 +499,25 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
             </button>
           )
         })}
+        <div data-grid-floor aria-hidden />
       </div>
       <div ref={trackRef} data-editor-track className="relative min-h-0 min-w-0 flex-1 overflow-x-visible overflow-y-hidden pl-1.5">
         <div
           data-editor-bar-page={shown}
-          className="grid h-full min-h-0 w-full grid-rows-[1.25rem_repeat(14,minmax(0,1fr))]"
+          className="grid h-full min-h-0 w-full grid-rows-[1.25rem_repeat(14,minmax(0,1fr))_1px]"
         >
           <CountStrip beats={bar.beats} input={input} />
-          {VOICES.map((voice) => {
+          {VOICES.map((voice, row) => {
             const hits = bar.pattern[voice] ?? []
+            const last = row === VOICES.length - 1
             return (
-              <div key={voice} data-voice-row data-row-lit={hits.length > 0 ? '1' : '0'} className="flex min-h-0 min-w-0">
+              <div
+                key={voice}
+                data-voice-row
+                data-row-lit={hits.length > 0 ? '1' : '0'}
+                {...(last ? { 'data-grid-last-row': '1' } : {})}
+                className="flex min-h-0 min-w-0"
+              >
                 {Array.from({ length: bar.beats }, (_, beat) => {
                   const view = beatBoxView(hits, beat, input)
                   const filledInput = Array.from({ length: input }, (_, slot) =>
@@ -571,6 +581,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
               </div>
             )
           })}
+          <div data-grid-floor aria-hidden />
         </div>
         <PlayheadLine lineRef={playheadRef} mark="editor" />
       </div>
