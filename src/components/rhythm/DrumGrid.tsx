@@ -68,6 +68,7 @@ type PendingPaint = {
   moveArmed: boolean
   ignored: boolean
   softened: boolean
+  heldLong: boolean
 }
 
 type SlotCell = {
@@ -483,6 +484,7 @@ export const DrumGrid = memo(function DrumGrid({
         moveArmed: cell.filled && !coarse,
         ignored: false,
         softened: false,
+        heldLong: false,
       }
       window.clearTimeout(holdTimerRef.current)
       window.clearTimeout(armTimerRef.current)
@@ -497,8 +499,12 @@ export const DrumGrid = memo(function DrumGrid({
       holdTimerRef.current = window.setTimeout(() => {
         const pending = pendingRef.current
         if (!pending || pending.engaged || pending.ignored || pending.softened || pending.moving) return
-        if (!pending.filled) return
+        if (pending.filled) {
+          pending.heldLong = true
+          return
+        }
         pending.softened = true
+        lightHaptic()
         onToggleSoft(pending.voice, pending.beat, pending.slot)
       }, BAR_LONG_PRESS_MS)
     },
@@ -582,7 +588,14 @@ export const DrumGrid = memo(function DrumGrid({
           endPaint()
           return
         }
-        if (pending && pending.pointerId === event.pointerId && !pending.engaged && !pending.ignored && !pending.softened) {
+        if (
+          pending &&
+          pending.pointerId === event.pointerId &&
+          !pending.engaged &&
+          !pending.ignored &&
+          !pending.softened &&
+          !pending.heldLong
+        ) {
           const dist = Math.hypot(event.clientX - pending.x, event.clientY - pending.y)
           const scrolled = Math.abs(accumulatedScroll(rootRef.current) - pending.scroll) > 1
           if (dist <= TAP_SLOP_PX && !scrolled) {

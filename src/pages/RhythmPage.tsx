@@ -45,7 +45,7 @@ import {
   moveHitPos,
   sameHit,
   setHitPos,
-  toggleHitSoft,
+  placeOrToggleSoft,
   updateBarMeter,
   type BeatUnit,
   type ClickSoundId,
@@ -585,11 +585,11 @@ export function RhythmPage() {
       setDrumBars((currentBars) => {
         const bar = currentBars[targetBar]
         if (!bar) return currentBars
-        const current = (bar.pattern[voice] ?? []).find((hit) => hit.beat === beat && hit.num * drumInput === slot * hit.den)
-        if (!current) return currentBars
-        nextSoft = !current.soft
-        const nextPattern = toggleHitSoft(bar.pattern, voice, target)
+        if (beat < 0 || beat >= bar.beats) return currentBars
+        const nextPattern = placeOrToggleSoft(bar.pattern, voice, target)
         if (nextPattern === bar.pattern) return currentBars
+        const placed = (nextPattern[voice] ?? []).find((hit) => sameHit(hit, target))
+        nextSoft = Boolean(placed && isHitSoft(placed))
         changed = true
         return currentBars.map((item, index) =>
           index === targetBar ? { ...item, pattern: nextPattern } : item,

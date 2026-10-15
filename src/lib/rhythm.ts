@@ -565,6 +565,14 @@ export function toggleHitSoft(pattern: Pattern, voice: VoiceId, target: HitPos):
   return next
 }
 
+/** Empty slot → place a soft hit. Occupied slot → flip soft/full. */
+export function placeOrToggleSoft(pattern: Pattern, voice: VoiceId, target: HitPos): Pattern {
+  const hit = reduceHit(target.beat, target.num, target.den)
+  const exists = (pattern[voice] ?? []).some((item) => sameHit(item, hit))
+  if (!exists) return setHitPos(pattern, voice, reduceHit(target.beat, target.num, target.den, true), true)
+  return toggleHitSoft(pattern, voice, target)
+}
+
 export function markHitsSoft(
   pattern: Pattern,
   beats: number,

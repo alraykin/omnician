@@ -6,9 +6,11 @@ import { MIDI_SOFT_VELOCITY, importNotesFromParsed } from '../src/lib/midi-impor
 import { DEFAULT_MIDI_MAP } from '../src/lib/midi-map.ts'
 import { encodeMidi, parseMidi } from '../src/lib/midi-file.ts'
 import {
+  emptyPattern,
   isHitSoft,
   makeBar,
   markHitsSoft,
+  placeOrToggleSoft,
   reduceHit,
   setHitPos,
   toggleHitSoft,
@@ -46,6 +48,12 @@ assert.ok(Math.abs(ghostPreview.vel / normalPreview.vel - SOFT_VEL_RATIO) < 1e-9
 const toggled = toggleHitSoft(withSnare.pattern, 'snare', reduceHit(1, 0, 1))
 assert.equal(isHitSoft(toggled.snare.find((hit) => hit.num === 0)!), true)
 assert.equal(isHitSoft(toggleHitSoft(toggled, 'snare', reduceHit(1, 0, 1)).snare.find((hit) => hit.num === 0)!), false)
+
+const emptySlot = placeOrToggleSoft(emptyPattern(), 'kick', reduceHit(0, 1, 4))
+assert.equal(emptySlot.kick.length, 1)
+assert.equal(isHitSoft(emptySlot.kick[0]!), true, 'long-press empty slot places a soft note')
+assert.equal(isHitSoft(placeOrToggleSoft(emptySlot, 'kick', reduceHit(0, 1, 4)).kick[0]!), false, 'occupied slot still flips soft/full')
+assert.equal(placeOrToggleSoft(emptyPattern(), 'snare', reduceHit(2, 0, 1)).snare[0]?.soft, true)
 
 const rock = findPreset('rock-44')
 assert.ok(rock)

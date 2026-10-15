@@ -138,6 +138,8 @@ const boxesSrc = readFileSync(new URL('../src/lib/beat-boxes.ts', import.meta.ur
 assert.match(gridSrc, /onMoveHit/)
 assert.match(gridSrc, /data-hit-ghost/)
 assert.match(gridSrc, /MOVE_ARM_MS/)
+assert.match(gridSrc, /pending\.heldLong = true/)
+assert.doesNotMatch(gridSrc, /if \(!pending\.filled\) return/)
 assert.match(gridSrc, /HitDiamond/)
 assert.match(gridSrc, /data-hit-diamond/)
 assert.match(gridSrc, /data-drum-flat/)
