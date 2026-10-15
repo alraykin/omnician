@@ -1,5 +1,6 @@
 import { Check, ChevronDown, FileUp, GripVertical, LayoutGrid, Pencil, Play, Plus, Smartphone, Square, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
@@ -874,6 +875,11 @@ export function RhythmPage() {
       setSaveOpen(true)
     }
     if (query.get('library') === '1') setPickerOpen(true)
+    if (query.get('editor') === '1' || query.get('editorLibrary') === '1' || query.get('editorTempo') === '1') {
+      setMode('drums')
+      setEditorOpen(true)
+    }
+    if (query.get('editorLibrary') === '1') setPickerOpen(true)
     if (query.get('beatboxes') === '1') {
       if (playing) {
         halt('beatboxes-demo')
@@ -1455,6 +1461,11 @@ export function RhythmPage() {
           onPreview={preview}
           onMix={setGroupMix}
           onIntensity={setKitIntensity}
+          onOpenLibrary={() => setPickerOpen(true)}
+          onCloseLibrary={() => setPickerOpen(false)}
+          onBpm={changeBpm}
+          onTapTempo={tapTempo}
+          onListen={openListen}
         />
       ) : null}
 
@@ -1490,6 +1501,7 @@ export function RhythmPage() {
           factorySaving={factory.saving}
           factoryNotice={factory.notice}
           factoryError={factory.error}
+          compact={editorOpen}
           onReorder={factory.visible ? factory.onReorder : undefined}
           onClose={() => setPickerOpen(false)}
           onSelect={loadPreset}
@@ -1791,6 +1803,7 @@ function PresetSheet({
   factorySaving = false,
   factoryNotice = null,
   factoryError = null,
+  compact = false,
   onReorder,
   onClose,
   onSelect,
@@ -1806,6 +1819,7 @@ function PresetSheet({
   factorySaving?: boolean
   factoryNotice?: string | null
   factoryError?: string | null
+  compact?: boolean
   onReorder?: (styleId: RhythmStyleId, beatId: string, toIndex: number) => void
   onClose: () => void
   onSelect: (id: string) => void
@@ -1822,83 +1836,126 @@ function PresetSheet({
     (style) => !style.grooves.some((item) => item.beats === current.beats && item.beatUnit === current.beatUnit),
   )
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
+    <div
+      data-beat-library-sheet
+      data-library-layout={compact ? 'landscape' : 'sheet'}
+      className={cn(
+        'fixed inset-0 z-[90] flex justify-center bg-black/70',
+        compact ? 'items-center p-1.5' : 'items-end p-4 sm:items-center',
+      )}
+    >
+      {compact ? (
+        <button
+          type="button"
+          aria-label="Close beat library"
+          className="absolute inset-0 cursor-default"
+          onClick={onClose}
+        />
+      ) : null}
       <div
+        onClick={compact ? (event) => event.stopPropagation() : undefined}
         role="dialog"
         aria-labelledby="rhythm-presets-title"
         data-factory-reorder={factoryReorder ? '1' : '0'}
-        className="max-h-[90svh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5 md:max-w-2xl lg:max-w-4xl"
+        className={cn(
+          'w-full rounded-3xl border border-white/10 bg-[#0F1422]',
+          compact
+            ? 'relative z-10 flex max-h-[calc(100svh-0.6rem)] max-w-[min(56rem,calc(100vw-0.6rem))] flex-col overflow-hidden rounded-2xl p-3'
+            : 'max-h-[90svh] max-w-lg overflow-y-auto p-5 md:max-w-2xl lg:max-w-4xl',
+        )}
       >
-        <h2 id="rhythm-presets-title" className="text-xl font-bold tracking-tight text-white">
-          Beat library
-        </h2>
+        <div className="flex shrink-0 items-start justify-between gap-3">
+          <h2
+            id="rhythm-presets-title"
+            className={cn('font-bold tracking-tight text-white', compact ? 'text-lg' : 'text-xl')}
+          >
+            Beat library
+          </h2>
+          {compact ? (
+            <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 px-3" onClick={onClose}>
+              Close
+            </Button>
+          ) : null}
+        </div>
         {factoryReorder ? (
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 shrink-0 text-sm text-slate-400">
             Drag a groove within its style to change the menu order. That order is saved as default for everyone.
           </p>
         ) : null}
         {factorySaving ? (
-          <p data-factory-picker-notice className="mt-2 text-sm font-semibold text-[#E9D5FF]">
+          <p data-factory-picker-notice className="mt-2 shrink-0 text-sm font-semibold text-[#E9D5FF]">
             Saving order…
           </p>
         ) : factoryNotice ? (
-          <p data-factory-picker-notice className="mt-2 text-sm font-semibold text-emerald-300">
+          <p data-factory-picker-notice className="mt-2 shrink-0 text-sm font-semibold text-emerald-300">
             {factoryNotice}
           </p>
         ) : factoryError ? (
-          <p data-factory-picker-notice className="mt-2 text-sm text-red-300">
+          <p data-factory-picker-notice className="mt-2 shrink-0 text-sm text-red-300">
             {factoryError}
           </p>
         ) : null}
-        <MyBeatsSection
-          beats={userBeats}
-          selectedId={selectedUserId}
-          onLoad={onLoadUser}
-          onRename={onRename}
-          onDelete={onDelete}
-        />
-        <PresetGroup
-          title={`For ${meterLabel(current.beats, current.beatUnit)}`}
-          styles={local}
-          selected={selected}
-          factoryReorder={factoryReorder}
-          onReorder={onReorder}
-          onSelect={onSelect}
-        />
-        {others.length > 0 ? (
+        <div className={cn(compact && 'min-h-0 flex-1 overflow-y-auto overscroll-contain')}>
+          <MyBeatsSection
+            beats={userBeats}
+            selectedId={selectedUserId}
+            compact={compact}
+            onLoad={onLoadUser}
+            onRename={onRename}
+            onDelete={onDelete}
+          />
           <PresetGroup
-            title="Other meters"
-            styles={others}
+            title={`For ${meterLabel(current.beats, current.beatUnit)}`}
+            styles={local}
             selected={selected}
             factoryReorder={factoryReorder}
+            compact={compact}
             onReorder={onReorder}
             onSelect={onSelect}
           />
-        ) : null}
-        <Button type="button" variant="outline" className="mt-4 w-full" onClick={onClose}>
-          Close
-        </Button>
+          {others.length > 0 ? (
+            <PresetGroup
+              title="Other meters"
+              styles={others}
+              selected={selected}
+              factoryReorder={factoryReorder}
+              compact={compact}
+              onReorder={onReorder}
+              onSelect={onSelect}
+            />
+          ) : null}
+        </div>
+        {compact ? null : (
+          <Button type="button" variant="outline" className="mt-4 w-full" onClick={onClose}>
+            Close
+          </Button>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
 function MyBeatsSection({
   beats,
   selectedId,
+  compact = false,
   onLoad,
   onRename,
   onDelete,
 }: {
   beats: UserBeat[]
   selectedId: string | null
+  compact?: boolean
   onLoad: (id: string) => void
   onRename: (id: string, name: string) => void
   onDelete: (id: string) => void
 }) {
   return (
-    <section className="mt-4" data-my-beats>
+    <section className={compact ? 'mt-2' : 'mt-4'} data-my-beats>
       <h3 className="px-1 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-[#C084FC]">
         My beats
       </h3>
@@ -2046,6 +2103,7 @@ function PresetGroup({
   styles,
   selected,
   factoryReorder = false,
+  compact = false,
   onReorder,
   onSelect,
 }: {
@@ -2053,16 +2111,17 @@ function PresetGroup({
   styles: RhythmStyle[]
   selected: RhythmPreset | undefined
   factoryReorder?: boolean
+  compact?: boolean
   onReorder?: (styleId: RhythmStyleId, beatId: string, toIndex: number) => void
   onSelect: (id: string) => void
 }) {
   if (styles.length === 0) return null
   return (
-    <section className="mt-4">
+    <section className={compact ? 'mt-2' : 'mt-4'}>
       <h3 className="px-1 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {title}
       </h3>
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+      <div className={cn('grid gap-2', compact ? 'grid-cols-3' : 'grid-cols-1 md:grid-cols-2')}>
         {styles.map((style) => (
           <StyleMenu
             key={style.id}
@@ -2070,6 +2129,7 @@ function PresetGroup({
             selected={selected}
             defaultOpen={selected?.styleId === style.id}
             factoryReorder={factoryReorder}
+            compact={compact}
             onReorder={onReorder}
             onSelect={onSelect}
           />
@@ -2084,6 +2144,7 @@ function StyleMenu({
   selected,
   defaultOpen,
   factoryReorder = false,
+  compact = false,
   onReorder,
   onSelect,
 }: {
@@ -2091,6 +2152,7 @@ function StyleMenu({
   selected: RhythmPreset | undefined
   defaultOpen: boolean
   factoryReorder?: boolean
+  compact?: boolean
   onReorder?: (styleId: RhythmStyleId, beatId: string, toIndex: number) => void
   onSelect: (id: string) => void
 }) {
@@ -2156,7 +2218,10 @@ function StyleMenu({
         aria-expanded={open}
         data-style-toggle={style.id}
         onClick={() => setOpen((currentOpen) => !currentOpen)}
-        className="flex w-full items-center justify-between px-3 py-2 text-left"
+        className={cn(
+          'flex w-full items-center justify-between text-left',
+          compact ? 'px-2.5 py-1.5' : 'px-3 py-2',
+        )}
       >
         <span>
           <span className="block text-sm font-semibold leading-5 text-white">{style.name}</span>

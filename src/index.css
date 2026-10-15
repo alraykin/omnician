@@ -110,6 +110,12 @@ html.drum-editor-open [data-drum-editor] {
   touch-action: manipulation;
 }
 
+html.drum-editor-open [data-beat-library-sheet],
+html.drum-editor-open [data-editor-tempo-sheet],
+html.drum-editor-open [data-listen-panel] {
+  touch-action: manipulation;
+}
+
 .rhythm-glass {
   background: rgb(11 15 26 / 0.32);
   backdrop-filter: blur(6px);

@@ -158,6 +158,37 @@ assert.match(overlaySrc, /data-rotate-hint/)
 assert.match(overlaySrc, /Back to Drums/)
 assert.match(overlaySrc, /data-editor-mixer/)
 assert.match(overlaySrc, /data-mixer-panel/)
+assert.match(overlaySrc, /data-editor-beat-name/)
+assert.match(overlaySrc, /data-editor-bpm/)
+assert.match(overlaySrc, /onOpenLibrary/)
+assert.match(overlaySrc, /EditorTempoSheet/)
+assert.match(overlaySrc, /onTapTempo/)
+assert.match(overlaySrc, /onListen/)
+assert.match(pageSrc, /editorLibrary/)
+assert.match(pageSrc, /compact=\{editorOpen\}/)
+assert.match(pageSrc, /data-beat-library-sheet/)
+assert.match(pageSrc, /data-library-layout/)
+assert.match(pageSrc, /z-\[90\]/)
+assert.match(
+  readFileSync(new URL('../src/components/rhythm/EditorTempoSheet.tsx', import.meta.url), 'utf8'),
+  /data-editor-tempo-sheet/,
+)
+assert.match(
+  readFileSync(new URL('../src/components/rhythm/EditorTempoSheet.tsx', import.meta.url), 'utf8'),
+  /BpmWheel compact/,
+)
+assert.match(
+  readFileSync(new URL('../src/components/rhythm/EditorTempoSheet.tsx', import.meta.url), 'utf8'),
+  /data-listen/,
+)
+assert.match(
+  readFileSync(new URL('../src/components/rhythm/EditorTempoSheet.tsx', import.meta.url), 'utf8'),
+  /data-tap/,
+)
+assert.match(
+  readFileSync(new URL('../src/components/rhythm/ListenTempo.tsx', import.meta.url), 'utf8'),
+  /z-\[100\]/,
+)
 assert.match(overlaySrc, /safe-area-inset/)
 assert.match(overlaySrc, /sawLandscape/)
 assert.match(overlaySrc, /IntensitySwitch/)

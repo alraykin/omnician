@@ -1,4 +1,4 @@
-import { LayoutGrid, Play, Square, X } from 'lucide-react'
+import { ChevronDown, LayoutGrid, Play, Square, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -6,6 +6,7 @@ import { BarStrip, type BarChipMenu } from '@/components/rhythm/BarStrip'
 import { CompactMeter } from '@/components/rhythm/CompactMeter'
 import { DrumEditorGrid } from '@/components/rhythm/DrumEditorGrid'
 import { DrumInputChips } from '@/components/rhythm/DrumGrid'
+import { EditorTempoSheet } from '@/components/rhythm/EditorTempoSheet'
 import { IntensitySwitch } from '@/components/rhythm/IntensitySwitch'
 import { KitMixerPanel } from '@/components/rhythm/KitMixerPanel'
 import { type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
@@ -44,6 +45,11 @@ export function DrumEditorOverlay({
   onPreview,
   onMix,
   onIntensity,
+  onOpenLibrary,
+  onCloseLibrary,
+  onBpm,
+  onTapTempo,
+  onListen,
 }: {
   beatName: string
   bpm: number
@@ -80,9 +86,18 @@ export function DrumEditorOverlay({
   onPreview: (voice: VoiceId) => void
   onMix: (group: KitGroupId, db: number) => void
   onIntensity: (next: KitIntensity) => void
+  onOpenLibrary: () => void
+  onCloseLibrary: () => void
+  onBpm: (next: number, tick?: boolean) => void
+  onTapTempo: () => void
+  onListen: () => void
 }) {
   const portrait = usePortraitViewport()
   const [mixerOpen, setMixerOpen] = useState(false)
+  const [tempoOpen, setTempoOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return new URLSearchParams(window.location.search).get('editorTempo') === '1'
+  })
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   const sawLandscape = useRef(!readPortraitViewport())
@@ -139,12 +154,23 @@ export function DrumEditorOverlay({
               <X className="size-4" />
               Done
             </button>
-            <div className="min-w-0 flex-1">
+            <button
+              type="button"
+              data-editor-beat-name
+              aria-label={`Beat library, ${beatName}`}
+              {...activateOnPointer(() => {
+                setTempoOpen(false)
+                setMixerOpen(false)
+                onOpenLibrary()
+              })}
+              className="min-w-0 flex-1 rounded-lg px-1 py-0.5 text-left hover:bg-white/6"
+            >
               <p className="text-[0.58rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Edit beat</p>
-              <p data-editor-beat-name className="truncate text-[0.82rem] font-semibold leading-none text-white">
-                {beatName}
+              <p className="flex min-w-0 items-center gap-0.5 truncate text-[0.82rem] font-semibold leading-none text-white">
+                <span className="truncate">{beatName}</span>
+                <ChevronDown className="size-3.5 shrink-0 text-slate-400" />
               </p>
-            </div>
+            </button>
             <IntensitySwitch compact value={kitIntensity} onChange={onIntensity} />
             <button
               type="button"
@@ -171,9 +197,23 @@ export function DrumEditorOverlay({
               {playing ? <Square className="size-3.5 fill-current" /> : <Play className="size-3.5 fill-current" />}
               {playing ? 'Stop' : 'Play'}
             </button>
-            <p data-editor-bpm className="min-w-[4.2rem] text-right text-[0.82rem] font-semibold tabular-nums text-white">
+            <button
+              type="button"
+              data-editor-bpm
+              aria-label={`${shownBpm} BPM`}
+              aria-expanded={tempoOpen}
+              {...activateOnPointer(() => {
+                setMixerOpen(false)
+                onCloseLibrary()
+                setTempoOpen((open) => !open)
+              })}
+              className={cn(
+                'flex h-9 min-w-[4.2rem] items-center justify-end rounded-full px-3 text-[0.82rem] font-semibold tabular-nums',
+                tempoOpen ? 'bg-[#A855F7] text-white' : 'text-white hover:bg-white/8',
+              )}
+            >
               {shownBpm} BPM
-            </p>
+            </button>
           </header>
 
           <div className="flex shrink-0 flex-wrap items-center gap-2 px-1 pb-1">
@@ -231,6 +271,19 @@ export function DrumEditorOverlay({
               </>
             ) : null}
           </div>
+          {tempoOpen ? (
+            <EditorTempoSheet
+              bpm={bpm}
+              liveBpm={liveBpm || bpm}
+              onBpm={onBpm}
+              onTap={onTapTempo}
+              onListen={() => {
+                setTempoOpen(false)
+                onListen()
+              }}
+              onClose={() => setTempoOpen(false)}
+            />
+          ) : null}
         </>
       )}
     </div>,

@@ -1,5 +1,6 @@
 import { Mic, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { Button } from '@/components/ui/button'
 import { type SpeedBuilder, sbBpm } from '@/lib/speed-builder'
@@ -68,6 +69,7 @@ export function ListenTempoSheet({
   }, [snap])
 
   if (!open) return null
+  if (typeof document === 'undefined') return null
 
   const estimate = snap?.estimate ?? heldEstimate ?? seed
   const phase = snap?.phase ?? (estimate ? 'result' : seed ? 'result' : 'listening')
@@ -85,9 +87,9 @@ export function ListenTempoSheet({
       ? `This sets the metronome to ${chosen} BPM on the next note.`
       : `This is already your tempo.`)
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-3 pb-[calc(0.65rem+var(--tabbar-clearance))] sm:items-center sm:p-6 sm:pb-6"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-3 pb-[calc(0.65rem+var(--tabbar-clearance))] sm:items-center sm:p-6 sm:pb-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="listen-tempo-title"
@@ -265,7 +267,8 @@ export function ListenTempoSheet({
           }}
         />
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
