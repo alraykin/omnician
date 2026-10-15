@@ -183,7 +183,7 @@ function KitBlock({
           )
         })}
       </div>
-      <div data-kit-block-track className="relative min-w-0 flex-1">
+      <div data-kit-block-track className="relative min-w-0 flex-1 pl-1.5">
         <div
           className="grid min-w-0 grid-rows-[1.25rem_repeat(14,minmax(2rem,1fr))]"
           style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}

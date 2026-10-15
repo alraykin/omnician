@@ -491,7 +491,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
           )
         })}
       </div>
-      <div ref={trackRef} data-editor-track className="relative min-h-0 min-w-0 flex-1 overflow-x-visible overflow-y-hidden">
+      <div ref={trackRef} data-editor-track className="relative min-h-0 min-w-0 flex-1 overflow-x-visible overflow-y-hidden pl-1.5">
         <div
           data-editor-bar-page={shown}
           className="grid h-full min-h-0 w-full grid-rows-[1.25rem_repeat(14,minmax(0,1fr))]"
