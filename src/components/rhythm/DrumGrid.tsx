@@ -185,7 +185,7 @@ function KitBlock({
             </button>
           )
         })}
-        <div data-grid-floor aria-hidden />
+        <div aria-hidden />
       </div>
       <div data-kit-block-track className="relative min-w-0 flex-1 pl-1.5">
         <div

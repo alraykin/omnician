@@ -499,7 +499,7 @@ export const DrumEditorGrid = memo(function DrumEditorGrid({
             </button>
           )
         })}
-        <div data-grid-floor aria-hidden />
+        <div aria-hidden />
       </div>
       <div ref={trackRef} data-editor-track className="relative min-h-0 min-w-0 flex-1 overflow-x-visible overflow-y-hidden pl-1.5">
         <div

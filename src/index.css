@@ -984,7 +984,8 @@ html.drum-editor-open [data-listen-panel] {
   box-shadow: none;
 }
 
-[data-drum-flat] [data-grid-floor] {
+[data-drum-flat] [data-editor-track] [data-grid-floor],
+[data-drum-flat] [data-kit-block-track] [data-grid-floor] {
   height: 1px;
   background: var(--grid-bar);
 }
