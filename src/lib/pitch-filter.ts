@@ -3,7 +3,7 @@
 import { MIN_HZ } from '@/lib/yin'
 
 /** Rumble / DC: well below E0 (~20.6 Hz). */
-export const HP_HZ = 8
+export const HP_HZ = 6
 /** Pass C8 (~4186 Hz) with headroom. */
 export const LP_HZ = 8000
 

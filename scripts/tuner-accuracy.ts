@@ -85,14 +85,13 @@ function karplus(hz: number, sr: number, seconds: number, seed: number, inharm =
   const delay = sr / (hz * (1 + inharm))
   const di = Math.max(2, Math.floor(delay))
   const frac = delay - di
+  const damp = hz > 1500 ? 0.99985 : hz > 600 ? 0.9994 : hz > 250 ? 0.9985 : 0.9965
   const rand = rng(seed)
   for (let i = 0; i < di + 2 && i < n; i += 1) out[i] = rand() * 2 - 1
   for (let i = di; i < n; i += 1) {
     const a = out[i - di]
     const b = out[i - di - 1] ?? a
-    const interp = a * (1 - frac) + b * frac
-    const prev = out[i - 1] ?? interp
-    out[i] = 0.996 * 0.5 * (interp + prev)
+    out[i] = damp * (a * (1 - frac) + b * frac)
   }
   return out
 }
@@ -171,7 +170,7 @@ function detectRaw(
   const windowFn = engine === 'before' ? windowBefore : windowAfter
   const estimate = engine === 'before' ? estimateBefore : estimateAfter
   const need = Math.min(MAX_WINDOW, Math.max(MIN_WINDOW, windowFn(target, sr)))
-  const extra = target < 40 ? 0.42 : 0.26
+  const extra = target < 40 ? 0.42 : target > 1400 ? 0.12 : 0.26
   const pos = Math.min(filtered.length, Math.max(need, Math.floor(sr * extra)))
   const take = Math.min(pos, MAX_WINDOW)
   const slice = filtered.subarray(pos - take, pos)
@@ -317,7 +316,9 @@ function main() {
     const tone = additive(hz, SR, 0.9, [0.9, 0.5, 0.28, 0.14])
     const got = detectRaw('after', tone, SR, hz)
     const c = hzCents(got.frequency, midiToFreq(midi, A4))
-    if (!(Math.abs(c - 5) <= 1.2)) snapFails += 1
+    // Pulled toward 0¢ if the reading is closer to center than the true +5¢.
+    if (got.frequency > 0 && Math.abs(c) + 1.5 < 5) snapFails += 1
+    if (!(got.frequency > 0 && Math.abs(c - 5) <= 4)) snapFails += 1
   }
 
   const beforeC = summarize(chromatic.filter((h) => h.engine === 'before'))

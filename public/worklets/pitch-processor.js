@@ -17,7 +17,7 @@ const MIN_CLARITY = 0.88
 const MIN_CLARITY_BASS = 0.82
 const MIN_CLARITY_SUB = 0.76
 const MIN_RMS = 0.0022
-const HP_HZ = 8
+const HP_HZ = 6
 const LP_HZ = 8000
 
 function lowDecimateFactor(rate) {
@@ -256,7 +256,40 @@ function fastYin(buffer, rate, scratch, minHz, maxHz, threshold) {
   if (!Number.isFinite(frequency) || frequency < minHz || frequency > maxHz) {
     return { frequency: 0, clarity: 0, candidates, fftSize }
   }
-  return { frequency, clarity, candidates, fftSize }
+  return { frequency: refineTau(buffer, tau, rate, minHz, maxHz), clarity, candidates, fftSize }
+}
+
+function refineTau(buffer, tau0, rate, minHz, maxHz) {
+  const n = buffer.length
+  const maxTau = n - 3
+  if (tau0 < 2 || tau0 > maxTau) return rate / tau0
+  const span = Math.min(0.75, tau0 * (8 / 1200) * Math.LN2 * 1.1)
+  let lo = Math.max(2, tau0 - span)
+  let hi = Math.min(maxTau, tau0 + span)
+  const diffAt = (tau) => {
+    const iTau = Math.floor(tau)
+    const frac = tau - iTau
+    const lim = n - iTau - 1
+    if (lim < 8) return Infinity
+    let sum = 0
+    for (let j = 0; j < lim; j += 1) {
+      const b = buffer[j + iTau] * (1 - frac) + buffer[j + iTau + 1] * frac
+      const d = buffer[j] - b
+      sum += d * d
+    }
+    return sum
+  }
+  for (let i = 0; i < 16; i += 1) {
+    const m1 = lo + (hi - lo) * 0.382
+    const m2 = lo + (hi - lo) * 0.618
+    if (diffAt(m1) < diffAt(m2)) hi = m2
+    else lo = m1
+  }
+  const tau = (lo + hi) / 2
+  const hz = rate / tau
+  if (!Number.isFinite(hz) || hz < minHz || hz > maxHz) return rate / tau0
+  if (Math.abs(1200 * Math.log2(hz / (rate / tau0))) > 12) return rate / tau0
+  return hz
 }
 
 function goertzelPower(buffer, rate, hz) {
@@ -317,9 +350,13 @@ function canFoldTo(buffer, rate, lower, current) {
     const f3 = lower * 3
     const mag3 = magAt(buffer, rate, f3)
     const peaked =
-      mag3 > magAt(buffer, rate, f3 * 0.89) * 1.2 && mag3 > magAt(buffer, rate, f3 * 1.12) * 1.2
+      mag3 > magAt(buffer, rate, f3 * 0.89) * 1.2 &&
+      mag3 > magAt(buffer, rate, f3 * 1.12) * 1.2 &&
+      mag3 > magAt(buffer, rate, current * 1.25) * 1.12 &&
+      mag3 > magAt(buffer, rate, current * 1.75) * 1.12
     const odd = mag3 + 0.55 * magAt(buffer, rate, lower * 5)
-    return peaked && odd > magC * 0.28
+    const mag2c = magAt(buffer, rate, current * 2)
+    return peaked && odd > magC * 0.28 && mag3 > mag2c * 0.2
   }
   if (ratio > 2.82 && ratio < 3.22) {
     const magL = magAt(buffer, rate, lower)
@@ -473,7 +510,7 @@ function estimatePitch(buffer, rate, scratch, prevHz) {
       }
     }
   }
-  const picked = maybeLowerOctave(buf, rate, pickEstimate(high, low, prevHz, buf, rate), MIN_HZ)
+  const picked = pickEstimate(high, low, prevHz, buf, rate)
   if (picked.frequency > 0 && picked.clarity < clarityFloor(picked.frequency)) {
     return { frequency: 0, clarity: picked.clarity }
   }
