@@ -146,7 +146,7 @@ The Worker also serves `/api/factory` and stores the built-in Drums library in t
 
 A native iOS shell named **Omnician** lives in `ios/`. It loads the same Vite `dist/` folder the website uses. This does **not** change omnician.app.
 
-- Bundle ID: `app.omnician.ios`
+- Bundle ID: `app.omnician`
 - Sound still plays with the ringer/silent switch off
 - The tuner still asks for the microphone
 - Cloud compile: GitHub Actions on a Mac runner (unsigned iPhone Simulator). TestFlight waits for Apple credentials.

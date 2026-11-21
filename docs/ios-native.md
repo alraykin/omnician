@@ -1,6 +1,6 @@
 # Native iPhone app (Capacitor)
 
-Omnician on the phone is still the same web app. Capacitor wraps the Vite `dist/` folder in a small iOS shell named **Omnician** (`app.omnician.ios`). The live site at omnician.app is unchanged — `npm run deploy` still builds with Vite and uploads the Worker.
+Omnician on the phone is still the same web app. Capacitor wraps the Vite `dist/` folder in a small iOS shell named **Omnician** (`app.omnician`). The live site at omnician.app is unchanged — `npm run deploy` still builds with Vite and uploads the Worker.
 
 Do **not** sign, upload, or open App Store Connect until Alex’s Apple Developer Program account is active.
 
@@ -61,7 +61,7 @@ Only set that variable after every secret above exists. The TestFlight job is sk
 ### One-time Apple clicks (after the account is active)
 
 1. Enroll in the Apple Developer Program as an individual (already in progress).
-2. In App Store Connect, create the app: name **Omnician**, bundle ID **app.omnician.ios**, SKU something like `omnician-ios`.
+2. In App Store Connect, create the app: name **Omnician**, bundle ID **app.omnician**, SKU something like `omnician`.
 3. Create the App Store Connect API key. Download the `.p8` once — Apple will not show it again. Store it in a password manager, then paste it into GitHub.
 4. Do **not** put the `.p8` in this git repo.
 
@@ -77,9 +77,7 @@ If automatic signing later fails, add these optional secrets (still unused today
 
 ## Bundle ID
 
-The project uses **`app.omnician.ios`** as requested.
-
-A shorter **`app.omnician`** is slightly cleaner (Apple only needs two reverse-DNS pieces). **`com.raykinmusic.omnician`** matches the LLC if you want the store listing to look corporate. Changing it later means a new App Store Connect app. Decide before the first TestFlight upload.
+The project uses **`app.omnician`**. Changing it after the first TestFlight upload means a new App Store Connect app.
 
 ## Fold posture and haptics (plan only — not built)
 
