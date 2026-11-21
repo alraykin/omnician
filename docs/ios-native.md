@@ -12,7 +12,7 @@ The Apple Developer Program account is in use for TestFlight via GitHub Actions 
 - Dark launch screen
 - Native audio session so click and drums play with the silent switch on (`AVAudioSession` category **playback**, `mixWithOthers` **off**)
 - Microphone permission string for the tuner
-- GitHub Actions workflow that compiles an **unsigned iPhone Simulator** build on `macos-15`
+- GitHub Actions workflow that compiles an **unsigned iPhone Simulator** build on `macos-26` with Xcode 26 (iOS 26 SDK)
 - A TestFlight job that stays **off** until you opt in with secrets
 
 This Linux cloud machine cannot run Xcode. The unsigned compile happens on GitHub’s Mac runners after the repo is on GitHub.
@@ -35,7 +35,7 @@ This Origin repo does **not** run GitHub Actions. When you are ready:
 
 1. Create a GitHub repository (private is fine).
 2. Push this `main` branch there.
-3. Actions → **iOS** workflow runs on `macos-15` (GitHub-hosted, no paid Codemagic).
+3. Actions → **iOS** workflow runs on `macos-26` with Xcode 26 (GitHub-hosted, no paid Codemagic). App Store Connect requires the iOS 26 SDK.
 4. The **Unsigned iPhone simulator** job should turn green. That is the first proof the native project compiles.
 5. Leave TestFlight off until the Apple account is active.
 

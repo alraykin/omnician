@@ -1,11 +1,11 @@
 # Cloud iOS build for Omnician. Runs on GitHub-hosted macOS (no Mac on our side).
 # Free GitHub Actions minutes only — do not add paid runners or Codemagic.
 #
-# Until Apple credentials exist, only the unsigned iPhone Simulator job runs.
-# TestFlight upload stays off until the GitHub Actions variable
-# IOS_TESTFLIGHT_ENABLED is set to the string true AND the secrets below are present.
+# App Store Connect requires the iOS 26 SDK (Xcode 26+). Both jobs use macos-26
+# and pin Xcode 26.x. TestFlight stays off until IOS_TESTFLIGHT_ENABLED is true.
 #
-# This workflow does not run on Origin. Mirror the repo to GitHub (see docs/ios-native.md).
+# Do not pass PRODUCT_BUNDLE_IDENTIFIER on the xcodebuild command line — that
+# stamps app.omnician onto embedded Capacitor/Cordova frameworks.
 
 name: iOS
 
@@ -22,10 +22,21 @@ concurrency:
 jobs:
   simulator:
     name: Unsigned iPhone simulator
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - name: Check out
         uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26'
+
+      - name: Show Xcode version
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          xcodebuild -showsdks | grep -E 'iphoneos|iphonesimulator' || true
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -67,7 +78,7 @@ jobs:
     name: Archive and upload to TestFlight
     needs: simulator
     if: ${{ vars.IOS_TESTFLIGHT_ENABLED == 'true' }}
-    runs-on: macos-15
+    runs-on: macos-26
     env:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -76,6 +87,17 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26'
+
+      - name: Show Xcode version
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          xcodebuild -showsdks | grep -E 'iphoneos|iphonesimulator' || true
 
       - name: Stop if Apple secrets are missing
         run: |
@@ -119,6 +141,8 @@ jobs:
       # Archive unsigned so Xcode never asks for an iOS Development profile
       # (those require a registered device; this team has none). Signing happens
       # only at export, with Apple Distribution + an App Store profile.
+      # Bundle id lives only on the App target in the Xcode project — do not pass
+      # PRODUCT_BUNDLE_IDENTIFIER here or embedded pods inherit app.omnician.
       - name: Archive for App Store
         working-directory: ios/App
         run: |
@@ -129,7 +153,6 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Omnician.xcarchive" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            PRODUCT_BUNDLE_IDENTIFIER=app.omnician \
             MARKETING_VERSION=1.0 \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
             CODE_SIGN_STYLE=Manual \
@@ -137,6 +160,9 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=- \
             archive
+
+      - name: Check nested bundle identifiers
+        run: bash scripts/ios-check-bundle-ids.sh "$RUNNER_TEMP/Omnician.xcarchive"
 
       - name: Export IPA
         run: |
