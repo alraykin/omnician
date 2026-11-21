@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 import { cn } from '@/lib/utils'
@@ -26,7 +26,7 @@ export function FoldShell({
     <div
       data-fold-shell
       data-fold-layout={layout}
-      className="fixed inset-0 z-[82] bg-[#0B0F1A] text-white"
+      className="fixed inset-0 z-[82] h-[100dvh] w-[100dvw] max-h-[100dvh] max-w-[100dvw] overflow-hidden bg-[#0B0F1A] text-white"
     >
       {children}
     </div>,
@@ -38,10 +38,12 @@ export function FoldHalf({
   side,
   children,
   className,
+  style,
 }: {
   side: 'top' | 'bottom' | 'left' | 'right'
   children: ReactNode
   className?: string
+  style?: CSSProperties
 }) {
   const box =
     side === 'top'
@@ -52,7 +54,7 @@ export function FoldHalf({
           ? 'absolute inset-y-0 left-0 right-[calc(50%+16px)]'
           : 'absolute inset-y-0 left-[calc(50%+16px)] right-0'
   return (
-    <div data-fold-half={side} className={cn(box, 'overflow-hidden', className)}>
+    <div data-fold-half={side} className={cn(box, 'overflow-hidden', className)} style={style}>
       {children}
     </div>
   )

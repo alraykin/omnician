@@ -97,20 +97,23 @@ export function DrumsLaptop({
 
   return (
     <FoldShell layout="laptop">
-      <FoldHalf side="top" className="px-3 pt-2.5">
+      <FoldHalf
+        side="top"
+        className="flex flex-col px-3"
+        style={{ paddingTop: 'max(0.2rem, var(--fold-safe-top))' }}
+      >
         <div
           data-fold-drums-meta
-          className="mb-1 max-w-[360px] pr-2"
+          className="flex h-10 shrink-0 items-baseline gap-2"
+          style={{ maxWidth: 'calc(100% - min(var(--fold-status-portrait), 38%))' }}
         >
           <p className="text-[0.58rem] font-semibold uppercase tracking-[0.14em] text-[#C084FC]">Beat</p>
-          <p className="truncate text-[1.05rem] font-semibold leading-tight text-white">
-            {beatName}
-            <span className="ml-2 text-[0.82rem] font-medium text-slate-400">
-              {shownBpm} BPM · {current ? meterLabel(current.beats, current.beatUnit) : ''}
-            </span>
+          <p className="min-w-0 truncate text-[1.02rem] font-semibold leading-none text-white">{beatName}</p>
+          <p className="shrink-0 text-[0.78rem] font-medium tabular-nums text-slate-400">
+            {shownBpm} BPM · {current ? meterLabel(current.beats, current.beatUnit) : ''}
           </p>
         </div>
-        <div data-fold-drums-grid className="h-[408px] min-h-0 max-h-[calc(100%-4.5rem)]">
+        <div data-fold-drums-grid className="min-h-0 flex-1">
           <DrumEditorGrid
             bars={bars}
             barIndex={viewBar}
@@ -127,7 +130,11 @@ export function DrumsLaptop({
         </div>
       </FoldHalf>
       <FoldCrease axis="horizontal" />
-      <FoldHalf side="bottom" className="flex flex-col px-4 pt-2">
+      <FoldHalf
+        side="bottom"
+        className="flex flex-col px-4 pt-2"
+        style={{ paddingBottom: 'max(0.5rem, var(--fold-safe-bottom))' }}
+      >
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex h-11 shrink-0 items-center gap-1">
             <button
@@ -199,38 +206,38 @@ export function DrumsLaptop({
           <div className="mt-1 flex min-h-0 flex-1 gap-3">
             <FoldTempoColumn bpm={bpm} liveBpm={liveBpm} onBpm={onBpm} onTap={onTapTempo} />
             <div className="flex min-w-0 flex-1 flex-col">
-              <div className="flex h-[72px] items-center gap-1">
-                <div className="grid min-w-0 flex-1 grid-cols-8 gap-1">
-                  {bars.map((_, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      data-bar-pill={index}
-                      {...activateOnPointer(() => onSelectBar(index))}
-                      className={cn(
-                        'flex h-10 min-h-10 items-center justify-center rounded-lg text-[0.78rem] font-semibold tabular-nums',
-                        index === viewBar ? 'bg-[#A855F7] text-white' : 'border border-white/12 bg-white/4 text-slate-200',
-                      )}
-                    >
-                      {index + 1}
-                    </button>
-                  ))}
-                </div>
+              <div className="flex h-12 min-w-0 items-center gap-1" data-fold-bar-pills>
+                {bars.map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    data-bar-pill={index}
+                    {...activateOnPointer(() => onSelectBar(index))}
+                    className={cn(
+                      'flex h-10 min-h-10 min-w-0 flex-1 items-center justify-center rounded-lg px-0.5 text-[clamp(0.62rem,2.1vw,0.78rem)] font-semibold tabular-nums',
+                      index === viewBar ? 'bg-[#A855F7] text-white' : 'border border-white/12 bg-white/4 text-slate-200',
+                    )}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
                 <button
                   type="button"
                   aria-label="Add bar"
+                  data-bar-add
                   disabled={!canAdd}
                   {...activateOnPointer(onAddBar)}
-                  className="flex size-10 items-center justify-center rounded-lg border border-white/12 disabled:opacity-30"
+                  className="flex h-10 w-8 min-w-8 shrink-0 items-center justify-center rounded-lg border border-white/12 disabled:opacity-30"
                 >
                   <Plus className="size-4" />
                 </button>
                 <button
                   type="button"
                   aria-label="Delete bar"
+                  data-bar-delete
                   disabled={bars.length <= 1}
                   {...activateOnPointer(onRemoveBar)}
-                  className="flex size-10 items-center justify-center rounded-lg border border-[#FF4D6D]/40 text-[#FF4D6D] disabled:opacity-30"
+                  className="flex h-10 w-8 min-w-8 shrink-0 items-center justify-center rounded-lg border border-[#FF4D6D]/40 text-[#FF4D6D] disabled:opacity-30"
                 >
                   <Trash2 className="size-4" />
                 </button>

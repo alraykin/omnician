@@ -4,6 +4,12 @@ export const FOLD_STORAGE_KEY = 'omnician.fold-mode.v1'
 export const FOLD_MIN_SIDE_PX = 640
 export const FOLD_DEAD_PX = 16
 export const FOLD_CREASE = 512
+export const FOLD_GRID_ROWS = 14
+export const FOLD_GRID_COUNT_H = 16
+export const FOLD_GRID_FLOOR_H = 1
+export const FOLD_GRID_ROW_MIN = 22
+export const FOLD_STATUS_RIGHT_PX = 88
+export const FOLD_PEG_H = 72
 export const FOLD_LAPTOP = { width: 720, height: 1024 } as const
 export const FOLD_BOOK = { width: 1024, height: 720 } as const
 export const FOLD_STATUS_PORTRAIT = { x: 496, y: 0, w: 224, h: 88 } as const
@@ -221,6 +227,19 @@ export function layoutForTool(
   if (tool === 'drums' && layout === 'laptop') return 'laptop'
   if (tool === 'click' && (layout === 'laptop' || layout === 'tent')) return layout
   return 'off'
+}
+
+/** Top-half grid area: crease minus the 16px dead zone, minus the meta row. */
+export function foldLaptopGridMetrics(viewportHeight: number, metaHeight: number) {
+  const crease = viewportHeight / 2
+  const available = Math.max(0, crease - FOLD_DEAD_PX - Math.max(0, metaHeight))
+  const row = (available - FOLD_GRID_COUNT_H - FOLD_GRID_FLOOR_H) / FOLD_GRID_ROWS
+  return { crease, available, row, fitsMin: row + 1e-6 >= FOLD_GRID_ROW_MIN }
+}
+
+/** Peg row sits above the home indicator, not at a 720-tall y=624. */
+export function foldBookPegBottom(safeBottom: number, extra = 12) {
+  return Math.max(extra, safeBottom)
 }
 
 /** ±50¢ maps across the 816px book scale (408px each side of the crease). */

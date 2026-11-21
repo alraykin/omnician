@@ -1,5 +1,5 @@
 import { Minus, Plus, X } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { FoldModeButton } from '@/components/fold/FoldModePicker'
 import { FoldShell } from '@/components/fold/FoldShell'
@@ -10,6 +10,7 @@ import { beatAccentAt, meterLabel, type RhythmBar } from '@/lib/rhythm'
 import { activateOnPointer, cn } from '@/lib/utils'
 
 const MAX_DEG = 32
+const BOB_R = 22
 
 export function ClickTent({
   bpm,
@@ -32,12 +33,31 @@ export function ClickTent({
   const shownBpm = Math.round(liveBpm || bpm)
   const rodRef = useRef<HTMLDivElement>(null)
   const bobRef = useRef<HTMLSpanElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const [rodPx, setRodPx] = useState(180)
   const playingRef = useRef(playing)
   const barRef = useRef(bar)
   const getClockRef = useRef(getClock)
   playingRef.current = playing
   barRef.current = bar
   getClockRef.current = getClock
+
+  useEffect(() => {
+    const node = stageRef.current
+    if (!node) return
+    const fit = () => {
+      const w = node.clientWidth
+      const h = node.clientHeight
+      const sin = Math.sin((MAX_DEG * Math.PI) / 180)
+      const maxFromWidth = (w / 2 - BOB_R - 8) / sin
+      const maxFromHeight = h - BOB_R - 12
+      setRodPx(Math.max(72, Math.min(maxFromWidth, maxFromHeight)))
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(node)
+    return () => ro.disconnect()
+  }, [])
 
   useEffect(() => {
     let raf = 0
@@ -81,9 +101,15 @@ export function ClickTent({
     <FoldShell layout="tent">
       <div
         data-fold-tent
-        className="safe-overlay flex h-full min-h-0 w-full flex-col"
+        className="flex h-full min-h-0 w-full flex-col"
+        style={{
+          paddingTop: 'max(0.75rem, calc(var(--fold-safe-top) + 0.5rem))',
+          paddingLeft: 'max(0.75rem, var(--fold-safe-left))',
+          paddingRight: 'max(6.25rem, calc(var(--fold-status-right) + 0.75rem))',
+          paddingBottom: 'max(0.75rem, var(--fold-safe-bottom))',
+        }}
       >
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-start gap-2">
           <button
             type="button"
             data-fold-tent-exit
@@ -94,13 +120,24 @@ export function ClickTent({
             <X className="size-5" />
           </button>
           <FoldModeButton always menuAlign="start" />
-          <div className="min-w-0 flex-1 text-center">
-            <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[#C084FC]">BPM</p>
+          <div className="min-w-0 flex-1 px-2 text-center">
+            <p
+              data-fold-tent-bpm-label
+              className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[#C084FC]"
+            >
+              BPM
+            </p>
             <p
               data-fold-tent-bpm
-              className="text-[clamp(1.6rem,8vh,3rem)] font-extrabold leading-none tabular-nums text-white"
+              className="text-[clamp(1.6rem,7dvh,3rem)] font-extrabold leading-none tabular-nums text-white"
             >
               {shownBpm}
+            </p>
+            <p
+              data-fold-tent-caption
+              className="mt-1.5 text-[0.72rem] leading-4 text-slate-500"
+            >
+              {meterLabel(bar.beats, bar.beatUnit)} · tap pendulum to {playing ? 'stop' : 'start'}
             </p>
           </div>
           <button
@@ -130,14 +167,18 @@ export function ClickTent({
           data-fold-pendulum-hit
           aria-label={playing ? 'Stop' : 'Play'}
           {...activateOnPointer(onTogglePlay)}
-          className="relative mt-1 flex min-h-0 min-w-10 flex-1 touch-manipulation flex-col items-center justify-start overflow-hidden"
+          className="relative mt-2 flex min-h-0 min-w-10 flex-1 touch-manipulation flex-col items-center justify-center overflow-visible"
         >
-          <div className="relative h-full w-full max-w-[min(100%,28rem)]">
-            <span className="absolute left-1/2 top-[4%] z-10 size-3 -translate-x-1/2 rounded-full bg-[#C084FC]" />
+          <div ref={stageRef} className="relative h-full w-full max-w-[min(100%,36rem)] overflow-visible">
+            <span
+              className="absolute left-1/2 z-10 size-3 -translate-x-1/2 rounded-full bg-[#C084FC]"
+              style={{ top: 0 }}
+            />
             <div
               ref={rodRef}
               data-fold-pendulum
-              className="absolute left-1/2 top-[5%] z-0 h-[72%] w-[3px] origin-top -translate-x-1/2 bg-gradient-to-b from-[#C084FC] to-[#A855F7]"
+              className="absolute left-1/2 top-[6px] z-0 w-[3px] origin-top -translate-x-1/2 bg-gradient-to-b from-[#C084FC] to-[#A855F7]"
+              style={{ height: rodPx }}
             >
               <span
                 ref={bobRef}
@@ -148,25 +189,23 @@ export function ClickTent({
           </div>
         </button>
 
-        <div className="flex min-h-10 shrink-0 items-center justify-between gap-3 px-1 pb-[max(0.25rem,env(safe-area-inset-bottom,0px))]">
-          <p className="min-w-0 truncate text-[0.72rem] text-slate-500">
-            {meterLabel(bar.beats, bar.beatUnit)} · tap to {playing ? 'stop' : 'start'}
-          </p>
-          <div className="flex items-center justify-center gap-3" data-fold-tent-accents>
-            {Array.from({ length: bar.beats }, (_, beat) => {
-              const level = beatAccentAt(bar.beatAccents, beat)
-              return (
-                <span
-                  key={beat}
-                  data-accent-beat={beat}
-                  className={cn(
-                    'block size-4 rounded-full',
-                    level === 2 ? 'bg-[#A855F7]' : level === 1 ? 'bg-[#C4B5FD]' : 'bg-white/25',
-                  )}
-                />
-              )
-            })}
-          </div>
+        <div
+          className="flex min-h-10 shrink-0 items-center justify-center gap-3 pt-1"
+          data-fold-tent-accents
+        >
+          {Array.from({ length: bar.beats }, (_, beat) => {
+            const level = beatAccentAt(bar.beatAccents, beat)
+            return (
+              <span
+                key={beat}
+                data-accent-beat={beat}
+                className={cn(
+                  'block size-4 rounded-full',
+                  level === 2 ? 'bg-[#A855F7]' : level === 1 ? 'bg-[#C4B5FD]' : 'bg-white/25',
+                )}
+              />
+            )
+          })}
         </div>
       </div>
     </FoldShell>

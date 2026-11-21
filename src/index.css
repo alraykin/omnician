@@ -1129,19 +1129,33 @@ html.fold-overlay #root {
 
 html.fold-overlay [data-fold-shell] {
   touch-action: manipulation;
+  --fold-safe-top: max(var(--safe-top), env(safe-area-inset-top, 0px));
+  --fold-safe-right: max(var(--safe-right), env(safe-area-inset-right, 0px));
+  --fold-safe-bottom: max(var(--safe-bottom), env(safe-area-inset-bottom, 0px));
+  --fold-safe-left: max(var(--safe-left), env(safe-area-inset-left, 0px));
+  --fold-status-right: max(5.5rem, var(--cluster-clear-right), var(--fold-safe-right));
+  --fold-status-portrait: 14rem;
+  --fold-peg-h: 72px;
+  --fold-count-h: 16px;
+  --fold-row-h: max(22px, calc((100% - var(--fold-count-h) - 1px) / 14));
+}
+
+[data-fold-layout='laptop'] [data-fold-drums-grid] {
+  --fold-row-h: calc((100% - var(--fold-count-h) - 1px) / 14);
 }
 
 [data-fold-layout='laptop'] [data-fold-drums-grid] [data-editor-labels],
 [data-fold-layout='laptop'] [data-fold-drums-grid] [data-editor-bar-page] {
-  grid-template-rows: 16px repeat(14, 28px) 1px;
+  grid-template-rows: var(--fold-count-h) repeat(14, var(--fold-row-h)) 1px;
+  height: 100%;
 }
 
 [data-fold-layout='laptop'] [data-fold-drums-grid] [data-count-strip] {
-  height: 16px;
+  height: var(--fold-count-h);
 }
 
 [data-fold-layout='laptop'] [data-fold-drums-grid] [data-editor-labels] button {
-  font-size: 12.5px;
+  font-size: clamp(9px, calc(var(--fold-row-h) * 0.44), 12.5px);
 }
 
 [data-fold-layout='laptop'] [data-fold-tempo] [data-bpm-wheel],

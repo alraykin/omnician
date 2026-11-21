@@ -16,8 +16,12 @@ import {
   cycleFoldChoice,
   detectFoldedLayout,
   foldChoicesForSize,
+  foldBookPegBottom,
+  foldLaptopGridMetrics,
   foldNeedleHidden,
   foldNeedleX,
+  FOLD_GRID_ROWS,
+  FOLD_PEG_H,
   layoutForTool,
   parseFoldChoice,
   pendulumAtExtreme,
@@ -100,6 +104,19 @@ assert.equal(tunerShowsBook(1024, 720), true)
 assert.equal(tunerShowsBook(1024, 704), true)
 assert.equal(tunerShowsBook(720, 1024), false)
 assert.equal(tunerShowsBook(390, 844), false)
+assert.equal(FOLD_GRID_ROWS, 14)
+assert.equal(FOLD_PEG_H, 72)
+assert.equal(foldBookPegBottom(0), 12)
+assert.equal(foldBookPegBottom(20), 20)
+{
+  const at1024 = foldLaptopGridMetrics(1024, 40)
+  assert.ok(at1024.row >= 22, `1024 laptop rows ${at1024.row}`)
+  assert.equal(at1024.crease, 512)
+  const at1004 = foldLaptopGridMetrics(1004, 40)
+  assert.ok(at1004.row >= 22, `1004 laptop rows ${at1004.row}`)
+  const withSafe = foldLaptopGridMetrics(1004, 50 + 40)
+  assert.ok(withSafe.row > 18, `1004+safe still has 14 rows at ${withSafe.row}px`)
+}
 
 assert.equal(foldNeedleX(0), 0)
 assert.equal(foldNeedleX(50), FOLD_NEEDLE_REACH_PX)
@@ -124,10 +141,19 @@ const pegs = splitPegs(['E', 'A', 'D', 'G', 'B', 'e'])
 assert.deepEqual(pegs.left, ['E', 'A', 'D'])
 assert.deepEqual(pegs.right, ['G', 'B', 'e'])
 
+const shellSrc = readFileSync(new URL('../src/components/fold/FoldShell.tsx', import.meta.url), 'utf8')
+assert.match(shellSrc, /100dvh/)
+assert.match(shellSrc, /100dvw/)
+const cssSrc = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+assert.doesNotMatch(cssSrc, /repeat\(14, 28px\)/)
+assert.match(cssSrc, /--fold-row-h/)
+
 const drumsSrc = readFileSync(new URL('../src/components/fold/DrumsLaptop.tsx', import.meta.url), 'utf8')
 assert.match(drumsSrc, /data-fold-drums-grid/)
-assert.match(drumsSrc, /14/)
 assert.match(drumsSrc, /DrumEditorGrid/)
+assert.match(drumsSrc, /data-fold-bar-pills/)
+assert.doesNotMatch(drumsSrc, /h-\[408px\]/)
+assert.match(drumsSrc, /--fold-safe-top/)
 
 const clickSrc = readFileSync(new URL('../src/components/fold/ClickLaptop.tsx', import.meta.url), 'utf8')
 assert.match(clickSrc, /data-fold-click-bpm/)
@@ -139,7 +165,10 @@ assert.doesNotMatch(tentSrc, /data-fold-face/)
 assert.match(tentSrc, /data-fold-tent/)
 assert.match(tentSrc, /data-fold-pendulum/)
 assert.match(tentSrc, /data-fold-tent-exit/)
-assert.match(tentSrc, /safe-overlay/)
+assert.match(tentSrc, /data-fold-tent-caption/)
+assert.match(tentSrc, /--fold-safe-top/)
+assert.match(tentSrc, /--fold-status-right/)
+assert.doesNotMatch(tentSrc, /safe-overlay/)
 
 const guardSrc = readFileSync(new URL('../src/components/PhonePortraitGuard.tsx', import.meta.url), 'utf8')
 assert.match(guardSrc, /tentClick/)
@@ -152,10 +181,12 @@ assert.match(pickerSrc, /grid-cols-3/)
 
 const bookSrc = readFileSync(new URL('../src/components/fold/TunerBook.tsx', import.meta.url), 'utf8')
 assert.match(bookSrc, /left-\[104px\]/)
-assert.match(bookSrc, /top-\[400px\]/)
-assert.match(bookSrc, /w-\[816px\]/)
+assert.match(bookSrc, /816px/)
 assert.match(bookSrc, /right-\[calc\(50%\+16px\)\]/)
 assert.match(bookSrc, /left-\[calc\(50%\+16px\)\]/)
+assert.match(bookSrc, /data-fold-pegs/)
+assert.match(bookSrc, /--fold-safe-bottom/)
+assert.doesNotMatch(bookSrc, /top-\[624px\]/)
 
 const settingsSrc = readFileSync(new URL('../src/pages/SettingsPage.tsx', import.meta.url), 'utf8')
 assert.match(settingsSrc, /FoldModeSetting/)

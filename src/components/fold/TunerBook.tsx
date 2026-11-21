@@ -51,7 +51,7 @@ export function TunerBook({
 
   return (
     <FoldShell layout="book">
-      <FoldHalf side="left" className="px-4 pt-3">
+      <FoldHalf side="left" className="px-4" style={{ paddingTop: 'max(0.65rem, var(--fold-safe-top))' }}>
         <div className="flex items-center gap-2">
           <OmnicianWordmark className="h-6 w-auto" />
           <A4ReferenceControl a4Hz={a4Hz} onChange={onA4} />
@@ -60,21 +60,24 @@ export function TunerBook({
           Flat
         </p>
       </FoldHalf>
-      <FoldHalf side="right" className="px-4 pt-3">
-        <div className="flex justify-end pr-[5.6rem]">
+      <FoldHalf side="right" className="px-4" style={{ paddingTop: 'max(0.65rem, var(--fold-safe-top))' }}>
+        <div className="flex justify-end" style={{ paddingRight: 'var(--fold-status-right)' }}>
           <FoldModeButton always />
         </div>
-        <p className="pointer-events-none absolute right-[6.2rem] top-[9.5rem] text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
+        <p
+          className="pointer-events-none absolute top-[9.5rem] text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-500"
+          style={{ right: 'max(6.2rem, calc(var(--fold-status-right) + 0.7rem))' }}
+        >
           Sharp
         </p>
       </FoldHalf>
       <FoldCrease axis="vertical" />
 
-      <div className="pointer-events-none absolute inset-x-0 top-[140px] z-10 flex h-[140px] items-center justify-center">
+      <div className="pointer-events-none absolute inset-x-0 top-[min(140px,18dvh)] z-10 flex h-[min(140px,22dvh)] items-center justify-center">
         <span
           data-fold-note-letter
           className={cn(
-            'absolute right-[calc(50%+16px)] text-[8.5rem] font-extrabold leading-none tracking-tight',
+            'absolute right-[calc(50%+16px)] text-[clamp(4.5rem,14dvh,8.5rem)] font-extrabold leading-none tracking-tight',
             inTune && live ? 'text-emerald-300' : live ? 'text-white' : 'text-white/30',
           )}
         >
@@ -83,7 +86,7 @@ export function TunerBook({
         <span
           data-fold-note-octave
           className={cn(
-            'absolute left-[calc(50%+16px)] text-[8.5rem] font-extrabold leading-none tracking-tight text-slate-300',
+            'absolute left-[calc(50%+16px)] text-[clamp(4.5rem,14dvh,8.5rem)] font-extrabold leading-none tracking-tight text-slate-300',
             inTune && live && 'text-emerald-300/80',
           )}
         >
@@ -91,7 +94,7 @@ export function TunerBook({
         </span>
       </div>
 
-      <div className="pointer-events-none absolute left-0 right-0 top-[300px] z-10 flex h-[70px] items-center justify-center gap-16 text-[1.35rem] font-semibold tabular-nums">
+      <div className="pointer-events-none absolute left-0 right-0 top-[min(300px,42dvh)] z-10 flex h-[70px] items-center justify-center gap-16 text-[1.35rem] font-semibold tabular-nums">
         <span
           className={cn(
             shownCents !== null && shownCents < 0 && live ? 'text-amber-300' : 'text-slate-400',
@@ -105,27 +108,37 @@ export function TunerBook({
 
       <BookScale cents={shownCents} inTune={inTune} live={live} />
 
-      <div className="absolute left-[40px] top-[624px] z-20 flex h-[72px] w-[440px] items-center gap-2">
-        {leftPegs.map((peg) => (
-          <PegChip
-            key={peg.id}
-            peg={peg}
-            selected={peg.id === selectedId}
-            tuned={tunedIds.has(peg.id)}
-            onPeg={onPeg}
-          />
-        ))}
-      </div>
-      <div className="absolute left-[544px] top-[624px] z-20 flex h-[72px] w-[380px] items-center gap-2 pr-2">
-        {rightPegs.map((peg) => (
-          <PegChip
-            key={peg.id}
-            peg={peg}
-            selected={peg.id === selectedId}
-            tuned={tunedIds.has(peg.id)}
-            onPeg={onPeg}
-          />
-        ))}
+      <div
+        data-fold-pegs
+        className="absolute inset-x-0 z-20 flex h-[var(--fold-peg-h)] items-center gap-3"
+        style={{
+          bottom: 'max(12px, var(--fold-safe-bottom))',
+          paddingLeft: '40px',
+          paddingRight: 'max(24px, var(--fold-status-right))',
+        }}
+      >
+        <div className="flex h-full min-w-0 flex-1 items-center gap-2" style={{ maxWidth: 'calc(50% - 28px)' }}>
+          {leftPegs.map((peg) => (
+            <PegChip
+              key={peg.id}
+              peg={peg}
+              selected={peg.id === selectedId}
+              tuned={tunedIds.has(peg.id)}
+              onPeg={onPeg}
+            />
+          ))}
+        </div>
+        <div className="flex h-full min-w-0 flex-1 items-center gap-2">
+          {rightPegs.map((peg) => (
+            <PegChip
+              key={peg.id}
+              peg={peg}
+              selected={peg.id === selectedId}
+              tuned={tunedIds.has(peg.id)}
+              onPeg={onPeg}
+            />
+          ))}
+        </div>
       </div>
     </FoldShell>
   )
@@ -148,13 +161,13 @@ function PegChip({
       data-fold-peg={peg.id}
       onClick={() => onPeg(peg)}
       className={cn(
-        'flex h-[72px] min-h-10 min-w-0 flex-1 flex-col items-center justify-center rounded-2xl border touch-manipulation',
+        'flex h-full min-h-10 min-w-0 flex-1 flex-col items-center justify-center rounded-2xl border touch-manipulation',
         selected ? 'border-[#A855F7] bg-[#A855F7]/15 text-white' : 'border-white/12 bg-[#141A28] text-slate-200',
         tuned && 'border-emerald-400/80 bg-emerald-500/15',
       )}
     >
       <span className="text-[1.15rem] font-bold leading-none">{peg.label}</span>
-      <span className="mt-1 font-mono text-[0.65rem] text-slate-500">
+      <span className="mt-1 font-mono text-[0.65rem] leading-none text-slate-500">
         {peg.label}
         {peg.octave}
       </span>
@@ -209,7 +222,10 @@ function BookScale({
   return (
     <div
       data-fold-tuner-scale
-      className="absolute left-[104px] top-[400px] z-10 h-[90px] w-[816px]"
+      className="absolute left-[104px] z-10 h-[90px] w-[min(816px,calc(100%-104px-var(--fold-status-right)-8px))]"
+      style={{
+        top: 'min(400px, calc(100dvh - var(--fold-peg-h) - max(12px, var(--fold-safe-bottom)) - 118px))',
+      }}
     >
       <div className="absolute inset-x-0 top-[28px] h-px bg-white/25" />
       {marks.map((mark) => (
