@@ -149,7 +149,7 @@ A native iOS shell named **Omnician** lives in `ios/`. It loads the same Vite `d
 - Bundle ID: `app.omnician`
 - Sound still plays with the ringer/silent switch off
 - The tuner still asks for the microphone
-- Cloud compile: GitHub Actions on a Mac runner (unsigned iPhone Simulator). TestFlight waits for Apple credentials.
+- Cloud compile: GitHub Actions on `xcode-27` (newest Xcode 27.x, currently 27.2). TestFlight waits for Apple credentials.
 
 You do **not** need a Mac to keep working on the web app. You **do** need the repo on GitHub before that cloud compile runs. Full steps, secret names, and the fold/haptics plan: **[docs/ios-native.md](docs/ios-native.md)**.
 

@@ -58,7 +58,7 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
         if hingeAttached { return }
         hingeAttached = true
         // Xcode 26.6 = Swift 6.3 / iOS 26.5 SDK: no UIHingeInteraction.
-        // Xcode 27.1+ = Swift 6.4 / iOS 27.1 SDK: hinge + crease APIs exist.
+        // Xcode 27.2 = Swift 6.4 / iOS 27.2 SDK: hinge + crease APIs exist.
         #if compiler(>=6.4)
         if #available(iOS 27.1, *) {
             attachHingeInteraction(to: view)
@@ -108,7 +108,8 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
 #if compiler(>=6.4)
     @available(iOS 27.1, *)
     private func attachHingeInteraction(to view: UIView) {
-        let interaction = UIHingeInteraction { [weak self] _, update in
+        // Real SDK: init(updateHandler:) → ObjC initWithUpdateHandler:. There is no bare init.
+        let interaction = UIHingeInteraction { [weak self] (_: UIHingeInteraction, update: UIHingeInteraction.Update) in
             guard let self else { return }
             guard let hinge = update.hinge else {
                 self.hingeAvailable = false
@@ -126,7 +127,9 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
                 self.hingeStatus = "partiallyOpen"
             case .fullyOpen:
                 self.hingeStatus = "fullyOpen"
-            default:
+            case .unknown:
+                self.hingeStatus = "unknown"
+            @unknown default:
                 self.hingeStatus = "unknown"
             }
             self.publish()
@@ -147,8 +150,11 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
 #if compiler(>=6.4)
     @available(iOS 27.1, *)
     private func readDivisionRegions(from view: UIView) {
-        let regions = view.reservedRegions(kind: .division)
-        if let frame = regions.first?.frame, frame.width > 0.5 || frame.height > 0.5 {
+        // Real SDK: reservedRegions(kind:options:). Kind is UIView.ReservedRegion.Kind
+        // (ObjC UIViewReservedRegionKind object), not a C enum.
+        let regions = view.reservedRegions(kind: .division, options: [])
+        if let region = regions.first, region.isActive {
+            let frame = region.frame
             foldDivisionActive = true
             foldDivisionHorizontal = NSNumber(value: frame.width > frame.height)
             return

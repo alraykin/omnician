@@ -1,11 +1,11 @@
 # Cloud iOS build for Omnician. Runs on GitHub-hosted macOS (no Mac on our side).
 # Free GitHub Actions minutes only — do not add paid runners or Codemagic.
 #
-# App Store Connect requires the iOS 26 SDK or later. Both jobs use macos-26.
-# That image's newest Xcode is 26.6 (Swift 6.3 / iOS 26.5 SDK). Xcode 27.x is a
-# different GitHub image (`xcode-27`), not installed on macos-26 — do not ask
-# setup-xcode for 27 here or the job fails. Hinge APIs compile only when the
-# SDK has them (`#if compiler(>=6.4)`); 26.6 uses window size + CoreMotion.
+# App Store Connect requires a current iOS SDK. Both jobs use GitHub's
+# Xcode 27 image (`runs-on: xcode-27` — not macos-26). That image's newest
+# Xcode is 27.2 (Swift 6.4 / iOS 27.2 SDK), so `#if compiler(>=6.4)` hinge
+# and crease paths compile. Deployment target stays iOS 15.0; hinge calls
+# are still behind `if #available(iOS 27.1, *)`.
 # TestFlight stays off until IOS_TESTFLIGHT_ENABLED is true.
 #
 # Do not pass PRODUCT_BUNDLE_IDENTIFIER on the xcodebuild command line — that
@@ -26,7 +26,7 @@ concurrency:
 jobs:
   simulator:
     name: Unsigned iPhone simulator
-    runs-on: macos-26
+    runs-on: xcode-27
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -85,7 +85,7 @@ jobs:
     name: Archive and upload to TestFlight
     needs: simulator
     if: ${{ vars.IOS_TESTFLIGHT_ENABLED == 'true' }}
-    runs-on: macos-26
+    runs-on: xcode-27
     env:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}

@@ -12,7 +12,7 @@ The Apple Developer Program account is in use for TestFlight via GitHub Actions 
 - Dark launch screen
 - Native audio session so click and drums play with the silent switch on (`AVAudioSession` category **playback**, `mixWithOthers` **off**)
 - Microphone permission string for the tuner
-- GitHub Actions workflow that compiles an **unsigned iPhone Simulator** build on `macos-26` with the newest Xcode (iOS 26 SDK or later; 27.1+ fills the Duo inner display)
+- GitHub Actions workflow that compiles an **unsigned iPhone Simulator** build on `xcode-27` with the newest Xcode 27.x (iOS 27.1+ SDK fills the Duo inner display)
 - A TestFlight job that stays **off** until you opt in with secrets
 
 This Linux cloud machine cannot run Xcode. The unsigned compile happens on GitHub’s Mac runners after the repo is on GitHub.
@@ -35,7 +35,7 @@ This Origin repo does **not** run GitHub Actions. When you are ready:
 
 1. Create a GitHub repository (private is fine).
 2. Push this `main` branch there.
-3. Actions → **iOS** workflow runs on `macos-26` with the newest installed Xcode (GitHub-hosted, no paid Codemagic). App Store Connect requires the iOS 26 SDK or later. iPhone Duo uses the full inner display when the build is linked against iOS 27.1+.
+3. Actions → **iOS** workflow runs on `xcode-27` with the newest Xcode 27.x on that image (GitHub-hosted, no paid Codemagic). App Store Connect requires a current iOS SDK. iPhone Duo uses the full inner display when the build is linked against iOS 27.1+.
 4. The **Unsigned iPhone simulator** job should turn green. That is the first proof the native project compiles.
 5. Leave TestFlight off until the Apple account is active.
 
@@ -93,7 +93,7 @@ There is no Fold mode button or setting on web or in the native app. Layouts fol
 
 Safari uses Viewport Segments and `navigator.devicePosture` when present, plus window size for tent. `?fold=` still overrides for QA.
 
-The native `OmnicianPosture` plugin drives the same CSS layouts with hysteresis. GitHub `macos-26` builds with Xcode 26.6 (Swift 6.3): hinge types are compiled out (`#if compiler(>=6.4)` is false) and the plugin uses window size + CoreMotion gravity. Xcode 27.1+ (Swift 6.4, iOS 27.1 SDK) also reads `UIHingeInteraction` (`closed` / `partiallyOpen` / `fullyOpen`, angle) and `UIView.reservedRegions(.division)` behind `if #available(iOS 27.1, *)`. There are no `UITraitCollection` posture traits. Hinge is not used for native Auto Layout; we only read it as input for the web layouts. macos-26 does not install Xcode 27 — that toolchain is the separate `xcode-27` runner image.
+The native `OmnicianPosture` plugin drives the same CSS layouts with hysteresis. CI uses GitHub’s `xcode-27` image and the newest Xcode 27.x there (27.2 as of the current image: Swift 6.4, iOS 27.2 SDK), so `#if compiler(>=6.4)` compiles `UIHingeInteraction(updateHandler:)` and `reservedRegions(kind:options:)` (Kind is `UIView.ReservedRegion.Kind`, not a C enum). Runtime still uses `if #available(iOS 27.1, *)`; older iPhones keep the iOS 15 deployment target and fall back to window size + CoreMotion. There are no `UITraitCollection` posture traits. Hinge is not used for native Auto Layout; we only read it as input for the web layouts.
 
 Haptics stay on `navigator.vibrate` for now.
 
@@ -113,7 +113,7 @@ Click, Crocell drums, and Speed Builder announce files ship in `public/rhythm/` 
 
 Build 1.0 (6) was an iPhone-only target (`TARGETED_DEVICE_FAMILY = 1`), so iOS opened it in the compatibility letterbox instead of the ~720×1024 inner screen. The project is now universal (`1,2`), lists all four orientations for iPhone and iPad, keeps `UILaunchStoryboardName`, and does not set `UIRequiresFullScreen`. The webview uses `contentInset: never`, `viewport-fit=cover`, and `env(safe-area-inset-*)`. Fold/unfold and rotation resize the webview and fire `resize` so Laptop / Book / Tent (shortest side ≥ 640) match Safari.
 
-Apple still letterboxes iOS 26 SDK binaries on Duo. GitHub Actions selects the newest Xcode on `macos-26` so TestFlight can pick up the iOS 27.1 SDK when the runner has it.
+Apple letterboxes iOS 26 SDK binaries on Duo. GitHub Actions builds on `xcode-27` with Xcode 27.2 so TestFlight links against the iOS 27.x SDK and can fill the inner display.
 
 ## Web deploy stays the same
 
