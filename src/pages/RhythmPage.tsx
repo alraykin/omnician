@@ -22,7 +22,7 @@ import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { useFactoryEditor } from '@/hooks/useFactoryEditor'
-import { usePhoneViewport, usePortraitViewport } from '@/hooks/usePhoneViewport'
+import { useCompactViewport, usePortraitViewport } from '@/hooks/usePhoneViewport'
 import { usePlayhead, useRhythmEngine, type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
 import { defaultIntensityForStyle, type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
@@ -175,7 +175,7 @@ export function RhythmPage() {
   const [historyUi, setHistoryUi] = useState({ undo: 0, redo: 0 })
   const [autoConfirm, setAutoConfirm] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
-  const phone = usePhoneViewport()
+  const compact = useCompactViewport()
   const portrait = usePortraitViewport()
   const [, setStyleTick] = useState(0)
 
@@ -383,9 +383,9 @@ export function RhythmPage() {
   }, [mode])
 
   useEffect(() => {
-    if (mode !== 'drums' || !phone) return
+    if (mode !== 'drums' || !compact) return
     if (!portrait) setEditorOpen(true)
-  }, [mode, phone, portrait])
+  }, [mode, compact, portrait])
 
   const goMode = useCallback(
     (next: RhythmMode) => {
@@ -1041,7 +1041,7 @@ export function RhythmPage() {
       fluid
       compact
     >
-      <div className="relative flex min-h-0 flex-1 flex-col wide:block">
+      <div className="relative flex min-h-0 flex-1 flex-col">
         <SpeedBuilderPopup cue={tempoCue} />
         <ClickPresetsSheet
           open={clickPresetsOpen}
@@ -1056,7 +1056,7 @@ export function RhythmPage() {
         />
         <div
           data-rhythm-scroll
-          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain [scrollbar-width:thin] [touch-action:pan-y] wide:overflow-x-clip wide:overflow-y-visible wide:overscroll-auto"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-contain [scrollbar-width:thin] [touch-action:pan-y]"
         >
           {importNote && mode === 'drums' ? (
             <p className="mt-1.5 text-center text-xs leading-5 text-slate-400" data-midi-import-note>
@@ -1238,10 +1238,10 @@ export function RhythmPage() {
           <div
             data-rhythm-layout
             data-rhythm-mode="drums"
-            className="mt-1.5 flex flex-col gap-1.5 wide:flex-row wide:items-start wide:gap-3 xl:gap-4 phone:!flex-col"
+            className="mt-1.5 flex min-h-0 flex-col gap-1.5 wide:flex-row wide:items-stretch wide:gap-3 xl:gap-4 compact:!flex-col"
           >
             <div
-              className="flex h-fit w-full shrink-0 flex-col gap-1.5 wide:w-[min(32.5rem,48%)] wide:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem] phone:!w-full phone:!max-w-none"
+              className="flex h-fit w-full shrink-0 flex-col gap-1.5 wide:w-[min(32.5rem,48%)] wide:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem] compact:!w-full compact:!max-w-none"
               data-rhythm-stack="controls"
             >
               <RhythmTempoCard
@@ -1267,7 +1267,7 @@ export function RhythmPage() {
               </section>
               <TransportDock
                 place="inline"
-                className="hidden shrink-0 wide:flex wide:flex-col phone:!hidden"
+                className="hidden shrink-0 wide:flex wide:flex-col compact:!hidden"
                 playing={playing}
                 onToggle={() => void startStop()}
                 holdUntilCycle={holdUntilCycle}
@@ -1373,7 +1373,7 @@ export function RhythmPage() {
                   }}
                 />
               </div>
-              <div className="mb-1.5 rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1 phone:hidden">
+              <div className="mb-1.5 rounded-xl border border-white/10 bg-[#141A28]/80 px-2 py-1 compact:hidden">
                 <BarStrip
                   store={playheadStore}
                   bars={drumBars}
@@ -1419,7 +1419,7 @@ export function RhythmPage() {
                   }
                 />
               </div>
-              <div className="mb-1.5 flex items-center gap-1 phone:hidden" data-drum-history>
+              <div className="mb-1.5 flex items-center gap-1 compact:hidden" data-drum-history>
                 <button
                   type="button"
                   data-drum-undo
@@ -1443,7 +1443,7 @@ export function RhythmPage() {
                   Redo
                 </button>
               </div>
-              <div className="phone:hidden">
+              <div className="compact:hidden">
                 <DrumBarStage
                   bars={drumBars}
                   barIndex={drumBarIndex}
@@ -1464,7 +1464,7 @@ export function RhythmPage() {
                 />
               </div>
               <div
-                className="hidden items-center justify-center phone:flex"
+                className="hidden items-center justify-center compact:flex"
                 data-phone-drums
               >
                 <p
@@ -1483,7 +1483,7 @@ export function RhythmPage() {
         <PlayheadBarSync getClock={getTransportClock} playing={playing} onBar={setBarIndex} />
         <TransportDock
           place="sticky"
-          className="rhythm-glass z-40 shrink-0 border-t border-white/10 pt-2 pb-[max(0.7rem,env(safe-area-inset-bottom,0px))] wide:hidden phone:!block"
+          className="rhythm-glass z-40 shrink-0 border-t border-white/10 pt-2 pb-[max(0.7rem,env(safe-area-inset-bottom,0px))] wide:hidden compact:!block"
           playing={playing}
           onToggle={() => void startStop()}
           holdUntilCycle={holdUntilCycle}

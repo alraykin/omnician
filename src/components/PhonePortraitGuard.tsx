@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { useDrumEditorOpen, usePhoneDrumsSurface, usePhoneViewport, usePortraitViewport } from '@/hooks/usePhoneViewport'
 import { tryLockPortrait } from '@/lib/phone-viewport'
 
-/** Phones stay portrait except the landscape drum editor. Desktop and tablets are left alone. */
+/** Phones (shortest side < 600, including a folded Duo outer screen) stay portrait except the landscape drum editor. Unfolded foldables and tablets can rotate freely. */
 export function PhonePortraitGuard() {
   const phone = usePhoneViewport()
   const portrait = usePortraitViewport()
@@ -33,11 +33,7 @@ export function PhonePortraitGuard() {
     <div
       data-rotate-back
       data-phone-portrait-guard
-      className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-[#0B0F1A] px-6 text-center text-white"
-      style={{
-        paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))',
-        paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))',
-      }}
+      className="safe-overlay fixed inset-0 z-[70] flex flex-col items-center justify-center bg-[#0B0F1A] px-6 text-center text-white"
     >
       <RotateBackArt />
       <h1 className="mt-6 text-[1.65rem] font-bold tracking-tight">Rotate your phone back</h1>

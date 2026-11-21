@@ -22,12 +22,14 @@ function MeterValue({
   display,
   parse,
   onCommit,
+  dense = false,
 }: {
   label: string
   value: number
   display?: string
   parse: (raw: string) => number | null
   onCommit: (next: number) => void
+  dense?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(String(value))
@@ -84,7 +86,10 @@ function MeterValue({
             finish(false)
           }
         }}
-        className="h-7 w-10 min-w-[1.75rem] rounded-md bg-white/8 text-center text-base font-bold tabular-nums text-white outline-none ring-1 ring-[#A855F7]"
+        className={cn(
+          'rounded-md bg-white/8 text-center font-bold tabular-nums text-white outline-none ring-1 ring-[#A855F7]',
+          dense ? 'h-6 w-8 min-w-[1.5rem] text-sm' : 'h-7 w-10 min-w-[1.75rem] text-base',
+        )}
       />
     )
   }
@@ -95,7 +100,10 @@ function MeterValue({
       data-meter-value={value}
       aria-label={`${label}, ${display ?? value}. Tap to type`}
       {...activateOnPointer(open)}
-      className="flex h-7 min-w-[1.75rem] items-center justify-center text-center text-base font-bold tabular-nums text-white"
+      className={cn(
+        'flex items-center justify-center text-center font-bold tabular-nums text-white',
+        dense ? 'h-6 min-w-[1.5rem] text-sm' : 'h-7 min-w-[1.75rem] text-base',
+      )}
     >
       {display ?? value}
     </button>
@@ -112,6 +120,7 @@ function Stepper({
   onInc,
   decDisabled,
   incDisabled,
+  dense = false,
 }: {
   label: string
   value: number
@@ -122,6 +131,7 @@ function Stepper({
   onInc: () => void
   decDisabled: boolean
   incDisabled: boolean
+  dense?: boolean
 }) {
   return (
     <div className="flex items-center gap-0.5" role="group" aria-label={label}>
@@ -131,20 +141,29 @@ function Stepper({
         disabled={decDisabled}
         {...activateOnPointer(onDec)}
         className={cn(
-          'flex size-7 touch-manipulation items-center justify-center rounded-md border border-white/12 text-slate-200',
+          'flex touch-manipulation items-center justify-center rounded-md border border-white/12 text-slate-200',
+          dense ? 'size-6' : 'size-7',
           decDisabled && 'opacity-35',
         )}
       >
         <Minus className="size-3" />
       </button>
-      <MeterValue label={label} value={value} display={display} parse={parse} onCommit={onCommit} />
+      <MeterValue
+        label={label}
+        value={value}
+        display={display}
+        parse={parse}
+        onCommit={onCommit}
+        dense={dense}
+      />
       <button
         type="button"
         aria-label={`Increase ${label}`}
         disabled={incDisabled}
         {...activateOnPointer(onInc)}
         className={cn(
-          'flex size-7 touch-manipulation items-center justify-center rounded-md border border-white/12 text-slate-200',
+          'flex touch-manipulation items-center justify-center rounded-md border border-white/12 text-slate-200',
+          dense ? 'size-6' : 'size-7',
           incDisabled && 'opacity-35',
         )}
       >
@@ -170,17 +189,17 @@ export function CompactMeter({
   return (
     <div
       data-section="meter"
-      className={cn('flex items-center gap-2', compact ? 'justify-start' : 'justify-between')}
+      className={cn('flex items-center gap-2', compact ? 'justify-start gap-1' : 'justify-between')}
     >
       <p
         className={cn(
           'font-semibold uppercase tracking-[0.16em] text-slate-500',
-          compact ? 'text-[0.58rem] tracking-[0.12em]' : 'text-[0.65rem]',
+          compact ? 'sr-only' : 'text-[0.65rem]',
         )}
       >
         Meter
       </p>
-      <div className="flex items-center gap-1.5" data-meter={`${beats}/${beatUnit}`}>
+      <div className="flex items-center gap-0.5 sm:gap-1.5" data-meter={`${beats}/${beatUnit}`}>
         <Stepper
           label="beats"
           value={beats}
@@ -190,8 +209,11 @@ export function CompactMeter({
           onInc={() => onChange(beats + 1, beatUnit)}
           decDisabled={beats <= MIN_BEATS}
           incDisabled={beats >= MAX_BEATS}
+          dense={compact}
         />
-        <span className="text-lg font-bold leading-none text-slate-500">/</span>
+        <span className={cn('font-bold leading-none text-slate-500', compact ? 'text-base' : 'text-lg')}>
+          /
+        </span>
         <Stepper
           label="beat unit"
           value={beatUnit}
@@ -202,6 +224,7 @@ export function CompactMeter({
           onInc={() => onChange(beats, stepBeatUnit(beatUnit, 1))}
           decDisabled={unitIndex <= 0}
           incDisabled={unitIndex >= BEAT_UNITS.length - 1}
+          dense={compact}
         />
       </div>
     </div>

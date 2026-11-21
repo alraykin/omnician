@@ -25,7 +25,7 @@ export function SettingsChrome({
 }) {
   const TitleTag = titleAs
   return (
-    <div className="relative min-h-svh overflow-x-hidden px-4 pb-12 pt-3 sm:px-6">
+    <div className="safe-shell relative min-h-svh overflow-x-hidden">
       <div className="stage-glow" aria-hidden />
       <header className="relative z-10 mx-auto flex w-full max-w-lg items-center gap-1">
         <Link

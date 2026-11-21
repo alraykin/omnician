@@ -30,7 +30,7 @@ export function FactoryPage() {
   }
 
   return (
-    <div className="relative min-h-svh overflow-x-hidden px-4 pb-12 pt-10 sm:px-6">
+    <div className="safe-shell relative min-h-svh overflow-x-hidden">
       <div className="stage-glow" aria-hidden />
       <main className="relative z-10 mx-auto w-full max-w-sm">
         <form

@@ -1,9 +1,20 @@
 /** Shortest side below this is a phone. iPhone Pro Max \u2248 430; iPad Mini \u2248 768. */
 export const PHONE_SHORTEST_PX = 600
 
+/**
+ * Shortest side below this is a compact inner display: phones and unfolded
+ * foldables (iPhone Duo inner \u2248 704–720). iPad Mini shortest side is 768.
+ */
+export const COMPACT_SHORTEST_PX = 768
+
 export function isPhoneViewport(width: number, height: number): boolean {
   if (!(width > 0) || !(height > 0)) return false
   return Math.min(width, height) < PHONE_SHORTEST_PX
+}
+
+export function isCompactViewport(width: number, height: number): boolean {
+  if (!(width > 0) || !(height > 0)) return false
+  return Math.min(width, height) < COMPACT_SHORTEST_PX
 }
 
 export function isPortraitViewport(width: number, height: number): boolean {
@@ -13,6 +24,11 @@ export function isPortraitViewport(width: number, height: number): boolean {
 export function readPhoneViewport(): boolean {
   if (typeof window === 'undefined') return false
   return isPhoneViewport(window.innerWidth, window.innerHeight)
+}
+
+export function readCompactViewport(): boolean {
+  if (typeof window === 'undefined') return false
+  return isCompactViewport(window.innerWidth, window.innerHeight)
 }
 
 export function readPortraitViewport(): boolean {

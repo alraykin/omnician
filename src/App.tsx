@@ -31,6 +31,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <AudioDebugGate />
+      <div
+        data-cluster-clear
+        aria-hidden
+        className="pointer-events-none fixed right-0 top-0 z-[100] h-[var(--cluster-clear-height)] w-[var(--cluster-clear-right)]"
+      />
       <PhonePortraitGuard />
       <Routes>
         <Route path="/" element={<HomePage />} />

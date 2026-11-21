@@ -76,7 +76,7 @@ export function SilentLabPage() {
   }
 
   return (
-    <div data-silent-lab className="relative min-h-svh overflow-x-hidden px-4 pb-16 pt-3 sm:px-6">
+    <div data-silent-lab className="safe-shell relative min-h-svh overflow-x-hidden">
       <header className="relative z-10 mb-5 flex items-center justify-center">
         <HomeWordmarkLink />
       </header>

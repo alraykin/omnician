@@ -32,12 +32,22 @@
   }
 }
 
-/* Phones in either orientation. iPad Mini shortest side is 768. */
+/* Phones in either orientation. Folded Duo outer / iPhone: shortest side < 600. */
 @custom-variant phone {
   @media (max-width: 599px) {
     @slot;
   }
   @media (orientation: landscape) and (max-height: 599px) {
+    @slot;
+  }
+}
+
+/* Phones plus unfolded foldable inner (Duo \u2248 704–720). iPad Mini is 768. */
+@custom-variant compact {
+  @media (max-width: 767px) {
+    @slot;
+  }
+  @media (orientation: landscape) and (max-height: 767px) {
     @slot;
   }
 }
@@ -53,8 +63,39 @@
 :root {
   --background: #0b0f1a;
   --foreground: #f8fafc;
-  --tabbar-clearance: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --tabbar-clearance: max(0.75rem, var(--safe-bottom));
+  /* Duo status cluster (clock / battery ring / speaker pill) on the top-right edge. */
+  --cluster-clear-right: 0px;
+  --cluster-clear-top: 0px;
+  --cluster-clear-height: 3.35rem;
   color-scheme: dark;
+}
+
+/* Unfolded Duo inner (and similarly wide short displays). Leave phones to env() insets. */
+@media (min-width: 600px) and (max-width: 767px),
+  (orientation: landscape) and (min-width: 600px) and (max-height: 767px) {
+  :root {
+    --cluster-clear-right: 5.5rem;
+    --cluster-clear-top: 0.2rem;
+  }
+}
+
+.safe-shell {
+  padding-top: max(0.65rem, var(--safe-top));
+  padding-right: max(0.85rem, var(--safe-right));
+  padding-bottom: max(0.65rem, var(--safe-bottom));
+  padding-left: max(0.85rem, var(--safe-left));
+}
+
+.safe-overlay {
+  padding-top: max(0.35rem, var(--safe-top), var(--cluster-clear-top));
+  padding-right: max(0.45rem, var(--safe-right), var(--cluster-clear-right));
+  padding-bottom: max(0.35rem, var(--safe-bottom));
+  padding-left: max(0.45rem, var(--safe-left));
 }
 
 html {
@@ -145,6 +186,49 @@ html.drum-editor-open [data-listen-panel] {
     min-width: 0;
     flex: 1 1 0%;
     width: auto;
+  }
+}
+
+/* Short large-landscape: keep the 2-column drums/click workspace inside the viewport. */
+@media (orientation: landscape) and (min-width: 640px) and (max-height: 56rem) {
+  [data-rhythm-layout] {
+    align-items: stretch;
+    min-height: 0;
+    max-height: 100%;
+  }
+
+  [data-rhythm-stack] {
+    align-self: stretch;
+    min-height: 0;
+    height: auto;
+  }
+
+  [data-rhythm-stack='stage'] {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  [data-rhythm-mode='drums'] [data-bar-stage] {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 0%;
+    flex-direction: column;
+  }
+
+  [data-rhythm-mode='drums'] [data-drum-grid] {
+    min-height: 0;
+    flex: 1 1 0%;
+  }
+
+  [data-rhythm-mode='drums'] [data-kit-labels],
+  [data-rhythm-mode='drums'] [data-kit-block-track] > .grid {
+    grid-template-rows: 1.25rem repeat(14, minmax(0, 1fr)) 1px;
+  }
+
+  [data-rhythm-mode='drums'] [data-kit-labels] button,
+  [data-rhythm-mode='drums'] [data-voice-row] {
+    min-height: 0;
   }
 }
 

@@ -21,7 +21,13 @@ import {
   intensityFromMark,
   intensityMark,
 } from '../src/lib/kit-intensity.ts'
-import { isPhoneViewport, isPortraitViewport, PHONE_SHORTEST_PX } from '../src/lib/phone-viewport.ts'
+import {
+  COMPACT_SHORTEST_PX,
+  isCompactViewport,
+  isPhoneViewport,
+  isPortraitViewport,
+  PHONE_SHORTEST_PX,
+} from '../src/lib/phone-viewport.ts'
 import { countMark, gridLineKind, HIT_COLOR, PLAYHEAD_COLOR } from '../src/lib/drum-flat-grid.ts'
 import {
   barDurationSec,
@@ -54,12 +60,26 @@ assert.equal(gridLineKind(1, 2), 'sub')
 assert.equal(VOICES[VOICES.length - 1], 'china')
 
 assert.equal(PHONE_SHORTEST_PX, 600)
+assert.equal(COMPACT_SHORTEST_PX, 768)
 assert.equal(isPhoneViewport(430, 932), true, 'iPhone portrait is a phone')
 assert.equal(isPhoneViewport(932, 430), true, 'iPhone landscape is a phone')
 assert.equal(isPhoneViewport(390, 844), true)
 assert.equal(isPhoneViewport(768, 1024), false, 'iPad portrait stays tablet')
 assert.equal(isPhoneViewport(1024, 768), false, 'iPad landscape stays tablet')
 assert.equal(isPhoneViewport(1440, 900), false)
+assert.equal(isPhoneViewport(704, 1024), false, 'unfolded Duo is not a phone')
+assert.equal(isPhoneViewport(1024, 704), false, 'unfolded Duo landscape is not a phone')
+assert.equal(isPhoneViewport(720, 1024), false)
+assert.equal(isPhoneViewport(1024, 720), false)
+assert.equal(isCompactViewport(430, 932), true)
+assert.equal(isCompactViewport(932, 430), true)
+assert.equal(isCompactViewport(704, 1024), true, 'unfolded Duo portrait is compact')
+assert.equal(isCompactViewport(1024, 704), true, 'unfolded Duo landscape is compact')
+assert.equal(isCompactViewport(720, 1024), true)
+assert.equal(isCompactViewport(1024, 720), true)
+assert.equal(isCompactViewport(768, 1024), false, 'iPad Mini stays tablet')
+assert.equal(isCompactViewport(1024, 768), false)
+assert.equal(isCompactViewport(1440, 900), false)
 assert.equal(isPortraitViewport(430, 932), true)
 assert.equal(isPortraitViewport(932, 430), false)
 
@@ -146,6 +166,27 @@ const previewSrc = readFileSync(new URL('../src/components/rhythm/PatternPreview
 const stageSrc = readFileSync(new URL('../src/pages/RhythmPage.tsx', import.meta.url), 'utf8')
 
 assert.match(cssSrc, /@custom-variant phone/)
+assert.match(cssSrc, /@custom-variant compact/)
+assert.match(cssSrc, /--cluster-clear-right/)
+assert.match(cssSrc, /viewport-fit|safe-area-inset/)
+assert.match(cssSrc, /\.safe-shell/)
+assert.match(cssSrc, /\.safe-overlay/)
+assert.match(
+  readFileSync(new URL('../index.html', import.meta.url), 'utf8'),
+  /viewport-fit=cover/,
+)
+assert.match(
+  readFileSync(new URL('../src/pages/HomePage.tsx', import.meta.url), 'utf8'),
+  /data-home-logo/,
+)
+assert.match(
+  readFileSync(new URL('../src/pages/HomePage.tsx', import.meta.url), 'utf8'),
+  /58vw/,
+)
+assert.match(
+  readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+  /data-cluster-clear/,
+)
 assert.doesNotMatch(pageSrc, /data-edit-beat/)
 assert.doesNotMatch(pageSrc, /data-edit-landscape/)
 assert.match(pageSrc, /data-phone-drums/)
@@ -153,7 +194,8 @@ assert.match(pageSrc, /data-turn-to-edit/)
 assert.match(pageSrc, /Turn device to edit beat/)
 assert.match(pageSrc, /setPhoneDrumsSurface/)
 assert.doesNotMatch(pageSrc, /PatternPreview/)
-assert.match(pageSrc, /phone:hidden/)
+assert.match(pageSrc, /compact:hidden/)
+assert.match(pageSrc, /useCompactViewport/)
 assert.match(pageSrc, /DrumEditorOverlay/)
 assert.match(pageSrc, /moveHitAcrossBars/)
 assert.match(pageSrc, /factory\.visible/)
@@ -189,7 +231,7 @@ assert.match(
 )
 assert.match(
   readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8'),
-  /"orientation": "portrait"/,
+  /"orientation": "any"/,
 )
 assert.match(cssSrc, /phone-rotate-back/)
 assert.match(overlaySrc, /data-rotate-hint/)
@@ -205,7 +247,7 @@ assert.match(overlaySrc, /EditorTempoSheet/)
 assert.match(overlaySrc, /onTapTempo/)
 assert.doesNotMatch(overlaySrc, /onListen/)
 assert.match(pageSrc, /editorLibrary/)
-assert.match(pageSrc, /compact=\{editorOpen\}/)
+assert.match(pageSrc, /compact\n/)
 assert.doesNotMatch(pageSrc, /headerTrailing/)
 assert.doesNotMatch(
   readFileSync(new URL('../src/components/AppTabBar.tsx', import.meta.url), 'utf8'),
@@ -243,7 +285,11 @@ assert.match(
 assert.doesNotMatch(pageSrc, /ListenTempoSheet/)
 assert.doesNotMatch(pageSrc, /listenDemo/)
 assert.doesNotMatch(pageSrc, /data-listen/)
-assert.match(overlaySrc, /safe-area-inset/)
+assert.match(overlaySrc, /safe-overlay/)
+assert.match(overlaySrc, /data-editor-toolbar/)
+assert.match(overlaySrc, /flex-wrap/)
+assert.match(overlaySrc, /data-editor-play/)
+assert.match(overlaySrc, /data-editor-mixer/)
 assert.match(overlaySrc, /sawLandscape/)
 assert.match(overlaySrc, /IntensitySwitch/)
 assert.match(overlaySrc, /canSwipe=\{!playing\}/)

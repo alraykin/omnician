@@ -4,7 +4,7 @@
   "description": "The ultimate musician’s practice companion.",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#0B0F1A",
   "theme_color": "#0B0F1A",
   "icons": [

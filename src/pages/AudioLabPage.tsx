@@ -94,7 +94,7 @@ export function AudioLabPage() {
   return (
     <div
       data-audio-lab="on"
-      className="relative min-h-svh overflow-x-hidden px-4 pb-16 pt-3 sm:px-6"
+      className="safe-shell relative min-h-svh overflow-x-hidden"
     >
       <AudioDebugOverlay getSnapshot={getLabAudioSnapshot} />
       <header className="relative z-10 mb-6 flex items-center justify-center">

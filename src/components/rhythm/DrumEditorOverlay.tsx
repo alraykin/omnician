@@ -145,24 +145,22 @@ export function DrumEditorOverlay({
       data-drum-editor
       data-editor-orientation={portrait ? 'portrait' : 'landscape'}
       data-mixer-open={mixerOpen ? '1' : '0'}
-      className="fixed inset-0 z-[80] flex flex-col bg-[#0B0F1A] text-white"
-      style={{
-        paddingTop: 'max(0.35rem, env(safe-area-inset-top, 0px))',
-        paddingRight: 'max(0.45rem, env(safe-area-inset-right, 0px))',
-        paddingBottom: 'max(0.35rem, env(safe-area-inset-bottom, 0px))',
-        paddingLeft: 'max(0.45rem, env(safe-area-inset-left, 0px))',
-      }}
+      className="safe-overlay fixed inset-0 z-[80] flex flex-col bg-[#0B0F1A] text-white"
     >
       {showHint ? (
         <RotateHint beatName={beatName} onClose={onClose} />
       ) : (
         <>
-          <header className="flex shrink-0 items-center gap-1 px-1 pb-0.5">
+          <header
+            data-editor-toolbar
+            className="flex min-w-0 shrink-0 flex-wrap items-center gap-x-0.5 gap-y-1 px-1 pb-0.5"
+          >
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-0.5 gap-y-1">
             <button
               type="button"
               data-editor-done
               {...activateOnPointer(onClose)}
-              className="flex h-8 items-center gap-0.5 rounded-full px-1.5 text-[0.78rem] font-semibold text-slate-200"
+              className="flex h-8 shrink-0 items-center gap-0.5 rounded-full px-1.5 text-[0.72rem] font-semibold text-slate-200"
             >
               <X className="size-3.5" />
               Done
@@ -176,13 +174,15 @@ export function DrumEditorOverlay({
                 setMixerOpen(false)
                 onOpenLibrary()
               })}
-              className="min-w-0 max-w-[9.5rem] shrink rounded-lg px-1 py-0.5 text-left hover:bg-white/6"
+              className="flex h-8 min-w-0 max-w-[7.5rem] shrink flex-col justify-center overflow-hidden rounded-lg px-1 text-left hover:bg-white/6"
             >
-              <p className="text-[0.52rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Edit beat</p>
-              <p className="flex min-w-0 items-center gap-0.5 truncate text-[0.78rem] font-semibold leading-none text-white">
+              <span className="text-[0.48rem] font-semibold uppercase leading-none tracking-[0.12em] text-slate-500">
+                Edit beat
+              </span>
+              <span className="mt-0.5 flex min-w-0 items-center gap-0.5 text-[0.72rem] font-semibold leading-none text-white">
                 <span className="truncate">{beatName}</span>
                 <ChevronDown className="size-3 shrink-0 text-slate-400" />
-              </p>
+              </span>
             </button>
             <button
               type="button"
@@ -215,18 +215,19 @@ export function DrumEditorOverlay({
                 setTempoOpen((open) => !open)
               })}
               className={cn(
-                'flex h-8 shrink-0 items-center rounded-full px-2.5 text-[0.78rem] font-semibold tabular-nums',
+                'flex h-8 shrink-0 items-center rounded-full px-2 text-[0.72rem] font-semibold tabular-nums',
                 tempoOpen ? 'bg-[#A855F7] text-white' : 'border border-white/12 bg-white/6 text-white',
               )}
             >
               {shownBpm} BPM
             </button>
             {current ? (
-              <div className="min-w-0 shrink-0">
+              <div className="min-w-0 shrink">
                 <CompactMeter compact beats={current.beats} beatUnit={current.beatUnit} onChange={onMeter} />
               </div>
             ) : null}
-            <div className="ml-auto flex shrink-0 items-center gap-1">
+            </div>
+            <div className="ml-auto flex shrink-0 items-center gap-0.5">
               <IntensitySwitch compact value={kitIntensity} onChange={onIntensity} />
               <button
                 type="button"
@@ -235,12 +236,12 @@ export function DrumEditorOverlay({
                 aria-pressed={mixerOpen}
                 {...activateOnPointer(() => setMixerOpen((open) => !open))}
                 className={cn(
-                  'flex h-8 items-center gap-1 rounded-full px-2.5 text-[0.68rem] font-semibold',
+                  'flex h-8 items-center gap-1 rounded-full px-2 text-[0.62rem] font-semibold',
                   mixerOpen ? 'bg-[#A855F7] text-white' : 'border border-white/12 bg-white/4 text-slate-100',
                 )}
               >
                 <SlidersHorizontal className="size-3" />
-                Mixer
+                <span className="hidden min-[720px]:inline">Mixer</span>
               </button>
               <button
                 type="button"
