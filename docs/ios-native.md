@@ -12,7 +12,8 @@ The Apple Developer Program account is in use for TestFlight via GitHub Actions 
 - Dark launch screen
 - Native audio session so click and drums play with the silent switch on (`AVAudioSession` category **playback**, `mixWithOthers` **off**)
 - Microphone permission string for the tuner
-- GitHub Actions workflow that compiles an **unsigned iPhone Simulator** build on `xcode-27` with the newest Xcode 27.x (iOS 27.1+ SDK fills the Duo inner display)
+- GitHub Actions workflow that compiles an **unsigned iPhone Simulator** build on `xcode-27` with the newest Xcode 27.x (iOS 27.1+ SDK fills the Duo inner display), then boots an iOS 27 simulator and fails if the process dies or the window scene never connects
+- UIScene lifecycle (`SceneDelegate` + `UIApplicationSceneManifest`) required to launch when linked against the iOS 27 SDK
 - A TestFlight job that stays **off** until you opt in with secrets
 
 This Linux cloud machine cannot run Xcode. The unsigned compile happens on GitHub’s Mac runners after the repo is on GitHub.
@@ -113,7 +114,7 @@ Click, Crocell drums, and Speed Builder announce files ship in `public/rhythm/` 
 
 Build 1.0 (6) was an iPhone-only target (`TARGETED_DEVICE_FAMILY = 1`), so iOS opened it in the compatibility letterbox instead of the ~720×1024 inner screen. The project is now universal (`1,2`), lists all four orientations for iPhone and iPad, keeps `UILaunchStoryboardName`, and does not set `UIRequiresFullScreen`. The webview uses `contentInset: never`, `viewport-fit=cover`, and `env(safe-area-inset-*)`. Fold/unfold and rotation resize the webview and fire `resize` so Laptop / Book / Tent (shortest side ≥ 640) match Safari.
 
-Apple letterboxes iOS 26 SDK binaries on Duo. GitHub Actions builds on `xcode-27` with Xcode 27.2 so TestFlight links against the iOS 27.x SDK and can fill the inner display.
+Apple letterboxes iOS 26 SDK binaries on Duo. GitHub Actions builds on `xcode-27` with Xcode 27.2 so TestFlight links against the iOS 27.x SDK and can fill the inner display. Apps linked with that SDK must adopt the UIScene lifecycle (`UIApplicationSceneManifest` + `SceneDelegate`); a legacy `AppDelegate.window` + `UIMainStoryboardFile` path traps in UIKit during scene connection on iOS 27.
 
 ## Web deploy stays the same
 

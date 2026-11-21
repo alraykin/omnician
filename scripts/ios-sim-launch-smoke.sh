@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Boot a simulator, install the unsigned App.app, launch it, and fail if the
-# process dies within ~10s. Catches native launch crashes before TestFlight.
+# Boot an iOS 27.x simulator matching the Xcode 27 SDK, install the unsigned
+# App.app, launch it, and fail if the process dies, the window scene never
+# connects, or UIKit traps (EXC_BREAKPOINT / SIGTRAP / missing UIScene).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,28 +22,53 @@ if [[ -z "$APP" || ! -d "$APP" ]]; then
 fi
 echo "ios-sim-launch-smoke: app $APP"
 
-UDID="$(xcrun simctl list devices available -j | python3 -c '
-import json, sys
+INFO_PLIST="$APP/Info.plist"
+if ! /usr/libexec/PlistBuddy -c 'Print :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneDelegateClassName' "$INFO_PLIST" >/dev/null 2>&1; then
+  echo "ios-sim-launch-smoke: built app is missing UIApplicationSceneManifest (iOS 27 launch assert)" >&2
+  /usr/libexec/PlistBuddy -c 'Print' "$INFO_PLIST" >&2 || true
+  exit 1
+fi
+echo "ios-sim-launch-smoke: scene manifest ok"
+
+PICK="$(xcrun simctl list devices available -j | python3 -c '
+import json, re, sys
 data = json.load(sys.stdin)
-duo = iphone = None
-for devices in data.get("devices", {}).values():
+best = None
+for runtime, devices in data.get("devices", {}).items():
+    m = re.search(r"iOS[- ](\d+)[.\-](\d+)", runtime)
+    if not m:
+        continue
+    major, minor = int(m.group(1)), int(m.group(2))
+    if major < 27:
+        continue
     for d in devices:
         if d.get("isAvailable") is False:
             continue
         name = d.get("name", "")
-        if "Duo" in name and duo is None:
-            duo = d.get("udid")
-        elif name.startswith("iPhone") and iphone is None:
-            iphone = d.get("udid")
-print(duo or iphone or "")
+        if "Duo" not in name and not name.startswith("iPhone"):
+            continue
+        duo = 1 if "Duo" in name else 0
+        key = (major, minor, duo)
+        cand = (key, d.get("udid"), runtime, name)
+        if best is None or cand[0] > best[0]:
+            best = cand
+if not best:
+    sys.exit(0)
+print(best[1])
+print(best[2])
+print(best[3])
 ')"
 
-if [[ -z "$UDID" ]]; then
-  echo "ios-sim-launch-smoke: no available iPhone simulator" >&2
+if [[ -z "$PICK" ]]; then
+  echo "ios-sim-launch-smoke: no available iOS 27.x iPhone simulator" >&2
   xcrun simctl list devices available >&2 || true
+  xcrun simctl list runtimes >&2 || true
   exit 1
 fi
-echo "ios-sim-launch-smoke: udid $UDID"
+UDID="$(printf '%s\n' "$PICK" | sed -n '1p')"
+RUNTIME="$(printf '%s\n' "$PICK" | sed -n '2p')"
+DEVICE_NAME="$(printf '%s\n' "$PICK" | sed -n '3p')"
+echo "ios-sim-launch-smoke: device $DEVICE_NAME runtime $RUNTIME udid $UDID"
 
 xcrun simctl boot "$UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$UDID" -b
@@ -60,15 +86,43 @@ fi
 
 sleep "$WAIT_SEC"
 
-if xcrun simctl spawn "$UDID" launchctl print "pid/$PID" >/dev/null 2>&1; then
-  echo "ios-sim-launch-smoke: ok pid $PID still alive after ${WAIT_SEC}s"
-  xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
-  exit 0
+dump_logs() {
+  echo "--- simctl log ---" >&2
+  xcrun simctl spawn "$UDID" log show --last "$((WAIT_SEC + 5))s" --info --style compact \
+    --predicate 'processImagePath CONTAINS "App" OR eventMessage CONTAINS "OmnicianScene" OR eventMessage CONTAINS "UIScene" OR eventMessage CONTAINS "does not adopt UIScene" OR subsystem == "app.omnician"' \
+    2>/dev/null | tail -120 >&2 || true
+  echo "--- DiagnosticReports ---" >&2
+  find "$HOME/Library/Logs/DiagnosticReports" -type f \( -name '*Omnician*' -o -name '*App*' \) -mmin -15 2>/dev/null | tail -20 >&2 || true
+  CRASH_DIR="$HOME/Library/Developer/CoreSimulator/Devices/$UDID/data/Library/Logs/CrashReporter"
+  if [[ -d "$CRASH_DIR" ]]; then
+    echo "--- simulator CrashReporter ---" >&2
+    find "$CRASH_DIR" -type f -mmin -15 2>/dev/null | tail -20 >&2 || true
+  fi
+}
+
+LOG="$(xcrun simctl spawn "$UDID" log show --last "$((WAIT_SEC + 5))s" --info --style compact \
+  --predicate 'processImagePath CONTAINS "App" OR eventMessage CONTAINS "OmnicianScene" OR eventMessage CONTAINS "UIScene" OR eventMessage CONTAINS "does not adopt UIScene" OR subsystem == "app.omnician"' \
+  2>/dev/null || true)"
+printf '%s\n' "$LOG"
+
+if printf '%s\n' "$LOG" | grep -Eqi 'EXC_BREAKPOINT|SIGTRAP|does not adopt UIScene|UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption'; then
+  echo "ios-sim-launch-smoke: FAIL UIKit scene/lifecycle trap in simulator log" >&2
+  dump_logs
+  exit 1
 fi
 
-echo "ios-sim-launch-smoke: FAIL pid $PID died within ${WAIT_SEC}s" >&2
-echo "--- DiagnosticReports ---" >&2
-find "$HOME/Library/Logs/DiagnosticReports" -type f \( -name '*Omnician*' -o -name '*App*' \) -mmin -15 2>/dev/null | tail -20 >&2 || true
-echo "--- simctl diagnose (log tail) ---" >&2
-xcrun simctl spawn "$UDID" log show --last "${WAIT_SEC}s" --predicate 'eventMessage CONTAINS "Omnician" OR processImagePath CONTAINS "App"' --style compact 2>/dev/null | tail -80 >&2 || true
-exit 1
+if ! printf '%s\n' "$LOG" | grep -q 'OmnicianScene: window connected'; then
+  echo "ios-sim-launch-smoke: FAIL window scene did not connect (missing OmnicianScene log)" >&2
+  dump_logs
+  exit 1
+fi
+
+if ! xcrun simctl spawn "$UDID" launchctl print "pid/$PID" >/dev/null 2>&1; then
+  echo "ios-sim-launch-smoke: FAIL pid $PID died within ${WAIT_SEC}s" >&2
+  dump_logs
+  exit 1
+fi
+
+echo "ios-sim-launch-smoke: ok pid $PID alive, window scene connected on $DEVICE_NAME ($RUNTIME)"
+xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+exit 0
