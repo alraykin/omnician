@@ -93,7 +93,7 @@ There is no Fold mode button or setting on web or in the native app. Layouts fol
 
 Safari uses Viewport Segments and `navigator.devicePosture` when present, plus window size for tent. `?fold=` still overrides for QA.
 
-The native `OmnicianPosture` plugin (iOS 27.1+ `UIHingeInteraction` angle + `closed` / `partiallyOpen` / `fullyOpen`, `UIView.reservedRegions(.division)`, window size for inner vs outer, CoreMotion gravity as fallback) drives the same CSS layouts with hysteresis on the hinge band. There are no `UITraitCollection` posture traits. Hinge is not used for native Auto Layout; we only read it as input for the web layouts.
+The native `OmnicianPosture` plugin drives the same CSS layouts with hysteresis. GitHub `macos-26` builds with Xcode 26.6 (Swift 6.3): hinge types are compiled out (`#if compiler(>=6.4)` is false) and the plugin uses window size + CoreMotion gravity. Xcode 27.1+ (Swift 6.4, iOS 27.1 SDK) also reads `UIHingeInteraction` (`closed` / `partiallyOpen` / `fullyOpen`, angle) and `UIView.reservedRegions(.division)` behind `if #available(iOS 27.1, *)`. There are no `UITraitCollection` posture traits. Hinge is not used for native Auto Layout; we only read it as input for the web layouts. macos-26 does not install Xcode 27 — that toolchain is the separate `xcode-27` runner image.
 
 Haptics stay on `navigator.vibrate` for now.
 

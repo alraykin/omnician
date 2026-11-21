@@ -57,9 +57,13 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
     func attachHinge(to view: UIView) {
         if hingeAttached { return }
         hingeAttached = true
+        // Xcode 26.6 = Swift 6.3 / iOS 26.5 SDK: no UIHingeInteraction.
+        // Xcode 27.1+ = Swift 6.4 / iOS 27.1 SDK: hinge + crease APIs exist.
+        #if compiler(>=6.4)
         if #available(iOS 27.1, *) {
             attachHingeInteraction(to: view)
         }
+        #endif
         readDivision(from: view)
         publish()
     }
@@ -101,6 +105,7 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+#if compiler(>=6.4)
     @available(iOS 27.1, *)
     private func attachHingeInteraction(to view: UIView) {
         let interaction = UIHingeInteraction { [weak self] _, update in
@@ -128,14 +133,18 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
         }
         view.addInteraction(interaction)
     }
+#endif
 
     private func readDivision(from view: UIView?) {
         guard let view else { return }
+        #if compiler(>=6.4)
         if #available(iOS 27.1, *) {
             readDivisionRegions(from: view)
         }
+        #endif
     }
 
+#if compiler(>=6.4)
     @available(iOS 27.1, *)
     private func readDivisionRegions(from view: UIView) {
         let regions = view.reservedRegions(kind: .division)
@@ -147,6 +156,7 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
         foldDivisionActive = false
         foldDivisionHorizontal = nil
     }
+#endif
 
     private func windowSize() -> CGSize {
         if let bounds = bridge?.viewController?.view.bounds, bounds.width > 0 {
