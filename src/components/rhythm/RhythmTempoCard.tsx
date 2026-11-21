@@ -40,18 +40,19 @@ export function RhythmTempoCard({
           onChange={onSpeedBuilder}
           precountAlways={mode === 'drums'}
         />
-        <div className="relative z-10 flex h-full min-h-0 w-[8.5rem] max-w-full flex-col items-center justify-self-end">
-          <div className="flex min-h-0 flex-1 items-center justify-center">
-            <BpmWheel
-              compact
-              value={bpm}
-              faceBpm={showLive ? liveBpm : undefined}
-              onChange={(next) => onBpm(next, true)}
-            />
-          </div>
+        <div
+          data-tempo-wheel-stack
+          className="relative z-10 flex h-full min-h-0 w-[8.5rem] max-w-full flex-col items-center justify-start gap-3 justify-self-end sm:gap-4"
+        >
+          <BpmWheel
+            compact
+            value={bpm}
+            faceBpm={showLive ? liveBpm : undefined}
+            onChange={(next) => onBpm(next, true)}
+          />
           <div
             data-tempo-taps
-            className="relative z-20 mt-auto grid w-full grid-cols-3 gap-0.5"
+            className="relative z-20 grid w-full grid-cols-3 gap-0.5"
           >
             <Button
               type="button"

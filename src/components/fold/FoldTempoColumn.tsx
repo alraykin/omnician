@@ -18,9 +18,13 @@ export function FoldTempoColumn({
   className?: string
 }) {
   return (
-    <div data-fold-tempo className={cn('flex w-[200px] flex-col items-center', className)}>
+    <div
+      data-fold-tempo
+      data-tempo-wheel-stack
+      className={cn('flex w-[200px] flex-col items-center gap-3 pt-3 sm:gap-4 sm:pt-4', className)}
+    >
       <BpmWheel compact value={bpm} faceBpm={liveBpm} onChange={(next) => onBpm(next, true)} />
-      <div className="mt-2 grid w-full grid-cols-3 gap-1" data-tempo-taps>
+      <div className="grid w-full grid-cols-3 gap-1" data-tempo-taps>
         <Button
           type="button"
           variant="outline"
