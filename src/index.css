@@ -1119,3 +1119,42 @@ html.drum-editor-open [data-listen-panel] {
   display: inline-block;
   transform: rotate(45deg);
 }
+
+html.fold-overlay,
+html.fold-overlay body,
+html.fold-overlay #root {
+  overflow: hidden;
+  touch-action: none;
+}
+
+html.fold-overlay [data-fold-shell] {
+  touch-action: manipulation;
+}
+
+[data-fold-layout='laptop'] [data-fold-drums-grid] [data-editor-labels],
+[data-fold-layout='laptop'] [data-fold-drums-grid] [data-editor-bar-page] {
+  grid-template-rows: 16px repeat(14, 28px) 1px;
+}
+
+[data-fold-layout='laptop'] [data-fold-drums-grid] [data-count-strip] {
+  height: 16px;
+}
+
+[data-fold-layout='laptop'] [data-fold-drums-grid] [data-editor-labels] button {
+  font-size: 12.5px;
+}
+
+[data-fold-layout='laptop'] [data-fold-tempo] [data-bpm-wheel],
+[data-fold-layout='tent'] [data-fold-tempo] [data-bpm-wheel] {
+  height: 168px;
+}
+
+[data-fold-shell] [data-section='click-sound'] button,
+[data-fold-shell] [data-section='drum-input'] button {
+  height: 2.5rem;
+  min-height: 2.5rem;
+}
+
+[data-fold-layout='book'] [data-fold-tuner-scale] [data-fold-dead-label] {
+  display: none;
+}

@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { Settings } from 'lucide-react'
 
 import { AppTabBar } from '@/components/AppTabBar'
+import { FoldModeButton } from '@/components/fold/FoldModePicker'
 import { HomeWordmarkLink } from '@/components/HomeWordmarkLink'
 import { cn } from '@/lib/utils'
 
@@ -23,20 +24,25 @@ const SHELL = {
   fluid: 'max-w-lg md:max-w-3xl wide:max-w-none',
 }
 
-function SettingsGearButton() {
+function HeaderTools() {
   const location = useLocation()
   const from = `${location.pathname}${location.search}`
   return (
-    <Link
-      to="/settings"
-      state={{ from }}
-      aria-label="Settings"
-      data-settings-gear
-      className="absolute top-0 z-20 flex size-11 items-center justify-center rounded-full text-slate-500/80 hover:text-slate-300 wide:top-1/2 wide:-translate-y-1/2"
+    <div
+      className="absolute top-0 z-20 flex items-center gap-0.5 wide:top-1/2 wide:-translate-y-1/2"
       style={{ right: 'var(--cluster-clear-right, 0px)' }}
     >
-      <Settings className="size-[1.15rem]" strokeWidth={1.75} />
-    </Link>
+      <FoldModeButton />
+      <Link
+        to="/settings"
+        state={{ from }}
+        aria-label="Settings"
+        data-settings-gear
+        className="flex size-11 items-center justify-center rounded-full text-slate-500/80 hover:text-slate-300"
+      >
+        <Settings className="size-[1.15rem]" strokeWidth={1.75} />
+      </Link>
+    </div>
   )
 }
 
@@ -64,7 +70,7 @@ export function AppChrome({
         <header
           className={cn(
             'relative z-10 mx-auto flex w-full flex-col items-stretch gap-2 wide:flex-row wide:items-center wide:gap-3',
-            'pr-[max(2.75rem,var(--cluster-clear-right))]',
+            'pr-[max(5.5rem,var(--cluster-clear-right))]',
             shell,
           )}
         >
@@ -74,7 +80,7 @@ export function AppChrome({
           <div className="min-w-0 flex-1">
             <AppTabBar />
           </div>
-          <SettingsGearButton />
+          <HeaderTools />
         </header>
       )}
       <main

@@ -38,6 +38,7 @@
     "test:bpm-wheel": "npx --yes tsx scripts/bpm-wheel.ts",
     "test:master-peaks": "npx --yes tsx scripts/master-peaks.ts",
     "test:tuner-layout": "npx --yes tsx scripts/tuner-layout.ts",
+    "test:fold": "npx --yes tsx scripts/fold-mode.ts",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-cloudflare.sh"
   },

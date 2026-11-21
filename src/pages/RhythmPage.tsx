@@ -4,6 +4,9 @@ import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { AppChrome } from '@/components/AppChrome'
+import { ClickLaptop } from '@/components/fold/ClickLaptop'
+import { ClickTent } from '@/components/fold/ClickTent'
+import { DrumsLaptop } from '@/components/fold/DrumsLaptop'
 import { SheetBackdrop, SheetCloseX } from '@/components/SheetClose'
 import { FactoryEditorBar, FactoryHistorySheet, FactoryNameSheet } from '@/components/FactoryEditorBar'
 import { ClickPresetChip, ClickPresetsSheet } from '@/components/rhythm/ClickPresets'
@@ -22,6 +25,7 @@ import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { useFactoryEditor } from '@/hooks/useFactoryEditor'
+import { useToolFoldLayout } from '@/hooks/useFoldMode'
 import { useCompactViewport, usePortraitViewport } from '@/hooks/usePhoneViewport'
 import { usePlayhead, useRhythmEngine, type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
 import { defaultIntensityForStyle, type KitIntensity } from '@/lib/kit-intensity'
@@ -177,6 +181,8 @@ export function RhythmPage() {
   const [editorOpen, setEditorOpen] = useState(false)
   const compact = useCompactViewport()
   const portrait = usePortraitViewport()
+  const drumsFold = useToolFoldLayout('drums')
+  const clickFold = useToolFoldLayout('click')
   const [, setStyleTick] = useState(0)
 
   useEffect(() => subscribeRhythmStyles(() => setStyleTick((value) => value + 1)), [])
@@ -384,8 +390,12 @@ export function RhythmPage() {
 
   useEffect(() => {
     if (mode !== 'drums' || !compact) return
+    if (drumsFold === 'laptop') {
+      setEditorOpen(false)
+      return
+    }
     if (!portrait) setEditorOpen(true)
-  }, [mode, compact, portrait])
+  }, [drumsFold, mode, compact, portrait])
 
   const goMode = useCallback(
     (next: RhythmMode) => {
@@ -1464,7 +1474,10 @@ export function RhythmPage() {
                 />
               </div>
               <div
-                className="hidden items-center justify-center compact:flex"
+                className={cn(
+                  'hidden items-center justify-center compact:flex',
+                  drumsFold === 'laptop' && '!hidden',
+                )}
                 data-phone-drums
               >
                 <p
@@ -1502,7 +1515,80 @@ export function RhythmPage() {
         </TransportDock>
       </div>
 
-      {editorOpen && mode === 'drums' ? (
+      {drumsFold === 'laptop' && mode === 'drums' && current ? (
+        <DrumsLaptop
+          beatName={beatName}
+          bpm={bpm}
+          liveBpm={speedBuilder.enabled && playing ? liveBpm : bpm}
+          playing={playing}
+          bars={drumBars}
+          barIndex={drumBarIndex}
+          input={drumInput}
+          playheadStore={playheadStore}
+          getClock={getTransportClock}
+          kitMix={kitMix}
+          kitIntensity={kitIntensity}
+          canAdd={drumBars.length < MAX_BARS}
+          onTogglePlay={() => void startStop()}
+          onInput={changeDrumInput}
+          onMeter={setMeter}
+          onSelectBar={chooseDrumBar}
+          onAddBar={addBar}
+          onRemoveBar={() => removeBar(drumBarIndex)}
+          onToggle={onToggleCell}
+          onToggleSoft={onToggleSoft}
+          onMoveHit={onMoveHit}
+          onPreview={preview}
+          onMix={setGroupMix}
+          onIntensity={setKitIntensity}
+          onOpenLibrary={() => setPickerOpen(true)}
+          onBpm={changeBpm}
+          onTapTempo={tapTempo}
+          canUndo={historyUi.undo > 0}
+          canRedo={historyUi.redo > 0}
+          onUndo={undoDrums}
+          onRedo={redoDrums}
+        />
+      ) : null}
+
+      {clickFold === 'laptop' && mode === 'click' && current ? (
+        <ClickLaptop
+          bpm={bpm}
+          liveBpm={speedBuilder.enabled && playing ? liveBpm : bpm}
+          playing={playing}
+          bar={current}
+          barIndex={barIndex}
+          clickSound={clickSound}
+          presetName={loadedClickPreset?.name ?? 'Click presets'}
+          playheadStore={playheadStore}
+          onTogglePlay={() => void startStop()}
+          onMeter={setMeter}
+          onBpm={changeBpm}
+          onTap={tapTempo}
+          onSound={setClickSound}
+          onSubdivision={setSubdivision}
+          onCycleAccent={(beat) => {
+            const next = cycleBeatAccent(current.beatAccents, beat, current.beats)
+            previewClick(clickSound, beatAccentAt(next, beat), true)
+            patchBar(barIndex, { ...current, beatAccents: next })
+          }}
+          onOpenPresets={() => setClickPresetsOpen(true)}
+        />
+      ) : null}
+
+      {clickFold === 'tent' && mode === 'click' && current ? (
+        <ClickTent
+          bpm={bpm}
+          liveBpm={speedBuilder.enabled && playing ? liveBpm : bpm}
+          playing={playing}
+          bar={current}
+          playheadStore={playheadStore}
+          getClock={getTransportClock}
+          onTogglePlay={() => void startStop()}
+        />
+      ) : null}
+
+      {editorOpen && mode === 'drums' && drumsFold !== 'laptop' ? (
         <DrumEditorOverlay
           beatName={beatName}
           bpm={bpm}

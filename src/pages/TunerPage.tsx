@@ -2,6 +2,7 @@ import { Check } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AppChrome } from '@/components/AppChrome'
+import { TunerBook } from '@/components/fold/TunerBook'
 import { SettingSwitch } from '@/components/SettingsChrome'
 import { A4ReferenceControl } from '@/components/tuner/A4ReferenceControl'
 import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
@@ -12,6 +13,7 @@ import { TunerDebugOverlay } from '@/components/tuner/TunerDebugOverlay'
 import { TunerTarget } from '@/components/tuner/TunerTarget'
 import { TuningSheet } from '@/components/tuner/TuningSheet'
 import { useCustomTunings } from '@/hooks/useCustomTunings'
+import { useToolFoldLayout } from '@/hooks/useFoldMode'
 import { useTuner, type TunerStatus } from '@/hooks/useTuner'
 import {
   loadTunerPrefs,
@@ -116,6 +118,7 @@ export function TunerPage() {
 
   const { status, reading, needsGesture, debug } = useTuner(a4Hz)
   const [playingId, setPlayingId] = useState<string | null>(getPlayingToneId)
+  const tunerFold = useToolFoldLayout('tuner')
 
   useEffect(() => subscribeTunerDebug(setShowDebug), [])
   useEffect(() => armLogoDebugToggle(), [])
@@ -598,6 +601,43 @@ export function TunerPage() {
         onEdit={openEdit}
         onDelete={deleteCustom}
       />
+
+      {tunerFold === 'book' ? (
+        <TunerBook
+          a4Hz={a4Hz}
+          onA4={setA4Hz}
+          cents={displayCents}
+          inTune={inTune}
+          live={live}
+          noteName={
+            instrumentMode && activeString
+              ? activeString.label
+              : (reading?.sharpName ?? (demo.cents !== null ? demo.sharpName : null))
+          }
+          octave={
+            instrumentMode && activeString
+              ? activeString.octave
+              : (reading?.octave ?? (demo.cents !== null ? demo.octave : null))
+          }
+          targetHz={targetHz}
+          detectedHz={detectedHz}
+          pegs={strings}
+          selectedId={activeString?.id ?? null}
+          tunedIds={tunedIds}
+          onPeg={(peg) => {
+            const string = strings.find((item) => item.id === peg.id)
+            if (!string) return
+            toggleReferenceTone({
+              id: string.id,
+              frequency: midiToFreq(string.midi, a4Hz),
+              family: family.id,
+            })
+            const index = strings.findIndex((item) => item.id === string.id)
+            if (index >= 0) setFocusIndex(index)
+            if (autoString) setAutoId(string.id)
+          }}
+        />
+      ) : null}
 
       {editor !== null ? (
         <CustomPresetEditor

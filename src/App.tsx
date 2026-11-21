@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
 
 import { AudioDebugOverlay } from '@/components/AudioDebugOverlay'
+import { FoldSync } from '@/components/fold/FoldSync'
 import { PhonePortraitGuard } from '@/components/PhonePortraitGuard'
 import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { AudioLabPage } from '@/pages/AudioLabPage'
@@ -36,6 +37,7 @@ export default function App() {
         aria-hidden
         className="pointer-events-none fixed right-0 top-0 z-[100] h-[var(--cluster-clear-height)] w-[var(--cluster-clear-right)]"
       />
+      <FoldSync />
       <PhonePortraitGuard />
       <Routes>
         <Route path="/" element={<HomePage />} />

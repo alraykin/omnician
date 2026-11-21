@@ -1,0 +1,278 @@
+/** iPhone Duo fold layouts. Choice persists; Auto uses posture + viewport segments. */
+
+export const FOLD_STORAGE_KEY = 'omnician.fold-mode.v1'
+export const FOLD_MIN_SIDE_PX = 640
+export const FOLD_DEAD_PX = 16
+export const FOLD_CREASE = 512
+export const FOLD_LAPTOP = { width: 720, height: 1024 } as const
+export const FOLD_BOOK = { width: 1024, height: 720 } as const
+export const FOLD_STATUS_PORTRAIT = { x: 496, y: 0, w: 224, h: 88 } as const
+export const FOLD_STATUS_LANDSCAPE = { x: 936, y: 0, w: 88, h: 260 } as const
+export const FOLD_STATUS_TENT_A = { x: 496, y: 0, w: 224, h: 80 } as const
+
+export const FOLD_CHOICES = ['off', 'auto', 'laptop', 'book', 'tent'] as const
+export type FoldChoice = (typeof FOLD_CHOICES)[number]
+export type FoldLayout = 'off' | 'laptop' | 'book' | 'tent'
+export type FoldTool = 'click' | 'drums' | 'tuner'
+
+export const FOLD_CHOICE_LABELS: Record<FoldChoice, string> = {
+  off: 'Off',
+  auto: 'Auto',
+  laptop: 'Laptop',
+  book: 'Book',
+  tent: 'Tent',
+}
+
+export type ViewportSegmentBox = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type FoldDetectInput = {
+  segments?: ViewportSegmentBox[] | null
+  horizontalSegments?: number
+  verticalSegments?: number
+  posture?: string | null
+}
+
+const listeners = new Set<() => void>()
+let choice: FoldChoice = 'off'
+let loaded = false
+
+export function isFoldChoice(value: unknown): value is FoldChoice {
+  return typeof value === 'string' && (FOLD_CHOICES as readonly string[]).includes(value)
+}
+
+export function parseFoldChoice(value: unknown): FoldChoice {
+  return isFoldChoice(value) ? value : 'off'
+}
+
+function readQueryChoice(): FoldChoice | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return parseFoldChoice(new URLSearchParams(window.location.search).get('fold') ?? '')
+  } catch {
+    return 'off'
+  }
+}
+
+export function loadFoldChoice(): FoldChoice {
+  const fromQuery = readQueryChoice()
+  if (fromQuery && fromQuery !== 'off') return fromQuery
+  if (typeof localStorage === 'undefined') return 'off'
+  try {
+    return parseFoldChoice(localStorage.getItem(FOLD_STORAGE_KEY))
+  } catch {
+    return 'off'
+  }
+}
+
+export function saveFoldChoice(next: FoldChoice): FoldChoice {
+  const value = parseFoldChoice(next)
+  if (loaded && choice === value) return value
+  choice = value
+  loaded = true
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(FOLD_STORAGE_KEY, value)
+  } catch {
+    /* private mode */
+  }
+  listeners.forEach((fn) => fn())
+  return value
+}
+
+export function readFoldChoice(): FoldChoice {
+  if (!loaded) {
+    choice = loadFoldChoice()
+    loaded = true
+  }
+  return choice
+}
+
+export function subscribeFoldChoice(onChange: () => void): () => void {
+  listeners.add(onChange)
+  return () => listeners.delete(onChange)
+}
+
+export function cycleFoldChoice(current: FoldChoice): FoldChoice {
+  const index = FOLD_CHOICES.indexOf(current)
+  return FOLD_CHOICES[(index + 1) % FOLD_CHOICES.length] ?? 'off'
+}
+
+function matchCount(query: string): number {
+  try {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 0
+    if (window.matchMedia(query).matches) return 2
+  } catch {
+    /* never throw */
+  }
+  return 0
+}
+
+function readPosture(): string | null {
+  try {
+    const posture = (navigator as Navigator & { devicePosture?: { type?: string } }).devicePosture
+    return typeof posture?.type === 'string' ? posture.type : null
+  } catch {
+    return null
+  }
+}
+
+function readSegments(): ViewportSegmentBox[] | null {
+  try {
+    const viewport = (window as Window & { viewport?: { segments?: ViewportSegmentBox[] } }).viewport
+    const visual = window.visualViewport as (VisualViewport & { segments?: ViewportSegmentBox[] }) | null
+    const raw = viewport?.segments ?? visual?.segments
+    if (!Array.isArray(raw) || raw.length < 2) return null
+    return raw.map((seg) => ({
+      x: Number(seg.x) || 0,
+      y: Number(seg.y) || 0,
+      width: Number(seg.width) || 0,
+      height: Number(seg.height) || 0,
+    }))
+  } catch {
+    return null
+  }
+}
+
+/** Vertical (stacked) segments => Laptop. Horizontal (side by side) => Book. Tent is manual only. */
+export function detectFoldedLayout(input?: FoldDetectInput): FoldLayout {
+  try {
+    const segments = input?.segments === undefined ? readSegments() : input.segments
+    const vertical =
+      input?.verticalSegments ??
+      matchCount('(vertical-viewport-segments: 2)')
+    const horizontal =
+      input?.horizontalSegments ??
+      matchCount('(horizontal-viewport-segments: 2)')
+    const posture = input?.posture === undefined ? readPosture() : input.posture
+
+    if (vertical >= 2) return 'laptop'
+    if (horizontal >= 2) return 'book'
+    if (segments && segments.length >= 2) {
+      const [a, b] = segments
+      if (a && b) {
+        const stacked = Math.abs(a.x - b.x) < 8 && Math.abs(a.y - b.y) > 8
+        const sideBySide = Math.abs(a.y - b.y) < 8 && Math.abs(a.x - b.x) > 8
+        if (stacked) return 'laptop'
+        if (sideBySide) return 'book'
+      }
+    }
+    // Folded without segments is ambiguous (laptop / book / tent). Do not guess.
+    if (posture === 'folded') return 'off'
+    return 'off'
+  } catch {
+    return 'off'
+  }
+}
+
+export function canUseFoldLayout(width: number, height: number): boolean {
+  return Math.min(width, height) >= FOLD_MIN_SIDE_PX
+}
+
+export function resolveFoldLayout(
+  current: FoldChoice,
+  width: number,
+  height: number,
+  detected: FoldLayout = detectFoldedLayout(),
+): FoldLayout {
+  if (!canUseFoldLayout(width, height)) return 'off'
+  if (current === 'off') return 'off'
+  if (current === 'auto') return detected
+  return current
+}
+
+/** A global fold choice only remaps the tools that have a mockup for that pose. */
+export function layoutForTool(layout: FoldLayout, tool: FoldTool): FoldLayout {
+  if (layout === 'off') return 'off'
+  if (tool === 'drums' && layout === 'laptop') return 'laptop'
+  if (tool === 'click' && (layout === 'laptop' || layout === 'tent')) return layout
+  if (tool === 'tuner' && layout === 'book') return 'book'
+  return 'off'
+}
+
+/** ±50¢ maps across the 816px book scale (408px each side of the crease). */
+export const FOLD_NEEDLE_REACH_PX = 408
+
+export function foldNeedleX(cents: number): number {
+  return (Math.max(-50, Math.min(50, cents)) / 50) * FOLD_NEEDLE_REACH_PX
+}
+
+/** Hide the needle in the 16px crease except exactly in-tune (or passing through 0¢). */
+export function foldNeedleHidden(cents: number | null, inTune: boolean): boolean {
+  if (cents === null) return false
+  if (inTune || Math.abs(cents) < 0.05) return false
+  return Math.abs(foldNeedleX(cents)) < FOLD_DEAD_PX
+}
+
+/**
+ * Traditional pendulum: one extreme-to-extreme swing per beat.
+ * +1 = left, −1 = right. Ticks land at each extreme (beat boundaries).
+ */
+export function pendulumNorm(barFrac: number, beats: number): number {
+  const n = Math.max(1, Math.floor(beats) || 1)
+  const phase = ((barFrac % 1) + 1) % 1
+  return Math.cos(Math.PI * phase * n)
+}
+
+export function pendulumBeatIndex(barFrac: number, beats: number): number {
+  const n = Math.max(1, Math.floor(beats) || 1)
+  const phase = ((barFrac % 1) + 1) % 1
+  return Math.min(n - 1, Math.floor(phase * n))
+}
+
+export function pendulumAtExtreme(norm: number, epsilon = 0.035): boolean {
+  return Math.abs(Math.abs(norm) - 1) < epsilon
+}
+
+export function splitPegs<T>(pegs: readonly T[]): { left: T[]; right: T[] } {
+  const cut = Math.floor(pegs.length / 2)
+  return { left: pegs.slice(0, cut), right: pegs.slice(cut) }
+}
+
+export function subscribeFoldHardware(onChange: () => void): () => void {
+  if (typeof window === 'undefined') return () => {}
+  const on = () => onChange()
+  window.addEventListener('resize', on)
+  window.addEventListener('orientationchange', on)
+  const visual = window.visualViewport
+  visual?.addEventListener('resize', on)
+  const mqVert = (() => {
+    try {
+      return window.matchMedia('(vertical-viewport-segments: 2)')
+    } catch {
+      return null
+    }
+  })()
+  const mqHoriz = (() => {
+    try {
+      return window.matchMedia('(horizontal-viewport-segments: 2)')
+    } catch {
+      return null
+    }
+  })()
+  mqVert?.addEventListener('change', on)
+  mqHoriz?.addEventListener('change', on)
+  const posture = (navigator as Navigator & {
+    devicePosture?: EventTarget & { addEventListener?: (type: string, fn: () => void) => void }
+  }).devicePosture
+  try {
+    posture?.addEventListener?.('change', on)
+  } catch {
+    /* optional */
+  }
+  return () => {
+    window.removeEventListener('resize', on)
+    window.removeEventListener('orientationchange', on)
+    visual?.removeEventListener('resize', on)
+    mqVert?.removeEventListener('change', on)
+    mqHoriz?.removeEventListener('change', on)
+    try {
+      posture?.removeEventListener?.('change', on)
+    } catch {
+      /* optional */
+    }
+  }
+}
