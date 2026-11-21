@@ -1,21 +1,26 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useLocation } from 'react-router-dom'
 
+import { useFoldChoice } from '@/hooks/useFoldMode'
 import { useDrumEditorOpen, usePhoneDrumsSurface, usePhoneViewport, usePortraitViewport } from '@/hooks/usePhoneViewport'
 import { tryLockPortrait } from '@/lib/phone-viewport'
 
-/** Phones (shortest side < 600, including a folded Duo outer screen) stay portrait except the landscape drum editor. Unfolded foldables and tablets can rotate freely. */
+/** Phones (shortest side < 600, including a folded Duo outer screen) stay portrait except the landscape drum editor. Unfolded foldables and tablets can rotate freely. Tent Click uses the cover screen in landscape. */
 export function PhonePortraitGuard() {
   const phone = usePhoneViewport()
   const portrait = usePortraitViewport()
   const editorOpen = useDrumEditorOpen()
   const drumsPage = usePhoneDrumsSurface()
-  const blockLandscape = phone && !portrait && !editorOpen && !drumsPage
+  const foldChoice = useFoldChoice()
+  const location = useLocation()
+  const tentClick = foldChoice === 'tent' && location.pathname.startsWith('/click')
+  const blockLandscape = phone && !portrait && !editorOpen && !drumsPage && !tentClick
 
   useEffect(() => {
-    if (!phone || editorOpen || drumsPage) return
+    if (!phone || editorOpen || drumsPage || tentClick) return
     void tryLockPortrait()
-  }, [phone, editorOpen, drumsPage])
+  }, [phone, editorOpen, drumsPage, tentClick])
 
   useEffect(() => {
     const html = document.documentElement

@@ -1,18 +1,15 @@
+import { Minus, Plus, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 import { FoldModeButton } from '@/components/fold/FoldModePicker'
 import { FoldShell } from '@/components/fold/FoldShell'
 import { type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
 import { fracInBar } from '@/lib/editor-playhead'
-import {
-  pendulumAtExtreme,
-  pendulumBeatIndex,
-  pendulumNorm,
-} from '@/lib/fold-mode'
+import { pendulumAtExtreme, pendulumBeatIndex, pendulumNorm, saveFoldChoice } from '@/lib/fold-mode'
 import { beatAccentAt, meterLabel, type RhythmBar } from '@/lib/rhythm'
 import { activateOnPointer, cn } from '@/lib/utils'
 
-const MAX_DEG = 28
+const MAX_DEG = 32
 
 export function ClickTent({
   bpm,
@@ -21,6 +18,7 @@ export function ClickTent({
   bar,
   getClock,
   onTogglePlay,
+  onBpm,
 }: {
   bpm: number
   liveBpm: number
@@ -29,62 +27,9 @@ export function ClickTent({
   playheadStore: PlayheadStore
   getClock: () => TransportClock
   onTogglePlay: () => void
+  onBpm: (next: number, tick?: boolean) => void
 }) {
   const shownBpm = Math.round(liveBpm || bpm)
-
-  return (
-    <FoldShell layout="tent">
-      <div
-        data-fold-face="a"
-        className="absolute inset-x-0 top-0 h-1/2 overflow-hidden pt-4"
-      >
-        <TentFace
-          face="a"
-          bpm={shownBpm}
-          playing={playing}
-          bar={bar}
-          getClock={getClock}
-          onTogglePlay={onTogglePlay}
-        />
-        <div className="pointer-events-auto absolute right-[232px] top-4 z-30">
-          <FoldModeButton always />
-        </div>
-      </div>
-      <div
-        data-fold-face="b"
-        className="absolute inset-x-0 top-1/2 h-1/2 origin-center overflow-hidden"
-        style={{ transform: 'rotate(180deg)' }}
-      >
-        <div className="h-full pt-4">
-          <TentFace
-            face="b"
-            bpm={shownBpm}
-            playing={playing}
-            bar={bar}
-            getClock={getClock}
-            onTogglePlay={onTogglePlay}
-          />
-        </div>
-      </div>
-    </FoldShell>
-  )
-}
-
-function TentFace({
-  face,
-  bpm,
-  playing,
-  bar,
-  getClock,
-  onTogglePlay,
-}: {
-  face: 'a' | 'b'
-  bpm: number
-  playing: boolean
-  bar: RhythmBar
-  getClock: () => TransportClock
-  onTogglePlay: () => void
-}) {
   const rodRef = useRef<HTMLDivElement>(null)
   const bobRef = useRef<HTMLSpanElement>(null)
   const playingRef = useRef(playing)
@@ -122,7 +67,7 @@ function TentFace({
         bob.classList.toggle('bg-[#A855F7]', accent === 2)
         bob.classList.toggle('bg-[#C4B5FD]', accent === 1)
         bob.classList.toggle('bg-white', accent === 0)
-        bob.classList.toggle('shadow-[0_0_22px_rgba(168,85,247,0.85)]', extreme && accent === 2)
+        bob.classList.toggle('shadow-[0_0_22px_rgba(168,85,247,0.9)]', extreme && accent >= 1)
         bob.classList.toggle('ring-2', extreme)
         bob.classList.toggle('ring-white', extreme)
       }
@@ -133,52 +78,95 @@ function TentFace({
   }, [])
 
   return (
-    <button
-      type="button"
-      data-fold-tent-face={face}
-      aria-label={playing ? 'Stop' : 'Play'}
-      {...activateOnPointer(onTogglePlay)}
-        className="relative flex h-full w-full flex-col items-center px-4 pb-6 text-left touch-manipulation"
+    <FoldShell layout="tent">
+      <div
+        data-fold-tent
+        className="safe-overlay flex h-full min-h-0 w-full flex-col"
       >
-      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[#C084FC]">BPM</p>
-      <p data-fold-tent-bpm className="text-[3.4rem] font-extrabold leading-none tabular-nums text-white">
-        {bpm}
-      </p>
-      <p className="mt-0.5 text-[0.78rem] text-slate-400">{meterLabel(bar.beats, bar.beatUnit)}</p>
-      <p className="mt-1 text-[0.72rem] font-medium text-slate-500">Tap to {playing ? 'stop' : 'start'}</p>
-
-      <div className="relative mt-1 flex min-h-0 flex-1 w-full items-start justify-center overflow-hidden pb-2">
-        <div className="relative h-[14.5rem] w-[16rem]">
-          <span className="absolute left-1/2 top-1 z-10 size-3 -translate-x-1/2 rounded-full bg-[#C084FC]" />
-          <div
-            ref={rodRef}
-            data-fold-pendulum
-            className="absolute left-1/2 top-2 z-0 h-[12.5rem] w-[3px] origin-top -translate-x-1/2 bg-gradient-to-b from-[#C084FC] to-[#A855F7]"
+        <div className="flex h-11 shrink-0 items-center gap-2">
+          <button
+            type="button"
+            data-fold-tent-exit
+            aria-label="Exit tent"
+            {...activateOnPointer(() => saveFoldChoice('off'))}
+            className="flex size-10 min-h-10 min-w-10 items-center justify-center rounded-full border border-white/14 text-slate-200 touch-manipulation"
           >
-            <span
-              ref={bobRef}
-              data-fold-pendulum-bob
-              className="absolute bottom-0 left-1/2 size-11 -translate-x-1/2 translate-y-1/2 rounded-full bg-white"
-            />
+            <X className="size-5" />
+          </button>
+          <FoldModeButton always menuAlign="start" />
+          <div className="min-w-0 flex-1 text-center">
+            <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[#C084FC]">BPM</p>
+            <p
+              data-fold-tent-bpm
+              className="text-[clamp(1.8rem,10vh,3.4rem)] font-extrabold leading-none tabular-nums text-white"
+            >
+              {shownBpm}
+            </p>
           </div>
+          <button
+            type="button"
+            aria-label="Slower by 5"
+            data-fold-tent-minus
+            {...activateOnPointer(() => onBpm(bpm - 5, true))}
+            className="flex h-10 min-h-10 min-w-10 items-center justify-center gap-0.5 rounded-full border border-white/14 px-2 text-[0.78rem] font-semibold text-slate-100 touch-manipulation"
+          >
+            <Minus className="size-3.5" />
+            5
+          </button>
+          <button
+            type="button"
+            aria-label="Faster by 5"
+            data-fold-tent-plus
+            {...activateOnPointer(() => onBpm(bpm + 5, true))}
+            className="flex h-10 min-h-10 min-w-10 items-center justify-center gap-0.5 rounded-full border border-white/14 px-2 text-[0.78rem] font-semibold text-slate-100 touch-manipulation"
+          >
+            <Plus className="size-3.5" />
+            5
+          </button>
+        </div>
+        <p className="mt-0.5 text-center text-[0.72rem] text-slate-500">
+          {meterLabel(bar.beats, bar.beatUnit)} · tap pendulum to {playing ? 'stop' : 'start'}
+        </p>
+
+        <button
+          type="button"
+          data-fold-pendulum-hit
+          aria-label={playing ? 'Stop' : 'Play'}
+          {...activateOnPointer(onTogglePlay)}
+          className="relative mt-1 flex min-h-0 min-w-10 flex-1 touch-manipulation flex-col items-center justify-start overflow-hidden"
+        >
+          <div className="relative h-full w-full max-w-[min(100%,28rem)]">
+            <span className="absolute left-1/2 top-[4%] z-10 size-3 -translate-x-1/2 rounded-full bg-[#C084FC]" />
+            <div
+              ref={rodRef}
+              data-fold-pendulum
+              className="absolute left-1/2 top-[5%] z-0 h-[78%] w-[3px] origin-top -translate-x-1/2 bg-gradient-to-b from-[#C084FC] to-[#A855F7]"
+            >
+              <span
+                ref={bobRef}
+                data-fold-pendulum-bob
+                className="absolute bottom-0 left-1/2 size-11 min-h-10 min-w-10 -translate-x-1/2 translate-y-1/2 rounded-full bg-white"
+              />
+            </div>
+          </div>
+        </button>
+
+        <div className="flex h-10 shrink-0 items-center justify-center gap-3 pb-[max(0.25rem,env(safe-area-inset-bottom,0px))]" data-fold-tent-accents>
+          {Array.from({ length: bar.beats }, (_, beat) => {
+            const level = beatAccentAt(bar.beatAccents, beat)
+            return (
+              <span
+                key={beat}
+                data-accent-beat={beat}
+                className={cn(
+                  'block size-4 rounded-full',
+                  level === 2 ? 'bg-[#A855F7]' : level === 1 ? 'bg-[#C4B5FD]' : 'bg-white/25',
+                )}
+              />
+            )
+          })}
         </div>
       </div>
-
-      <div className="mt-auto flex items-end justify-center gap-3 pb-1" data-fold-tent-accents>
-        {Array.from({ length: bar.beats }, (_, beat) => {
-          const level = beatAccentAt(bar.beatAccents, beat)
-          return (
-            <span
-              key={beat}
-              data-accent-beat={beat}
-              className={cn(
-                'block size-4 rounded-full',
-                level === 2 ? 'bg-[#A855F7]' : level === 1 ? 'bg-[#C4B5FD]' : 'bg-white/25',
-              )}
-            />
-          )
-        })}
-      </div>
-    </button>
+    </FoldShell>
   )
 }

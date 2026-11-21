@@ -74,7 +74,7 @@ export function AppChrome({
             shell,
           )}
         >
-          <div className="relative flex min-h-11 items-center justify-center pr-11 wide:min-h-0 wide:justify-start wide:pr-0">
+          <div className="relative flex min-h-11 items-center justify-center pr-24 wide:min-h-0 wide:justify-start wide:pr-0">
             <HomeWordmarkLink compact={compact} />
           </div>
           <div className="min-w-0 flex-1">

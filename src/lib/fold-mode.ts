@@ -23,6 +23,9 @@ export const FOLD_CHOICE_LABELS: Record<FoldChoice, string> = {
   tent: 'Tent',
 }
 
+export const FOLD_INNER_CHOICES = ['laptop', 'book'] as const
+export const FOLD_COVER_CHOICES = ['off', 'auto', 'tent'] as const
+
 export type ViewportSegmentBox = {
   x: number
   y: number
@@ -96,9 +99,19 @@ export function subscribeFoldChoice(onChange: () => void): () => void {
   return () => listeners.delete(onChange)
 }
 
-export function cycleFoldChoice(current: FoldChoice): FoldChoice {
-  const index = FOLD_CHOICES.indexOf(current)
-  return FOLD_CHOICES[(index + 1) % FOLD_CHOICES.length] ?? 'off'
+export function innerFoldAvailable(width: number, height: number): boolean {
+  return canUseFoldLayout(width, height)
+}
+
+export function foldChoicesForSize(width: number, height: number): readonly FoldChoice[] {
+  return innerFoldAvailable(width, height) ? FOLD_CHOICES : FOLD_COVER_CHOICES
+}
+
+export function cycleFoldChoice(current: FoldChoice, allowInner = true): FoldChoice {
+  const list: readonly FoldChoice[] = allowInner ? FOLD_CHOICES : FOLD_COVER_CHOICES
+  const index = list.indexOf(current)
+  if (index < 0) return list[0] ?? 'off'
+  return list[(index + 1) % list.length] ?? 'off'
 }
 
 function matchCount(query: string): number {
@@ -178,18 +191,35 @@ export function resolveFoldLayout(
   height: number,
   detected: FoldLayout = detectFoldedLayout(),
 ): FoldLayout {
-  if (!canUseFoldLayout(width, height)) return 'off'
   if (current === 'off') return 'off'
+  // Tent is the outer cover display — any CSS size, including a phone-sized landscape viewport.
+  if (current === 'tent') return 'tent'
+  if (!canUseFoldLayout(width, height)) return 'off'
   if (current === 'auto') return detected
   return current
 }
 
+/** Click Tent is a single landscape cover view, never a split inner-screen pose. */
+export function clickShowsTent(layout: FoldLayout, portrait: boolean): boolean {
+  return layout === 'tent' && !portrait
+}
+
+/** Unfolded inner landscape always uses Tuner Book, including Fold mode Off. */
+export function tunerShowsBook(width: number, height: number): boolean {
+  return canUseFoldLayout(width, height) && width > height
+}
+
 /** A global fold choice only remaps the tools that have a mockup for that pose. */
-export function layoutForTool(layout: FoldLayout, tool: FoldTool): FoldLayout {
+export function layoutForTool(
+  layout: FoldLayout,
+  tool: FoldTool,
+  width = 0,
+  height = 0,
+): FoldLayout {
+  if (tool === 'tuner') return tunerShowsBook(width, height) ? 'book' : 'off'
   if (layout === 'off') return 'off'
   if (tool === 'drums' && layout === 'laptop') return 'laptop'
   if (tool === 'click' && (layout === 'laptop' || layout === 'tent')) return layout
-  if (tool === 'tuner' && layout === 'book') return 'book'
   return 'off'
 }
 

@@ -84,8 +84,11 @@ function FoldModeSetting() {
     <div className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-3 py-3" data-fold-settings>
       <p className="text-sm font-semibold text-white">Fold mode</p>
       <p className="mt-0.5 text-xs leading-4 text-slate-500">
-        iPhone Duo inner display. Off is today&apos;s layout. Auto uses the hinge when the browser
-        reports it. Tent is always chosen here.
+        Off is today&apos;s layout. Auto uses the hinge when the browser reports it (stacked inner →
+        Laptop, side-by-side inner → Book). Tent (outer screen, landscape) is the cover display:
+        turn Click sideways for a pendulum metronome. Laptop needs the unfolded inner screen. Tuner
+        on the unfolded inner screen in landscape uses Book automatically (0¢ on the crease), even
+        when Fold is Off.
       </p>
       <div className="mt-2">
         <FoldModePicker />

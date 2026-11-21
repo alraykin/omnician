@@ -1576,7 +1576,7 @@ export function RhythmPage() {
         />
       ) : null}
 
-      {clickFold === 'tent' && mode === 'click' && current ? (
+      {clickFold === 'tent' && mode === 'click' && !portrait && current ? (
         <ClickTent
           bpm={bpm}
           liveBpm={speedBuilder.enabled && playing ? liveBpm : bpm}
@@ -1585,6 +1585,7 @@ export function RhythmPage() {
           playheadStore={playheadStore}
           getClock={getTransportClock}
           onTogglePlay={() => void startStop()}
+          onBpm={changeBpm}
         />
       ) : null}
 
