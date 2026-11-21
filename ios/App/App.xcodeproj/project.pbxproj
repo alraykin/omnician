@@ -14,6 +14,7 @@
 		A10D1C1A0001A0001A000004 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A10D1C1A0001A0001A000003 /* PrivacyInfo.xcprivacy */; };
 		A10D1C1A0001A0001A000006 /* OmnicianBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10D1C1A0001A0001A000005 /* OmnicianBridgeViewController.swift */; };
 		A10D1C1A0001A0001A000008 /* OmnicianPosturePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10D1C1A0001A0001A000007 /* OmnicianPosturePlugin.swift */; };
+		A10D1C1A0001A0001A00000B /* OmnicianSafeCall.m in Sources */ = {isa = PBXBuildFile; fileRef = A10D1C1A0001A0001A00000A /* OmnicianSafeCall.m */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -30,6 +31,9 @@
 		A10D1C1A0001A0001A000003 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A10D1C1A0001A0001A000005 /* OmnicianBridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmnicianBridgeViewController.swift; sourceTree = "<group>"; };
 		A10D1C1A0001A0001A000007 /* OmnicianPosturePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmnicianPosturePlugin.swift; sourceTree = "<group>"; };
+		A10D1C1A0001A0001A000009 /* OmnicianSafeCall.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OmnicianSafeCall.h; sourceTree = "<group>"; };
+		A10D1C1A0001A0001A00000A /* OmnicianSafeCall.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OmnicianSafeCall.m; sourceTree = "<group>"; };
+		A10D1C1A0001A0001A00000C /* App-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "App-Bridging-Header.h"; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -86,6 +90,9 @@
 				A10D1C1A0001A0001A000001 /* OmnicianAudioPlugin.swift */,
 				A10D1C1A0001A0001A000005 /* OmnicianBridgeViewController.swift */,
 				A10D1C1A0001A0001A000007 /* OmnicianPosturePlugin.swift */,
+				A10D1C1A0001A0001A000009 /* OmnicianSafeCall.h */,
+				A10D1C1A0001A0001A00000A /* OmnicianSafeCall.m */,
+				A10D1C1A0001A0001A00000C /* App-Bridging-Header.h */,
 				A10D1C1A0001A0001A000003 /* PrivacyInfo.xcprivacy */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
@@ -226,6 +233,7 @@
 				A10D1C1A0001A0001A000002 /* OmnicianAudioPlugin.swift in Sources */,
 				A10D1C1A0001A0001A000006 /* OmnicianBridgeViewController.swift in Sources */,
 				A10D1C1A0001A0001A000008 /* OmnicianPosturePlugin.swift in Sources */,
+				A10D1C1A0001A0001A00000B /* OmnicianSafeCall.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -373,6 +381,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.omnician;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OBJC_BRIDGING_HEADER = "App/App-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -393,6 +402,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.omnician;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "App/App-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

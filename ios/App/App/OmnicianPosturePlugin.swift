@@ -3,6 +3,12 @@ import CoreMotion
 import UIKit
 
 /// Reports Duo hinge / display / gravity to JS. Safari never loads this plugin.
+///
+/// Hinge and crease APIs must not run until the bridge view is in a window.
+/// UIHingeInteraction / reservedRegions crash on iOS 27 if attached too early
+/// (plugin `load()` / `viewDidLoad`) or if the update handler touches UIKit
+/// off the main thread. Every failure here is swallowed; window size + gravity
+/// still work.
 @objc(OmnicianPosturePlugin)
 public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "OmnicianPosturePlugin"
@@ -16,7 +22,6 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
     static weak var shared: OmnicianPosturePlugin?
 
     private let motion = CMMotionManager()
-    private let motionQueue = OperationQueue()
     private var hingeAvailable = false
     private var hingeStatus: String?
     private var hingeAngleDeg: Double?
@@ -25,52 +30,78 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
     private var gravity: (x: Double, y: Double, z: Double)?
     private var motionAvailable = false
     private var lastKey = ""
-    private var hingeAttached = false
+    private var orientationStarted = false
+    private var motionStarted = false
+    private var hingeAttachFailed = false
+    private var divisionReadFailed = false
+    private var windowReady = false
+    private var hingeInteraction: UIInteraction?
+    private weak var hingeView: UIView?
 
     public override func load() {
         Self.shared = self
-        motionQueue.name = "app.omnician.posture"
-        motionQueue.maxConcurrentOperationCount = 1
-        startObservers()
+        // Do not attach hinge, read reserved regions, or start motion here.
+        // Capacitor calls load() from CAPBridgeViewController.viewDidLoad,
+        // before `view.window` exists. That is what crashed TestFlight on Duo.
     }
 
     @objc func getState(_ call: CAPPluginCall) {
-        call.resolve(payload())
+        onMain {
+            call.resolve(self.payload())
+        }
     }
 
     @objc func start(_ call: CAPPluginCall) {
-        startObservers()
-        attachHingeToBridgeIfNeeded()
-        call.resolve(payload())
+        onMain {
+            self.activate(on: nil)
+            call.resolve(self.payload())
+        }
     }
 
     @objc func stop(_ call: CAPPluginCall) {
-        motion.stopDeviceMotionUpdates()
-        call.resolve()
+        onMain {
+            self.motion.stopDeviceMotionUpdates()
+            self.motionStarted = false
+            if let interaction = self.hingeInteraction, let view = self.hingeView {
+                _ = OmnicianSafeCall.run {
+                    view.removeInteraction(interaction)
+                }
+            }
+            self.hingeInteraction = nil
+            self.hingeView = nil
+            call.resolve()
+        }
+    }
+
+    func attachWhenWindowReady(to view: UIView) {
+        onMain {
+            self.activate(on: view)
+        }
     }
 
     func noteWindowLayout(size: CGSize, view: UIView?) {
-        readDivision(from: view)
-        publish()
-    }
-
-    func attachHinge(to view: UIView) {
-        if hingeAttached { return }
-        hingeAttached = true
-        // Xcode 26.6 = Swift 6.3 / iOS 26.5 SDK: no UIHingeInteraction.
-        // Xcode 27.2 = Swift 6.4 / iOS 27.2 SDK: hinge + crease APIs exist.
-        #if compiler(>=6.4)
-        if #available(iOS 27.1, *) {
-            attachHingeInteraction(to: view)
+        onMain {
+            guard self.windowReady, let view, view.window != nil else { return }
+            self.readDivisionSafely(from: view)
+            self.publish()
+            _ = size
         }
-        #endif
-        readDivision(from: view)
+    }
+
+    private func activate(on view: UIView?) {
+        let host = view ?? bridge?.viewController?.view
+        guard let host, host.window != nil else { return }
+        windowReady = true
+        startMotionIfNeeded()
+        startOrientationIfNeeded()
+        attachHingeIfNeeded(to: host)
+        readDivisionSafely(from: host)
         publish()
     }
 
-    private func startObservers() {
-        attachHingeToBridgeIfNeeded()
-        startMotion()
+    private func startOrientationIfNeeded() {
+        guard !orientationStarted else { return }
+        orientationStarted = true
         NotificationCenter.default.removeObserver(self)
         NotificationCenter.default.addObserver(
             self,
@@ -79,67 +110,96 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
             object: nil
         )
         UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-        publish()
-    }
-
-    private func attachHingeToBridgeIfNeeded() {
-        guard let view = bridge?.viewController?.view else { return }
-        attachHinge(to: view)
     }
 
     @objc private func onOrientation() {
-        publish()
+        onMain { self.publish() }
     }
 
-    private func startMotion() {
+    private func startMotionIfNeeded() {
+        guard !motionStarted else { return }
         guard motion.isDeviceMotionAvailable else {
             motionAvailable = false
             return
         }
+        motionStarted = true
         motionAvailable = true
         motion.deviceMotionUpdateInterval = 0.12
-        motion.startDeviceMotionUpdates(using: .xArbitraryZVertical, to: motionQueue) { [weak self] data, _ in
+        // Deliver on main so Swift 6.4 / UIKit isolation cannot trap.
+        motion.startDeviceMotionUpdates(using: .xArbitraryZVertical, to: .main) { [weak self] data, _ in
             guard let self, let g = data?.gravity else { return }
             self.gravity = (g.x, g.y, g.z)
-            DispatchQueue.main.async { self.publish() }
+            self.publish()
         }
+    }
+
+    private func attachHingeIfNeeded(to view: UIView) {
+        guard hingeInteraction == nil, !hingeAttachFailed else { return }
+        guard view.window != nil else { return }
+        #if compiler(>=6.4)
+        if #available(iOS 27.1, *) {
+            attachHingeInteraction(to: view)
+        }
+        #endif
     }
 
 #if compiler(>=6.4)
     @available(iOS 27.1, *)
     private func attachHingeInteraction(to view: UIView) {
-        // Real SDK: init(updateHandler:) → ObjC initWithUpdateHandler:. There is no bare init.
-        let interaction = UIHingeInteraction { [weak self] (_: UIHingeInteraction, update: UIHingeInteraction.Update) in
-            guard let self else { return }
-            guard let hinge = update.hinge else {
-                self.hingeAvailable = false
-                self.hingeStatus = nil
-                self.hingeAngleDeg = nil
-                self.publish()
-                return
+        // Real SDK: init(updateHandler:) → ObjC initWithUpdateHandler:.
+        var created: UIHingeInteraction?
+        let ok = OmnicianSafeCall.run {
+            let interaction = UIHingeInteraction { [weak self] (_: UIHingeInteraction, update: UIHingeInteraction.Update) in
+                // Read the update before returning; hop to main to touch plugin state / UIKit.
+                var available = false
+                var status: String?
+                var angle: Double?
+                let extracted = OmnicianSafeCall.run {
+                    guard let hinge = update.hinge else { return }
+                    available = true
+                    angle = Double(hinge.angle) * 180.0 / .pi
+                    switch hinge.status {
+                    case .closed:
+                        status = "closed"
+                    case .partiallyOpen:
+                        status = "partiallyOpen"
+                    case .fullyOpen:
+                        status = "fullyOpen"
+                    case .unknown:
+                        status = "unknown"
+                    @unknown default:
+                        status = "unknown"
+                    }
+                }
+                guard extracted else { return }
+                DispatchQueue.main.async {
+                    self?.applyHingeSnapshot(available: available, status: status, angle: angle)
+                }
             }
-            self.hingeAvailable = true
-            self.hingeAngleDeg = Double(hinge.angle) * 180.0 / .pi
-            switch hinge.status {
-            case .closed:
-                self.hingeStatus = "closed"
-            case .partiallyOpen:
-                self.hingeStatus = "partiallyOpen"
-            case .fullyOpen:
-                self.hingeStatus = "fullyOpen"
-            case .unknown:
-                self.hingeStatus = "unknown"
-            @unknown default:
-                self.hingeStatus = "unknown"
-            }
-            self.publish()
+            view.addInteraction(interaction)
+            created = interaction
         }
-        view.addInteraction(interaction)
+        if ok, let created {
+            hingeInteraction = created
+            hingeView = view
+        } else {
+            hingeAttachFailed = true
+            hingeInteraction = nil
+            NSLog("OmnicianPosture: UIHingeInteraction attach failed; using size+gravity")
+        }
     }
 #endif
 
-    private func readDivision(from view: UIView?) {
-        guard let view else { return }
+    private func applyHingeSnapshot(available: Bool, status: String?, angle: Double?) {
+        hingeAvailable = available
+        hingeStatus = status
+        hingeAngleDeg = angle
+        publish()
+    }
+
+    private func readDivisionSafely(from view: UIView) {
+        guard !divisionReadFailed else { return }
+        guard view.window != nil else { return }
         #if compiler(>=6.4)
         if #available(iOS 27.1, *) {
             readDivisionRegions(from: view)
@@ -150,17 +210,27 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
 #if compiler(>=6.4)
     @available(iOS 27.1, *)
     private func readDivisionRegions(from view: UIView) {
-        // Real SDK: reservedRegions(kind:options:). Kind is UIView.ReservedRegion.Kind
-        // (ObjC UIViewReservedRegionKind object), not a C enum.
-        let regions = view.reservedRegions(kind: .division, options: [])
-        if let region = regions.first, region.isActive {
-            let frame = region.frame
-            foldDivisionActive = true
-            foldDivisionHorizontal = NSNumber(value: frame.width > frame.height)
-            return
+        var active = false
+        var horizontal: NSNumber?
+        let ok = OmnicianSafeCall.run {
+            // Real SDK: reservedRegions(kind:options:). Kind is UIView.ReservedRegion.Kind
+            // (ObjC UIViewReservedRegionKind object), not a C enum.
+            let regions = view.reservedRegions(kind: .division, options: [])
+            if let region = regions.first, region.isActive {
+                let frame = region.frame
+                active = true
+                horizontal = NSNumber(value: frame.width > frame.height)
+            }
         }
-        foldDivisionActive = false
-        foldDivisionHorizontal = nil
+        if ok {
+            foldDivisionActive = NSNumber(value: active)
+            foldDivisionHorizontal = horizontal
+        } else {
+            divisionReadFailed = true
+            foldDivisionActive = nil
+            foldDivisionHorizontal = nil
+            NSLog("OmnicianPosture: reservedRegions failed; using size+gravity")
+        }
     }
 #endif
 
@@ -218,5 +288,13 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
         guard key != lastKey else { return }
         lastKey = key
         notifyListeners("postureChange", data: data)
+    }
+
+    private func onMain(_ work: @escaping () -> Void) {
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.async(execute: work)
+        }
     }
 }

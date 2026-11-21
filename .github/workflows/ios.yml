@@ -81,6 +81,9 @@ jobs:
             CODE_SIGN_IDENTITY=- \
             build
 
+      - name: Launch-smoke on iPhone simulator
+        run: bash scripts/ios-sim-launch-smoke.sh ios/App/DerivedData
+
   testflight:
     name: Archive and upload to TestFlight
     needs: simulator

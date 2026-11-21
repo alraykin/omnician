@@ -10,18 +10,18 @@ class OmnicianBridgeViewController: CAPBridgeViewController {
         webView?.scrollView.contentInsetAdjustmentBehavior = .never
         webView?.scrollView.contentInset = .zero
         webView?.scrollView.scrollIndicatorInsets = .zero
-        OmnicianPosturePlugin.shared?.attachHinge(to: view)
+        // Do not attach UIHingeInteraction here — `view.window` is still nil.
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        OmnicianPosturePlugin.shared?.attachHinge(to: view)
-        OmnicianPosturePlugin.shared?.noteWindowLayout(size: view.bounds.size, view: view)
+        OmnicianPosturePlugin.shared?.attachWhenWindowReady(to: view)
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         webView?.frame = view.bounds
+        guard view.window != nil else { return }
         OmnicianPosturePlugin.shared?.noteWindowLayout(size: view.bounds.size, view: view)
     }
 
@@ -32,6 +32,9 @@ class OmnicianBridgeViewController: CAPBridgeViewController {
         } completion: { _ in
             self.webView?.frame = self.view.bounds
             self.notifyPageSizeChanged()
+            if self.view.window != nil {
+                OmnicianPosturePlugin.shared?.noteWindowLayout(size: self.view.bounds.size, view: self.view)
+            }
         }
     }
 
