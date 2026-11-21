@@ -1,5 +1,6 @@
+import { useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
-import { useState } from 'react'
 
 import { useFoldChoice, useFoldHeaderVisible, useFoldHardware, useInnerFoldAvailable } from '@/hooks/useFoldMode'
 import {
@@ -82,15 +83,35 @@ export function FoldModeButton({
   const visible = useFoldHeaderVisible()
   const innerOk = useInnerFoldAvailable()
   const location = useLocation()
+  const wrapRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const onTool =
     location.pathname.startsWith('/tuner') ||
     location.pathname.startsWith('/click') ||
     location.pathname.startsWith('/drums')
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null)
+      return
+    }
+    const place = () => {
+      const node = wrapRef.current
+      if (!node) return
+      const r = node.getBoundingClientRect()
+      const width = Math.min(312, window.innerWidth - 16)
+      const preferred = menuAlign === 'end' ? r.right - width : r.left
+      const left = Math.min(Math.max(8, preferred), Math.max(8, window.innerWidth - width - 8))
+      setPos({ top: r.bottom + 8, left })
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+  }, [menuAlign, open])
   if (!always && (!visible || !onTool)) return null
 
   return (
-    <div className={cn('relative', className)} data-fold-button-wrap>
+    <div ref={wrapRef} className={cn('relative', className)} data-fold-button-wrap>
       <button
         type="button"
         data-fold-button
@@ -109,24 +130,34 @@ export function FoldModeButton({
       >
         <FoldIcon />
       </button>
-      {open ? (
-        <div
-          data-fold-popover
-          className={cn(
-            'absolute top-11 z-[95] w-[min(19.5rem,calc(100vw-1.25rem))] rounded-2xl border border-white/12 bg-[#101626] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.55)]',
-            menuAlign === 'end' ? 'right-0' : 'left-0',
-          )}
-        >
-          <FoldModePicker compact />
-          <button
-            type="button"
-            className="mt-1 h-10 w-full rounded-xl text-[0.72rem] font-semibold text-slate-400"
-            {...activateOnPointer(() => setOpen(false))}
-          >
-            Close
-          </button>
-        </div>
-      ) : null}
+      {open && pos && typeof document !== 'undefined'
+        ? createPortal(
+            <>
+              <button
+                type="button"
+                aria-label="Close fold mode"
+                data-fold-popover-backdrop
+                className="fixed inset-0 z-[94] bg-black/45"
+                {...activateOnPointer(() => setOpen(false))}
+              />
+              <div
+                data-fold-popover
+                className="fixed z-[96] w-[min(19.5rem,calc(100vw-1rem))] rounded-2xl border border-white/12 bg-[#101626] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
+                style={{ top: pos.top, left: pos.left }}
+              >
+                <FoldModePicker compact />
+                <button
+                  type="button"
+                  className="mt-1 h-10 w-full rounded-xl text-[0.72rem] font-semibold text-slate-400"
+                  {...activateOnPointer(() => setOpen(false))}
+                >
+                  Close
+                </button>
+              </div>
+            </>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }
