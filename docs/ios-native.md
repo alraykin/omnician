@@ -12,7 +12,7 @@ The Apple Developer Program account is in use for TestFlight via GitHub Actions 
 - Dark launch screen
 - Native audio session so click and drums play with the silent switch on (`AVAudioSession` category **playback**, `mixWithOthers` **off**)
 - Microphone permission string for the tuner
-- GitHub Actions workflow that compiles an **unsigned iPhone Simulator** build on `macos-26` with Xcode 26 (iOS 26 SDK)
+- GitHub Actions workflow that compiles an **unsigned iPhone Simulator** build on `macos-26` with the newest Xcode (iOS 26 SDK or later; 27.1+ fills the Duo inner display)
 - A TestFlight job that stays **off** until you opt in with secrets
 
 This Linux cloud machine cannot run Xcode. The unsigned compile happens on GitHub’s Mac runners after the repo is on GitHub.
@@ -35,7 +35,7 @@ This Origin repo does **not** run GitHub Actions. When you are ready:
 
 1. Create a GitHub repository (private is fine).
 2. Push this `main` branch there.
-3. Actions → **iOS** workflow runs on `macos-26` with Xcode 26 (GitHub-hosted, no paid Codemagic). App Store Connect requires the iOS 26 SDK.
+3. Actions → **iOS** workflow runs on `macos-26` with the newest installed Xcode (GitHub-hosted, no paid Codemagic). App Store Connect requires the iOS 26 SDK or later. iPhone Duo uses the full inner display when the build is linked against iOS 27.1+.
 4. The **Unsigned iPhone simulator** job should turn green. That is the first proof the native project compiles.
 5. Leave TestFlight off until the Apple account is active.
 
@@ -97,6 +97,24 @@ When we hook native (later workstream, not this commit):
 | Silent-switch audio (done) | In-app `OmnicianAudio` plugin | `AVAudioSession` `.playback` with empty options; `.playAndRecord` + `.defaultToSpeaker` while the tuner mic is live |
 
 JS should keep using `Capacitor.isNativePlatform()` so Safari and omnician.app stay on the web path. Do not add `@capacitor/haptics` until that workstream.
+
+## Native vs web sounds
+
+Safari on omnician.app loads Factory beats from same-origin `GET /api/factory/library` and samples from `/rhythm/...` on that host.
+
+The TestFlight webview origin is `omnician://localhost` (also `capacitor://localhost` / `ionic://localhost`). A relative `/api/factory/library` fetch there misses the Worker, so the app used bundled code defaults and beats sounded different.
+
+Native now calls `https://omnician.app/api/factory/library` when `Capacitor.isNativePlatform()` is true. The Worker sends CORS only on that public GET (and OPTIONS) for those three webview origins. Login, PUT, history, restore, and `FACTORY_ADMIN_PASSWORD` stay same-origin with no CORS.
+
+Click, Crocell drums, and Speed Builder announce files ship in `public/rhythm/` and copy into the iOS app via `cap sync`. They resolve as bundled paths (`/rhythm/...`), same files as the live site.
+
+`localStorage` is still per-origin (webview vs omnician.app). Factory-published library JSON is the shared default.
+
+## iPhone Duo inner display
+
+Build 1.0 (6) was an iPhone-only target (`TARGETED_DEVICE_FAMILY = 1`), so iOS opened it in the compatibility letterbox instead of the ~720×1024 inner screen. The project is now universal (`1,2`), lists all four orientations for iPhone and iPad, keeps `UILaunchStoryboardName`, and does not set `UIRequiresFullScreen`. The webview uses `contentInset: never`, `viewport-fit=cover`, and `env(safe-area-inset-*)`. Fold/unfold and rotation resize the webview and fire `resize` so Laptop / Book / Tent (shortest side ≥ 640) match Safari.
+
+Apple still letterboxes iOS 26 SDK binaries on Duo. GitHub Actions selects the newest Xcode on `macos-26` so TestFlight can pick up the iOS 27.1 SDK when the runner has it.
 
 ## Web deploy stays the same
 

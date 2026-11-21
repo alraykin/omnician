@@ -1,3 +1,4 @@
+import { bundledAssetUrl } from '@/lib/bundled-assets'
 import { getSharedAudioContext, onPlaybackRetiring, resumeSharedAudioContext } from '@/lib/audio-context'
 import {
   DEFAULT_INTENSITY_STYLE,
@@ -81,20 +82,20 @@ type LayerBank = Partial<Record<CrocellPiece, Partial<Record<CrocellTier, AudioB
 
 const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
   wood: {
-    normal: '/rhythm/clicks/wood-soft-tick.wav',
-    accent: '/rhythm/clicks/wood-soft-accent.wav',
+    normal: bundledAssetUrl('rhythm/clicks/wood-soft-tick.wav'),
+    accent: bundledAssetUrl('rhythm/clicks/wood-soft-accent.wav'),
   },
   clave: {
-    normal: '/rhythm/clicks/clave-tick.wav',
-    accent: '/rhythm/clicks/clave-accent.wav',
+    normal: bundledAssetUrl('rhythm/clicks/clave-tick.wav'),
+    accent: bundledAssetUrl('rhythm/clicks/clave-accent.wav'),
   },
   digital: {
-    normal: '/rhythm/clicks/digital-soft-tick.wav',
-    accent: '/rhythm/clicks/digital-soft-accent.wav',
+    normal: bundledAssetUrl('rhythm/clicks/digital-soft-tick.wav'),
+    accent: bundledAssetUrl('rhythm/clicks/digital-soft-accent.wav'),
   },
   mechanical: {
-    normal: '/rhythm/clicks/mechanical-soft-tick.wav',
-    accent: '/rhythm/clicks/mechanical-soft-accent.wav',
+    normal: bundledAssetUrl('rhythm/clicks/mechanical-soft-tick.wav'),
+    accent: bundledAssetUrl('rhythm/clicks/mechanical-soft-accent.wav'),
   },
 }
 
@@ -434,11 +435,11 @@ async function loadSample(ctx: BaseAudioContext, url: string): Promise<AudioBuff
 }
 
 function crocellUrl(file: string): string {
-  return `${import.meta.env.BASE_URL}rhythm/drums/crocell/${file}`
+  return bundledAssetUrl(`rhythm/drums/crocell/${file}`)
 }
 
 function announceUrl(pct: number): string {
-  return `${import.meta.env.BASE_URL}rhythm/announce/af_heart/${String(clampSbPct(pct)).padStart(3, '0')}.mp3`
+  return bundledAssetUrl(`rhythm/announce/af_heart/${String(clampSbPct(pct)).padStart(3, '0')}.mp3`)
 }
 
 async function loadCrocellManifest(): Promise<CrocellFile[]> {

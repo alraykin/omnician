@@ -5,6 +5,7 @@ import {
   stylesToFactoryLibrary,
   type FactoryLibrary,
 } from './factory-library.ts'
+import { publicApiCredentials, publicApiUrl } from './native-origin.ts'
 import { barsForPreset, RHYTHM_STYLES, setLiveRhythmStyles } from './rhythm-presets.ts'
 
 export function bundledFactoryLibrary(): FactoryLibrary {
@@ -35,7 +36,10 @@ export async function hydrateFactoryLibrary(): Promise<FactoryLibrary> {
   else applyFactoryLibrary(bundledFactoryLibrary())
 
   try {
-    const response = await fetch('/api/factory/library', { credentials: 'same-origin', cache: 'no-store' })
+    const response = await fetch(publicApiUrl('/api/factory/library'), {
+      credentials: publicApiCredentials(),
+      cache: 'no-store',
+    })
     if (!response.ok) return cached ?? bundledFactoryLibrary()
     const body = (await response.json()) as { library?: unknown }
     const parsed = parseFactoryLibraryJson(JSON.stringify(body.library))

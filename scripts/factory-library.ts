@@ -61,6 +61,37 @@ const origin = 'http://127.0.0.1'
 
 const libraryRes = await handleFactoryRequest(new Request(`${origin}/api/factory/library`), env)
 assert.equal(libraryRes.status, 200)
+assert.equal(libraryRes.headers.get('access-control-allow-origin'), null)
+
+const nativeLibrary = await handleFactoryRequest(
+  new Request(`${origin}/api/factory/library`, { headers: { origin: 'capacitor://localhost' } }),
+  env,
+)
+assert.equal(nativeLibrary.status, 200)
+assert.equal(nativeLibrary.headers.get('access-control-allow-origin'), 'capacitor://localhost')
+assert.equal(nativeLibrary.headers.get('access-control-allow-methods'), 'GET, OPTIONS')
+assert.equal(nativeLibrary.headers.get('access-control-allow-headers'), 'Cache-Control, Pragma')
+
+const ionicLibrary = await handleFactoryRequest(
+  new Request(`${origin}/api/factory/library`, { headers: { origin: 'ionic://localhost' } }),
+  env,
+)
+assert.equal(ionicLibrary.status, 200)
+assert.equal(ionicLibrary.headers.get('access-control-allow-origin'), 'ionic://localhost')
+
+const blockedOrigin = await handleFactoryRequest(
+  new Request(`${origin}/api/factory/library`, { headers: { origin: 'https://evil.example' } }),
+  env,
+)
+assert.equal(blockedOrigin.status, 200)
+assert.equal(blockedOrigin.headers.get('access-control-allow-origin'), null)
+
+const nativeOptions = await handleFactoryRequest(
+  new Request(`${origin}/api/factory/library`, { method: 'OPTIONS', headers: { origin: 'omnician://localhost' } }),
+  env,
+)
+assert.equal(nativeOptions.status, 204)
+assert.equal(nativeOptions.headers.get('access-control-allow-origin'), 'omnician://localhost')
 
 const putDenied = await handleFactoryRequest(
   new Request(`${origin}/api/factory/library`, {
@@ -71,6 +102,28 @@ const putDenied = await handleFactoryRequest(
   env,
 )
 assert.equal(putDenied.status, 401)
+assert.equal(putDenied.headers.get('access-control-allow-origin'), null)
+
+const nativePut = await handleFactoryRequest(
+  new Request(`${origin}/api/factory/library`, {
+    method: 'PUT',
+    headers: {
+      'content-type': 'application/json',
+      origin: 'capacitor://localhost',
+    },
+    body: JSON.stringify({ library: bundled }),
+  }),
+  env,
+)
+assert.equal(nativePut.status, 401)
+assert.equal(nativePut.headers.get('access-control-allow-origin'), null)
+
+const nativeSession = await handleFactoryRequest(
+  new Request(`${origin}/api/factory/session`, { headers: { origin: 'capacitor://localhost' } }),
+  env,
+)
+assert.equal(nativeSession.status, 401)
+assert.equal(nativeSession.headers.get('access-control-allow-origin'), null)
 
 const login = await handleFactoryRequest(
   new Request(`${origin}/api/factory/login`, {

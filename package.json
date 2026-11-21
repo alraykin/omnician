@@ -29,6 +29,7 @@
     "test:legal": "npx --yes tsx scripts/legal-markdown.ts",
     "test:chameleon": "npx --yes tsx scripts/chameleon.ts",
     "test:factory": "npx --yes tsx scripts/factory-library.ts",
+    "test:sound-sources": "npx --yes tsx scripts/sound-sources.ts",
     "test:reference-tone": "npx --yes tsx scripts/reference-tone.ts",
     "test:audio-session": "npx --yes tsx scripts/audio-session.ts",
     "test:ios-prep": "npx --yes tsx scripts/ios-prep.ts",

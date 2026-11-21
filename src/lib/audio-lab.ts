@@ -1,4 +1,5 @@
 import type { AudioDebugSnapshot } from '@/lib/audio-context'
+import { bundledAssetUrl } from '@/lib/bundled-assets'
 import {
   LOOKAHEAD_MS,
   START_LEAD_SEC,
@@ -357,10 +358,10 @@ async function decodeUrl(ctx: AudioContext, url: string): Promise<AudioBuffer> {
 async function preloadLongKit(ctx: AudioContext): Promise<void> {
   try {
     const [click, accent, kick, snare] = await Promise.all([
-      decodeUrl(ctx, '/rhythm/clicks/wood-soft-tick.wav'),
-      decodeUrl(ctx, '/rhythm/clicks/wood-soft-accent.wav'),
-      decodeUrl(ctx, '/rhythm/drums/crocell/kick/t1_rr1.m4a'),
-      decodeUrl(ctx, '/rhythm/drums/crocell/snare_snappy_p2/t1_rr1.m4a'),
+      decodeUrl(ctx, bundledAssetUrl('rhythm/clicks/wood-soft-tick.wav')),
+      decodeUrl(ctx, bundledAssetUrl('rhythm/clicks/wood-soft-accent.wav')),
+      decodeUrl(ctx, bundledAssetUrl('rhythm/drums/crocell/kick/t1_rr1.m4a')),
+      decodeUrl(ctx, bundledAssetUrl('rhythm/drums/crocell/snare_snappy_p2/t1_rr1.m4a')),
     ])
     longClick = click
     longAccent = accent
