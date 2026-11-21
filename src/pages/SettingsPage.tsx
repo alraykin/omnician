@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 
-import { FoldModePicker } from '@/components/fold/FoldModePicker'
 import { SettingsChrome, SettingRow, SettingSwitch, settingsBackFrom } from '@/components/SettingsChrome'
 import { MidiMapEditor } from '@/components/rhythm/MidiMapSheet'
 import { InputPicker } from '@/components/tuner/InputPicker'
@@ -79,24 +78,6 @@ function CategoryPanel({ id }: { id: CategoryId }) {
   return <AboutSettings />
 }
 
-function FoldModeSetting() {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-[#141A28]/80 px-3 py-3" data-fold-settings>
-      <p className="text-sm font-semibold text-white">Fold mode</p>
-      <p className="mt-0.5 text-xs leading-4 text-slate-500">
-        Off is today&apos;s layout. Auto uses the hinge when the browser reports it (stacked inner →
-        Laptop, side-by-side inner → Book). Tent (outer screen, landscape) is the cover display:
-        turn Click sideways for a pendulum metronome. Laptop needs the unfolded inner screen. Tuner
-        on the unfolded inner screen in landscape uses Book automatically (0¢ on the crease), even
-        when Fold is Off.
-      </p>
-      <div className="mt-2">
-        <FoldModePicker />
-      </div>
-    </div>
-  )
-}
-
 function TunerSettings() {
   const [prefs, setPrefs] = useState(() => loadTunerPrefs())
   const setAuto = (autoString: boolean) => setPrefs(patchTunerPrefs({ autoString }))
@@ -104,7 +85,6 @@ function TunerSettings() {
 
   return (
     <div className="space-y-3" data-settings-panel="tuner">
-      <FoldModeSetting />
       <SettingRow label="Auto strings" hint="Follow the nearest string while you play.">
         <SettingSwitch label="Auto strings" on={prefs.autoString} onChange={setAuto} />
       </SettingRow>
@@ -143,7 +123,6 @@ function ClickSettings() {
 
   return (
     <div className="space-y-3" data-settings-panel="click">
-      <FoldModeSetting />
       <p className="text-sm leading-5 text-slate-400">
         Wood, Clave, Digital, or Mechanical. Same picker as on the Click page — the sound Play uses
         on Click, and the guide click while you record.
@@ -168,7 +147,6 @@ function DrumsSettings() {
 
   return (
     <div data-settings-panel="drums">
-      <FoldModeSetting />
       <h2 className="mt-3 text-base font-semibold text-white">MIDI import mapping</h2>
       <div className="mt-3">
         <MidiMapEditor map={map} onChange={onChange} />

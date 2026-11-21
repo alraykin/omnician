@@ -1,4 +1,7 @@
-/** iPhone Duo fold layouts. Choice persists; Auto uses posture + viewport segments. */
+/** iPhone Duo fold layouts. Automatic unless `?fold=` overrides for QA. */
+
+import { isNativeApp } from '@/lib/native-origin'
+import { readNativeFoldLayout, readNativePosture, subscribeNativePosture } from '@/lib/native-fold'
 
 export const FOLD_STORAGE_KEY = 'omnician.fold-mode.v1'
 export const FOLD_MIN_SIDE_PX = 640
@@ -44,10 +47,12 @@ export type FoldDetectInput = {
   horizontalSegments?: number
   verticalSegments?: number
   posture?: string | null
+  width?: number
+  height?: number
 }
 
 const listeners = new Set<() => void>()
-let choice: FoldChoice = 'off'
+let choice: FoldChoice = 'auto'
 let loaded = false
 
 export function isFoldChoice(value: unknown): value is FoldChoice {
@@ -61,21 +66,16 @@ export function parseFoldChoice(value: unknown): FoldChoice {
 function readQueryChoice(): FoldChoice | null {
   if (typeof window === 'undefined') return null
   try {
-    return parseFoldChoice(new URLSearchParams(window.location.search).get('fold') ?? '')
+    const raw = new URLSearchParams(window.location.search).get('fold')
+    if (raw == null || raw === '') return null
+    return parseFoldChoice(raw)
   } catch {
-    return 'off'
+    return null
   }
 }
 
 export function loadFoldChoice(): FoldChoice {
-  const fromQuery = readQueryChoice()
-  if (fromQuery && fromQuery !== 'off') return fromQuery
-  if (typeof localStorage === 'undefined') return 'off'
-  try {
-    return parseFoldChoice(localStorage.getItem(FOLD_STORAGE_KEY))
-  } catch {
-    return 'off'
-  }
+  return readQueryChoice() ?? 'auto'
 }
 
 export function saveFoldChoice(next: FoldChoice): FoldChoice {
@@ -83,11 +83,6 @@ export function saveFoldChoice(next: FoldChoice): FoldChoice {
   if (loaded && choice === value) return value
   choice = value
   loaded = true
-  try {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(FOLD_STORAGE_KEY, value)
-  } catch {
-    /* private mode */
-  }
   listeners.forEach((fn) => fn())
   return value
 }
@@ -156,9 +151,23 @@ function readSegments(): ViewportSegmentBox[] | null {
   }
 }
 
-/** Vertical (stacked) segments => Laptop. Horizontal (side by side) => Book. Tent is manual only. */
+/** Cover / outer / phone landscape — Click uses Tent instead of rotate-back. */
+export function isCoverLandscape(width: number, height: number): boolean {
+  return width > height && !canUseFoldLayout(width, height)
+}
+
+function readViewportSize(): { width: number; height: number } {
+  if (typeof window === 'undefined') return { width: 0, height: 0 }
+  return { width: window.innerWidth, height: window.innerHeight }
+}
+
+/** Vertical (stacked) segments => Laptop. Horizontal (side by side) => Book. Small landscape => Tent. */
 export function detectFoldedLayout(input?: FoldDetectInput): FoldLayout {
   try {
+    if (isNativeApp() && readNativePosture()) return readNativeFoldLayout()
+    const size = readViewportSize()
+    const width = input?.width ?? size.width
+    const height = input?.height ?? size.height
     const segments = input?.segments === undefined ? readSegments() : input.segments
     const vertical =
       input?.verticalSegments ??
@@ -179,7 +188,8 @@ export function detectFoldedLayout(input?: FoldDetectInput): FoldLayout {
         if (sideBySide) return 'book'
       }
     }
-    // Folded without segments is ambiguous (laptop / book / tent). Do not guess.
+    if (isCoverLandscape(width, height)) return 'tent'
+    // Folded without segments is ambiguous (laptop / book). Do not guess.
     if (posture === 'folded') return 'off'
     return 'off'
   } catch {
@@ -195,14 +205,18 @@ export function resolveFoldLayout(
   current: FoldChoice,
   width: number,
   height: number,
-  detected: FoldLayout = detectFoldedLayout(),
+  detected: FoldLayout = detectFoldedLayout({ width, height }),
 ): FoldLayout {
   if (current === 'off') return 'off'
-  // Tent is the outer cover display — any CSS size, including a phone-sized landscape viewport.
   if (current === 'tent') return 'tent'
-  if (!canUseFoldLayout(width, height)) return 'off'
-  if (current === 'auto') return detected
-  return current
+  if (current === 'laptop' || current === 'book') {
+    return canUseFoldLayout(width, height) ? current : 'off'
+  }
+  if (detected === 'laptop' || detected === 'book') {
+    return canUseFoldLayout(width, height) ? detected : isCoverLandscape(width, height) ? 'tent' : 'off'
+  }
+  if (detected === 'tent' || isCoverLandscape(width, height)) return 'tent'
+  return 'off'
 }
 
 /** Click Tent is a single landscape cover view, never a split inner-screen pose. */
@@ -288,6 +302,7 @@ export function subscribeFoldHardware(onChange: () => void): () => void {
   window.addEventListener('orientationchange', on)
   const visual = window.visualViewport
   visual?.addEventListener('resize', on)
+  const nativeUnsub = subscribeNativePosture(on)
   const mqVert = (() => {
     try {
       return window.matchMedia('(vertical-viewport-segments: 2)')
@@ -318,6 +333,7 @@ export function subscribeFoldHardware(onChange: () => void): () => void {
     visual?.removeEventListener('resize', on)
     mqVert?.removeEventListener('change', on)
     mqHoriz?.removeEventListener('change', on)
+    nativeUnsub()
     try {
       posture?.removeEventListener?.('change', on)
     } catch {

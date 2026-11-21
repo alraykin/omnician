@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom'
 import { Settings } from 'lucide-react'
 
 import { AppTabBar } from '@/components/AppTabBar'
-import { FoldModeButton } from '@/components/fold/FoldModePicker'
 import { HomeWordmarkLink } from '@/components/HomeWordmarkLink'
 import { cn } from '@/lib/utils'
 
@@ -32,7 +31,6 @@ function HeaderTools() {
       className="absolute top-0 z-20 flex items-center gap-0.5 wide:top-1/2 wide:-translate-y-1/2"
       style={{ right: 'var(--cluster-clear-right, 0px)' }}
     >
-      <FoldModeButton />
       <Link
         to="/settings"
         state={{ from }}

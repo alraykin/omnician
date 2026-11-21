@@ -1,5 +1,4 @@
 import { FoldCrease, FoldHalf, FoldShell } from '@/components/fold/FoldShell'
-import { FoldModeButton } from '@/components/fold/FoldModePicker'
 import { FoldPlayButton, FoldTempoColumn } from '@/components/fold/FoldTempoColumn'
 import { ClickPresetChip } from '@/components/rhythm/ClickPresets'
 import { ClickSoundPicker } from '@/components/rhythm/ClickSoundPicker'
@@ -117,7 +116,6 @@ export function ClickLaptop({
           <div className="min-w-0 flex-1">
             <CompactMeter beats={bar.beats} beatUnit={bar.beatUnit} onChange={onMeter} />
           </div>
-          <FoldModeButton always />
         </div>
         <div className="mt-2 flex min-h-0 flex-1 gap-3">
           <FoldTempoColumn bpm={bpm} liveBpm={liveBpm} onBpm={onBpm} onTap={onTap} className="h-full" />

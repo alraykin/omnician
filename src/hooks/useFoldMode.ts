@@ -40,7 +40,7 @@ function readSize() {
 }
 
 export function useFoldChoice(): FoldChoice {
-  return useSyncExternalStore(subscribeFoldChoice, readFoldChoice, () => 'off')
+  return useSyncExternalStore(subscribeFoldChoice, readFoldChoice, () => 'auto')
 }
 
 export function useFoldHardware(): FoldLayout {

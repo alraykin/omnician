@@ -3,16 +3,23 @@ import { useLocation } from 'react-router-dom'
 
 import { useFoldChoice, useFoldLayout } from '@/hooks/useFoldMode'
 import { isFoldChoice, readFoldChoice, saveFoldChoice } from '@/lib/fold-mode'
+import { startNativePosture } from '@/native/ios-posture'
 
-/** `?fold=laptop|book|tent|auto` wins so screenshots and QA can force a pose. */
+/** `?fold=` wins so screenshots and QA can force a pose. Otherwise the layout is automatic. */
 export function FoldSync() {
   const location = useLocation()
   const choice = useFoldChoice()
   const layout = useFoldLayout()
 
+  useEffect(() => startNativePosture(), [])
+
   useEffect(() => {
     const raw = new URLSearchParams(location.search).get('fold')
-    if (isFoldChoice(raw) && raw !== 'off' && readFoldChoice() !== raw) saveFoldChoice(raw)
+    if (raw == null || raw === '') {
+      if (readFoldChoice() !== 'auto') saveFoldChoice('auto')
+      return
+    }
+    if (isFoldChoice(raw) && readFoldChoice() !== raw) saveFoldChoice(raw)
   }, [location.search])
 
   useEffect(() => {

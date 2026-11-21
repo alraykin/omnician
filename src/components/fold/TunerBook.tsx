@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 
 import { FoldCrease, FoldHalf, FoldShell } from '@/components/fold/FoldShell'
-import { FoldModeButton } from '@/components/fold/FoldModePicker'
 import { A4ReferenceControl } from '@/components/tuner/A4ReferenceControl'
 import { OmnicianWordmark } from '@/components/OmnicianMark'
 import { FOLD_NEEDLE_REACH_PX, splitPegs } from '@/lib/fold-mode'
@@ -61,9 +60,6 @@ export function TunerBook({
         </p>
       </FoldHalf>
       <FoldHalf side="right" className="px-4" style={{ paddingTop: 'max(0.65rem, var(--fold-safe-top))' }}>
-        <div className="flex justify-end" style={{ paddingRight: 'var(--fold-status-right)' }}>
-          <FoldModeButton always />
-        </div>
         <p
           className="pointer-events-none absolute top-[9.5rem] text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-500"
           style={{ right: 'max(6.2rem, calc(var(--fold-status-right) + 0.7rem))' }}

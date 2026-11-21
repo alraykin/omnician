@@ -31,6 +31,12 @@ import {
   splitPegs,
   tunerShowsBook,
 } from '../src/lib/fold-mode.ts'
+import {
+  emptyNativePosture,
+  resolveNativeFoldLayout,
+  LAPTOP_HINGE_ENTER_MIN,
+  LAPTOP_HINGE_ENTER_MAX,
+} from '../src/lib/native-fold.ts'
 
 assert.deepEqual([...FOLD_CHOICES], ['off', 'auto', 'laptop', 'book', 'tent'])
 assert.equal(parseFoldChoice('laptop'), 'laptop')
@@ -84,6 +90,10 @@ assert.equal(resolveFoldLayout('tent', 390, 844), 'tent', 'Tent works on the cov
 assert.equal(resolveFoldLayout('tent', 932, 430), 'tent')
 assert.equal(resolveFoldLayout('laptop', 390, 844), 'off', 'Laptop does not run on a phone-sized cover')
 assert.equal(resolveFoldLayout('auto', 720, 1024, 'off'), 'off', 'missing APIs => Auto is Off')
+assert.equal(resolveFoldLayout('auto', 932, 430, 'off'), 'tent', 'small landscape Click is Tent')
+assert.equal(resolveFoldLayout('auto', 390, 844, 'off'), 'off')
+assert.equal(detectFoldedLayout({ width: 932, height: 430 }), 'tent')
+assert.equal(detectFoldedLayout({ width: 390, height: 844 }), 'off')
 assert.equal(clickShowsTent('tent', false), true)
 assert.equal(clickShowsTent('tent', true), false, 'portrait Tent keeps normal Click')
 assert.equal(clickShowsTent('off', false), false)
@@ -169,20 +179,23 @@ assert.doesNotMatch(tentSrc, /rotate\(180deg\)/)
 assert.doesNotMatch(tentSrc, /data-fold-face/)
 assert.match(tentSrc, /data-fold-tent/)
 assert.match(tentSrc, /data-fold-pendulum/)
-assert.match(tentSrc, /data-fold-tent-exit/)
+assert.doesNotMatch(tentSrc, /data-fold-tent-exit/)
 assert.match(tentSrc, /data-fold-tent-caption/)
 assert.match(tentSrc, /--fold-safe-top/)
 assert.match(tentSrc, /--fold-status-right/)
 assert.doesNotMatch(tentSrc, /safe-overlay/)
+assert.doesNotMatch(tentSrc, /FoldModeButton/)
 
 const guardSrc = readFileSync(new URL('../src/components/PhonePortraitGuard.tsx', import.meta.url), 'utf8')
 assert.match(guardSrc, /tentClick/)
+assert.match(guardSrc, /foldLayout === 'tent'/)
+
+const chromeSrc = readFileSync(new URL('../src/components/AppChrome.tsx', import.meta.url), 'utf8')
+assert.doesNotMatch(chromeSrc, /FoldModeButton/)
 
 const pickerSrc = readFileSync(new URL('../src/components/fold/FoldModePicker.tsx', import.meta.url), 'utf8')
-assert.match(pickerSrc, /outer screen, landscape/)
-assert.match(pickerSrc, /startsWith\('\/click'\)/)
-assert.match(pickerSrc, /FOLD_COVER_CHOICES/)
-assert.match(pickerSrc, /grid-cols-3/)
+assert.match(pickerSrc, /return null/)
+assert.doesNotMatch(pickerSrc, /data-fold-button/)
 
 const bookSrc = readFileSync(new URL('../src/components/fold/TunerBook.tsx', import.meta.url), 'utf8')
 assert.match(bookSrc, /left-\[104px\]/)
@@ -194,8 +207,93 @@ assert.match(bookSrc, /--fold-safe-bottom/)
 assert.doesNotMatch(bookSrc, /top-\[624px\]/)
 
 const settingsSrc = readFileSync(new URL('../src/pages/SettingsPage.tsx', import.meta.url), 'utf8')
-assert.match(settingsSrc, /FoldModeSetting/)
-assert.match(settingsSrc, /Tent \(outer screen, landscape\)/)
-assert.equal((settingsSrc.match(/<FoldModeSetting \/>/g) ?? []).length, 3)
+assert.doesNotMatch(settingsSrc, /FoldModeSetting/)
+assert.doesNotMatch(settingsSrc, /Fold mode/)
+
+const innerPortrait = {
+  ...emptyNativePosture(),
+  display: 'inner' as const,
+  orientation: 'portrait' as const,
+  windowWidth: 720,
+  windowHeight: 1024,
+}
+assert.equal(resolveNativeFoldLayout({ ...innerPortrait, hingeAvailable: true, hingeStatus: 'fullyOpen', hingeAngleDeg: 180 }), 'off')
+assert.equal(
+  resolveNativeFoldLayout({
+    ...innerPortrait,
+    hingeAvailable: true,
+    hingeStatus: 'partiallyOpen',
+    hingeAngleDeg: 100,
+  }),
+  'laptop',
+)
+assert.equal(
+  resolveNativeFoldLayout(
+    { ...innerPortrait, hingeAvailable: true, hingeStatus: 'partiallyOpen', hingeAngleDeg: 60 },
+    'laptop',
+  ),
+  'laptop',
+  'hysteresis holds laptop down to 55°',
+)
+assert.equal(
+  resolveNativeFoldLayout({
+    ...innerPortrait,
+    hingeAvailable: true,
+    hingeStatus: 'partiallyOpen',
+    hingeAngleDeg: 50,
+  }),
+  'off',
+)
+assert.ok(LAPTOP_HINGE_ENTER_MIN === 70 && LAPTOP_HINGE_ENTER_MAX === 130)
+assert.equal(
+  resolveNativeFoldLayout({
+    ...emptyNativePosture(),
+    display: 'inner',
+    orientation: 'landscape',
+    windowWidth: 1024,
+    windowHeight: 720,
+    hingeAvailable: true,
+    hingeStatus: 'fullyOpen',
+    hingeAngleDeg: 180,
+  }),
+  'book',
+)
+assert.equal(
+  resolveNativeFoldLayout({
+    ...emptyNativePosture(),
+    display: 'outer',
+    orientation: 'landscape',
+    windowWidth: 678,
+    windowHeight: 466,
+    hingeAvailable: true,
+    hingeStatus: 'closed',
+    hingeAngleDeg: 0,
+  }),
+  'tent',
+)
+assert.equal(
+  resolveNativeFoldLayout({
+    ...emptyNativePosture(),
+    display: 'outer',
+    orientation: 'portrait',
+    windowWidth: 390,
+    windowHeight: 844,
+    hingeAvailable: true,
+    hingeStatus: 'closed',
+    hingeAngleDeg: 0,
+  }),
+  'off',
+)
+assert.equal(
+  resolveNativeFoldLayout({
+    ...innerPortrait,
+    hingeAvailable: false,
+    motionAvailable: true,
+    gravityX: 0.05,
+    gravityY: -0.7,
+    gravityZ: -0.7,
+  }),
+  'laptop',
+)
 
 console.log('fold-mode ok')

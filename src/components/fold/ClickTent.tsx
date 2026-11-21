@@ -1,11 +1,10 @@
-import { Minus, Plus, X } from 'lucide-react'
+import { Minus, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import { FoldModeButton } from '@/components/fold/FoldModePicker'
 import { FoldShell } from '@/components/fold/FoldShell'
 import { type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
 import { fracInBar } from '@/lib/editor-playhead'
-import { pendulumAtExtreme, pendulumBeatIndex, pendulumNorm, saveFoldChoice } from '@/lib/fold-mode'
+import { pendulumAtExtreme, pendulumBeatIndex, pendulumNorm } from '@/lib/fold-mode'
 import { beatAccentAt, meterLabel, type RhythmBar } from '@/lib/rhythm'
 import { activateOnPointer, cn } from '@/lib/utils'
 
@@ -110,16 +109,6 @@ export function ClickTent({
         }}
       >
         <div className="flex shrink-0 items-start gap-2">
-          <button
-            type="button"
-            data-fold-tent-exit
-            aria-label="Exit tent"
-            {...activateOnPointer(() => saveFoldChoice('off'))}
-            className="flex size-10 min-h-10 min-w-10 items-center justify-center rounded-full border border-white/14 text-slate-200 touch-manipulation"
-          >
-            <X className="size-5" />
-          </button>
-          <FoldModeButton always menuAlign="start" />
           <div className="min-w-0 flex-1 px-2 text-center">
             <p
               data-fold-tent-bpm-label

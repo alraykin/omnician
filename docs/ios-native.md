@@ -79,24 +79,23 @@ If automatic signing later fails, add these optional secrets (still unused today
 
 The project uses **`app.omnician`**. Changing it after the first TestFlight upload means a new App Store Connect app.
 
-## Fold posture and haptics (plan only — not built)
+## Fold posture (automatic)
 
-Today both features stay in the web layer:
+There is no Fold mode button or setting on web or in the native app. Layouts follow the device:
 
-- Fold: `src/lib/fold-mode.ts` already uses `navigator.devicePosture` and Viewport Segments. Auto falls back to Off when the browser has no API.
-- Haptics: `navigator.vibrate` on drum-dot hold and BPM wheel ticks. Safari often no-ops this.
+| Pose | Layout |
+| --- | --- |
+| Outer portrait / phone portrait | Normal |
+| Outer / phone landscape, on Click | Tent pendulum |
+| Inner portrait, flat (hinge fully open) | Normal |
+| Inner portrait, laptop (~70–130° hinge, horizontal crease) | Click/Drums laptop |
+| Inner landscape (flat or book) | Tuner book |
 
-When we hook native (later workstream, not this commit):
+Safari uses Viewport Segments and `navigator.devicePosture` when present, plus window size for tent. `?fold=` still overrides for QA.
 
-| Need | Plugin / approach | Native API |
-| --- | --- | --- |
-| Stronger taps (in-tune, drum hold, metronome beat) | Official [`@capacitor/haptics`](https://capacitorjs.com/docs/apis/haptics) | `UIImpactFeedbackGenerator` / `UINotificationFeedbackGenerator` |
-| Click on every beat / lock chime | Custom `OmnicianHaptics` plugin (same pattern as `OmnicianAudio`) | `CHHapticEngine` transient + continuous events, gated when Reduce Motion / haptics-off |
-| Fold Auto on iPhone Duo | Keep web APIs first; add `OmnicianPosture` only if WKWebView does not expose Device Posture / Viewport Segments | `UIWindowScene.effectiveGeometry`, screen native bounds, future UIKit hinge/posture if Apple ships it |
-| Tent / Laptop / Book from hinge angle | Same custom plugin | Read posture → call existing `setFoldChoice` / layout code; do not fork the CSS layouts |
-| Silent-switch audio (done) | In-app `OmnicianAudio` plugin | `AVAudioSession` `.playback` with empty options; `.playAndRecord` + `.defaultToSpeaker` while the tuner mic is live |
+The native `OmnicianPosture` plugin (iOS 27.1+ `UIHingeInteraction` angle + `closed` / `partiallyOpen` / `fullyOpen`, `UIView.reservedRegions(.division)`, window size for inner vs outer, CoreMotion gravity as fallback) drives the same CSS layouts with hysteresis on the hinge band. There are no `UITraitCollection` posture traits. Hinge is not used for native Auto Layout; we only read it as input for the web layouts.
 
-JS should keep using `Capacitor.isNativePlatform()` so Safari and omnician.app stay on the web path. Do not add `@capacitor/haptics` until that workstream.
+Haptics stay on `navigator.vibrate` for now.
 
 ## Native vs web sounds
 

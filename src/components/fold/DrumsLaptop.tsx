@@ -1,8 +1,7 @@
-import { ChevronDown, Plus, Redo2, SlidersHorizontal, Trash2, Undo2, X } from 'lucide-react'
+import { ChevronDown, Plus, Redo2, SlidersHorizontal, Trash2, Undo2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { FoldCrease, FoldHalf, FoldShell } from '@/components/fold/FoldShell'
-import { FoldModeButton } from '@/components/fold/FoldModePicker'
 import { FoldPlayButton, FoldTempoColumn } from '@/components/fold/FoldTempoColumn'
 import { CompactMeter } from '@/components/rhythm/CompactMeter'
 import { DrumEditorGrid } from '@/components/rhythm/DrumEditorGrid'
@@ -10,7 +9,6 @@ import { DrumInputChips } from '@/components/rhythm/DrumGrid'
 import { IntensitySwitch } from '@/components/rhythm/IntensitySwitch'
 import { KitMixerPanel } from '@/components/rhythm/KitMixerPanel'
 import { type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
-import { saveFoldChoice } from '@/lib/fold-mode'
 import { type InputDivision } from '@/lib/beat-boxes'
 import { type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
@@ -139,15 +137,6 @@ export function DrumsLaptop({
           <div className="flex h-11 shrink-0 items-center gap-1">
             <button
               type="button"
-              data-editor-done
-              {...activateOnPointer(() => saveFoldChoice('off'))}
-              className="flex h-10 min-w-10 items-center gap-0.5 rounded-full px-2 text-[0.78rem] font-semibold text-slate-200"
-            >
-              <X className="size-4" />
-              Done
-            </button>
-            <button
-              type="button"
               data-editor-beat-name
               {...activateOnPointer(onOpenLibrary)}
               className="flex h-10 min-w-0 flex-1 items-center gap-1 overflow-hidden rounded-lg px-1 text-left"
@@ -176,7 +165,6 @@ export function DrumsLaptop({
             >
               <Redo2 className="size-4" />
             </button>
-            <FoldModeButton always />
           </div>
           <div className="mt-1 flex h-11 shrink-0 items-center gap-2">
             <IntensitySwitch value={kitIntensity} onChange={onIntensity} />

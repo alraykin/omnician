@@ -10,11 +10,19 @@ class OmnicianBridgeViewController: CAPBridgeViewController {
         webView?.scrollView.contentInsetAdjustmentBehavior = .never
         webView?.scrollView.contentInset = .zero
         webView?.scrollView.scrollIndicatorInsets = .zero
+        OmnicianPosturePlugin.shared?.attachHinge(to: view)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        OmnicianPosturePlugin.shared?.attachHinge(to: view)
+        OmnicianPosturePlugin.shared?.noteWindowLayout(size: view.bounds.size, view: view)
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         webView?.frame = view.bounds
+        OmnicianPosturePlugin.shared?.noteWindowLayout(size: view.bounds.size, view: view)
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
