@@ -116,6 +116,9 @@ jobs:
         working-directory: ios/App
         run: pod install
 
+      # Archive unsigned so Xcode never asks for an iOS Development profile
+      # (those require a registered device; this team has none). Signing happens
+      # only at export, with Apple Distribution + an App Store profile.
       - name: Archive for App Store
         working-directory: ios/App
         run: |
@@ -125,13 +128,14 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Omnician.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$AUTH_KEY_PATH" \
-            -authenticationKeyID "$APP_STORE_CONNECT_API_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
             PRODUCT_BUNDLE_IDENTIFIER=app.omnician \
+            MARKETING_VERSION=1.0 \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=- \
             archive
 
       - name: Export IPA
@@ -149,9 +153,17 @@ jobs:
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
 
       - name: Upload to TestFlight
+        env:
+          API_PRIVATE_KEYS_DIR: ${{ runner.temp }}/private_keys
         run: |
+          IPA=$(ls "$RUNNER_TEMP/export"/*.ipa | head -n 1)
+          if [ -z "$IPA" ]; then
+            echo "No IPA in $RUNNER_TEMP/export" >&2
+            ls -la "$RUNNER_TEMP/export" >&2 || true
+            exit 1
+          fi
           xcrun altool --upload-app \
             --type ios \
-            --file "$RUNNER_TEMP/export/App.ipa" \
+            --file "$IPA" \
             --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
             --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"

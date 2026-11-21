@@ -2,7 +2,7 @@
 
 Omnician on the phone is still the same web app. Capacitor wraps the Vite `dist/` folder in a small iOS shell named **Omnician** (`app.omnician`). The live site at omnician.app is unchanged — `npm run deploy` still builds with Vite and uploads the Worker.
 
-Do **not** sign, upload, or open App Store Connect until Alex’s Apple Developer Program account is active.
+The Apple Developer Program account is in use for TestFlight via GitHub Actions secrets. Do **not** put those secrets in this git repo.
 
 ## What is already in this repo
 
@@ -65,7 +65,7 @@ Only set that variable after every secret above exists. The TestFlight job is sk
 3. Create the App Store Connect API key. Download the `.p8` once — Apple will not show it again. Store it in a password manager, then paste it into GitHub.
 4. Do **not** put the `.p8` in this git repo.
 
-Xcode automatic signing with that API key is enough for the first TestFlight. You should **not** need a `.p12` certificate or a provisioning-profile file unless automatic signing fails.
+You do **not** need a registered iPhone. The TestFlight job archives **unsigned** (so Xcode never asks for an iOS Development profile), then `xcodebuild -exportArchive` signs with **Apple Distribution** and creates the App Store profile in the cloud using the API key (`-allowProvisioningUpdates`). Build number is the GitHub run number; marketing version stays **1.0**. `ITSAppUsesNonExemptEncryption` is already false, so TestFlight should not stop on export-compliance. You should **not** need a `.p12` or a provisioning-profile file unless that automatic distribution signing fails.
 
 If automatic signing later fails, add these optional secrets (still unused today):
 
