@@ -5,6 +5,7 @@ import { useFoldChoice, useFoldHeaderVisible, useFoldHardware, useInnerFoldAvail
 import {
   FOLD_CHOICE_LABELS,
   FOLD_CHOICES,
+  FOLD_COVER_CHOICES,
   cycleFoldChoice,
   saveFoldChoice,
   type FoldChoice,
@@ -19,36 +20,32 @@ export function FoldModePicker({
   const choice = useFoldChoice()
   const detected = useFoldHardware()
   const innerOk = useInnerFoldAvailable()
+  const choices = innerOk ? FOLD_CHOICES : FOLD_COVER_CHOICES
+  const visibleChoice = (choices as readonly string[]).includes(choice) ? choice : 'off'
   return (
     <div data-fold-picker className={cn('flex flex-col gap-2', compact && 'gap-1.5')}>
       <div
         role="radiogroup"
         aria-label="Fold mode"
         className={cn(
-          'grid grid-cols-5 gap-1 rounded-2xl border border-white/12 bg-[#141A28]/80 p-1',
+          'grid gap-1 rounded-2xl border border-white/12 bg-[#141A28]/80 p-1',
+          innerOk ? 'grid-cols-5' : 'grid-cols-3',
           compact && 'rounded-xl',
         )}
       >
-        {FOLD_CHOICES.map((id) => {
-          const on = choice === id
-          const innerOnly = id === 'laptop' || id === 'book'
-          const blocked = innerOnly && !innerOk
+        {choices.map((id) => {
+          const on = visibleChoice === id
           return (
             <button
               key={id}
               type="button"
               role="radio"
               aria-checked={on}
-              aria-disabled={blocked}
-              disabled={blocked}
               data-fold-choice={id}
-              title={blocked ? 'Needs the unfolded inner screen' : undefined}
-              {...(blocked ? {} : activateOnPointer(() => saveFoldChoice(id)))}
+              {...activateOnPointer(() => saveFoldChoice(id))}
               className={cn(
                 'min-h-10 rounded-xl px-1 text-[0.68rem] font-semibold touch-manipulation',
-                blocked && 'cursor-not-allowed opacity-35',
                 on ? 'bg-[#A855F7] text-white' : 'text-slate-300 hover:bg-white/6',
-                blocked && 'hover:bg-transparent',
               )}
             >
               {FOLD_CHOICE_LABELS[id]}
@@ -57,9 +54,9 @@ export function FoldModePicker({
         })}
       </div>
       <p className="text-[0.68rem] leading-4 text-slate-500" data-fold-tent-hint>
-        Tent (outer screen, landscape) is the cover display — turn Click sideways for a pendulum.
-        Laptop needs the unfolded inner screen. Tuner landscape on that inner screen uses Book on
-        its own.
+        {compact || !innerOk
+          ? 'Tent is the outer/cover screen. Turn Click sideways for a pendulum.'
+          : 'Tent (outer screen, landscape) is the cover display — turn Click sideways for a pendulum. Laptop needs the unfolded inner screen. Tuner landscape on that inner screen uses Book on its own.'}
       </p>
       {choice === 'auto' ? (
         <p className="text-[0.68rem] leading-4 text-slate-500" data-fold-auto-hint>
@@ -116,7 +113,7 @@ export function FoldModeButton({
         <div
           data-fold-popover
           className={cn(
-            'absolute top-11 z-[95] w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-white/12 bg-[#101626] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.55)]',
+            'absolute top-11 z-[95] w-[min(19.5rem,calc(100vw-1.25rem))] rounded-2xl border border-white/12 bg-[#101626] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.55)]',
             menuAlign === 'end' ? 'right-0' : 'left-0',
           )}
         >

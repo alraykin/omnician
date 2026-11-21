@@ -83,7 +83,7 @@ export function ClickTent({
         data-fold-tent
         className="safe-overlay flex h-full min-h-0 w-full flex-col"
       >
-        <div className="flex h-11 shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             data-fold-tent-exit
@@ -98,7 +98,7 @@ export function ClickTent({
             <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[#C084FC]">BPM</p>
             <p
               data-fold-tent-bpm
-              className="text-[clamp(1.8rem,10vh,3.4rem)] font-extrabold leading-none tabular-nums text-white"
+              className="text-[clamp(1.6rem,8vh,3rem)] font-extrabold leading-none tabular-nums text-white"
             >
               {shownBpm}
             </p>
@@ -124,9 +124,6 @@ export function ClickTent({
             5
           </button>
         </div>
-        <p className="mt-0.5 text-center text-[0.72rem] text-slate-500">
-          {meterLabel(bar.beats, bar.beatUnit)} · tap pendulum to {playing ? 'stop' : 'start'}
-        </p>
 
         <button
           type="button"
@@ -140,7 +137,7 @@ export function ClickTent({
             <div
               ref={rodRef}
               data-fold-pendulum
-              className="absolute left-1/2 top-[5%] z-0 h-[78%] w-[3px] origin-top -translate-x-1/2 bg-gradient-to-b from-[#C084FC] to-[#A855F7]"
+              className="absolute left-1/2 top-[5%] z-0 h-[72%] w-[3px] origin-top -translate-x-1/2 bg-gradient-to-b from-[#C084FC] to-[#A855F7]"
             >
               <span
                 ref={bobRef}
@@ -151,20 +148,25 @@ export function ClickTent({
           </div>
         </button>
 
-        <div className="flex h-10 shrink-0 items-center justify-center gap-3 pb-[max(0.25rem,env(safe-area-inset-bottom,0px))]" data-fold-tent-accents>
-          {Array.from({ length: bar.beats }, (_, beat) => {
-            const level = beatAccentAt(bar.beatAccents, beat)
-            return (
-              <span
-                key={beat}
-                data-accent-beat={beat}
-                className={cn(
-                  'block size-4 rounded-full',
-                  level === 2 ? 'bg-[#A855F7]' : level === 1 ? 'bg-[#C4B5FD]' : 'bg-white/25',
-                )}
-              />
-            )
-          })}
+        <div className="flex min-h-10 shrink-0 items-center justify-between gap-3 px-1 pb-[max(0.25rem,env(safe-area-inset-bottom,0px))]">
+          <p className="min-w-0 truncate text-[0.72rem] text-slate-500">
+            {meterLabel(bar.beats, bar.beatUnit)} · tap to {playing ? 'stop' : 'start'}
+          </p>
+          <div className="flex items-center justify-center gap-3" data-fold-tent-accents>
+            {Array.from({ length: bar.beats }, (_, beat) => {
+              const level = beatAccentAt(bar.beatAccents, beat)
+              return (
+                <span
+                  key={beat}
+                  data-accent-beat={beat}
+                  className={cn(
+                    'block size-4 rounded-full',
+                    level === 2 ? 'bg-[#A855F7]' : level === 1 ? 'bg-[#C4B5FD]' : 'bg-white/25',
+                  )}
+                />
+              )
+            })}
+          </div>
         </div>
       </div>
     </FoldShell>

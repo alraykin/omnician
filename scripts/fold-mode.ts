@@ -147,6 +147,8 @@ assert.match(guardSrc, /tentClick/)
 const pickerSrc = readFileSync(new URL('../src/components/fold/FoldModePicker.tsx', import.meta.url), 'utf8')
 assert.match(pickerSrc, /outer screen, landscape/)
 assert.match(pickerSrc, /startsWith\('\/click'\)/)
+assert.match(pickerSrc, /FOLD_COVER_CHOICES/)
+assert.match(pickerSrc, /grid-cols-3/)
 
 const bookSrc = readFileSync(new URL('../src/components/fold/TunerBook.tsx', import.meta.url), 'utf8')
 assert.match(bookSrc, /left-\[104px\]/)
