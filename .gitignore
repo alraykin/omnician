@@ -27,3 +27,16 @@ dist-ssr
 .dev.vars
 scripts/__pycache__/
 scripts/fixtures/guitar-notes/.download/
+
+# Capacitor / Xcode (keep the ios/ project; ignore generated copies and build junk)
+ios/App/Pods
+ios/App/output
+ios/App/build
+ios/App/DerivedData
+ios/DerivedData
+ios/App/App/public
+ios/App/App/capacitor.config.json
+ios/App/App/config.xml
+ios/capacitor-cordova-ios-plugins
+xcuserdata
+*.xcuserstate

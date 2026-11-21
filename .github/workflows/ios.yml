@@ -1,0 +1,157 @@
+# Cloud iOS build for Omnician. Runs on GitHub-hosted macOS (no Mac on our side).
+# Free GitHub Actions minutes only — do not add paid runners or Codemagic.
+#
+# Until Apple credentials exist, only the unsigned iPhone Simulator job runs.
+# TestFlight upload stays off until the GitHub Actions variable
+# IOS_TESTFLIGHT_ENABLED is set to the string true AND the secrets below are present.
+#
+# This workflow does not run on Origin. Mirror the repo to GitHub (see docs/ios-native.md).
+
+name: iOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator:
+    name: Unsigned iPhone simulator
+    runs-on: macos-15
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install npm packages
+        run: npm ci
+
+      - name: Check iOS project files (no signing)
+        run: npm run test:ios-prep
+
+      - name: Production web build (Vite dist → Capacitor webDir)
+        run: npm run build
+
+      - name: Copy web assets into the iOS project
+        run: npx cap sync ios
+
+      - name: Install CocoaPods (Capacitor iOS)
+        working-directory: ios/App
+        run: pod install
+
+      - name: Compile unsigned for iPhone simulator
+        working-directory: ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=- \
+            build
+
+  testflight:
+    name: Archive and upload to TestFlight
+    needs: simulator
+    if: ${{ vars.IOS_TESTFLIGHT_ENABLED == 'true' }}
+    runs-on: macos-15
+    env:
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Stop if Apple secrets are missing
+        run: |
+          missing=0
+          for name in APPLE_TEAM_ID APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_API_KEY_P8; do
+            if [ -z "${!name}" ]; then
+              echo "Missing GitHub secret: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Set IOS_TESTFLIGHT_ENABLED only after every Apple secret exists. See docs/ios-native.md."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install npm packages
+        run: npm ci
+
+      - name: Production web build
+        run: npm run build
+
+      - name: Copy web assets into the iOS project
+        run: npx cap sync ios
+
+      - name: Write App Store Connect API key
+        run: |
+          mkdir -p "$RUNNER_TEMP/private_keys"
+          printf '%s' "$APP_STORE_CONNECT_API_KEY_P8" > "$RUNNER_TEMP/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
+          echo "AUTH_KEY_PATH=$RUNNER_TEMP/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8" >> "$GITHUB_ENV"
+
+      - name: Install CocoaPods (Capacitor iOS)
+        working-directory: ios/App
+        run: pod install
+
+      - name: Archive for App Store
+        working-directory: ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Omnician.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$AUTH_KEY_PATH" \
+            -authenticationKeyID "$APP_STORE_CONNECT_API_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            PRODUCT_BUNDLE_IDENTIFIER=app.omnician.ios \
+            archive
+
+      - name: Export IPA
+        run: |
+          cp ios/exportOptions.plist "$RUNNER_TEMP/exportOptions.plist"
+          /usr/bin/sed -i '' "s/APPLE_TEAM_ID_PLACEHOLDER/${APPLE_TEAM_ID}/" "$RUNNER_TEMP/exportOptions.plist"
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$RUNNER_TEMP/Omnician.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/exportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$AUTH_KEY_PATH" \
+            -authenticationKeyID "$APP_STORE_CONNECT_API_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+
+      - name: Upload to TestFlight
+        run: |
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$RUNNER_TEMP/export/App.ipa" \
+            --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"

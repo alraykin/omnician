@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
+import { applyNativeAudioSession } from '../src/native/ios-audio-session.ts'
 import {
   claimPlayAndRecordSessionFromGesture,
   claimPlaybackSessionFromGesture,
@@ -51,6 +52,8 @@ assert.match(src, /el\.loop = true/)
 assert.match(src, /claimPlayAndRecordSessionFromGesture\(\)/)
 assert.match(src, /restorePlaybackSessionAfterMic\(\)/)
 assert.match(src, /wantedSession = countLiveMicTracks\(\)\.live > 0 \? 'play-and-record' : 'playback'/)
+assert.match(src, /applyNativeAudioSession\(type\)/)
+assert.match(src, /from '@\/native\/ios-audio-session'/)
 
 const wav = silentWavDataUrl()
 assert.match(wav, /^data:audio\/wav;base64,/)
@@ -62,6 +65,8 @@ assert.equal(raw.readUInt16LE(22), 1)
 assert.equal(raw.readUInt32LE(24), 8000)
 assert.equal(raw.readUInt16LE(34), 16)
 assert.ok(raw.length > 44)
+
+assert.equal(applyNativeAudioSession('playback'), false)
 
 resetAudioSessionForTests()
 const session = installSession('auto')

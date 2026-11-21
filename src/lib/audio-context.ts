@@ -1,3 +1,5 @@
+import { applyNativeAudioSession } from '@/native/ios-audio-session'
+
 type AudioContextCtor = typeof AudioContext
 
 type SafariAudioState = AudioContextState | 'interrupted'
@@ -153,10 +155,11 @@ export function silentWavDataUrl(): string {
 }
 
 function writeAudioSession(type: AudioSessionKind): boolean {
+  const native = applyNativeAudioSession(type)
   const session = safariAudioSession()
   if (!session) {
-    lastSessionWrite = `${type}:unsupported`
-    return false
+    lastSessionWrite = native ? `${type}:native` : `${type}:unsupported`
+    return native
   }
   if (session.type === type) {
     lastSessionWrite = `${type}:already`

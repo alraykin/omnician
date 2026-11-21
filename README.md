@@ -142,6 +142,28 @@ The Worker also serves `/api/factory` and stores the built-in Drums library in t
 
 ---
 
+## Native iPhone app (Capacitor)
+
+A native iOS shell named **Omnician** lives in `ios/`. It loads the same Vite `dist/` folder the website uses. This does **not** change omnician.app.
+
+- Bundle ID: `app.omnician.ios`
+- Sound still plays with the ringer/silent switch off
+- The tuner still asks for the microphone
+- Cloud compile: GitHub Actions on a Mac runner (unsigned iPhone Simulator). TestFlight waits for Apple credentials.
+
+You do **not** need a Mac to keep working on the web app. You **do** need the repo on GitHub before that cloud compile runs. Full steps, secret names, and the fold/haptics plan: **[docs/ios-native.md](docs/ios-native.md)**.
+
+On a Mac, after `npm install`:
+
+```bash
+npm run ios:sync
+npx cap open ios
+```
+
+Do not attempt signing or TestFlight until the Apple Developer Program account is active. `npm run deploy` is unchanged.
+
+---
+
 ## Factory editor (built-in Drums library)
 
 The Beat library can be edited without changing code. The app loads `/api/factory/library` at startup, keeps a copy on this device, and uses the bundled grooves (including **Backbeat** and **Chameleon**) if the network request fails.
