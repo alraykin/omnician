@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { accessSync, constants, mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import {
   easePendulumToCenter,
@@ -70,7 +72,19 @@ const lines = [
   `beatSec=${BEAT_SEC} maxJump=${maxJump.toFixed(4)} extremes=${extremes.map((e) => `${e.side}@${e.t.toFixed(3)}s`).join(' ')}`,
   ...extremes.map((e) => `${e.t.toFixed(3)}s  phase=${e.beatPhase.toFixed(3)}  norm=${e.norm.toFixed(3)}  ${e.side}`),
 ]
-mkdirSync('/opt/cursor/artifacts', { recursive: true })
-writeFileSync('/opt/cursor/artifacts/pendulum-frames.log', `${lines.join('\n')}\n`)
+const text = `${lines.join('\n')}\n`
+const dirs = [process.env.ARTIFACTS_DIR, process.env.ARTIFACT_DIR, '/opt/cursor/artifacts', tmpdir()].filter(
+  (d): d is string => Boolean(d),
+)
+for (const dir of dirs) {
+  try {
+    mkdirSync(dir, { recursive: true })
+    accessSync(dir, constants.W_OK)
+    writeFileSync(join(dir, 'pendulum-frames.log'), text)
+    break
+  } catch {
+    /* CI runners cannot write /opt/cursor/artifacts; the log is also printed. */
+  }
+}
 console.log(lines.join('\n'))
 console.log('pendulum-swing ok')
