@@ -4,7 +4,8 @@
 # OmnicianScene marker from a live `log stream` started before launch; if that
 # marker never appears, pass when the pid is still alive, no new App crash
 # report exists, and FrontBoard has the app scene in the foreground.
-set -euo pipefail
+set -Eeuo pipefail
+trap 'echo "ios-sim-launch-smoke: ERR line ${LINENO} cmd=${BASH_COMMAND} exit=$?" >&2' ERR
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DERIVED="${1:-$ROOT/ios/App/DerivedData}"
