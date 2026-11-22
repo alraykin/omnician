@@ -15,6 +15,7 @@ export type NativeHingeStatus = 'closed' | 'partiallyOpen' | 'fullyOpen' | 'unkn
 
 export type NativePostureSnapshot = {
   hingeAvailable: boolean
+  hingeAttachFailed: boolean
   hingeStatus: NativeHingeStatus | null
   hingeAngleDeg: number | null
   foldDivisionActive: boolean | null
@@ -23,10 +24,13 @@ export type NativePostureSnapshot = {
   orientation: NativeOrientation
   windowWidth: number
   windowHeight: number
+  screenWidth: number
+  screenHeight: number
   gravityX: number | null
   gravityY: number | null
   gravityZ: number | null
   motionAvailable: boolean
+  model: string | null
   source: 'hinge' | 'division' | 'motion' | 'size'
 }
 
@@ -37,6 +41,7 @@ let lastLayout: FoldLayout = 'off'
 export function emptyNativePosture(): NativePostureSnapshot {
   return {
     hingeAvailable: false,
+    hingeAttachFailed: false,
     hingeStatus: null,
     hingeAngleDeg: null,
     foldDivisionActive: null,
@@ -45,10 +50,13 @@ export function emptyNativePosture(): NativePostureSnapshot {
     orientation: 'portrait',
     windowWidth: 0,
     windowHeight: 0,
+    screenWidth: 0,
+    screenHeight: 0,
     gravityX: null,
     gravityY: null,
     gravityZ: null,
     motionAvailable: false,
+    model: null,
     source: 'size',
   }
 }
@@ -70,11 +78,15 @@ export function snapshotFromPlugin(raw: Record<string, unknown> | null | undefin
   if (!raw) return base
   const width = Number(raw.windowWidth) || 0
   const height = Number(raw.windowHeight) || 0
+  const screenWidth = Number(raw.screenWidth) || 0
+  const screenHeight = Number(raw.screenHeight) || 0
   const orientation: NativeOrientation =
     raw.orientation === 'landscape' || (width > 0 && height > 0 && width > height) ? 'landscape' : 'portrait'
   const angle = raw.hingeAngleDeg == null ? null : Number(raw.hingeAngleDeg)
+  const model = typeof raw.model === 'string' && raw.model.trim() ? raw.model.trim() : null
   return {
     hingeAvailable: raw.hingeAvailable === true,
+    hingeAttachFailed: raw.hingeAttachFailed === true,
     hingeStatus: parseNativeHingeStatus(raw.hingeStatus),
     hingeAngleDeg: Number.isFinite(angle) ? angle : null,
     foldDivisionActive: typeof raw.foldDivisionActive === 'boolean' ? raw.foldDivisionActive : null,
@@ -83,10 +95,13 @@ export function snapshotFromPlugin(raw: Record<string, unknown> | null | undefin
     orientation,
     windowWidth: width,
     windowHeight: height,
+    screenWidth,
+    screenHeight,
     gravityX: finiteOrNull(raw.gravityX),
     gravityY: finiteOrNull(raw.gravityY),
     gravityZ: finiteOrNull(raw.gravityZ),
     motionAvailable: raw.motionAvailable === true,
+    model,
     source: raw.source === 'hinge' || raw.source === 'division' || raw.source === 'motion' || raw.source === 'size' ? raw.source : 'size',
   }
 }
@@ -99,6 +114,38 @@ function finiteOrNull(value: unknown): number | null {
 export function displayFromWindow(width: number, height: number): NativeDisplay {
   if (!(width > 0) || !(height > 0)) return 'unknown'
   return Math.min(width, height) >= NATIVE_INNER_MIN_PX ? 'inner' : 'outer'
+}
+
+/** Prefer measured window/screen size over a stale or empty plugin display string. */
+export function resolveNativeDisplay(snap: NativePostureSnapshot): NativeDisplay {
+  const fromWindow = displayFromWindow(snap.windowWidth, snap.windowHeight)
+  if (fromWindow !== 'unknown') return fromWindow
+  const fromScreen = displayFromWindow(snap.screenWidth, snap.screenHeight)
+  if (fromScreen !== 'unknown') return fromScreen
+  return snap.display
+}
+
+export function hydrateNativePosture(
+  snap: NativePostureSnapshot,
+  fallback?: { windowWidth?: number; windowHeight?: number; screenWidth?: number; screenHeight?: number },
+): NativePostureSnapshot {
+  const windowWidth = snap.windowWidth > 0 ? snap.windowWidth : fallback?.windowWidth || 0
+  const windowHeight = snap.windowHeight > 0 ? snap.windowHeight : fallback?.windowHeight || 0
+  const screenWidth = snap.screenWidth > 0 ? snap.screenWidth : fallback?.screenWidth || 0
+  const screenHeight = snap.screenHeight > 0 ? snap.screenHeight : fallback?.screenHeight || 0
+  const next: NativePostureSnapshot = {
+    ...snap,
+    windowWidth,
+    windowHeight,
+    screenWidth,
+    screenHeight,
+  }
+  const resolved = resolveNativeDisplay(next)
+  if (resolved !== 'unknown') next.display = resolved
+  if (windowWidth > 0 && windowHeight > 0) {
+    next.orientation = windowWidth > windowHeight ? 'landscape' : 'portrait'
+  }
+  return next
 }
 
 export function applyNativePosture(next: NativePostureSnapshot): NativePostureSnapshot {
@@ -140,7 +187,7 @@ export function resolveNativeFoldLayout(
 ): FoldLayout {
   const width = snap.windowWidth
   const height = snap.windowHeight
-  const display = snap.display === 'unknown' ? displayFromWindow(width, height) : snap.display
+  const display = resolveNativeDisplay(snap)
   const orientation: NativeOrientation =
     width > 0 && height > 0 ? (width > height ? 'landscape' : 'portrait') : snap.orientation
 
@@ -158,11 +205,11 @@ export function resolveNativeFoldLayout(
   if (snap.foldDivisionActive === false && previous === 'laptop' && snap.hingeStatus === 'fullyOpen') return 'off'
   if (snap.foldDivisionActive === true && snap.foldDivisionHorizontal === false) return 'off'
 
-  if (!snap.hingeAvailable && motionLooksLaptop(snap, previous)) return 'laptop'
-  return previous === 'laptop' && motionLooksLaptop(snap, previous) ? 'laptop' : 'off'
+  if (motionLooksLaptop(snap, previous)) return 'laptop'
+  return 'off'
 }
 
-function hingeLooksLaptop(
+export function hingeLooksLaptop(
   angle: number | null,
   status: NativeHingeStatus | null,
   hingeAvailable: boolean,
@@ -176,15 +223,15 @@ function hingeLooksLaptop(
     }
     return false
   }
+  if (status === 'partiallyOpen') return true
   if (angle != null && Number.isFinite(angle)) {
     if (previous === 'laptop') return angle >= LAPTOP_HINGE_HOLD_MIN && angle <= LAPTOP_HINGE_HOLD_MAX
     return angle >= LAPTOP_HINGE_ENTER_MIN && angle <= LAPTOP_HINGE_ENTER_MAX
   }
-  if (status === 'partiallyOpen') return true
   return null
 }
 
-function motionLooksLaptop(snap: NativePostureSnapshot, previous: FoldLayout): boolean {
+export function motionLooksLaptop(snap: NativePostureSnapshot, previous: FoldLayout): boolean {
   if (!snap.motionAvailable) return false
   const gx = snap.gravityX
   const gy = snap.gravityY

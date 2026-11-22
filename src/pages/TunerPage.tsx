@@ -58,7 +58,7 @@ import {
   toggleReferenceTone,
 } from '@/lib/reference-tone'
 import { isTwelveString } from '@/lib/headstock'
-import { armLogoDebugToggle, subscribeTunerDebug } from '@/lib/tuner-debug'
+import { subscribeTunerDebug } from '@/lib/tuner-debug'
 import {
   enterTunerPage,
   leaveTunerPage,
@@ -126,7 +126,6 @@ export function TunerPage() {
   const coverRail = useCoverPortraitRail()
 
   useEffect(() => subscribeTunerDebug(setShowDebug), [])
-  useEffect(() => armLogoDebugToggle(), [])
   useEffect(() => subscribePlayingTone(setPlayingId), [])
 
   useEffect(() => {

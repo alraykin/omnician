@@ -8,6 +8,7 @@ type OmnicianMarkProps = {
 export function OmnicianMark({ className, title = 'Omnician' }: OmnicianMarkProps) {
   return (
     <img
+      data-brand-logo
       src="/brand/omnician-mark.png"
       alt={title}
       className={cn('shrink-0 bg-transparent object-contain', className)}

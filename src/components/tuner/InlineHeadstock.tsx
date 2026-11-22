@@ -181,6 +181,7 @@ export function InlineHeadstock({
           opacity={INLINE_WORDMARK.opacity}
           preserveAspectRatio="xMidYMid meet"
           data-inline-wordmark
+          data-brand-logo
         />
 
         <rect

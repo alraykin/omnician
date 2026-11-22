@@ -170,6 +170,7 @@ export function SplitHeadstock({
           opacity={SPLIT_WORDMARK.opacity}
           preserveAspectRatio="xMidYMid meet"
           data-split-wordmark
+          data-brand-logo
         />
 
         <rect

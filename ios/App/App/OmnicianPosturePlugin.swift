@@ -171,7 +171,7 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
                         status = "unknown"
                     }
                 }
-                guard extracted else { return }
+                guard extracted, available else { return }
                 DispatchQueue.main.async {
                     self?.applyHingeSnapshot(available: available, status: status, angle: angle)
                 }
@@ -182,6 +182,7 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
         if ok, let created {
             hingeInteraction = created
             hingeView = view
+            hingeAvailable = true
         } else {
             hingeAttachFailed = true
             hingeInteraction = nil
@@ -191,7 +192,9 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
 #endif
 
     private func applyHingeSnapshot(available: Bool, status: String?, angle: Double?) {
-        hingeAvailable = available
+        if available {
+            hingeAvailable = true
+        }
         hingeStatus = status
         hingeAngleDeg = angle
         publish()
@@ -235,23 +238,59 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
 #endif
 
     private func windowSize() -> CGSize {
-        if let bounds = bridge?.viewController?.view.bounds, bounds.width > 0 {
+        if let bounds = bridge?.viewController?.view.bounds, bounds.width > 0, bounds.height > 0 {
             return bounds.size
+        }
+        let screen = UIScreen.main.bounds.size
+        if screen.width > 0, screen.height > 0 {
+            return screen
         }
         return .zero
     }
 
+    private func machineIdentifier() -> String {
+        var info = utsname()
+        uname(&info)
+        let mirror = Mirror(reflecting: info.machine)
+        return mirror.children.reduce(into: "") { identifier, element in
+            guard let value = element.value as? Int8, value != 0 else { return }
+            identifier.append(Character(UnicodeScalar(UInt8(bitPattern: value))))
+        }
+    }
+
+    private func modelLooksLikeDuo(_ model: String) -> Bool {
+        model.replacingOccurrences(of: "_", with: ",").hasPrefix("iPhone19")
+    }
+
+    private func sizeMatchesDuoOuter(_ size: CGSize) -> Bool {
+        let short = min(size.width, size.height)
+        let long = max(size.width, size.height)
+        return abs(short - 466) <= 6 && abs(long - 678) <= 6
+    }
+
+    private func resolvedDisplay(size: CGSize) -> String {
+        let screen = UIScreen.main.bounds.size
+        let shortestView = min(size.width, size.height)
+        let shortestScreen = min(screen.width, screen.height)
+        let shortest = shortestView > 0 ? shortestView : shortestScreen
+        let hingeDevice = hingeAvailable || hingeInteraction != nil
+        let duo = hingeDevice
+            || modelLooksLikeDuo(machineIdentifier())
+            || sizeMatchesDuoOuter(size)
+            || sizeMatchesDuoOuter(screen)
+        if shortest > 0, shortest < 600, duo {
+            return "outer"
+        }
+        if shortest >= 600 {
+            return "inner"
+        }
+        return "unknown"
+    }
+
     private func payload() -> [String: Any] {
         let size = windowSize()
-        let shortest = min(size.width, size.height)
-        let display: String
-        if shortest <= 0 {
-            display = "unknown"
-        } else if shortest >= 600 {
-            display = "inner"
-        } else {
-            display = "outer"
-        }
+        let screen = UIScreen.main.bounds.size
+        let display = resolvedDisplay(size: size)
         let orientation = size.width >= size.height && size.width > 0 ? "landscape" : "portrait"
         var source = "size"
         if hingeAvailable { source = "hinge" }
@@ -259,11 +298,15 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
         else if motionAvailable { source = "motion" }
         var data: [String: Any] = [
             "hingeAvailable": hingeAvailable,
+            "hingeAttachFailed": hingeAttachFailed,
             "display": display,
             "orientation": orientation,
             "windowWidth": Double(size.width),
             "windowHeight": Double(size.height),
+            "screenWidth": Double(screen.width),
+            "screenHeight": Double(screen.height),
             "motionAvailable": motionAvailable,
+            "model": machineIdentifier(),
             "source": source,
         ]
         if let hingeStatus { data["hingeStatus"] = hingeStatus }

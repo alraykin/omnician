@@ -37,7 +37,13 @@ import {
   tunerShowsBook,
 } from '../src/lib/fold-mode.ts'
 import {
+  detectCoverPortraitRail,
+  modelLooksLikeDuo,
+  sizeMatchesDuoOuter,
+} from '../src/lib/duo-layout.ts'
+import {
   emptyNativePosture,
+  hydrateNativePosture,
   resolveNativeFoldLayout,
   LAPTOP_HINGE_ENTER_MIN,
   LAPTOP_HINGE_ENTER_MAX,
@@ -363,7 +369,43 @@ assert.equal(
     hingeStatus: 'partiallyOpen',
     hingeAngleDeg: 50,
   }),
+  'laptop',
+  'partiallyOpen status is laptop even if the angle is outside the enter band',
+)
+assert.equal(
+  resolveNativeFoldLayout({
+    ...innerPortrait,
+    hingeAvailable: true,
+    hingeStatus: 'partiallyOpen',
+  }),
+  'laptop',
+  'partiallyOpen without an angle is laptop',
+)
+assert.equal(
+  resolveNativeFoldLayout({
+    ...innerPortrait,
+    hingeAvailable: true,
+    motionAvailable: true,
+    gravityX: 0.05,
+    gravityY: -0.7,
+    gravityZ: -0.7,
+  }),
+  'laptop',
+  'gravity still detects laptop when hingeAvailable is true but angle/status never arrive',
+)
+assert.equal(
+  resolveNativeFoldLayout({
+    ...innerPortrait,
+    hingeAvailable: true,
+    hingeStatus: 'fullyOpen',
+    hingeAngleDeg: 180,
+    motionAvailable: true,
+    gravityX: 0.05,
+    gravityY: -0.7,
+    gravityZ: -0.7,
+  }),
   'off',
+  'fully open flat stays off even if gravity looks laptop',
 )
 assert.ok(LAPTOP_HINGE_ENTER_MIN === 70 && LAPTOP_HINGE_ENTER_MAX === 130)
 assert.equal(
@@ -416,5 +458,68 @@ assert.equal(
   }),
   'laptop',
 )
+
+assert.equal(sizeMatchesDuoOuter(466, 678), true)
+assert.equal(sizeMatchesDuoOuter(678, 466), true)
+assert.equal(sizeMatchesDuoOuter(472, 672), true, '±6pt outer tolerance')
+assert.equal(sizeMatchesDuoOuter(393, 852), false)
+assert.equal(sizeMatchesDuoOuter(626, 890), false)
+assert.equal(modelLooksLikeDuo('iPhone19,4'), true)
+assert.equal(modelLooksLikeDuo('iPhone19_4'), true)
+assert.equal(modelLooksLikeDuo('iPhone17,2'), false)
+
+const outerPortrait = { width: 466, height: 678, nativeApp: true as const }
+assert.equal(
+  detectCoverPortraitRail(outerPortrait),
+  true,
+  'native Duo outer portrait uses size, not plugin display',
+)
+assert.equal(
+  detectCoverPortraitRail({ ...outerPortrait, native: emptyNativePosture() }),
+  true,
+  'null/unknown plugin display still gets the cover rail on 466×678',
+)
+assert.equal(
+  detectCoverPortraitRail({
+    width: 466,
+    height: 678,
+    nativeApp: true,
+    native: { ...emptyNativePosture(), display: 'unknown', model: 'iPhone19,4' },
+  }),
+  true,
+)
+assert.equal(
+  detectCoverPortraitRail({ width: 393, height: 852, nativeApp: true }),
+  false,
+  'regular iPhone portrait is not the cover rail',
+)
+assert.equal(
+  detectCoverPortraitRail({ width: 626, height: 890, nativeApp: true }),
+  false,
+  'inner portrait is never the cover rail',
+)
+assert.equal(
+  detectCoverPortraitRail({ width: 678, height: 466, nativeApp: true }),
+  false,
+  'outer landscape stays two-column, not the portrait rail',
+)
+assert.equal(
+  detectCoverPortraitRail({ width: 466, height: 678, nativeApp: false }),
+  false,
+  'web Safari at 466×678 does not get the rail without ?duo=outer',
+)
+assert.equal(detectCoverPortraitRail({ width: 466, height: 678, preview: true }), true)
+
+assert.equal(
+  hydrateNativePosture(emptyNativePosture(), { windowWidth: 466, windowHeight: 678 }).display,
+  'outer',
+)
+assert.equal(
+  hydrateNativePosture(emptyNativePosture(), { windowWidth: 626, windowHeight: 890 }).display,
+  'inner',
+)
+
+assert.match(readFileSync(new URL('../src/lib/posture-debug.ts', import.meta.url), 'utf8'), /taps >= 5/)
+assert.match(readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8'), /PostureDebugOverlay/)
 
 console.log('fold-mode ok')
