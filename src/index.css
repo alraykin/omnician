@@ -72,6 +72,8 @@
   --cluster-clear-right: 0px;
   --cluster-clear-top: 0px;
   --cluster-clear-height: 3.35rem;
+  --duo-status-strip: 2.125rem;
+  --duo-rail-width: 3.35rem;
   color-scheme: dark;
 }
 
@@ -89,6 +91,50 @@
   padding-right: max(0.85rem, var(--safe-right));
   padding-bottom: max(0.65rem, var(--safe-bottom));
   padding-left: max(0.85rem, var(--safe-left));
+}
+
+.duo-cover-shell {
+  --duo-status-strip: 2.125rem;
+  --duo-rail-width: 3.35rem;
+  padding-top: max(0.35rem, var(--safe-top));
+  padding-right: calc(var(--duo-rail-width) + var(--duo-status-strip) + 0.2rem);
+  padding-left: max(0.55rem, var(--safe-left));
+}
+
+[data-tuner-cover='1'] {
+  gap: 0.1rem;
+}
+
+[data-tuner-cover='1'] [data-tuner-note] {
+  font-size: 1.85rem;
+}
+
+[data-tuner-cover='1'] [data-headstock-stage] {
+  height: min(10.8rem, 32dvh) !important;
+  max-width: 12.8rem !important;
+}
+
+[data-tuner-cover='1'] [data-tuner-target] {
+  height: 4.55rem !important;
+}
+
+[data-tuner-cover='1'] [data-tuning-change] {
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+}
+
+[data-tuner-cover='1'] [data-tuner-page-controls] {
+  margin-top: 0.25rem;
+}
+
+[data-tuner-cover='1'] [data-tuner-input] {
+  min-height: 2rem;
+}
+
+[data-tuner-landscape] [data-headstock-stage],
+[data-fold-layout='laptop'] [data-headstock-stage] {
+  height: min(12.8rem, 52dvh) !important;
+  max-width: 14.5rem !important;
 }
 
 .safe-overlay {

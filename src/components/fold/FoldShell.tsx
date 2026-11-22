@@ -39,11 +39,13 @@ export function FoldHalf({
   children,
   className,
   style,
+  scroll = false,
 }: {
   side: 'top' | 'bottom' | 'left' | 'right'
   children: ReactNode
   className?: string
   style?: CSSProperties
+  scroll?: boolean
 }) {
   const box =
     side === 'top'
@@ -54,7 +56,12 @@ export function FoldHalf({
           ? 'absolute inset-y-0 left-0 right-[calc(50%+16px)]'
           : 'absolute inset-y-0 left-[calc(50%+16px)] right-0'
   return (
-    <div data-fold-half={side} className={cn(box, 'overflow-hidden', className)} style={style}>
+    <div
+      data-fold-half={side}
+      data-fold-scroll={scroll ? '1' : undefined}
+      className={cn(box, scroll ? 'overflow-x-hidden overflow-y-auto overscroll-contain' : 'overflow-hidden', className)}
+      style={style}
+    >
       {children}
     </div>
   )

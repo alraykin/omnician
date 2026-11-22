@@ -1561,6 +1561,7 @@ export function RhythmPage() {
           clickSound={clickSound}
           presetName={loadedClickPreset?.name ?? 'Click presets'}
           playheadStore={playheadStore}
+          getClock={getTransportClock}
           onTogglePlay={() => void startStop()}
           onMeter={setMeter}
           onBpm={changeBpm}

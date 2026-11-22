@@ -236,7 +236,11 @@ export function layoutForTool(
   width = 0,
   height = 0,
 ): FoldLayout {
-  if (tool === 'tuner') return tunerShowsBook(width, height) ? 'book' : 'off'
+  if (tool === 'tuner') {
+    if (layout === 'laptop' && canUseFoldLayout(width, height) && height >= width) return 'laptop'
+    if (tunerShowsBook(width, height) || isCoverLandscape(width, height)) return 'book'
+    return 'off'
+  }
   if (layout === 'off') return 'off'
   if (tool === 'drums' && layout === 'laptop') return 'laptop'
   if (tool === 'click' && (layout === 'laptop' || layout === 'tent')) return layout

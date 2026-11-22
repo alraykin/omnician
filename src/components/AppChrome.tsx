@@ -3,7 +3,9 @@ import { Link, useLocation } from 'react-router-dom'
 import { Settings } from 'lucide-react'
 
 import { AppTabBar } from '@/components/AppTabBar'
+import { DuoRail } from '@/components/DuoRail'
 import { HomeWordmarkLink } from '@/components/HomeWordmarkLink'
+import { useCoverPortraitRail } from '@/hooks/useDuoLayout'
 import { cn } from '@/lib/utils'
 
 type AppChromeProps = {
@@ -52,19 +54,24 @@ export function AppChrome({
   compact = false,
   hideTabs = false,
 }: AppChromeProps) {
+  const coverRail = useCoverPortraitRail() && !hideTabs
+  const fit = compact || coverRail
   const shell = fluid ? SHELL.fluid : wide ? SHELL.wide : SHELL.default
   return (
     <div
       data-app-frame
+      data-duo-cover={coverRail ? '1' : undefined}
       className={cn(
         'safe-shell relative flex w-full max-w-full flex-col overscroll-x-none [touch-action:pan-y]',
-        compact
+        fit
           ? 'h-svh max-h-svh overflow-x-hidden overflow-y-hidden'
           : 'min-h-svh overflow-x-hidden',
+        coverRail && 'duo-cover-shell',
       )}
     >
       <div className="stage-glow" aria-hidden />
-      {hideTabs ? null : (
+      {coverRail ? <DuoRail /> : null}
+      {hideTabs || coverRail ? null : (
         <header
           className={cn(
             'relative z-10 mx-auto flex w-full flex-col items-stretch gap-2 wide:flex-row wide:items-center wide:gap-3',
@@ -73,7 +80,7 @@ export function AppChrome({
           )}
         >
           <div className="relative flex min-h-11 items-center justify-center pr-24 wide:min-h-0 wide:justify-start wide:pr-0">
-            <HomeWordmarkLink compact={compact} />
+            <HomeWordmarkLink compact={fit} />
           </div>
           <div className="min-w-0 flex-1">
             <AppTabBar />
@@ -85,9 +92,9 @@ export function AppChrome({
         className={cn(
           'relative z-10 mx-auto flex w-full flex-1 flex-col',
           shell,
-          compact ? 'pb-0' : 'pb-4',
+          fit ? 'pb-0' : 'pb-4',
           align === 'center' && 'items-center justify-center px-2 text-center',
-          align === 'fill' && (compact ? 'min-h-0 overflow-hidden pt-2' : 'pt-4'),
+          align === 'fill' && (fit ? 'min-h-0 overflow-hidden pt-1' : 'pt-4'),
         )}
       >
         {children}

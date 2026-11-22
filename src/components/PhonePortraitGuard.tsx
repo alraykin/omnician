@@ -15,12 +15,14 @@ export function PhonePortraitGuard() {
   const foldLayout = useFoldLayout()
   const location = useLocation()
   const tentClick = foldLayout === 'tent' && location.pathname.startsWith('/click')
-  const blockLandscape = phone && !portrait && !editorOpen && !drumsPage && !tentClick
+  const tunerLandscape = location.pathname.startsWith('/tuner')
+  const allowLandscape = editorOpen || drumsPage || tentClick || tunerLandscape
+  const blockLandscape = phone && !portrait && !allowLandscape
 
   useEffect(() => {
-    if (!phone || editorOpen || drumsPage || tentClick) return
+    if (!phone || allowLandscape) return
     void tryLockPortrait()
-  }, [phone, editorOpen, drumsPage, tentClick])
+  }, [phone, allowLandscape])
 
   useEffect(() => {
     const html = document.documentElement
@@ -43,7 +45,7 @@ export function PhonePortraitGuard() {
       <RotateBackArt />
       <h1 className="mt-6 text-[1.65rem] font-bold tracking-tight">Rotate your phone back</h1>
       <p className="mt-2 max-w-[22rem] text-[0.92rem] leading-6 text-slate-400">
-        Home, Tuner, Click, and Settings stay in portrait. Turn the phone upright to keep going.
+        Home, Click, and Settings stay in portrait. Tuner uses a landscape layout. Turn the phone upright to keep going.
       </p>
     </div>,
     document.body,

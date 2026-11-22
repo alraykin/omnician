@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AppChrome } from '@/components/AppChrome'
 import { TunerBook } from '@/components/fold/TunerBook'
+import { TunerLandscape } from '@/components/fold/TunerLandscape'
+import { TunerLaptop } from '@/components/fold/TunerLaptop'
 import { SettingSwitch } from '@/components/SettingsChrome'
 import { A4ReferenceControl } from '@/components/tuner/A4ReferenceControl'
 import { CustomPresetEditor } from '@/components/tuner/CustomPresetEditor'
@@ -13,7 +15,8 @@ import { TunerDebugOverlay } from '@/components/tuner/TunerDebugOverlay'
 import { TunerTarget } from '@/components/tuner/TunerTarget'
 import { TuningSheet } from '@/components/tuner/TuningSheet'
 import { useCustomTunings } from '@/hooks/useCustomTunings'
-import { useToolFoldLayout } from '@/hooks/useFoldMode'
+import { useCoverPortraitRail } from '@/hooks/useDuoLayout'
+import { useInnerFoldAvailable, useToolFoldLayout } from '@/hooks/useFoldMode'
 import { useTuner, type TunerStatus } from '@/hooks/useTuner'
 import {
   loadTunerPrefs,
@@ -119,6 +122,8 @@ export function TunerPage() {
   const { status, reading, needsGesture, debug } = useTuner(a4Hz)
   const [playingId, setPlayingId] = useState<string | null>(getPlayingToneId)
   const tunerFold = useToolFoldLayout('tuner')
+  const innerFold = useInnerFoldAvailable()
+  const coverRail = useCoverPortraitRail()
 
   useEffect(() => subscribeTunerDebug(setShowDebug), [])
   useEffect(() => armLogoDebugToggle(), [])
@@ -400,12 +405,15 @@ export function TunerPage() {
 
   return (
     <AppChrome align="fill">
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        className={cn('flex min-h-0 flex-1 flex-col', coverRail && 'overflow-hidden')}
+        data-tuner-cover={coverRail ? '1' : undefined}
+      >
         <div className="mx-auto w-max">
           <A4ReferenceControl a4Hz={a4Hz} onChange={setA4Hz} />
         </div>
 
-        <div className="mt-2">
+        <div className={coverRail ? 'mt-1' : 'mt-2'}>
           <button
             type="button"
             data-tuning-change
@@ -428,7 +436,10 @@ export function TunerPage() {
         </div>
 
         <div
-          className="mt-2 flex flex-wrap items-center justify-between gap-2"
+          className={cn(
+            'flex flex-wrap items-center justify-between gap-2',
+            coverRail ? 'mt-1' : 'mt-2',
+          )}
           data-tuner-page-controls
         >
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-300">
@@ -450,7 +461,8 @@ export function TunerPage() {
 
         <section
           className={cn(
-            'relative mt-2 flex min-h-0 flex-1 flex-col items-center overflow-x-hidden rounded-3xl border px-3 py-2 sm:px-6 sm:py-4',
+            'relative flex min-h-0 flex-col items-center overflow-x-hidden rounded-3xl border px-3 py-2 sm:px-6 sm:py-4',
+            coverRail ? 'mt-1 flex-none py-1.5' : 'mt-2 flex-1',
             celebrate
               ? 'omni-all-tuned-screen border-emerald-300/80 bg-emerald-500/16'
               : inTune && live
@@ -571,8 +583,10 @@ export function TunerPage() {
           </div>
 
           <p
+            data-tuner-hint
             className={cn(
               'mt-2 text-center text-xs leading-5 sm:min-h-8 sm:text-sm sm:leading-6',
+              coverRail && 'mt-0.5 truncate sm:min-h-0',
               needsGesture || status === 'denied' ? 'text-slate-500' : 'text-slate-400',
             )}
           >
@@ -602,7 +616,7 @@ export function TunerPage() {
         onDelete={deleteCustom}
       />
 
-      {tunerFold === 'book' ? (
+      {tunerFold === 'book' && innerFold ? (
         <TunerBook
           a4Hz={a4Hz}
           onA4={setA4Hz}
@@ -627,6 +641,91 @@ export function TunerPage() {
           onPeg={(peg) => {
             const string = strings.find((item) => item.id === peg.id)
             if (!string) return
+            toggleReferenceTone({
+              id: string.id,
+              frequency: midiToFreq(string.midi, a4Hz),
+              family: family.id,
+            })
+            const index = strings.findIndex((item) => item.id === string.id)
+            if (index >= 0) setFocusIndex(index)
+            if (autoString) setAutoId(string.id)
+          }}
+        />
+      ) : null}
+
+      {tunerFold === 'book' && !innerFold ? (
+        <TunerLandscape
+          a4Hz={a4Hz}
+          onA4={setA4Hz}
+          cents={displayCents}
+          inTune={inTune}
+          live={live}
+          noteName={
+            instrumentMode && activeString
+              ? activeString.label
+              : (reading?.sharpName ?? (demo.cents !== null ? demo.sharpName : null))
+          }
+          octave={
+            instrumentMode && activeString
+              ? activeString.octave
+              : (reading?.octave ?? (demo.cents !== null ? demo.octave : null))
+          }
+          targetHz={targetHz}
+          detectedHz={detectedHz}
+          strings={strings}
+          instrumentId={activeInstrument}
+          selectedId={activeString?.id ?? null}
+          tunedIds={tunedIds}
+          playingId={playingId}
+          layoutMode={layoutMode}
+          onReset={resetTunedPegs}
+          onPeg={(string) => {
+            toggleReferenceTone({
+              id: string.id,
+              frequency: midiToFreq(string.midi, a4Hz),
+              family: family.id,
+            })
+            const index = strings.findIndex((item) => item.id === string.id)
+            if (index >= 0) setFocusIndex(index)
+            if (autoString) setAutoId(string.id)
+          }}
+        />
+      ) : null}
+
+      {tunerFold === 'laptop' ? (
+        <TunerLaptop
+          a4Hz={a4Hz}
+          onA4={setA4Hz}
+          cents={displayCents}
+          inTune={inTune}
+          live={live}
+          noteName={
+            instrumentMode && activeString
+              ? activeString.label
+              : (reading?.sharpName ?? (demo.cents !== null ? demo.sharpName : null))
+          }
+          octave={
+            instrumentMode && activeString
+              ? activeString.octave
+              : (reading?.octave ?? (demo.cents !== null ? demo.octave : null))
+          }
+          targetHz={targetHz}
+          detectedHz={detectedHz}
+          instrumentLabel={instrumentLabel}
+          presetName={current.name}
+          presetNotes={current.notes}
+          onChangePreset={() => setPickerOpen(true)}
+          autoString={autoString}
+          onAutoString={setAutoString}
+          layoutMode={layoutMode}
+          onToggleLayout={() => setLayoutMode((mode) => (mode === 'inline' ? 'headstock' : 'inline'))}
+          strings={strings}
+          instrumentId={activeInstrument}
+          selectedId={activeString?.id ?? null}
+          tunedIds={tunedIds}
+          playingId={playingId}
+          onReset={resetTunedPegs}
+          onPeg={(string) => {
             toggleReferenceTone({
               id: string.id,
               frequency: midiToFreq(string.midi, a4Hz),
@@ -699,7 +798,7 @@ function NoteDisplay({
   if (!live || !sharpName) {
     return (
       <div className="text-center">
-        <div className="text-[2.15rem] font-extrabold leading-none tracking-tight text-white/25 sm:text-5xl">
+        <div data-tuner-note className="text-[2.15rem] font-extrabold leading-none tracking-tight text-white/25 sm:text-5xl">
           {target ? target.split(' · ')[0] : '—'}
         </div>
         {targetHz ? hzLine : (
@@ -712,6 +811,7 @@ function NoteDisplay({
   return (
     <div className="text-center">
       <div
+        data-tuner-note
         className={cn(
           'relative inline-flex items-start text-[2.15rem] font-extrabold leading-none tracking-tight sm:text-5xl',
           inTune ? 'text-emerald-300' : 'text-white',

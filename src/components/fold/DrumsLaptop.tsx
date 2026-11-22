@@ -130,10 +130,11 @@ export function DrumsLaptop({
       <FoldCrease axis="horizontal" />
       <FoldHalf
         side="bottom"
-        className="flex flex-col px-4 pt-2"
+        scroll
+        className="relative flex flex-col px-4 pt-2"
         style={{ paddingBottom: 'max(0.5rem, var(--fold-safe-bottom))' }}
       >
-        <div className="flex h-full min-h-0 flex-col">
+        <div className="flex min-h-full min-h-0 flex-col">
           <div className="flex h-11 shrink-0 items-center gap-1">
             <button
               type="button"
