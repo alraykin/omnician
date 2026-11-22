@@ -1,7 +1,7 @@
 import { Minus, Plus } from 'lucide-react'
 import { createPortal } from 'react-dom'
 
-import { SheetBackdrop, SheetCloseX } from '@/components/SheetClose'
+import { OverlayHost, SheetBackdrop, SheetCloseX } from '@/components/SheetClose'
 import { BpmWheel } from '@/components/rhythm/BpmWheel'
 import { Button } from '@/components/ui/button'
 import { activateOnPointer } from '@/lib/utils'
@@ -23,9 +23,9 @@ export function EditorTempoSheet({
   const shown = Math.round(liveBpm || bpm)
 
   return createPortal(
-    <div
+    <OverlayHost
       data-editor-tempo-sheet
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/65 p-1.5"
+      className="z-[90] items-center bg-black/65"
     >
       <SheetBackdrop label="Close tempo" onClose={onClose} />
       <div
@@ -33,9 +33,10 @@ export function EditorTempoSheet({
         aria-modal="true"
         aria-labelledby="editor-tempo-title"
         data-editor-tempo-dialog
-        className="relative z-10 flex max-h-[calc(100svh-0.6rem)] w-max max-w-[calc(100vw-0.6rem)] items-center gap-3 overflow-hidden rounded-2xl border border-white/12 bg-[#141A28] px-3 py-2.5 shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
+        className="relative z-10 flex max-h-full w-max max-w-full items-center gap-3 overflow-y-auto rounded-2xl border border-white/12 bg-[#141A28] px-3 py-2.5 shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
         onClick={(event) => event.stopPropagation()}
       >
+        <SheetCloseX label="Close tempo" onClose={onClose} className="self-start" />
         <div className="flex min-w-[5.5rem] flex-col self-stretch">
           <p className="text-[0.58rem] font-semibold uppercase tracking-[0.14em] text-[#C084FC]">Tempo</p>
           <p
@@ -84,9 +85,8 @@ export function EditorTempoSheet({
             5
           </Button>
         </div>
-        <SheetCloseX label="Close tempo" onClose={onClose} className="self-start" />
       </div>
-    </div>,
+    </OverlayHost>,
     document.body,
   )
 }

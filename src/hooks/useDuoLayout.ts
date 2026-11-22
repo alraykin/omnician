@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router-dom'
 
-import { isCoverPortraitRail } from '@/lib/duo-layout'
+import { isCoverPortraitRail, isDuoOuterDisplay } from '@/lib/duo-layout'
 import { subscribeNativePosture } from '@/lib/native-fold'
 import { subscribeViewport } from '@/lib/phone-viewport'
 
@@ -30,4 +30,16 @@ export function useCoverPortraitRail(): boolean {
   void location.search
   void location.pathname
   return rail
+}
+
+function readOuter(): boolean {
+  return isDuoOuterDisplay()
+}
+
+export function useDuoOuterDisplay(): boolean {
+  const location = useLocation()
+  const outer = useSyncExternalStore(subscribe, readOuter, () => false)
+  void location.search
+  void location.pathname
+  return outer
 }

@@ -1,4 +1,7 @@
+import { OverlayHost } from '@/components/SheetClose'
+import { useFoldLayout } from '@/hooks/useFoldMode'
 import { AUTO_COMPLETE_ENABLED } from '@/lib/features'
+import { clampMenuToOverlayHost, overlayHostRect } from '@/lib/overlay-bounds'
 import { cn } from '@/lib/utils'
 
 export type BarMenuAction = 'copy' | 'paste' | 'duplicate' | 'clear' | 'delete' | 'auto' | 'retry-fill'
@@ -42,12 +45,13 @@ export function BarMenu({
     { action: 'retry-fill', label: 'Try another fill', hidden: !AUTO_COMPLETE_ENABLED || !canRetryFill },
   ]
 
+  const layout = useFoldLayout()
   const width = 196
-  const left = Math.min(Math.max(8, x), window.innerWidth - width - 8)
-  const top = Math.min(Math.max(8, y), window.innerHeight - 8)
+  const host = overlayHostRect(layout, window.innerWidth, window.innerHeight)
+  const { left, top } = clampMenuToOverlayHost(x, y, width, 280, host)
 
   return (
-    <div className="fixed inset-0 z-50" data-bar-menu-layer>
+    <OverlayHost flush className="z-50" data-bar-menu-layer>
       <button
         type="button"
         aria-label="Close bar menu"
@@ -84,6 +88,6 @@ export function BarMenu({
           ),
         )}
       </div>
-    </div>
+    </OverlayHost>
   )
 }

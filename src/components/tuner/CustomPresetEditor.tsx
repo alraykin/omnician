@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 
+import { OverlayHost, SheetHeader } from '@/components/SheetClose'
 import { Button } from '@/components/ui/button'
 import type { CustomTuning } from '@/lib/custom-presets'
 import { SHARP_NAMES, midiFromNote, pitchClassName } from '@/lib/notes'
@@ -72,21 +73,23 @@ export function CustomPresetEditor({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+    <OverlayHost className="z-50 items-end bg-black/70 sm:items-center">
       <div
         role="dialog"
         aria-labelledby="custom-tuning-title"
-        className="max-h-[90svh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5"
+        className="max-h-full w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5"
       >
-        <h2
-          id="custom-tuning-title"
-          className="text-xl font-bold tracking-tight text-white"
-        >
-          {draft ? 'Edit custom tuning' : 'New custom tuning'}
-        </h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Saved on this phone or computer only — no account needed.
-        </p>
+        <SheetHeader
+          titleId="custom-tuning-title"
+          title={draft ? 'Edit custom tuning' : 'New custom tuning'}
+          onClose={onClose}
+          closeLabel="Close custom tuning"
+          description={
+            <p className="mt-1 text-sm text-pretty text-slate-400">
+              Saved on this phone or computer only — no account needed.
+            </p>
+          }
+        />
 
         <label className="mt-5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
           Name
@@ -183,7 +186,7 @@ export function CustomPresetEditor({
           </Button>
         </div>
       </div>
-    </div>
+    </OverlayHost>
   )
 }
 

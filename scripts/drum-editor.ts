@@ -261,7 +261,7 @@ assert.match(pageSrc, /data-beat-library-sheet/)
 assert.match(pageSrc, /data-library-layout/)
 assert.match(pageSrc, /z-\[90\]/)
 assert.match(pageSrc, /SheetBackdrop/)
-assert.match(pageSrc, /SheetCloseX/)
+assert.match(pageSrc, /SheetHeader/)
 assert.match(
   readFileSync(new URL('../src/components/rhythm/EditorTempoSheet.tsx', import.meta.url), 'utf8'),
   /data-editor-tempo-sheet/,
@@ -285,6 +285,10 @@ assert.match(
 assert.match(
   readFileSync(new URL('../src/components/rhythm/EditorTempoSheet.tsx', import.meta.url), 'utf8'),
   /SheetCloseX/,
+)
+assert.match(
+  readFileSync(new URL('../src/components/rhythm/EditorTempoSheet.tsx', import.meta.url), 'utf8'),
+  /OverlayHost/,
 )
 assert.doesNotMatch(pageSrc, /ListenTempoSheet/)
 assert.doesNotMatch(pageSrc, /listenDemo/)

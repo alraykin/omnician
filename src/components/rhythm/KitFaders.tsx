@@ -278,7 +278,12 @@ function FaderThrow({ pos }: { pos: number }) {
 
 function MixFaderZoom({ label, pos, readout }: { label: string; pos: number; readout: string }) {
   return (
-    <div className="kit-fader-zoom" data-kit-fader-zoom={label.toLowerCase()} aria-hidden>
+    <div
+      className="kit-fader-zoom"
+      data-overlay-host="1"
+      data-kit-fader-zoom={label.toLowerCase()}
+      aria-hidden
+    >
       <div className="kit-fader-zoom-card">
         <p className="kit-fader-zoom-name">{label}</p>
         <div className="kit-fader-zoom-throw">

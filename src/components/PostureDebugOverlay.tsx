@@ -60,10 +60,11 @@ export function PostureDebugOverlay() {
   return (
     <button
       type="button"
+      data-overlay-host="1"
       data-posture-debug="on"
       aria-label="Dismiss posture diagnostics"
       onClick={() => setPostureDebugEnabled(false)}
-      className="fixed inset-0 z-[220] flex items-end justify-center bg-black/45 px-3 py-4 text-left sm:items-center"
+      className="overlay-host fixed inset-0 z-[220] flex items-end justify-center bg-black/45 text-left sm:items-center"
     >
       <aside className="w-[min(26rem,calc(100vw-1.5rem))] rounded-2xl border border-[#A855F7]/55 bg-[#0B0F1A]/96 px-3 py-2.5 font-mono text-[0.68rem] leading-5 text-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
         <p className="mb-1 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">

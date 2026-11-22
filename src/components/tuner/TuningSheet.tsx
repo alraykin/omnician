@@ -1,6 +1,7 @@
 import { ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
+import { OverlayHost } from '@/components/SheetClose'
 import { Button } from '@/components/ui/button'
 import {
   configsForFamily,
@@ -151,8 +152,8 @@ export function TuningSheet({
       : 'Tuning'
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 px-0 pb-[var(--tabbar-clearance)] pt-2 sm:items-center sm:p-4"
+    <OverlayHost
+      className="z-[70] items-end bg-black/70 sm:items-center"
       data-tuning-sheet
       data-tuning-step={step}
       onClick={closeSheet}
@@ -160,7 +161,7 @@ export function TuningSheet({
       <div
         role="dialog"
         aria-labelledby="tuning-sheet-title"
-        className="flex h-[calc(100svh-var(--tabbar-clearance)-0.5rem)] max-h-[40rem] w-full max-w-lg flex-col rounded-t-3xl border border-white/10 bg-[#0F1422] sm:h-[min(40rem,calc(90svh-var(--tabbar-clearance)))] sm:rounded-3xl md:max-w-2xl lg:max-w-3xl"
+        className="flex h-full max-h-[40rem] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[#0F1422] sm:h-auto sm:max-h-full sm:rounded-3xl md:max-w-2xl lg:max-w-3xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="shrink-0 px-4 pb-3 pt-4">
@@ -176,7 +177,7 @@ export function TuningSheet({
             </button>
             <h2
               id="tuning-sheet-title"
-              className="min-w-0 truncate text-lg font-bold tracking-tight text-white sm:text-xl"
+              className="min-w-0 text-wrap break-words text-lg font-bold tracking-tight text-white sm:text-xl"
             >
               {title}
             </h2>
@@ -290,7 +291,7 @@ export function TuningSheet({
           </Button>
         </div>
       </div>
-    </div>
+    </OverlayHost>
   )
 }
 

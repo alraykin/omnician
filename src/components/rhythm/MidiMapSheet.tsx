@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { OverlayHost, SheetHeader } from '@/components/SheetClose'
 import { Button } from '@/components/ui/button'
 import {
   MIDI_NOTE_OPTIONS,
@@ -137,16 +138,19 @@ export function MidiMapSheet({
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-4 sm:items-center">
+    <OverlayHost className="z-[60] items-end bg-black/70 sm:items-center">
       <div
         role="dialog"
         aria-labelledby="midi-map-title"
         data-midi-map-sheet
-        className="flex max-h-[90svh] w-full max-w-lg flex-col overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5"
+        className="flex max-h-full w-full max-w-lg flex-col overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5"
       >
-        <h2 id="midi-map-title" className="text-xl font-bold tracking-tight text-white">
-          MIDI import mapping
-        </h2>
+        <SheetHeader
+          titleId="midi-map-title"
+          title="MIDI import mapping"
+          onClose={onClose}
+          closeLabel="Close MIDI mapping"
+        />
         <div className="mt-2">
           <MidiMapEditor map={map} onChange={onChange} />
         </div>
@@ -154,6 +158,6 @@ export function MidiMapSheet({
           Done
         </Button>
       </div>
-    </div>
+    </OverlayHost>
   )
 }

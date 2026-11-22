@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Plus, Trash2, Undo2 } from 'lucide-react'
 
+import { OverlayHost, SheetHeader } from '@/components/SheetClose'
 import { Button } from '@/components/ui/button'
 import { FACTORY_STYLE_IDS, type FactoryLibrary } from '@/lib/factory-library'
 import { factoryLogout } from '@/lib/factory-store'
@@ -233,26 +234,31 @@ export function FactoryNameSheet({
   const [draftStyle, setDraftStyle] = useState(styleId)
   const title = mode === 'save-new' ? 'Save as new factory beat' : 'Rename factory beat'
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 p-4 sm:items-center">
+    <OverlayHost className="z-[70] items-end bg-black/70 sm:items-center">
       <form
         role="dialog"
         aria-labelledby="factory-name-title"
         data-factory-name-dialog={mode}
-        className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0F1422] p-5"
+        className="relative z-10 w-full max-w-sm overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5"
         onSubmit={(event) => {
           event.preventDefault()
           if (!draftName.trim()) return
           onSubmit(draftName.trim(), draftStyle)
         }}
       >
-        <h2 id="factory-name-title" className="text-xl font-bold tracking-tight text-white">
-          {title}
-        </h2>
-        <p className="mt-1 text-sm text-slate-400">
-          {mode === 'save-new'
-            ? 'Adds a new built-in beat with the current pattern. The one you loaded stays as it was last saved.'
-            : 'Changes the name of this factory beat. It keeps the same id.'}
-        </p>
+        <SheetHeader
+          titleId="factory-name-title"
+          title={title}
+          onClose={onClose}
+          closeLabel="Close factory name"
+          description={
+            <p className="mt-1 text-sm text-pretty text-slate-400">
+              {mode === 'save-new'
+                ? 'Adds a new built-in beat with the current pattern. The one you loaded stays as it was last saved.'
+                : 'Changes the name of this factory beat. It keeps the same id.'}
+            </p>
+          }
+        />
         <label className="mt-4 block text-xs font-semibold uppercase tracking-wider text-slate-500">
           Name
           <input
@@ -289,7 +295,7 @@ export function FactoryNameSheet({
           Cancel
         </Button>
       </form>
-    </div>
+    </OverlayHost>
   )
 }
 
@@ -303,19 +309,24 @@ export function FactoryHistorySheet({
   onRestore: (id: string) => void
 }) {
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 p-4 sm:items-center">
+    <OverlayHost className="z-[70] items-end bg-black/70 sm:items-center">
       <div
         role="dialog"
         aria-labelledby="factory-history-title"
         data-factory-history
-        className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0F1422] p-5"
+        className="max-h-full w-full max-w-sm overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5"
       >
-        <h2 id="factory-history-title" className="text-xl font-bold tracking-tight text-white">
-          Version history
-        </h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Undo on the editor bar steps back one save. Pick an older save here if you need it.
-        </p>
+        <SheetHeader
+          titleId="factory-history-title"
+          title="Version history"
+          onClose={onClose}
+          closeLabel="Close version history"
+          description={
+            <p className="mt-1 text-sm text-pretty text-slate-400">
+              Undo on the editor bar steps back one save. Pick an older save here if you need it.
+            </p>
+          }
+        />
         {versions.length === 0 ? (
           <p className="mt-4 rounded-2xl border border-dashed border-white/10 px-3 py-3 text-sm text-slate-500">
             No previous versions yet. Save as default to create one.
@@ -341,6 +352,6 @@ export function FactoryHistorySheet({
           Close
         </Button>
       </div>
-    </div>
+    </OverlayHost>
   )
 }

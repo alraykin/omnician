@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 
+import { useDuoOuterDisplay } from '@/hooks/useDuoLayout'
 import { useFoldChoice, useFoldLayout } from '@/hooks/useFoldMode'
 import { isFoldChoice, readFoldChoice, saveFoldChoice } from '@/lib/fold-mode'
 import { startNativePosture } from '@/native/ios-posture'
@@ -10,6 +11,7 @@ export function FoldSync() {
   const location = useLocation()
   const choice = useFoldChoice()
   const layout = useFoldLayout()
+  const outer = useDuoOuterDisplay()
 
   useEffect(() => startNativePosture(), [])
 
@@ -26,11 +28,13 @@ export function FoldSync() {
     const html = document.documentElement
     html.dataset.foldChoice = choice
     html.dataset.foldLayout = layout
+    html.dataset.duoDisplay = outer ? 'outer' : 'other'
     return () => {
       delete html.dataset.foldChoice
       delete html.dataset.foldLayout
+      delete html.dataset.duoDisplay
     }
-  }, [choice, layout])
+  }, [choice, layout, outer])
 
   return null
 }

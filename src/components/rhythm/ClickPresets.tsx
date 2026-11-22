@@ -2,7 +2,7 @@ import { Bookmark, Check, ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { SheetBackdrop, SheetCloseX } from '@/components/SheetClose'
+import { OverlayHost, SheetBackdrop, SheetHeader } from '@/components/SheetClose'
 import { Button } from '@/components/ui/button'
 import {
   clickPresetSummary,
@@ -84,29 +84,31 @@ export function ClickPresetsSheet({
   }
 
   return createPortal(
-    <div
+    <OverlayHost
       data-click-presets-sheet
-      className="fixed inset-0 z-[90] flex items-end justify-center bg-black/65 p-3 pb-[calc(0.5rem+var(--tabbar-clearance))] sm:items-center sm:p-6"
+      className="z-[90] items-end bg-black/65 sm:items-center"
     >
       <SheetBackdrop label="Close click presets" onClose={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="click-presets-title"
-        className="relative z-10 flex max-h-[min(38rem,88svh)] w-full max-w-md flex-col overflow-hidden rounded-[1.6rem] border border-white/12 bg-[#121826] px-4 pb-4 pt-4 shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
+        className="relative z-10 flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-[1.6rem] border border-white/12 bg-[#121826] px-4 pb-4 pt-4 shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 id="click-presets-title" className="text-[1.35rem] font-bold leading-none tracking-tight text-white">
-              Click presets
-            </h2>
-            <p className="mt-1.5 text-[0.78rem] leading-5 text-slate-400">
+        <SheetHeader
+          className="mb-3"
+          titleId="click-presets-title"
+          title="Click presets"
+          titleClassName="text-[1.35rem] leading-none"
+          onClose={onClose}
+          closeLabel="Close click presets"
+          description={
+            <p className="mt-1.5 text-[0.78rem] leading-5 text-pretty text-slate-400">
               Tempo, meter, sound, subdivision, accents, bars, Speed Builder
             </p>
-          </div>
-          <SheetCloseX label="Close click presets" onClose={onClose} />
-        </div>
+          }
+        />
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5">
           <button
@@ -236,7 +238,7 @@ export function ClickPresetsSheet({
           )}
         </div>
       </div>
-    </div>,
+    </OverlayHost>,
     document.body,
   )
 }

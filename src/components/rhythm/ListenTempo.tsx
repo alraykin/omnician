@@ -1,7 +1,8 @@
-import { Mic, Upload, X } from 'lucide-react'
+import { Mic, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { OverlayHost, SheetHeader } from '@/components/SheetClose'
 import { Button } from '@/components/ui/button'
 import { type SpeedBuilder, sbBpm } from '@/lib/speed-builder'
 import { type TempoEstimate } from '@/lib/tempo-detect'
@@ -88,8 +89,8 @@ export function ListenTempoSheet({
       : `This is already your tempo.`)
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-3 pb-[calc(0.65rem+var(--tabbar-clearance))] sm:items-center sm:p-6 sm:pb-6"
+    <OverlayHost
+      className="z-[100] items-end bg-black/60 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="listen-tempo-title"
@@ -115,39 +116,34 @@ export function ListenTempoSheet({
         }}
       />
       <div
-        className="relative z-10 w-full max-w-md rounded-3xl border border-white/12 bg-[#141A28] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.55)] sm:p-6"
+        className="relative z-10 max-h-full w-full max-w-md overflow-y-auto rounded-3xl border border-white/12 bg-[#141A28] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.55)] sm:p-6"
         onPointerDown={(event) => {
           event.stopPropagation()
           ignoreBackdropUntil.current = performance.now() + 800
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
-              Tempo listen
-            </p>
-            <h2 id="listen-tempo-title" className="text-lg font-bold text-white">
-              {showResult
-                ? 'Detected tempo'
-                : phase === 'listening'
-                ? 'Listening for a beat…'
-                : phase === 'analyzing'
-                  ? 'Finding the tempo…'
-                  : phase === 'error'
-                    ? 'Could not listen'
-                    : 'Listen for tempo'}
-            </h2>
-          </div>
-          <button
-            type="button"
-            className="flex size-9 items-center justify-center rounded-full border border-white/12 text-slate-300"
-            aria-label="Cancel"
-            {...activateOnPointer(() => closeSheet())}
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
+          Tempo listen
+        </p>
+        <SheetHeader
+          className="mb-3"
+          titleId="listen-tempo-title"
+          title={
+            showResult
+              ? 'Detected tempo'
+              : phase === 'listening'
+              ? 'Listening for a beat…'
+              : phase === 'analyzing'
+                ? 'Finding the tempo…'
+                : phase === 'error'
+                  ? 'Could not listen'
+                  : 'Listen for tempo'
+          }
+          titleClassName="text-lg"
+          onClose={() => closeSheet()}
+          closeLabel="Cancel"
+        />
 
         {phase === 'listening' ? (
           <div className="space-y-3">
@@ -267,7 +263,7 @@ export function ListenTempoSheet({
           }}
         />
       </div>
-    </div>,
+    </OverlayHost>,
     document.body,
   )
 }

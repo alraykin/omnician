@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, RotateCcw, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, RotateCcw, Trash2 } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -14,6 +14,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 
+import { OverlayHost, SheetHeader } from '@/components/SheetClose'
 import { DrumPadIcon } from '@/components/rhythm/DrumPadIcon'
 import { Button } from '@/components/ui/button'
 import {
@@ -489,9 +490,10 @@ export function DrumRecorderSheet({
   }
 
   const sheet = (
-    <div
+    <OverlayHost
       ref={overlayRef}
-      className="fixed inset-0 z-[90] flex items-stretch justify-center bg-black/70 p-0 rec-wide:items-center rec-wide:p-4"
+      stretch
+      className="z-[90] items-stretch bg-black/70 rec-wide:items-center"
       data-drum-recorder
       data-drum-recorder-backdrop
       data-recording={liveRecording ? '1' : '0'}
@@ -508,55 +510,52 @@ export function DrumRecorderSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="drum-recorder-title"
-        className="flex h-[100svh] max-h-[100svh] w-full max-w-lg flex-col overflow-hidden rounded-none border-0 bg-[#0F1422] pb-[max(0.4rem,env(safe-area-inset-bottom,0px))] rec-wide:h-auto rec-wide:max-h-[min(90svh,52rem)] rec-wide:rounded-3xl rec-wide:border rec-wide:border-white/10 rec-wide:pb-0"
+        className="flex h-full max-h-full w-full max-w-lg flex-col overflow-hidden rounded-none border-0 bg-[#0F1422] rec-wide:h-auto rec-wide:max-h-full rec-wide:rounded-3xl rec-wide:border rec-wide:border-white/10"
         onPointerDown={(event) => event.stopPropagation()}
         onTouchStart={(event) => event.stopPropagation()}
       >
-        <header className="flex shrink-0 items-start justify-between gap-3 px-4 pb-2 pt-3 sm:px-5">
-          <div className="min-w-0">
-            <h2 id="drum-recorder-title" className="text-lg font-bold tracking-tight text-white sm:text-xl">
-              Record beat
-            </h2>
-            <p className="mt-0.5 truncate text-xs text-slate-400">
+        <SheetHeader
+          className="px-4 pb-2 pt-3 sm:px-5"
+          titleId="drum-recorder-title"
+          title="Record beat"
+          titleClassName="text-lg sm:text-xl"
+          onClose={onClose}
+          closeLabel="Close recorder"
+          description={
+            <p className="mt-0.5 text-xs leading-4 text-pretty text-slate-400">
               {beatName} · Bar {shownBarIndex + 1} of {barsCount} · {meter}
             </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <label className="hidden items-center gap-2 text-xs font-semibold text-slate-300 rec-wide:flex">
-              Keys on
-              <button
+          }
+          trailing={
+            <>
+              <label className="hidden items-center gap-2 text-xs font-semibold text-slate-300 rec-wide:flex">
+                Keys on
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={keysOn}
+                  data-keys-on={keysOn ? '1' : '0'}
+                  {...press(() => setKeysOn((on) => !on))}
+                  className={cn(
+                    'inline-flex h-7 w-12 items-center rounded-full p-0.5',
+                    keysOn ? 'justify-end bg-[#A855F7]' : 'justify-start bg-white/15',
+                  )}
+                >
+                  <span className="block size-6 rounded-full bg-white" />
+                </button>
+              </label>
+              <Button
                 type="button"
-                role="switch"
-                aria-checked={keysOn}
-                data-keys-on={keysOn ? '1' : '0'}
-                {...press(() => setKeysOn((on) => !on))}
-                className={cn(
-                  'inline-flex h-7 w-12 items-center rounded-full p-0.5',
-                  keysOn ? 'justify-end bg-[#A855F7]' : 'justify-start bg-white/15',
-                )}
+                size="sm"
+                className="h-9 rounded-full px-4"
+                data-recorder-done
+                {...press(onClose)}
               >
-                <span className="block size-6 rounded-full bg-white" />
-              </button>
-            </label>
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 rounded-full px-4"
-              data-recorder-done
-              {...press(onClose)}
-            >
-              Done
-            </Button>
-            <button
-              type="button"
-              aria-label="Close recorder"
-              className="hidden size-9 items-center justify-center rounded-full border border-white/12 text-slate-300 rec-wide:flex"
-              {...press(onClose)}
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-        </header>
+                Done
+              </Button>
+            </>
+          }
+        />
 
         <div data-rec-body className="flex min-h-0 flex-1 flex-col gap-2 px-3 pb-2 sm:px-5 sm:pb-3">
           <div data-rec-controls className="flex shrink-0 flex-col gap-2">
@@ -709,7 +708,6 @@ export function DrumRecorderSheet({
             <KeyHint keys="Esc" label="Done" />
           </div>
         </div>
-      </div>
 
       {startAsk ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 p-6" data-rec-start-ask>
@@ -757,7 +755,8 @@ export function DrumRecorderSheet({
           </div>
         </div>
       ) : null}
-    </div>
+      </div>
+    </OverlayHost>
   )
 
   return createPortal(sheet, document.body)

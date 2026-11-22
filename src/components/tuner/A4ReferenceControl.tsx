@@ -1,6 +1,7 @@
 import { ChevronDown, Minus, Plus } from 'lucide-react'
 import { useState } from 'react'
 
+import { OverlayHost, SheetHeader } from '@/components/SheetClose'
 import { Button } from '@/components/ui/button'
 import { A4_PRESETS, A4_RANGE, clampA4, stepA4 } from '@/lib/custom-presets'
 import { A4_HZ } from '@/lib/notes'
@@ -37,29 +38,33 @@ export function A4ReferenceControl({ a4Hz, onChange }: A4ReferenceControlProps) 
       </button>
 
       {open ? (
-        <div
-          className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 px-0 pb-[var(--tabbar-clearance)] pt-2 sm:items-center sm:p-4"
+        <OverlayHost
+          className="z-[70] items-end bg-black/70 sm:items-center"
           data-a4-sheet
           onClick={() => setOpen(false)}
         >
           <div
             role="dialog"
             aria-labelledby="a4-sheet-title"
-            className="w-full max-w-lg rounded-t-3xl border border-white/10 bg-[#0F1422] px-4 pb-4 pt-4 sm:rounded-3xl"
+            className="max-h-full w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/10 bg-[#0F1422] px-4 pb-4 pt-4 sm:rounded-3xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
-              Reference pitch
-            </p>
-            <h2
-              id="a4-sheet-title"
-              className="mt-1 text-xl font-bold tracking-tight text-white"
-            >
-              A4
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Detection, cents, string targets, and reference tones all follow this A.
-            </p>
+            <SheetHeader
+              titleId="a4-sheet-title"
+              title="A4"
+              onClose={() => setOpen(false)}
+              closeLabel="Close A4 reference"
+              description={
+                <>
+                  <p className="mt-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">
+                    Reference pitch
+                  </p>
+                  <p className="mt-1 text-sm text-pretty text-slate-400">
+                    Detection, cents, string targets, and reference tones all follow this A.
+                  </p>
+                </>
+              }
+            />
 
             <div className="mt-5 flex items-center justify-center gap-4">
               <Button
@@ -144,7 +149,7 @@ export function A4ReferenceControl({ a4Hz, onChange }: A4ReferenceControlProps) 
               Done
             </Button>
           </div>
-        </div>
+        </OverlayHost>
       ) : null}
     </>
   )

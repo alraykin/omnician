@@ -42,6 +42,7 @@
     "test:master-peaks": "npx --yes tsx scripts/master-peaks.ts",
     "test:tuner-layout": "npx --yes tsx scripts/tuner-layout.ts",
     "test:fold": "npx --yes tsx scripts/fold-mode.ts",
+    "test:overlay": "npx --yes tsx scripts/overlay-bounds.ts",
     "test:pendulum": "npx --yes tsx scripts/pendulum-swing.ts",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-cloudflare.sh",

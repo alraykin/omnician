@@ -7,7 +7,7 @@ import { AppChrome } from '@/components/AppChrome'
 import { ClickLaptop } from '@/components/fold/ClickLaptop'
 import { ClickTent } from '@/components/fold/ClickTent'
 import { DrumsLaptop } from '@/components/fold/DrumsLaptop'
-import { SheetBackdrop, SheetCloseX } from '@/components/SheetClose'
+import { OverlayHost, SheetBackdrop, SheetHeader } from '@/components/SheetClose'
 import { FactoryEditorBar, FactoryHistorySheet, FactoryNameSheet } from '@/components/FactoryEditorBar'
 import { ClickPresetChip, ClickPresetsSheet } from '@/components/rhythm/ClickPresets'
 import { ClickSoundPicker } from '@/components/rhythm/ClickSoundPicker'
@@ -25,9 +25,9 @@ import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { useFactoryEditor } from '@/hooks/useFactoryEditor'
-import { useCoverPortraitRail } from '@/hooks/useDuoLayout'
+import { useCoverPortraitRail, useDuoOuterDisplay } from '@/hooks/useDuoLayout'
 import { useToolFoldLayout } from '@/hooks/useFoldMode'
-import { useCompactViewport, usePortraitViewport } from '@/hooks/usePhoneViewport'
+import { useCompactViewport, usePortraitViewport, useViewportSize } from '@/hooks/usePhoneViewport'
 import { usePlayhead, useRhythmEngine, type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
 import { defaultIntensityForStyle, type KitIntensity } from '@/lib/kit-intensity'
 import { type KitGroupId, type KitMix } from '@/lib/kit-mix'
@@ -123,6 +123,7 @@ import {
   type UserBeat,
 } from '@/lib/user-beats'
 import { type SpeedBuilder, type SpeedBuilderCue } from '@/lib/speed-builder'
+import { overlayListColumns } from '@/lib/overlay-bounds'
 import { modeFromPath, toolPath } from '@/lib/tool-routes'
 import {
   getRhythmStyles,
@@ -1734,23 +1735,28 @@ export function RhythmPage() {
       ) : null}
 
       {saveOpen ? (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-4 sm:items-center">
+        <OverlayHost className="z-[60] items-end bg-black/70 sm:items-center" data-save-overlay>
           <form
             role="dialog"
             aria-labelledby="save-beat-title"
             data-save-dialog
-            className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0F1422] p-5"
+            className="relative z-10 w-full max-w-sm overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5"
             onSubmit={(event) => {
               event.preventDefault()
               commitSave()
             }}
           >
-            <h2 id="save-beat-title" className="text-xl font-bold tracking-tight text-white">
-              {saveAsNew || !savedUser ? 'Save beat' : 'Save changes'}
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Saved on this phone or computer only — no account needed.
-            </p>
+            <SheetHeader
+              titleId="save-beat-title"
+              title={saveAsNew || !savedUser ? 'Save beat' : 'Save changes'}
+              description={
+                <p className="mt-1 text-sm text-slate-400">
+                  Saved on this phone or computer only — no account needed.
+                </p>
+              }
+              onClose={() => setSaveOpen(false)}
+              closeLabel="Close save dialog"
+            />
             <label className="mt-4 block text-xs font-semibold uppercase tracking-wider text-slate-500">
               Name
               <input
@@ -1783,24 +1789,29 @@ export function RhythmPage() {
               Cancel
             </Button>
           </form>
-        </div>
+        </OverlayHost>
       ) : null}
 
       {AUTO_COMPLETE_ENABLED && autoConfirm ? (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-4 sm:items-center">
+        <OverlayHost className="z-[60] items-end bg-black/70 sm:items-center" data-auto-confirm-overlay>
           <div
             role="dialog"
             aria-labelledby="auto-complete-title"
             data-auto-confirm
-            className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0F1422] p-5"
+            className="relative z-10 w-full max-w-sm overflow-y-auto rounded-3xl border border-white/10 bg-[#0F1422] p-5"
           >
-            <h2 id="auto-complete-title" className="text-xl font-bold tracking-tight text-white">
-              Replace bars 2–8?
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Those bars already have notes. Auto-complete will overwrite them with a new 8-bar phrase
-              from this groove.
-            </p>
+            <SheetHeader
+              titleId="auto-complete-title"
+              title="Replace bars 2–8?"
+              description={
+                <p className="mt-1 text-sm text-slate-400">
+                  Those bars already have notes. Auto-complete will overwrite them with a new 8-bar phrase
+                  from this groove.
+                </p>
+              }
+              onClose={() => setAutoConfirm(false)}
+              closeLabel="Close auto-complete"
+            />
             <Button type="button" className="mt-4 w-full" data-auto-confirm-replace onClick={runAutoComplete}>
               Replace
             </Button>
@@ -1814,7 +1825,7 @@ export function RhythmPage() {
               Cancel
             </Button>
           </div>
-        </div>
+        </OverlayHost>
       ) : null}
 
       {RECORDER_ENABLED && mode === 'drums' ? (
@@ -2076,15 +2087,21 @@ function PresetSheet({
     (style) => !style.grooves.some((item) => item.beats === current.beats && item.beatUnit === current.beatUnit),
   )
 
+  const outer = useDuoOuterDisplay()
+  const viewport = useViewportSize()
+  const columns = overlayListColumns({ width: viewport.width, outer })
+  const listLayout = columns === 1
+
   if (typeof document === 'undefined') return null
 
   return createPortal(
-    <div
+    <OverlayHost
       data-beat-library-sheet
-      data-library-layout={compact ? 'landscape' : 'sheet'}
+      data-library-layout={listLayout ? 'list' : compact ? 'landscape' : 'sheet'}
+      data-library-columns={String(columns)}
       className={cn(
-        'fixed inset-0 z-[90] flex justify-center bg-black/70',
-        compact ? 'items-center p-1.5' : 'items-end p-4 sm:items-center',
+        'z-[90] bg-black/70',
+        compact ? 'items-center' : 'items-end sm:items-center',
       )}
     >
       <SheetBackdrop label="Close beat library" onClose={onClose} />
@@ -2094,26 +2111,26 @@ function PresetSheet({
         aria-labelledby="rhythm-presets-title"
         data-factory-reorder={factoryReorder ? '1' : '0'}
         className={cn(
-          'relative z-10 w-full rounded-3xl border border-white/10 bg-[#0F1422]',
+          'relative z-10 flex w-full min-h-0 max-h-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0F1422]',
           compact
-            ? 'flex max-h-[calc(100svh-0.6rem)] max-w-[min(56rem,calc(100vw-0.6rem))] flex-col overflow-hidden rounded-2xl p-3'
-            : 'max-h-[90svh] max-w-lg overflow-y-auto p-5 md:max-w-2xl lg:max-w-4xl',
+            ? 'max-w-[min(56rem,100%)] rounded-2xl p-3'
+            : 'max-w-lg p-5 md:max-w-2xl lg:max-w-4xl',
         )}
       >
-        <div className="flex shrink-0 items-start justify-between gap-3">
-          <h2
-            id="rhythm-presets-title"
-            className={cn('font-bold tracking-tight text-white', compact ? 'text-lg' : 'text-xl')}
-          >
-            Beat library
-          </h2>
-          <SheetCloseX label="Close beat library" onClose={onClose} />
-        </div>
-        {factoryReorder ? (
-          <p className="mt-1 shrink-0 text-sm text-slate-400">
-            Drag a groove within its style to change the menu order. That order is saved as default for everyone.
-          </p>
-        ) : null}
+        <SheetHeader
+          titleId="rhythm-presets-title"
+          title="Beat library"
+          titleClassName={compact ? 'text-lg' : 'text-xl'}
+          onClose={onClose}
+          closeLabel="Close beat library"
+          description={
+            factoryReorder ? (
+              <p className="mt-1 text-sm leading-5 text-pretty text-slate-400">
+                Drag a groove within its style to change the menu order. That order is saved as default for everyone.
+              </p>
+            ) : null
+          }
+        />
         {factorySaving ? (
           <p data-factory-picker-notice className="mt-2 shrink-0 text-sm font-semibold text-[#E9D5FF]">
             Saving order…
@@ -2127,7 +2144,7 @@ function PresetSheet({
             {factoryError}
           </p>
         ) : null}
-        <div className={cn(compact && 'min-h-0 flex-1 overflow-y-auto overscroll-contain')}>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <MyBeatsSection
             beats={userBeats}
             selectedId={selectedUserId}
@@ -2142,6 +2159,7 @@ function PresetSheet({
             selected={selected}
             factoryReorder={factoryReorder}
             compact={compact}
+            listLayout={listLayout}
             onReorder={onReorder}
             onSelect={onSelect}
           />
@@ -2152,13 +2170,14 @@ function PresetSheet({
               selected={selected}
               factoryReorder={factoryReorder}
               compact={compact}
+              listLayout={listLayout}
               onReorder={onReorder}
               onSelect={onSelect}
             />
           ) : null}
         </div>
       </div>
-    </div>,
+    </OverlayHost>,
     document.body,
   )
 }
@@ -2328,6 +2347,7 @@ function PresetGroup({
   selected,
   factoryReorder = false,
   compact = false,
+  listLayout = true,
   onReorder,
   onSelect,
 }: {
@@ -2336,6 +2356,7 @@ function PresetGroup({
   selected: RhythmPreset | undefined
   factoryReorder?: boolean
   compact?: boolean
+  listLayout?: boolean
   onReorder?: (styleId: RhythmStyleId, beatId: string, toIndex: number) => void
   onSelect: (id: string) => void
 }) {
@@ -2345,7 +2366,7 @@ function PresetGroup({
       <h3 className="px-1 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {title}
       </h3>
-      <div className={cn('grid gap-2', compact ? 'grid-cols-3' : 'grid-cols-1 md:grid-cols-2')}>
+      <div className={cn('grid gap-2', listLayout ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2')}>
         {styles.map((style) => (
           <StyleMenu
             key={style.id}
@@ -2354,6 +2375,7 @@ function PresetGroup({
             defaultOpen={selected?.styleId === style.id}
             factoryReorder={factoryReorder}
             compact={compact}
+            listLayout={listLayout}
             onReorder={onReorder}
             onSelect={onSelect}
           />
@@ -2369,6 +2391,7 @@ function StyleMenu({
   defaultOpen,
   factoryReorder = false,
   compact = false,
+  listLayout = true,
   onReorder,
   onSelect,
 }: {
@@ -2377,6 +2400,7 @@ function StyleMenu({
   defaultOpen: boolean
   factoryReorder?: boolean
   compact?: boolean
+  listLayout?: boolean
   onReorder?: (styleId: RhythmStyleId, beatId: string, toIndex: number) => void
   onSelect: (id: string) => void
 }) {
@@ -2497,7 +2521,14 @@ function StyleMenu({
                     : 'bg-white/4 text-slate-200 hover:bg-white/8',
                 )}
               >
-                <span className="min-w-0 truncate text-sm font-semibold leading-5">{item.name}</span>
+                <span
+                  className={cn(
+                    'min-w-0 text-sm font-semibold leading-5',
+                    listLayout ? 'whitespace-normal break-words' : 'truncate',
+                  )}
+                >
+                  {item.name}
+                </span>
                 <span className={cn('ml-2 shrink-0 text-xs font-semibold', item.id === selected?.id ? 'text-white/80' : 'text-slate-500')}>
                   {meterLabel(item.beats, item.beatUnit)}
                 </span>
