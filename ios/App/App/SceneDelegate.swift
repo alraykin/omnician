@@ -11,6 +11,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
+        // Exclusive playback session before WKWebView so Click/Drums ignore the ringer.
+        OmnicianAudioPlugin.activatePlayback()
         let window = UIWindow(windowScene: windowScene)
         window.rootViewController = OmnicianBridgeViewController()
         self.window = window
@@ -28,5 +30,20 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
         SceneDelegateProxy.shared.scene(scene, continue: userActivity)
+    }
+
+    func sceneWillEnterForeground(_ scene: UIScene) {
+        OmnicianAudioPlugin.activatePlayback()
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        OmnicianAudioPlugin.activatePlayback()
+    }
+
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        // Keep Click/Drums running. Stop the tuner mic — getUserMedia must
+        // not hold playAndRecord (or the mic LED) while the app is hidden.
+        let js = "window.__OMNICIAN_AUDIO_HOOKS__&&window.__OMNICIAN_AUDIO_HOOKS__.onAppBackgrounded&&window.__OMNICIAN_AUDIO_HOOKS__.onAppBackgrounded()"
+        (window?.rootViewController as? CAPBridgeViewController)?.webView?.evaluateJavaScript(js, completionHandler: nil)
     }
 }

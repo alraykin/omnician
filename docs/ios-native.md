@@ -11,6 +11,7 @@ The Apple Developer Program account is in use for TestFlight via GitHub Actions 
 - App icon from the existing O mark, on the same dark `#0B0F1A` as the app
 - Dark launch screen
 - Native audio session so click and drums play with the silent switch on (`AVAudioSession` category **playback**, `mixWithOthers` **off**)
+- Background Click/Drums (`UIBackgroundModes` audio) with a Dynamic Island / Lock Screen Now Playing card titled **Omnician** (never the webview origin). Play/pause remotes match the in-app Play button; next/prev/seek are off. Stop clears the card. Tuner mic uses `.playAndRecord` and stops when the app is backgrounded
 - Microphone permission string for the tuner
 - GitHub Actions workflow that compiles an **unsigned iPhone Simulator** build on `xcode-27` with the newest Xcode 27.x (iOS 27.1+ SDK fills the Duo inner display), then boots an iOS 27 simulator and fails if the process dies or the window scene never connects
 - UIScene lifecycle (`SceneDelegate` + `UIApplicationSceneManifest`) required to launch when linked against the iOS 27 SDK
@@ -106,7 +107,7 @@ Safari loads Factory beats from same-origin `GET /api/factory/library` and sampl
 
 The TestFlight webview origin is `omnician://localhost` (also `capacitor://localhost` / `ionic://localhost`). Native fetches `https://omnician.app/api/factory/library` and `https://omnician.app/rhythm/...` first, then the files copied into the app bundle by `cap sync`. The Worker sends GET/HEAD/OPTIONS CORS for those three webview origins on the public library **and** `/rhythm/*` (`run_worker_first` so static samples cannot skip the Worker). Login, PUT, history, restore, and `FACTORY_ADMIN_PASSWORD` stay same-origin with no CORS.
 
-WKWebView `decodeAudioData` often fails on the licensed AAC/m4a drum hits (and sometimes mp3 announce files) when they come from the custom app scheme, which used to drop every drum to the baked synth fallback. `OmnicianAudio.decodeSample` turns those **same bytes** into PCM with `AVAudioFile`. The plugin still does not play audio; it only sets `AVAudioSession` playback (silent switch) and decodes.
+WKWebView `decodeAudioData` often fails on the licensed AAC/m4a drum hits (and sometimes mp3 announce files) when they come from the custom app scheme, which used to drop every drum to the baked synth fallback. `OmnicianAudio.decodeSample` turns those **same bytes** into PCM with `AVAudioFile`. The plugin does not play samples; Click/Drums stay Web Audio. It owns `AVAudioSession` (`.playback` while Click/Drums run, `.playAndRecord` only while the tuner mic is live), `MPNowPlayingInfoCenter`, and remote play/pause. JS sets `navigator.mediaSession.metadata` title **Omnician** before the AudioContext starts so WebKit does not publish the webview origin as Now Playing.
 
 `localStorage` is still per-origin (webview vs omnician.app). Factory-published library JSON is the shared default.
 

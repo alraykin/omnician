@@ -1,5 +1,6 @@
 import { isNativeApp } from '@/lib/native-origin'
 import { applyNativeAudioSession } from '@/native/ios-audio-session'
+import { clearNowPlaying, primeNowPlayingMetadata } from '@/lib/now-playing'
 
 type AudioContextCtor = typeof AudioContext
 
@@ -46,6 +47,8 @@ let wantedSession: AudioSessionKind = 'playback'
 let lastSessionWrite = 'none'
 let silentHtml: HTMLAudioElement | null = null
 let silentHtmlState: SilentHtmlState = 'none'
+let holdPlaybackSuspended = false
+let keepAlive: { source: ConstantSourceNode; gain: GainNode } | null = null
 
 type SafariAudioSession = { type: string }
 
@@ -105,6 +108,7 @@ export function noteTransportStop(reason: string): void {
   if (typeof console !== 'undefined') {
     console.warn(`[omnician stop] ${reason}`, stack)
   }
+  suspendPlaybackAfterStop()
 }
 
 function safariAudioSession(): SafariAudioSession | null {
@@ -174,42 +178,6 @@ function writeAudioSession(type: AudioSessionKind): boolean {
     noteAudioError(error, `audioSession.${type}`)
     lastSessionWrite = `${type}:error`
     return false
-  }
-}
-
-const MEDIA_SESSION_ACTIONS = [
-  'play',
-  'pause',
-  'stop',
-  'seekbackward',
-  'seekforward',
-  'seekto',
-  'previoustrack',
-  'nexttrack',
-  'skipad',
-] as const
-
-/** Drop any Now Playing / Media Session entry. Never set metadata or handlers. */
-function clearMediaSession(): void {
-  if (typeof navigator === 'undefined') return
-  const session = navigator.mediaSession
-  if (!session) return
-  try {
-    session.metadata = null
-  } catch {
-    /* some WebViews reject metadata writes */
-  }
-  try {
-    session.playbackState = 'none'
-  } catch {
-    /* playbackState is optional */
-  }
-  for (const action of MEDIA_SESSION_ACTIONS) {
-    try {
-      session.setActionHandler(action, null)
-    } catch {
-      /* unsupported action */
-    }
   }
 }
 
@@ -288,7 +256,7 @@ function startSilentHtmlAudioFromGesture(): void {
  */
 export function claimPlaybackSessionFromGesture(): void {
   wantedSession = countLiveMicTracks().live > 0 ? 'play-and-record' : 'playback'
-  clearMediaSession()
+  primeNowPlayingMetadata()
   const wrote = writeAudioSession(wantedSession)
   if (isNativeApp()) {
     stopSilentHtmlAudio()
@@ -299,7 +267,6 @@ export function claimPlaybackSessionFromGesture(): void {
 
 export function claimPlayAndRecordSessionFromGesture(): void {
   wantedSession = 'play-and-record'
-  clearMediaSession()
   writeAudioSession('play-and-record')
   if (isNativeApp()) stopSilentHtmlAudio()
 }
@@ -314,6 +281,8 @@ export function resetAudioSessionForTests(): void {
   wantedSession = 'playback'
   lastSessionWrite = 'none'
   silentHtmlState = 'none'
+  holdPlaybackSuspended = false
+  releasePlaybackGraph()
   if (silentHtml) {
     try {
       silentHtml.pause()
@@ -521,6 +490,7 @@ function wirePlayback(ctx: AudioContext): void {
     if (typeof console !== 'undefined') {
       console.warn(`[omnician] playback ${state}`, stack)
     }
+    if (holdPlaybackSuspended && state === 'suspended') return
     // After mic teardown iOS often marks this context interrupted ~0.5s in.
     // Treating that as Stop was killing the Play button. Resume instead.
     if (state !== 'interrupted' && state !== 'suspended') return
@@ -529,6 +499,54 @@ function wirePlayback(ctx: AudioContext): void {
     noteAudioError(`AudioContext ${state}; resume, transport kept running`, 'statechange')
     resumeFromGesture(ctx)
   })
+}
+
+/** Keep the Web Audio graph alive in the background so sparse clicks stay Now Playing. */
+export function holdPlaybackGraph(): void {
+  const ctx = getPlaybackAudioContext()
+  if (keepAlive) return
+  try {
+    const gain = ctx.createGain()
+    gain.gain.value = 0
+    const source = ctx.createConstantSource()
+    source.connect(gain)
+    gain.connect(ctx.destination)
+    source.start()
+    keepAlive = { source, gain }
+  } catch {
+    /* ConstantSourceNode missing on old WebKit */
+  }
+}
+
+export function releasePlaybackGraph(): void {
+  if (!keepAlive) return
+  try {
+    keepAlive.source.stop()
+  } catch {
+    /* already stopped */
+  }
+  try {
+    keepAlive.source.disconnect()
+    keepAlive.gain.disconnect()
+  } catch {
+    /* already detached */
+  }
+  keepAlive = null
+}
+
+export function suspendPlaybackAfterStop(): void {
+  holdPlaybackSuspended = true
+  releasePlaybackGraph()
+  clearNowPlaying()
+  stopSilentHtmlAudio()
+  const ctx = playback
+  if (ctx && contextState(ctx) === 'running') {
+    try {
+      void ctx.suspend()
+    } catch {
+      /* already closed */
+    }
+  }
 }
 
 function noteIfStillSuspended(ctx: AudioContext): void {
@@ -594,9 +612,11 @@ export function preparePlaybackFromGesture(): AudioContext {
 
 /** Resume (or create) playback. Does not rebuild after mic. */
 export function unlockPlaybackFromGesture(): AudioContext {
+  holdPlaybackSuspended = false
   claimPlaybackSessionFromGesture()
   const ctx = getPlaybackAudioContext()
   resumeFromGesture(ctx)
+  holdPlaybackGraph()
   return ctx
 }
 
@@ -686,6 +706,7 @@ function exposeAudioDebug(): void {
     value: {
       markCaptureUsed,
       preparePlaybackFromGesture,
+      onAppBackgrounded: releaseAllCapture,
     },
   })
 }

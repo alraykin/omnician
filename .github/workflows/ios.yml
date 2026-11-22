@@ -53,7 +53,7 @@ jobs:
         run: npm ci
 
       - name: Check iOS project files (no signing)
-        run: npm run test:ios-prep
+        run: npm run test:ios-prep && npm run test:audio-session
 
       - name: Check Factory CORS and native sound sources
         run: npm run test:factory && npm run test:sound-sources && npm run test:fold && npm run test:pendulum

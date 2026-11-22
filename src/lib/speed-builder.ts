@@ -1,3 +1,4 @@
+import { isNativeApp } from '@/lib/native-origin'
 import { clampBpm, type RhythmMode } from '@/lib/rhythm'
 
 export const MIN_SB_PCT = 10
@@ -138,6 +139,7 @@ export function announceLine(pct: number): string {
 }
 
 export function unlockSpeech(): void {
+  if (isNativeApp()) return
   if (typeof window === 'undefined' || !window.speechSynthesis) return
   try {
     const synth = window.speechSynthesis
@@ -156,6 +158,7 @@ export function unlockSpeech(): void {
 }
 
 export function speakPercent(pct: number): void {
+  if (isNativeApp()) return
   if (typeof window === 'undefined' || !window.speechSynthesis) return
   try {
     const synth = window.speechSynthesis

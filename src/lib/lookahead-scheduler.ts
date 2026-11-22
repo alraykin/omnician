@@ -90,6 +90,37 @@ export function noteStartTime(nextTime: number, frozen: boolean): number {
   return frozen ? FROZEN_PLAY_WHEN : nextTime
 }
 
+/** ScriptProcessor callbacks keep scheduling when setInterval throttles in the background. */
+export function armAudioClockPump(ctx: AudioContext, onTick: () => void): () => void {
+  try {
+    const Ctor = (
+      ctx as AudioContext & {
+        createScriptProcessor?: (size: number, ins: number, outs: number) => ScriptProcessorNode
+      }
+    ).createScriptProcessor
+    if (typeof Ctor !== 'function') return () => {}
+    const node = Ctor.call(ctx, 2048, 1, 1)
+    const silent = ctx.createGain()
+    silent.gain.value = 0
+    node.onaudioprocess = () => {
+      onTick()
+    }
+    node.connect(silent)
+    silent.connect(ctx.destination)
+    return () => {
+      node.onaudioprocess = null
+      try {
+        node.disconnect()
+        silent.disconnect()
+      } catch {
+        /* already gone */
+      }
+    }
+  } catch {
+    return () => {}
+  }
+}
+
 export function pumpClickScheduler(args: {
   nextTime: number
   remaining: number

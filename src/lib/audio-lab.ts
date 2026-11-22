@@ -1,5 +1,5 @@
 import type { AudioDebugSnapshot } from '@/lib/audio-context'
-import { mediaUrlCandidates } from '@/lib/native-origin'
+import { isNativeApp, mediaUrlCandidates } from '@/lib/native-origin'
 import {
   LOOKAHEAD_MS,
   START_LEAD_SEC,
@@ -447,6 +447,12 @@ function scheduleWebClicks(ctx: AudioContext): void {
 }
 
 function playHtmlClicks(): void {
+  if (isNativeApp()) {
+    const ctx = playback && ctxState(playback) !== 'closed' ? playback : ensurePlayback()
+    resumeNow(ctx)
+    scheduleWebClicks(ctx)
+    return
+  }
   try {
     htmlAudio?.pause()
   } catch {

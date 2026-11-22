@@ -7,6 +7,13 @@ import { detectFoldedLayout, resolveFoldLayout, readFoldChoice } from '@/lib/fol
 import { isNativeApp } from '@/lib/native-origin'
 import { readNativeFoldLayout, readNativePosture, subscribeNativePosture } from '@/lib/native-fold'
 import { nativePosturePluginPresent, nativePosturePluginRegistered } from '@/native/ios-posture'
+import { getAudioDebugSnapshot } from '@/lib/audio-context'
+import {
+  countDomMediaElements,
+  mediaSessionDebug,
+  peekNowPlaying,
+} from '@/lib/now-playing'
+import { peekNativeAudioSession, pullNativeAudioSession } from '@/native/ios-audio-session'
 import { toggleTunerDebug } from '@/lib/tuner-debug'
 
 const listeners = new Set<(on: boolean) => void>()
@@ -80,6 +87,7 @@ export type PostureDiagnostics = {
   registered: string
   source: string
   orientation: string
+  audio: string
 }
 
 export function readPostureDiagnostics(): PostureDiagnostics {
@@ -125,7 +133,26 @@ export function readPostureDiagnostics(): PostureDiagnostics {
     registered: bool(typeof window === 'undefined' ? false : nativePosturePluginRegistered()),
     source: native?.source ?? '—',
     orientation: native?.orientation ?? (width > height ? 'landscape' : 'portrait'),
+    audio: audioDiagnosticsLine(),
   }
+}
+
+function audioDiagnosticsLine(): string {
+  pullNativeAudioSession()
+  const snap = getAudioDebugSnapshot()
+  const native = peekNativeAudioSession()
+  const av = native
+    ? `av=${native.category} ${native.options || 'none'} other=${native.otherAudioPlaying ? '1' : '0'}`
+    : `av=${snap.sessionWrite}`
+  const np = peekNowPlaying()
+  return [
+    av,
+    `ctx=${snap.playbackState}`,
+    `mediaEls=${countDomMediaElements()}`,
+    `nav=${snap.sessionType}`,
+    `ms=${mediaSessionDebug()}`,
+    np ? `np=${np.subtitle}` : 'np=off',
+  ].join(' · ')
 }
 
 export function subscribePostureDiagnostics(onChange: () => void): () => void {

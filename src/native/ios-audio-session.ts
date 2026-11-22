@@ -7,9 +7,20 @@ export type NativeDecodedSample = {
   pcmBase64: string
 }
 
+export type NativeSessionSnapshot = {
+  category: string
+  options: string
+  otherAudioPlaying: boolean
+  nowPlaying?: boolean
+}
+
 type NativeAudioPlugin = {
-  setSession?: (options: { category: 'playAndRecord' }) => Promise<unknown>
+  setSession?: (options: { category: 'playback' | 'playAndRecord' }) => Promise<NativeSessionSnapshot | unknown>
+  getSession?: () => Promise<NativeSessionSnapshot>
+  setNowPlaying?: (options: { title: string; subtitle: string; playing: boolean; artworkUrl?: string }) => Promise<unknown>
+  clearNowPlaying?: () => Promise<unknown>
   decodeSample?: (options: { base64: string; ext?: string }) => Promise<NativeDecodedSample>
+  addListener?: (event: string, cb: (data: { action?: string }) => void) => Promise<{ remove: () => Promise<void> }> | { remove: () => Promise<void> }
 }
 
 const OmnicianAudio = registerPlugin<NativeAudioPlugin>('OmnicianAudio')
@@ -20,19 +31,83 @@ function nativePlugin(): NativeAudioPlugin | null {
   return OmnicianAudio
 }
 
+let lastNativeSession: NativeSessionSnapshot | null = null
+
 /**
  * Talks to the iOS OmnicianAudio plugin when running inside Capacitor.
- * Always requests playAndRecord (mixWithOthers / speaker / A2DP) so the
- * native app never enters exclusive `.playback` Now Playing. No-ops in
- * Safari so the live web app is unchanged.
+ * Click/Drums use exclusive `.playback`; tuner mic uses playAndRecord.
+ * No-ops in Safari so the live web app is unchanged.
  */
-export function applyNativeAudioSession(_kind: 'playback' | 'play-and-record'): boolean {
+export function applyNativeAudioSession(kind: 'playback' | 'play-and-record'): boolean {
   const plugin = nativePlugin()
   if (!plugin?.setSession) return false
-  void plugin.setSession({ category: 'playAndRecord' }).catch(() => {
+  const category = kind === 'play-and-record' ? 'playAndRecord' : 'playback'
+  void plugin.setSession({ category }).then((row) => {
+    if (row && typeof row === 'object' && 'category' in row) {
+      lastNativeSession = row as NativeSessionSnapshot
+    }
+  }).catch(() => {
     /* Native session is best-effort; Safari audioSession still applies. */
   })
   return true
+}
+
+export function peekNativeAudioSession(): NativeSessionSnapshot | null {
+  return lastNativeSession
+}
+
+export function pullNativeAudioSession(): void {
+  const plugin = nativePlugin()
+  if (!plugin?.getSession) return
+  void plugin.getSession().then((row) => {
+    if (row && typeof row === 'object') lastNativeSession = row
+  }).catch(() => {
+    /* overlay only */
+  })
+}
+
+export function publishNativeNowPlaying(info: {
+  title: string
+  subtitle: string
+  playing: boolean
+  artworkUrl?: string
+}): void {
+  const plugin = nativePlugin()
+  if (!plugin?.setNowPlaying) return
+  void plugin.setNowPlaying(info).catch(() => {
+    /* JS MediaSession still applies */
+  })
+}
+
+export function clearNativeNowPlaying(): void {
+  const plugin = nativePlugin()
+  if (!plugin?.clearNowPlaying) return
+  void plugin.clearNowPlaying().catch(() => {
+    /* ignore */
+  })
+}
+
+export function listenNativeRemote(onAction: (action: string) => void): () => void {
+  const plugin = nativePlugin()
+  if (!plugin?.addListener) return () => {}
+  let removed = false
+  let handle: { remove: () => Promise<void> } | null = null
+  void Promise.resolve(plugin.addListener('remote', (data) => {
+    const action = typeof data?.action === 'string' ? data.action : 'toggle'
+    onAction(action)
+  })).then((next) => {
+    if (removed) {
+      void next?.remove?.()
+      return
+    }
+    handle = next
+  }).catch(() => {
+    /* no native plugin */
+  })
+  return () => {
+    removed = true
+    void handle?.remove?.()
+  }
 }
 
 /** Decode licensed sample bytes with AVAudioFile when WKWebView decodeAudioData fails. */

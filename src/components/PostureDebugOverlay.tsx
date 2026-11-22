@@ -33,6 +33,7 @@ const ROWS: { key: keyof PostureDiagnostics; label: string }[] = [
   { key: 'registered', label: 'registered' },
   { key: 'source', label: 'source' },
   { key: 'orientation', label: 'orientation' },
+  { key: 'audio', label: 'audio' },
 ]
 
 export function PostureDebugOverlay() {

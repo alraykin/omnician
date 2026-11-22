@@ -8,7 +8,9 @@ import { claimListenPreview } from '@/lib/listen-preview'
 import {
   CLICK_SCHEDULE_AHEAD_SEC,
   LOOKAHEAD_MS,
+  SCHEDULE_AHEAD_SEC,
   START_LEAD_SEC,
+  armAudioClockPump,
   createClockWatch,
   noteStartTime,
   rebaseNoteTime,
@@ -171,6 +173,7 @@ export function useRhythmEngine({
   const kitRef = useRef<RhythmKit | null>(null)
   const timerRef = useRef<number | null>(null)
   const rafRef = useRef<number | null>(null)
+  const stopPumpRef = useRef<() => void>(() => {})
   const cuesRef = useRef<Array<Playhead & { time: number }>>([])
   const nextTimeRef = useRef(0)
   const stepRef = useRef(0)
@@ -779,11 +782,12 @@ export function useRhythmEngine({
         if (sbPhaseRef.current === 'pattern') {
           heardPlayhead(now, playbackBpmRef.current)
         }
+        const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
         const horizon = scheduleHorizon(
           audioTime,
           observed.virtualNow,
           observed.frozen,
-          liveModeRef.current === 'click' ? CLICK_SCHEDULE_AHEAD_SEC : undefined,
+          liveModeRef.current === 'click' && !hidden ? CLICK_SCHEDULE_AHEAD_SEC : SCHEDULE_AHEAD_SEC,
         )
         while (nextTimeRef.current < horizon) {
           const tempo = applyPlaybackBpm()
@@ -928,6 +932,13 @@ export function useRhythmEngine({
       tick()
       timerRef.current = window.setInterval(tick, LOOKAHEAD_MS)
       rafRef.current = window.requestAnimationFrame(pumpVisuals)
+      const stopPump =
+        typeof AudioContext !== 'undefined' && kit.ctx instanceof AudioContext
+          ? armAudioClockPump(kit.ctx, () => {
+              if (!cancelled && playingRef.current) tick()
+            })
+          : () => {}
+      stopPumpRef.current = stopPump
     }
 
     start()
@@ -935,6 +946,8 @@ export function useRhythmEngine({
     return () => {
       cancelled = true
       retargetRef.current = () => undefined
+      stopPumpRef.current()
+      stopPumpRef.current = () => {}
       if (timerRef.current !== null) {
         window.clearInterval(timerRef.current)
         timerRef.current = null

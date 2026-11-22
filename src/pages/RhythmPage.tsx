@@ -75,6 +75,12 @@ import {
   type InputDivision,
 } from '@/lib/beat-boxes'
 import { onCaptureStarting, preparePlaybackFromGesture } from '@/lib/audio-context'
+import {
+  bindNowPlayingTransport,
+  clearNowPlaying,
+  formatNowPlayingSubtitle,
+  publishNowPlaying,
+} from '@/lib/now-playing'
 import { playWheelTick } from '@/lib/rhythm-audio'
 import { activateOnPointer, cn } from '@/lib/utils'
 import {
@@ -671,12 +677,24 @@ export function RhythmPage() {
     if (bar && !playing) void previewClickBar(bar)
   }
 
+  const playingRef = useRef(playing)
+  playingRef.current = playing
+  const nowPlayingSubtitle = formatNowPlayingSubtitle({
+    mode,
+    bpm: liveBpm || bpm,
+    meter: current ? meterLabel(current.beats, current.beatUnit) : '4/4',
+    beatName,
+  })
+  const claimNowPlaying = useCallback(() => {
+    publishNowPlaying({ title: 'Omnician', subtitle: nowPlayingSubtitle, playing: true })
+  }, [nowPlayingSubtitle])
   const startStop = useCallback(() => {
-    if (playing) {
+    if (playingRef.current) {
       halt('user-stop')
       setPlaying(false)
       return
     }
+    claimNowPlaying()
     preparePlaybackFromGesture()
     void ensureKit().then((kit) => {
       if (speedBuilder.enabled && speedBuilder.announce) {
@@ -685,7 +703,33 @@ export function RhythmPage() {
       }
     })
     setPlaying(true)
-  }, [ensureKit, halt, playing, speedBuilder.announce, speedBuilder.enabled, speedBuilder.fromPct])
+  }, [claimNowPlaying, ensureKit, halt, speedBuilder.announce, speedBuilder.enabled, speedBuilder.fromPct])
+  const startStopRef = useRef(startStop)
+  startStopRef.current = startStop
+
+  useEffect(() => {
+    return bindNowPlayingTransport({
+      playing: () => playingRef.current,
+      toggle: () => startStopRef.current(),
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!playing) {
+      clearNowPlaying()
+      return
+    }
+    publishNowPlaying({
+      title: 'Omnician',
+      subtitle: formatNowPlayingSubtitle({
+        mode,
+        bpm: liveBpm || bpm,
+        meter: current ? meterLabel(current.beats, current.beatUnit) : '4/4',
+        beatName,
+      }),
+      playing: true,
+    })
+  }, [beatName, bpm, current, liveBpm, mode, playing])
 
   useEffect(() => {
     return onCaptureStarting(() => {
@@ -785,12 +829,13 @@ export function RhythmPage() {
       setRecording(false)
       return
     }
+    claimNowPlaying()
     preparePlaybackFromGesture()
     void ensureKit()
     setDrumBarIndex(0)
     setRecording(true)
     setPlaying(true)
-  }, [ensureKit, halt, recording])
+  }, [claimNowPlaying, ensureKit, halt, recording])
 
   const patchRecordBar = useCallback(
     (index: number, next: RhythmBar) => {
@@ -863,12 +908,13 @@ export function RhythmPage() {
 
   const startNewBeatAndRecord = useCallback(() => {
     startNewBeat({ keepBpm: true })
+    claimNowPlaying()
     preparePlaybackFromGesture()
     void ensureKit()
     setDrumBarIndex(0)
     setRecording(true)
     setPlaying(true)
-  }, [ensureKit, startNewBeat])
+  }, [claimNowPlaying, ensureKit, startNewBeat])
 
   const openSave = (asNew = false) => {
     setSaveAsNew(asNew || !savedUser)

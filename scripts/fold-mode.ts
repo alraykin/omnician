@@ -580,5 +580,7 @@ assert.match(readFileSync(new URL('../ios/App/App/OmnicianBridgeViewController.s
 assert.match(readFileSync(new URL('../src/native/ios-posture.ts', import.meta.url), 'utf8'), /registerPlugin<PosturePlugin>\('OmnicianPosture'\)/)
 assert.match(readFileSync(new URL('../src/lib/posture-debug.ts', import.meta.url), 'utf8'), /taps >= 5/)
 assert.match(readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8'), /PostureDebugOverlay/)
+assert.match(readFileSync(new URL('../src/lib/posture-debug.ts', import.meta.url), 'utf8'), /audioDiagnosticsLine/)
+assert.match(readFileSync(new URL('../src/components/PostureDebugOverlay.tsx', import.meta.url), 'utf8'), /key: 'audio'/)
 
 console.log('fold-mode ok')

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -44,6 +44,33 @@ mustExist('ios/App/App.xcodeproj/project.pbxproj')
 mustExist('ios/App/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme')
 mustExist('ios/App/App.xcworkspace/contents.xcworkspacedata')
 mustExist('ios/App/App/Info.plist')
+
+function ensureBackgroundAudioMode(): void {
+  const rel = 'ios/App/App/Info.plist'
+  const file = path.join(root, rel)
+  let info = readFileSync(file, 'utf8')
+  if (info.includes('<key>UIBackgroundModes</key>') && /<string>audio<\/string>/.test(info)) return
+  if (!info.includes('<key>UIBackgroundModes</key>')) {
+    const block = `	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+`
+    if (info.includes('\t<key>UILaunchStoryboardName</key>')) {
+      info = info.replace('\t<key>UILaunchStoryboardName</key>', `${block}\t<key>UILaunchStoryboardName</key>`)
+    } else {
+      info = info.replace('</dict>\n</plist>', `${block}</dict>\n</plist>`)
+    }
+  } else if (!/<string>audio<\/string>/.test(info)) {
+    info = info.replace(
+      /<key>UIBackgroundModes<\/key>\s*<array>/,
+      `<key>UIBackgroundModes</key>\n	<array>\n		<string>audio</string>`,
+    )
+  }
+  writeFileSync(file, info)
+}
+
+ensureBackgroundAudioMode()
 mustExist('ios/App/App/AppDelegate.swift')
 mustExist('ios/App/App/SceneDelegate.swift')
 mustExist('ios/App/App/OmnicianAudioPlugin.swift')
@@ -56,6 +83,7 @@ mustExist('scripts/ios-sim-launch-smoke.sh')
 mustExist('ios/App/App/PrivacyInfo.xcprivacy')
 mustExist('ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png')
 mustExist('resources/icon.png')
+mustExist('public/brand/omnician-icon-512.png')
 mustExist('resources/splash.png')
 mustExist('.github/workflows/ios.yml')
 mustExist('docs/ios-native.md')
@@ -74,7 +102,8 @@ assert.match(info, /\$\(PRODUCT_MODULE_NAME\)\.SceneDelegate/)
 assert.doesNotMatch(info, /UISceneStoryboardFile/)
 assert.doesNotMatch(info, /UIMainStoryboardFile/)
 assert.doesNotMatch(info, /UIRequiresFullScreen/)
-assert.doesNotMatch(info, /UIBackgroundModes/)
+assert.match(info, /<key>UIBackgroundModes<\/key>/)
+assert.match(info, /<string>audio<\/string>/)
 assert.match(info, /UIInterfaceOrientationPortraitUpsideDown/)
 assert.match(info, /UISupportedInterfaceOrientations~ipad/)
 assert.match(read('index.html'), /viewport-fit=cover/)
@@ -91,21 +120,30 @@ assert.match(scene, /OmnicianBridgeViewController\(\)/)
 assert.match(scene, /SceneDelegateProxy\.shared/)
 assert.match(scene, /OmnicianScene: window connected/)
 assert.match(scene, /makeKeyAndVisible/)
+assert.match(scene, /sceneDidEnterBackground/)
+assert.match(scene, /onAppBackgrounded/)
 
 const plugin = read('ios/App/App/OmnicianAudioPlugin.swift')
 assert.match(plugin, /jsName = "OmnicianAudio"/)
 assert.match(plugin, /AVAudioSession\.sharedInstance\(\)/)
 assert.match(plugin, /\.playAndRecord/)
-assert.match(plugin, /\.mixWithOthers/)
+assert.match(plugin, /\.playback/)
+assert.match(plugin, /options: \[\]/)
 assert.match(plugin, /\.defaultToSpeaker/)
 assert.match(plugin, /\.allowBluetoothA2DP/)
+assert.doesNotMatch(plugin, /options: \[[^\]]*mixWithOthers/)
 assert.match(plugin, /MPNowPlayingInfoCenter/)
 assert.match(plugin, /nowPlayingInfo = nil/)
-assert.match(plugin, /endReceivingRemoteControlEvents/)
-assert.doesNotMatch(plugin, /category: \.playback/)
-assert.doesNotMatch(plugin, /\.playback,/)
-assert.doesNotMatch(plugin, /nowPlayingInfo = \[/)
-assert.doesNotMatch(plugin, /beginReceivingRemoteControlEvents/)
+assert.match(plugin, /MPMediaItemPropertyTitle/)
+assert.match(plugin, /MPNowPlayingInfoPropertyIsLiveStream/)
+assert.match(plugin, /beginReceivingRemoteControlEvents/)
+assert.match(plugin, /playCommand\.isEnabled = true/)
+assert.match(plugin, /pauseCommand\.isEnabled = true/)
+assert.match(plugin, /nextTrackCommand\.isEnabled = false/)
+assert.match(plugin, /previousTrackCommand\.isEnabled = false/)
+assert.match(plugin, /skipForwardCommand\.isEnabled = false/)
+assert.match(plugin, /changePlaybackPositionCommand\.isEnabled = false/)
+assert.match(plugin, /notifyListeners\("remote"/)
 
 const pbx = read('ios/App/App.xcodeproj/project.pbxproj')
 assert.match(pbx, /PRODUCT_BUNDLE_IDENTIFIER = app\.omnician;/)
@@ -148,7 +186,8 @@ const bridge = read('ios/App/App/OmnicianBridgeViewController.swift')
 assert.match(bridge, /override func capacitorDidLoad/)
 assert.match(bridge, /registerPluginInstance\(OmnicianPosturePlugin\(\)\)/)
 assert.match(bridge, /registerPluginInstance\(OmnicianAudioPlugin\(\)\)/)
-assert.match(bridge, /allowsAirPlayForMediaPlayback = false/)
+assert.match(bridge, /allowsInlineMediaPlayback = true/)
+assert.match(bridge, /mediaTypesRequiringUserActionForPlayback = \[\]/)
 assert.match(bridge, /viewDidAppear/)
 assert.match(bridge, /attachWhenWindowReady/)
 const capLoad = bridge.slice(bridge.indexOf('func capacitorDidLoad'), bridge.indexOf('func viewDidLoad'))
@@ -219,8 +258,9 @@ assert.match(workflow, /CODE_SIGN_STYLE=Manual/)
 const audio = read('src/lib/audio-context.ts')
 assert.match(audio, /applyNativeAudioSession\(type\)/)
 assert.match(audio, /isNativeApp\(\)/)
-assert.match(audio, /clearMediaSession\(\)/)
 assert.match(audio, /stopSilentHtmlAudio\(\)/)
+assert.match(audio, /suspendPlaybackAfterStop\(\)/)
+assert.match(audio, /holdPlaybackGraph\(\)/)
 const claim = audio.slice(audio.indexOf('export function claimPlaybackSessionFromGesture'))
 assert.ok(claim.indexOf('if (isNativeApp())') < claim.indexOf('startSilentHtmlAudioFromGesture()'))
 
@@ -229,8 +269,23 @@ assert.match(native, /isNativePlatform/)
 assert.match(native, /OmnicianAudio/)
 assert.match(native, /from '@capacitor\/core'/)
 assert.match(native, /registerPlugin<NativeAudioPlugin>\('OmnicianAudio'\)/)
-assert.match(native, /category: 'playAndRecord'/)
-assert.doesNotMatch(native, /setSession\(\{ category: 'playback' \}\)/)
+assert.match(native, /kind === 'play-and-record' \? 'playAndRecord' : 'playback'/)
+assert.match(native, /setNowPlaying/)
+assert.match(read('src/lib/now-playing.ts'), /title: 'Omnician'|TITLE = 'Omnician'/)
+assert.match(read('src/lib/now-playing.ts'), /new MediaMetadata/)
+assert.match(read('src/lib/now-playing.ts'), /primeNowPlayingMetadata/)
+assert.doesNotMatch(read('src/lib/now-playing.ts'), /localhost/)
+assert.match(audio, /primeNowPlayingMetadata\(\)/)
+assert.match(audio, /onAppBackgrounded: releaseAllCapture/)
+const startStop = read('src/pages/RhythmPage.tsx')
+const playTap = startStop.slice(startStop.indexOf('const startStop = useCallback'))
+assert.ok(playTap.indexOf('claimNowPlaying()') < playTap.indexOf('preparePlaybackFromGesture()'))
+assert.match(read('src/lib/posture-debug.ts'), /audioDiagnosticsLine/)
+assert.match(read('src/components/PostureDebugOverlay.tsx'), /key: 'audio'/)
+assert.match(read('src/pages/RhythmPage.tsx'), /publishNowPlaying/)
+assert.match(read('src/pages/RhythmPage.tsx'), /bindNowPlayingTransport/)
+assert.match(read('src/lib/speed-builder.ts'), /if \(isNativeApp\(\)\) return/)
+assert.doesNotMatch(read('src/lib/rhythm-audio.ts'), /window\.speechSynthesis|SpeechSynthesisUtterance/)
 
 const origin = read('src/lib/native-origin.ts')
 assert.match(origin, /https:\/\/omnician\.app/)

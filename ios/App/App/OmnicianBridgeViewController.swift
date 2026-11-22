@@ -15,8 +15,9 @@ class OmnicianBridgeViewController: CAPBridgeViewController {
 
     override func webViewConfiguration(for instanceConfiguration: InstanceConfiguration) -> WKWebViewConfiguration {
         let config = super.webViewConfiguration(for: instanceConfiguration)
-        // Web Audio only — AirPlay/Now Playing targets HTML media in the webview.
-        config.allowsAirPlayForMediaPlayback = false
+        config.allowsInlineMediaPlayback = true
+        config.mediaTypesRequiringUserActionForPlayback = []
+        config.allowsPictureInPictureMediaPlayback = false
         return config
     }
 

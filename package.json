@@ -45,7 +45,7 @@
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-cloudflare.sh",
     "ios:icons": "node scripts/generate-ios-icons.mjs",
-    "ios:sync": "npm run build && npx cap sync ios",
+    "ios:sync": "npm run build && npx cap sync ios && npx --yes tsx scripts/ios-prep.ts",
     "ios:open": "npx cap open ios"
   },
   "dependencies": {

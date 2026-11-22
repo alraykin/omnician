@@ -13,6 +13,13 @@ import {
   restorePlaybackSessionAfterMic,
   silentWavDataUrl,
 } from '../src/lib/audio-context.ts'
+import {
+  formatNowPlayingSubtitle,
+  peekNowPlaying,
+  primeNowPlayingMetadata,
+  publishNowPlaying,
+  resetNowPlayingForTests,
+} from '../src/lib/now-playing.ts'
 
 type FakeSession = { type: string }
 
@@ -56,13 +63,10 @@ assert.match(src, /applyNativeAudioSession\(type\)/)
 assert.match(src, /from '@\/native\/ios-audio-session'/)
 assert.match(src, /from '@\/lib\/native-origin'/)
 assert.match(src, /isNativeApp\(\)/)
-assert.match(src, /clearMediaSession\(\)/)
 assert.match(src, /stopSilentHtmlAudio\(\)/)
-assert.doesNotMatch(src, /new MediaMetadata/)
-assert.doesNotMatch(src, /playbackState = 'playing'/)
-assert.match(src, /session\.metadata = null/)
-assert.match(src, /playbackState = 'none'/)
-assert.match(src, /setActionHandler\(action, null\)/)
+assert.match(src, /suspendPlaybackAfterStop\(\)/)
+assert.match(src, /from '@\/lib\/now-playing'/)
+assert.match(src, /primeNowPlayingMetadata\(\)/)
 
 const claimFn = src.slice(src.indexOf('export function claimPlaybackSessionFromGesture'))
 const nativeGuard = claimFn.indexOf('if (isNativeApp())')
@@ -72,8 +76,8 @@ assert.ok(htmlUnlock > nativeGuard, 'HTMLAudioElement unlock must come after the
 assert.match(claimFn.slice(nativeGuard, htmlUnlock), /return/)
 
 const nativeSession = readFileSync(new URL('../src/native/ios-audio-session.ts', import.meta.url), 'utf8')
-assert.match(nativeSession, /category: 'playAndRecord'/)
-assert.doesNotMatch(nativeSession, /kind === 'play-and-record' \? 'playAndRecord' : 'playback'/)
+assert.match(nativeSession, /kind === 'play-and-record' \? 'playAndRecord' : 'playback'/)
+assert.match(nativeSession, /setNowPlaying/)
 
 const rhythmSrc = readFileSync(new URL('../src/lib/rhythm-audio.ts', import.meta.url), 'utf8')
 assert.doesNotMatch(rhythmSrc, /document\.createElement\(\s*['"]audio['"]/)
@@ -207,11 +211,58 @@ removeSession()
 
 const rhythm = readFileSync(new URL('../src/pages/RhythmPage.tsx', import.meta.url), 'utf8')
 assert.match(rhythm, /preparePlaybackFromGesture\(\)/)
+const playTap = rhythm.slice(rhythm.indexOf('const startStop = useCallback'))
+assert.ok(playTap.indexOf('claimNowPlaying()') < playTap.indexOf('preparePlaybackFromGesture()'))
 
 const mic = readFileSync(new URL('../src/lib/mic-capture.ts', import.meta.url), 'utf8')
 assert.match(mic, /prepareCaptureFromGesture\(\)/)
 
 const tone = readFileSync(new URL('../src/lib/reference-tone.ts', import.meta.url), 'utf8')
 assert.match(tone, /getSharedAudioContext\(\)/)
+
+assert.equal(formatNowPlayingSubtitle({ mode: 'click', bpm: 120, meter: '4/4' }), 'Click · 120 BPM · 4/4')
+assert.equal(
+  formatNowPlayingSubtitle({ mode: 'drums', bpm: 88, beatName: 'Backbeat' }),
+  'Drums · Backbeat · 88 BPM',
+)
+assert.doesNotMatch(formatNowPlayingSubtitle({ mode: 'click', bpm: 100, meter: '3/4' }), /localhost/)
+
+class FakeMetadata {
+  title: string
+  artist: string
+  album: string
+  artwork: unknown
+  constructor(init: { title: string; artist?: string; album?: string; artwork?: unknown }) {
+    this.title = init.title
+    this.artist = init.artist ?? ''
+    this.album = init.album ?? ''
+    this.artwork = init.artwork
+  }
+}
+;(globalThis as { MediaMetadata?: unknown }).MediaMetadata = FakeMetadata
+const fakeMediaSession = {
+  metadata: null as FakeMetadata | null,
+  playbackState: 'none',
+  setActionHandler() {},
+}
+Object.defineProperty(globalThis.navigator, 'mediaSession', {
+  configurable: true,
+  value: fakeMediaSession,
+})
+resetNowPlayingForTests()
+primeNowPlayingMetadata()
+assert.equal(fakeMediaSession.metadata?.title, 'Omnician')
+assert.notEqual(fakeMediaSession.metadata?.title, 'localhost')
+publishNowPlaying({ title: 'Omnician', subtitle: 'Click · 120 BPM · 4/4', playing: true })
+assert.equal(peekNowPlaying()?.title, 'Omnician')
+assert.equal(fakeMediaSession.metadata?.title, 'Omnician')
+assert.equal(fakeMediaSession.metadata?.artist, 'Click · 120 BPM · 4/4')
+assert.notEqual(fakeMediaSession.metadata?.title, 'localhost')
+assert.equal(fakeMediaSession.playbackState, 'playing')
+
+assert.match(rhythm, /publishNowPlaying/)
+assert.match(rhythm, /bindNowPlayingTransport/)
+assert.match(readFileSync(new URL('../src/lib/speed-builder.ts', import.meta.url), 'utf8'), /if \(isNativeApp\(\)\) return/)
+assert.doesNotMatch(readFileSync(new URL('../src/lib/rhythm-audio.ts', import.meta.url), 'utf8'), /window\.speechSynthesis|SpeechSynthesisUtterance/)
 
 console.log('audio-session: ok')

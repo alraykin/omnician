@@ -64,6 +64,7 @@ import {
   leaveTunerPage,
   resumeTuner,
   startTuner,
+  stopTuner,
 } from '@/lib/tuner-session'
 import { cn } from '@/lib/utils'
 
@@ -137,6 +138,7 @@ export function TunerPage() {
     const onResume = () => {
       if (document.visibilityState === 'hidden') {
         stopReferenceTone()
+        stopTuner()
         return
       }
       void resumeTuner()
