@@ -43,7 +43,9 @@ import {
 } from '../src/lib/duo-layout.ts'
 import {
   emptyNativePosture,
+  gravityFromDeviceMotion,
   hydrateNativePosture,
+  resolveNativeDisplay,
   resolveNativeFoldLayout,
   LAPTOP_HINGE_ENTER_MIN,
   LAPTOP_HINGE_ENTER_MAX,
@@ -519,6 +521,52 @@ assert.equal(
   'inner',
 )
 
+assert.equal(
+  resolveNativeDisplay({
+    ...emptyNativePosture(),
+    windowWidth: 669,
+    windowHeight: 951,
+    screenWidth: 466,
+    screenHeight: 678,
+    display: 'unknown',
+  }),
+  'inner',
+  'stale window.screen 466×678 must not classify the inner display as outer',
+)
+assert.equal(
+  detectCoverPortraitRail({
+    width: 669,
+    height: 951,
+    nativeApp: true,
+    native: { ...emptyNativePosture(), screenWidth: 466, screenHeight: 678 },
+  }),
+  false,
+  'inner 669×951 with stale outer screen size is not the cover rail',
+)
+assert.equal(
+  resolveNativeFoldLayout({
+    ...emptyNativePosture(),
+    display: 'unknown',
+    windowWidth: 669,
+    windowHeight: 951,
+    screenWidth: 466,
+    screenHeight: 678,
+    motionAvailable: true,
+    gravityX: 0.05,
+    gravityY: -0.7,
+    gravityZ: -0.7,
+  }),
+  'laptop',
+  'JS DeviceMotion gravity detects laptop on inner even with stale screen and no plugin',
+)
+
+const fromMs2 = gravityFromDeviceMotion({ x: 0.49, y: -6.87, z: -6.87 })
+assert.ok(fromMs2 && Math.abs(fromMs2.y) > 0.6 && Math.abs(fromMs2.z) > 0.6)
+const fromG = gravityFromDeviceMotion({ x: 0.05, y: -0.7, z: -0.7 })
+assert.ok(fromG && Math.abs(fromG.y - -0.7) < 0.001)
+
+assert.match(readFileSync(new URL('../ios/App/App/OmnicianBridgeViewController.swift', import.meta.url), 'utf8'), /registerPluginInstance\(OmnicianPosturePlugin\(\)\)/)
+assert.match(readFileSync(new URL('../src/native/ios-posture.ts', import.meta.url), 'utf8'), /registerPlugin<PosturePlugin>\('OmnicianPosture'\)/)
 assert.match(readFileSync(new URL('../src/lib/posture-debug.ts', import.meta.url), 'utf8'), /taps >= 5/)
 assert.match(readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8'), /PostureDebugOverlay/)
 

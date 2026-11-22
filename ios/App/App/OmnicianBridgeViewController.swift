@@ -3,6 +3,15 @@ import UIKit
 
 /// Fills the window on fold/unfold and rotation so Duo layouts see the real viewport.
 class OmnicianBridgeViewController: CAPBridgeViewController {
+    /// Local Swift plugins live in the App target and are not in Capacitor's
+    /// packageClassList, so they are never auto-discovered. Register them here
+    /// before the webview loads so PluginHeaders exist for JS `registerPlugin`.
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+        bridge?.registerPluginInstance(OmnicianPosturePlugin())
+        bridge?.registerPluginInstance(OmnicianAudioPlugin())
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         edgesForExtendedLayout = .all

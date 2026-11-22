@@ -6,7 +6,7 @@ import {
 import { detectFoldedLayout, resolveFoldLayout, readFoldChoice } from '@/lib/fold-mode'
 import { isNativeApp } from '@/lib/native-origin'
 import { readNativeFoldLayout, readNativePosture, subscribeNativePosture } from '@/lib/native-fold'
-import { nativePosturePluginPresent } from '@/native/ios-posture'
+import { nativePosturePluginPresent, nativePosturePluginRegistered } from '@/native/ios-posture'
 import { toggleTunerDebug } from '@/lib/tuner-debug'
 
 const listeners = new Set<(on: boolean) => void>()
@@ -77,6 +77,7 @@ export type PostureDiagnostics = {
   coverPortraitRail: string
   nativeApp: string
   pluginPresent: string
+  registered: string
   source: string
   orientation: string
 }
@@ -93,8 +94,6 @@ export function readPostureDiagnostics(): PostureDiagnostics {
   const cover = detectCoverPortraitRail({
     width,
     height,
-    screenWidth,
-    screenHeight,
     native,
     nativeApp: isNativeApp(),
     preview: duoOuterPreview(),
@@ -123,6 +122,7 @@ export function readPostureDiagnostics(): PostureDiagnostics {
     coverPortraitRail: `${cover} (hook ${isCoverPortraitRail(width, height)})`,
     nativeApp: bool(isNativeApp()),
     pluginPresent: bool(typeof window === 'undefined' ? false : nativePosturePluginPresent()),
+    registered: bool(typeof window === 'undefined' ? false : nativePosturePluginRegistered()),
     source: native?.source ?? '—',
     orientation: native?.orientation ?? (width > height ? 'landscape' : 'portrait'),
   }

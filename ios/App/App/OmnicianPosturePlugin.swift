@@ -241,13 +241,10 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
         if let bounds = bridge?.viewController?.view.bounds, bounds.width > 0, bounds.height > 0 {
             return bounds.size
         }
-        let screen = UIScreen.main.bounds.size
-        if screen.width > 0, screen.height > 0 {
-            return screen
-        }
         return .zero
     }
 
+    /// utsname machine, e.g. iPhone19,4 on Duo.
     private func machineIdentifier() -> String {
         var info = utsname()
         uname(&info)
@@ -258,32 +255,12 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    private func modelLooksLikeDuo(_ model: String) -> Bool {
-        model.replacingOccurrences(of: "_", with: ",").hasPrefix("iPhone19")
-    }
-
-    private func sizeMatchesDuoOuter(_ size: CGSize) -> Bool {
-        let short = min(size.width, size.height)
-        let long = max(size.width, size.height)
-        return abs(short - 466) <= 6 && abs(long - 678) <= 6
-    }
-
     private func resolvedDisplay(size: CGSize) -> String {
-        let screen = UIScreen.main.bounds.size
-        let shortestView = min(size.width, size.height)
-        let shortestScreen = min(screen.width, screen.height)
-        let shortest = shortestView > 0 ? shortestView : shortestScreen
-        let hingeDevice = hingeAvailable || hingeInteraction != nil
-        let duo = hingeDevice
-            || modelLooksLikeDuo(machineIdentifier())
-            || sizeMatchesDuoOuter(size)
-            || sizeMatchesDuoOuter(screen)
-        if shortest > 0, shortest < 600, duo {
-            return "outer"
-        }
-        if shortest >= 600 {
-            return "inner"
-        }
+        // Classify from the live window, never UIScreen.main — on Duo the
+        // screen object can stay at the outer 466×678 while the app is inner.
+        let shortest = min(size.width, size.height)
+        if shortest >= 600 { return "inner" }
+        if shortest > 0 { return "outer" }
         return "unknown"
     }
 

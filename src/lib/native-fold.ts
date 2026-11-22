@@ -116,23 +116,45 @@ export function displayFromWindow(width: number, height: number): NativeDisplay 
   return Math.min(width, height) >= NATIVE_INNER_MIN_PX ? 'inner' : 'outer'
 }
 
-/** Prefer measured window/screen size over a stale or empty plugin display string. */
+/** Classify inner/outer from the live window only — never window.screen (stale on Duo inner). */
 export function resolveNativeDisplay(snap: NativePostureSnapshot): NativeDisplay {
   const fromWindow = displayFromWindow(snap.windowWidth, snap.windowHeight)
   if (fromWindow !== 'unknown') return fromWindow
-  const fromScreen = displayFromWindow(snap.screenWidth, snap.screenHeight)
-  if (fromScreen !== 'unknown') return fromScreen
-  return snap.display
+  return snap.display === 'inner' || snap.display === 'outer' ? snap.display : 'unknown'
+}
+
+/** DeviceMotionEvent gravity in g units. iOS reports m/s²; some browsers already use g. */
+export function gravityFromDeviceMotion(
+  including: { x: number | null; y: number | null; z: number | null } | null | undefined,
+  user?: { x: number | null; y: number | null; z: number | null } | null,
+): { x: number; y: number; z: number } | null {
+  if (!including || including.x == null || including.y == null || including.z == null) return null
+  let x = including.x
+  let y = including.y
+  let z = including.z
+  if (user && user.x != null && user.y != null && user.z != null) {
+    x -= user.x
+    y -= user.y
+    z -= user.z
+  }
+  const mag = Math.hypot(x, y, z)
+  if (mag > 4) {
+    x /= 9.80665
+    y /= 9.80665
+    z /= 9.80665
+  }
+  if (![x, y, z].every(Number.isFinite)) return null
+  return { x, y, z }
 }
 
 export function hydrateNativePosture(
   snap: NativePostureSnapshot,
-  fallback?: { windowWidth?: number; windowHeight?: number; screenWidth?: number; screenHeight?: number },
+  fallback?: { windowWidth?: number; windowHeight?: number },
 ): NativePostureSnapshot {
   const windowWidth = snap.windowWidth > 0 ? snap.windowWidth : fallback?.windowWidth || 0
   const windowHeight = snap.windowHeight > 0 ? snap.windowHeight : fallback?.windowHeight || 0
-  const screenWidth = snap.screenWidth > 0 ? snap.screenWidth : fallback?.screenWidth || 0
-  const screenHeight = snap.screenHeight > 0 ? snap.screenHeight : fallback?.screenHeight || 0
+  const screenWidth = snap.screenWidth
+  const screenHeight = snap.screenHeight
   const next: NativePostureSnapshot = {
     ...snap,
     windowWidth,

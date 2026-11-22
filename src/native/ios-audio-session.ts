@@ -1,3 +1,5 @@
+import { Capacitor, registerPlugin } from '@capacitor/core'
+
 export type NativeDecodedSample = {
   sampleRate: number
   numberOfChannels: number
@@ -10,16 +12,12 @@ type NativeAudioPlugin = {
   decodeSample?: (options: { base64: string; ext?: string }) => Promise<NativeDecodedSample>
 }
 
-type CapacitorBridge = {
-  isNativePlatform?: () => boolean
-  Plugins?: { OmnicianAudio?: NativeAudioPlugin }
-}
+const OmnicianAudio = registerPlugin<NativeAudioPlugin>('OmnicianAudio')
 
 function nativePlugin(): NativeAudioPlugin | null {
   if (typeof window === 'undefined') return null
-  const capacitor = (window as Window & { Capacitor?: CapacitorBridge }).Capacitor
-  if (!capacitor?.isNativePlatform?.()) return null
-  return capacitor.Plugins?.OmnicianAudio ?? null
+  if (!Capacitor.isNativePlatform()) return null
+  return OmnicianAudio
 }
 
 /**

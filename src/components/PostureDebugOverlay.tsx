@@ -30,6 +30,7 @@ const ROWS: { key: keyof PostureDiagnostics; label: string }[] = [
   { key: 'coverPortraitRail', label: 'cover rail' },
   { key: 'nativeApp', label: 'nativeApp' },
   { key: 'pluginPresent', label: 'plugin' },
+  { key: 'registered', label: 'registered' },
   { key: 'source', label: 'source' },
   { key: 'orientation', label: 'orientation' },
 ]

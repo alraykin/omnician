@@ -21,8 +21,6 @@ export const DUO_RAIL_WIDTH_PX = 68
 export type CoverRailDetectInput = {
   width: number
   height: number
-  screenWidth?: number
-  screenHeight?: number
   native?: NativePostureSnapshot | null
   nativeApp?: boolean
   preview?: boolean
@@ -62,13 +60,11 @@ export function nativeLooksLikeDuo(native: NativePostureSnapshot | null | undefi
   if (native.foldDivisionActive != null) return true
   if (modelLooksLikeDuo(native.model)) return true
   if (sizeMatchesDuoOuter(native.windowWidth, native.windowHeight)) return true
-  if (sizeMatchesDuoOuter(native.screenWidth, native.screenHeight)) return true
   return false
 }
 
 export function deviceLooksLikeDuo(input: CoverRailDetectInput): boolean {
   if (sizeMatchesDuoOuter(input.width, input.height)) return true
-  if (sizeMatchesDuoOuter(input.screenWidth ?? 0, input.screenHeight ?? 0)) return true
   if (nativeLooksLikeDuo(input.native)) return true
   return false
 }
@@ -76,12 +72,8 @@ export function deviceLooksLikeDuo(input: CoverRailDetectInput): boolean {
 function shortestSide(input: CoverRailDetectInput): number {
   const candidates = [
     Math.min(input.width, input.height),
-    input.screenWidth && input.screenHeight ? Math.min(input.screenWidth, input.screenHeight) : 0,
     input.native?.windowWidth && input.native.windowHeight
       ? Math.min(input.native.windowWidth, input.native.windowHeight)
-      : 0,
-    input.native?.screenWidth && input.native.screenHeight
-      ? Math.min(input.native.screenWidth, input.native.screenHeight)
       : 0,
   ].filter((n) => n > 0)
   return candidates.length ? Math.min(...candidates) : 0
@@ -104,19 +96,11 @@ export function detectCoverPortraitRail(input: CoverRailDetectInput): boolean {
   return isDuoOuterViewport(input)
 }
 
-function readScreenSize(): { width: number; height: number } {
-  if (typeof window === 'undefined' || !window.screen) return { width: 0, height: 0 }
-  return { width: window.screen.width || 0, height: window.screen.height || 0 }
-}
-
 export function isDuoOuterDisplay(): boolean {
   if (typeof window === 'undefined') return duoOuterPreview()
-  const screen = readScreenSize()
   return isDuoOuterViewport({
     width: window.innerWidth,
     height: window.innerHeight,
-    screenWidth: screen.width,
-    screenHeight: screen.height,
     native: readNativePosture(),
     nativeApp: isNativeApp(),
     preview: duoOuterPreview(),
@@ -128,12 +112,9 @@ export function isCoverPortraitRail(width: number, height: number): boolean {
   if (typeof window === 'undefined') {
     return detectCoverPortraitRail({ width, height, preview: duoOuterPreview() })
   }
-  const screen = readScreenSize()
   return detectCoverPortraitRail({
     width,
     height,
-    screenWidth: screen.width,
-    screenHeight: screen.height,
     native: readNativePosture(),
     nativeApp: isNativeApp(),
     preview: duoOuterPreview(),
