@@ -104,25 +104,34 @@
 }
 
 [data-tuner-cover='1'] {
-  gap: 0.35rem;
+  gap: 0.2rem;
 }
 
 [data-tuner-cover='1'] [data-headstock-stage] {
-  height: min(16rem, 42dvh) !important;
-  max-width: 15rem !important;
+  height: min(12.6rem, 32dvh) !important;
+  max-width: 13.25rem !important;
+}
+
+[data-tuner-cover='1'] [data-tuner-note] {
+  font-size: 1.7rem;
+}
+
+[data-tuner-cover='1'] [data-tuner-note-meta] {
+  display: none;
 }
 
 [data-tuner-cover='1'] [data-tuner-target] {
-  height: 5.4rem !important;
+  height: 4.65rem !important;
+  width: 100%;
 }
 
 [data-tuner-cover='1'] [data-tuning-change] {
-  padding-top: 0.45rem;
-  padding-bottom: 0.45rem;
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
 }
 
 [data-tuner-cover='1'] [data-tuner-page-controls] {
-  margin-top: 0.2rem;
+  margin-top: 0.15rem;
 }
 
 [data-tuner-landscape] [data-headstock-stage] {

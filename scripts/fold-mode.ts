@@ -285,6 +285,10 @@ const stripSrc = readFileSync(new URL('../src/components/DuoStatusStrip.tsx', im
 assert.match(stripSrc, /bg-transparent/)
 assert.doesNotMatch(stripSrc, /bg-\[#070A12\]/)
 
+const tunerPageSrc = readFileSync(new URL('../src/pages/TunerPage.tsx', import.meta.url), 'utf8')
+assert.match(tunerPageSrc, /data-tuner-cover/)
+assert.doesNotMatch(tunerPageSrc, /grid-cols-\[minmax\(0,1fr\)_minmax\(9\.25rem,38%\)\]/)
+
 const duoLayoutSrc = readFileSync(new URL('../src/lib/duo-layout.ts', import.meta.url), 'utf8')
 assert.match(duoLayoutSrc, /width: 466/)
 assert.match(duoLayoutSrc, /height: 678/)

@@ -457,12 +457,12 @@ export function TunerPage() {
             />
           )}
         </div>
-        <InputPicker alwaysShow />
+        <InputPicker alwaysShow className={coverRail ? 'mt-1' : undefined} />
 
         <section
           className={cn(
             'relative flex min-h-0 flex-col items-center overflow-x-hidden rounded-3xl border px-3 py-2 sm:px-6 sm:py-4',
-            coverRail ? 'mt-1 flex-none py-1.5' : 'mt-2 flex-1',
+            coverRail ? 'mt-1 w-full flex-none py-1.5' : 'mt-2 flex-1',
             celebrate
               ? 'omni-all-tuned-screen border-emerald-300/80 bg-emerald-500/16'
               : inTune && live
@@ -475,12 +475,6 @@ export function TunerPage() {
           data-all-tuned={celebrate ? '1' : '0'}
           data-tuned-count={tunedIds.size}
         >
-          <div
-            className={cn(
-              coverRail &&
-                'grid w-full grid-cols-[minmax(0,1fr)_minmax(9.25rem,38%)] items-center gap-x-2 gap-y-1',
-            )}
-          >
           {instrumentMode ? (
             <div
               className={cn(
@@ -530,7 +524,7 @@ export function TunerPage() {
             </p>
           )}
 
-          <div className={cn('mt-1.5 flex w-full flex-col items-center', coverRail && 'mt-0 min-w-0')}>
+          <div className={cn('mt-1.5 flex w-full flex-col items-center', coverRail && 'mt-1')}>
             <NoteDisplay
               live={live}
               inTune={inTune}
@@ -579,14 +573,13 @@ export function TunerPage() {
                 : '— cents'}
             </p>
 
-            <div className="mt-1.5 w-full max-w-md">
+            <div className={cn('mt-1.5 w-full', !coverRail && 'max-w-md')}>
               <TunerTarget
                 cents={displayCents}
                 inTune={inTune}
                 active={live}
               />
             </div>
-          </div>
           </div>
 
           <p
@@ -834,7 +827,7 @@ function NoteDisplay({
           </span>
         ) : null}
       </div>
-      <p className="mt-0.5 text-xs text-slate-400 sm:text-sm">
+      <p data-tuner-note-meta className="mt-0.5 text-xs text-slate-400 sm:text-sm">
         {isNatural ? 'Natural' : `${sharpName} / ${flatName}`}
         {target ? ` · ${target}` : ''}
       </p>
