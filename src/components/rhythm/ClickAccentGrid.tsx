@@ -48,7 +48,7 @@ export function ClickAccentGrid({
   onSetBeatSubdiv,
 }: ClickAccentGridProps) {
   const playhead = usePlayhead(playheadStore)
-  const live = playing && playhead.bar === barIndex
+  const live = playing && !playhead.precount && playhead.bar === barIndex
   const liveBeat = playhead.beat
   const rootRef = useRef<HTMLDivElement>(null)
   const beats = Array.from({ length: bar.beats }, (_, beat) => beat)

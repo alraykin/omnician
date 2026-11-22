@@ -107,7 +107,7 @@ export function ClickPendulum({
       wallRef.current = nowWall
 
       let norm = displayRef.current
-      if (playingRef.current && clock.playing && beatSec > 0) {
+      if (playingRef.current && clock.playing && !clock.precount && beatSec > 0) {
         if (!swing.armed) {
           const start =
             clock.barStart > 0 && clock.audioTime + 1 >= clock.barStart

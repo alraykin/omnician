@@ -1,4 +1,5 @@
 import { type InputDivision } from '@/lib/beat-boxes'
+import { audibleNow } from '@/lib/playhead-clock'
 import { barDurationSec, type RhythmBar } from '@/lib/rhythm'
 
 /** Slot width in the landscape editor \u2014 tappable, never wraps to a second row. */
@@ -41,8 +42,8 @@ export function fracInBar(opts: {
   outputLatency?: number
 }): number {
   if (opts.playing === false || opts.precount || !(opts.barDur > 0)) return 0
-  void opts.outputLatency
-  const raw = (opts.audioTime - opts.barStart) / opts.barDur
+  const heard = audibleNow(opts.audioTime, opts.outputLatency)
+  const raw = (heard - opts.barStart) / opts.barDur
   if (!Number.isFinite(raw)) return 0
   const wrapped = raw - Math.floor(raw)
   if (wrapped >= 1) return 0

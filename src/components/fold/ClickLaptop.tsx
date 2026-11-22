@@ -56,8 +56,15 @@ export function ClickLaptop({
   onOpenPresets: () => void
 }) {
   const playhead = usePlayhead(playheadStore)
-  const live = playing && playhead.bar === barIndex
-  const count = !live || playhead.beat < 0 ? '—' : playhead.subdivision ? `${playhead.beat + 1}·${playhead.step + 1}` : String(playhead.beat + 1)
+  const live = playing && !playhead.precount && playhead.bar === barIndex
+  const count =
+    playing && playhead.precount && playhead.beat >= 0
+      ? String(playhead.beat + 1)
+      : !live || playhead.beat < 0
+        ? '—'
+        : playhead.subdivision
+          ? `${playhead.beat + 1}·${playhead.step + 1}`
+          : String(playhead.beat + 1)
   const shownBpm = Math.round(liveBpm || bpm)
 
   return (

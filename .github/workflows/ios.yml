@@ -56,7 +56,7 @@ jobs:
         run: npm run test:ios-prep && npm run test:audio-session
 
       - name: Check Factory CORS and native sound sources
-        run: npm run test:factory && npm run test:sound-sources && npm run test:fold && npm run test:pendulum
+        run: npm run test:factory && npm run test:sound-sources && npm run test:fold && npm run test:pendulum && npm run test:precount
 
       - name: Production web build (Vite dist → Capacitor webDir)
         run: npm run build

@@ -19,6 +19,14 @@ import {
   type ClockWatch,
 } from '@/lib/lookahead-scheduler'
 import { captureAudioTime } from '@/lib/drum-recorder'
+import {
+  NO_COUNT_IN,
+  audibleNow,
+  contextOutputLatency,
+  pruneHeardCues,
+  visualPlayheadFromSchedule,
+  type ScheduledStep,
+} from '@/lib/playhead-clock'
 import { getOrCreateRhythmKit, type RhythmKit } from '@/lib/rhythm-audio'
 import {
   applyClickSubdivision,
@@ -75,8 +83,6 @@ export type TransportClock = {
 }
 
 const IDLE_PLAYHEAD: Playhead = { bar: 0, step: -1, beat: -1, accent: 0, subdivision: false, precount: false }
-/** Paint the step a frame early so React/DOM land with the audible hit. */
-const VISUAL_LEAD = 0.02
 /** Voices closer than this stay; we only cancel/reschedule what's still in the future. */
 const COMMIT_SEC = LIVE_COMMIT_SEC
 
@@ -174,7 +180,7 @@ export function useRhythmEngine({
   const timerRef = useRef<number | null>(null)
   const rafRef = useRef<number | null>(null)
   const stopPumpRef = useRef<() => void>(() => {})
-  const cuesRef = useRef<Array<Playhead & { time: number }>>([])
+  const cuesRef = useRef<ScheduledStep[]>([])
   const nextTimeRef = useRef(0)
   const stepRef = useRef(0)
   const barRef = useRef(0)
@@ -205,6 +211,8 @@ export function useRhythmEngine({
   const barStartRef = useRef(0)
   const heardBarStartRef = useRef(0)
   const heardBarIndexRef = useRef(0)
+  const countUntilRef = useRef(NO_COUNT_IN)
+  const grooveStartRef = useRef(0)
   const barTempoRef = useRef(bpm)
   const retargetRef = useRef<(reason: 'tempo' | 'intensity' | 'subdivision') => void>(() => undefined)
   const clockWatchRef = useRef<ClockWatch>(createClockWatch(0, 0))
@@ -334,6 +342,8 @@ export function useRhythmEngine({
     barStartRef.current = 0
     heardBarStartRef.current = 0
     heardBarIndexRef.current = 0
+    countUntilRef.current = NO_COUNT_IN
+    grooveStartRef.current = 0
     barTempoRef.current = bpmRef.current
     retargetRef.current = () => undefined
   }, [clearVisuals])
@@ -440,6 +450,8 @@ export function useRhythmEngine({
             : shouldStartPrecount(liveModeRef.current, sb)
       sbPhaseRef.current = wantPrecount ? 'precount' : 'pattern'
       precountBeatRef.current = 0
+      countUntilRef.current = wantPrecount ? Number.POSITIVE_INFINITY : NO_COUNT_IN
+      grooveStartRef.current = wantPrecount ? 0 : nextTimeRef.current
 
       const commitPendingCycle = () => {
         liveModeRef.current = pendingModeRef.current
@@ -669,7 +681,7 @@ export function useRhythmEngine({
         if (Math.abs(oldBpm - newBpm) < 1e-6) return
         barTempoRef.current = newBpm
         kit.cancelFuture(commit)
-        cuesRef.current = cuesRef.current.filter((cue) => cue.time <= now + VISUAL_LEAD)
+        cuesRef.current = cuesRef.current.filter((cue) => cue.time <= now + COMMIT_SEC)
 
         if (sbPhaseRef.current === 'precount') {
           const remaining = Math.max(0, nextTimeRef.current - now)
@@ -732,6 +744,18 @@ export function useRhythmEngine({
         precountBeatRef.current = 0
         stepRef.current = 0
         barRef.current = 0
+        countUntilRef.current = Number.POSITIVE_INFINITY
+      }
+
+      const endPrecount = (grooveStart: number) => {
+        sbPhaseRef.current = 'pattern'
+        stepRef.current = 0
+        barRef.current = loopBarRef.current ?? 0
+        countUntilRef.current = grooveStart
+        grooveStartRef.current = grooveStart
+        barStartRef.current = grooveStart
+        heardBarStartRef.current = grooveStart
+        heardBarIndexRef.current = barRef.current
       }
 
       const advanceSpeedBuilder = (atTime: number) => {
@@ -819,9 +843,7 @@ export function useRhythmEngine({
             nextTimeRef.current = slotTime + beatDurationSec(tempo, first.beatUnit)
             precountBeatRef.current = beat + 1
             if (precountBeatRef.current >= first.beats) {
-              sbPhaseRef.current = 'pattern'
-              stepRef.current = 0
-              barRef.current = locked ?? 0
+              endPrecount(nextTimeRef.current)
             }
             continue
           }
@@ -907,26 +929,18 @@ export function useRhythmEngine({
         if (!playingRef.current) return
         const audioTime = kit.ctx.currentTime
         const observed = clockWatchRef.current
-        const due = (observed.frozen ? observed.virtualNow : audioTime) + VISUAL_LEAD
-        const queue = cuesRef.current
-        let latest: (Playhead & { time: number }) | null = null
-        let count = 0
-        for (const cue of queue) {
-          if (cue.time > due) break
-          latest = cue
-          count += 1
-        }
-        if (count > 0) queue.splice(0, count)
-        if (latest) {
-          playheadStore.set({
-            bar: latest.bar,
-            step: latest.step,
-            beat: latest.beat,
-            accent: latest.accent,
-            subdivision: latest.subdivision,
-            precount: latest.precount,
-          })
-        }
+        const t = observed.frozen ? observed.virtualNow : audioTime
+        const latency = contextOutputLatency(kit.ctx as AudioContext)
+        const startBar = loopBarRef.current ?? 0
+        const head = visualPlayheadFromSchedule({
+          cues: cuesRef.current,
+          audioTime: t,
+          outputLatency: latency,
+          countUntil: countUntilRef.current,
+          startBar,
+        })
+        playheadStore.set(head)
+        cuesRef.current = pruneHeardCues(cuesRef.current, audibleNow(t, latency))
         rafRef.current = window.requestAnimationFrame(pumpVisuals)
       }
 
@@ -980,23 +994,36 @@ export function useRhythmEngine({
       : clockWatchRef.current
     const now = observed.frozen ? observed.virtualNow : audioTime
     const captureTime = ctx ? captureAudioTime(ctx) : 0
+    const latency = contextOutputLatency(ctx as AudioContext | undefined)
+    const heardAt = audibleNow(now, latency)
     const locked = loopBarRef.current
     const sequence = playingRef.current ? liveBarsRef.current : pendingBarsRef.current
     const len = Math.max(1, sequence.length)
     const bpmNow = playbackBpmRef.current
     const durations = sequence.map((item) => barDurationSec(item.beats, bpmNow, item.beatUnit))
-    const heard = locateHeardBar(
-      now,
-      heardBarStartRef.current || barStartRef.current,
-      heardBarIndexRef.current,
-      durations,
-    )
-    if (playingRef.current && sbPhaseRef.current === 'pattern' && durations.length > 0) {
+    const startBar = locked != null ? ((locked % len) + len) % len : 0
+    const counting = playingRef.current && heardAt < countUntilRef.current - 1e-9
+    if (counting) {
+      const bar = sequence[startBar] ?? sequence[0]
+      const groove = grooveStartRef.current || countUntilRef.current
+      return {
+        audioTime: now,
+        captureTime,
+        barStart: Number.isFinite(groove) ? groove : now,
+        barDur: bar ? barDurationSec(bar.beats, bpmNow, bar.beatUnit) : 0,
+        barIndex: startBar,
+        precount: true,
+        playing: playingRef.current,
+        outputLatency: latency,
+      }
+    }
+    const fromStart = heardBarStartRef.current || grooveStartRef.current || barStartRef.current
+    const heard = locateHeardBar(heardAt, fromStart, heardBarIndexRef.current, durations)
+    if (playingRef.current && durations.length > 0) {
       heardBarStartRef.current = heard.start
       heardBarIndexRef.current = heard.index
     }
-    const index =
-      locked != null ? ((locked % len) + len) % len : durations.length > 0 ? heard.index : 0
+    const index = locked != null ? startBar : durations.length > 0 ? heard.index : 0
     const bar = sequence[index] ?? sequence[0]
     return {
       audioTime: now,
@@ -1004,14 +1031,9 @@ export function useRhythmEngine({
       barStart: heard.start,
       barDur: bar ? barDurationSec(bar.beats, bpmNow, bar.beatUnit) : 0,
       barIndex: index,
-      precount: sbPhaseRef.current === 'precount',
+      precount: false,
       playing: playingRef.current,
-      outputLatency: (() => {
-        if (!ctx) return 0
-        const live = ctx as AudioContext
-        if (typeof live.outputLatency === 'number' && live.outputLatency > 0) return live.outputLatency
-        return live.baseLatency ?? 0
-      })(),
+      outputLatency: latency,
     }
   }, [])
 

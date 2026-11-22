@@ -1958,7 +1958,7 @@ function ClickLiveHeader({
   barIndex: number
 }) {
   const playhead = usePlayhead(store)
-  const live = playing && playhead.bar === barIndex
+  const live = playing && !playhead.precount && playhead.bar === barIndex
   return (
     <div className="flex items-center gap-2">
       <div
@@ -1978,11 +1978,13 @@ function ClickLiveHeader({
         data-pulse-level={playhead.accent}
       >
         <span className="text-lg font-bold tabular-nums text-white sm:text-xl">
-          {!live || playhead.beat < 0
-            ? '—'
-            : playhead.subdivision
-              ? `${playhead.beat + 1}·${playhead.step + 1}`
-              : playhead.beat + 1}
+          {playing && playhead.precount && playhead.beat >= 0
+            ? playhead.beat + 1
+            : !live || playhead.beat < 0
+              ? '—'
+              : playhead.subdivision
+                ? `${playhead.beat + 1}·${playhead.step + 1}`
+                : playhead.beat + 1}
         </span>
       </div>
       <p className="min-w-0 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
