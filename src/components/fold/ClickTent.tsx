@@ -3,13 +3,26 @@ import { useEffect, useRef, useState } from 'react'
 
 import { FoldShell } from '@/components/fold/FoldShell'
 import { type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
-import { fracInBar } from '@/lib/editor-playhead'
-import { pendulumAtExtreme, pendulumBeatIndex, pendulumNorm } from '@/lib/fold-mode'
-import { beatAccentAt, meterLabel, type RhythmBar } from '@/lib/rhythm'
+import {
+  easePendulumToCenter,
+  pendulumAtExtreme,
+  pendulumBeatIndexFromPhase,
+  pendulumBeatPhase,
+  pendulumNormFromBeatPhase,
+  rebasePendulumClock,
+} from '@/lib/fold-mode'
+import { beatAccentAt, beatDurationSec, meterLabel, type RhythmBar } from '@/lib/rhythm'
 import { activateOnPointer, cn } from '@/lib/utils'
 
 const MAX_DEG = 32
 const BOB_R = 22
+
+type PendulumClock = {
+  originAudioTime: number
+  originBeatPhase: number
+  beatSec: number
+  armed: boolean
+}
 
 export function ClickTent({
   bpm,
@@ -36,9 +49,19 @@ export function ClickTent({
   const [rodPx, setRodPx] = useState(180)
   const playingRef = useRef(playing)
   const barRef = useRef(bar)
+  const bpmRef = useRef(liveBpm || bpm)
   const getClockRef = useRef(getClock)
+  const displayRef = useRef(0)
+  const wallRef = useRef(0)
+  const swingRef = useRef<PendulumClock>({
+    originAudioTime: 0,
+    originBeatPhase: 0,
+    beatSec: 0.5,
+    armed: false,
+  })
   playingRef.current = playing
   barRef.current = bar
+  bpmRef.current = liveBpm || bpm
   getClockRef.current = getClock
 
   useEffect(() => {
@@ -63,23 +86,62 @@ export function ClickTent({
     const tick = () => {
       const clock = getClockRef.current()
       const beats = Math.max(1, barRef.current.beats)
-      const frac = playingRef.current
-        ? fracInBar({
-            audioTime: clock.audioTime,
-            barStart: clock.barStart,
-            barDur: clock.barDur,
-            precount: clock.precount,
-            playing: clock.playing,
-            outputLatency: clock.outputLatency,
-          })
-        : 0
-      const norm = playingRef.current ? pendulumNorm(frac, beats) : 1
-      const beat = playingRef.current ? pendulumBeatIndex(frac, beats) : 0
-      const accent = beatAccentAt(barRef.current.beatAccents, beat)
-      const extreme = playingRef.current && pendulumAtExtreme(norm)
+      const beatSec = beatDurationSec(bpmRef.current, barRef.current.beatUnit)
+      const swing = swingRef.current
+      const nowWall = performance.now()
+      const dt = wallRef.current ? Math.min(0.08, (nowWall - wallRef.current) / 1000) : 0
+      wallRef.current = nowWall
+
+      let norm = displayRef.current
+      if (playingRef.current && clock.playing && beatSec > 0) {
+        if (!swing.armed) {
+          const start =
+            clock.barStart > 0 && clock.audioTime + 1 >= clock.barStart
+              ? clock.barStart
+              : clock.audioTime
+          swing.originAudioTime = start
+          swing.originBeatPhase = 0
+          swing.beatSec = beatSec
+          swing.armed = true
+        } else if (Math.abs(beatSec - swing.beatSec) > 1e-9) {
+          const next = rebasePendulumClock(
+            clock.audioTime,
+            swing.originAudioTime,
+            swing.originBeatPhase,
+            swing.beatSec,
+            beatSec,
+          )
+          swing.originAudioTime = next.originAudioTime
+          swing.originBeatPhase = next.originBeatPhase
+          swing.beatSec = next.beatSec
+        }
+        const phase = pendulumBeatPhase(
+          clock.audioTime,
+          swing.originAudioTime,
+          swing.originBeatPhase,
+          swing.beatSec,
+        )
+        norm = pendulumNormFromBeatPhase(phase)
+        const beat = pendulumBeatIndexFromPhase(Math.max(0, phase), beats)
+        const accent = beatAccentAt(barRef.current.beatAccents, beat)
+        const extreme = pendulumAtExtreme(norm)
+        paint(norm, accent, extreme)
+      } else {
+        swing.armed = false
+        norm = easePendulumToCenter(displayRef.current, dt)
+        paint(norm, 0, false)
+      }
+      displayRef.current = norm
+      raf = requestAnimationFrame(tick)
+    }
+    const paint = (norm: number, accent: number, extreme: boolean) => {
       const rod = rodRef.current
       const bob = bobRef.current
-      if (rod) rod.style.transform = `rotate(${(-norm * MAX_DEG).toFixed(3)}deg)`
+      if (rod) {
+        rod.style.transform = `rotate(${(-norm * MAX_DEG).toFixed(3)}deg)`
+        rod.dataset.norm = norm.toFixed(4)
+        rod.dataset.extreme = extreme ? '1' : '0'
+      }
       if (bob) {
         bob.dataset.accent = String(accent)
         bob.dataset.extreme = extreme ? '1' : '0'
@@ -90,7 +152,6 @@ export function ClickTent({
         bob.classList.toggle('ring-2', extreme)
         bob.classList.toggle('ring-white', extreme)
       }
-      raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
@@ -164,16 +225,20 @@ export function ClickTent({
               style={{ top: 0 }}
             />
             <div
-              ref={rodRef}
-              data-fold-pendulum
-              className="absolute left-1/2 top-[6px] z-0 w-[3px] origin-top -translate-x-1/2 bg-gradient-to-b from-[#C084FC] to-[#A855F7]"
+              className="absolute left-1/2 top-[6px] z-0 w-[3px] -translate-x-1/2"
               style={{ height: rodPx }}
             >
-              <span
-                ref={bobRef}
-                data-fold-pendulum-bob
-                className="absolute bottom-0 left-1/2 size-11 min-h-10 min-w-10 -translate-x-1/2 translate-y-1/2 rounded-full bg-white"
-              />
+              <div
+                ref={rodRef}
+                data-fold-pendulum
+                className="h-full w-full origin-top bg-gradient-to-b from-[#C084FC] to-[#A855F7]"
+              >
+                <span
+                  ref={bobRef}
+                  data-fold-pendulum-bob
+                  className="absolute bottom-0 left-1/2 size-11 min-h-10 min-w-10 -translate-x-1/2 translate-y-1/2 rounded-full bg-white"
+                />
+              </div>
             </div>
           </div>
         </button>

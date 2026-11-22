@@ -24,9 +24,14 @@ import {
   FOLD_PEG_H,
   layoutForTool,
   parseFoldChoice,
+  easePendulumToCenter,
   pendulumAtExtreme,
   pendulumBeatIndex,
+  pendulumBeatIndexFromPhase,
+  pendulumBeatPhase,
   pendulumNorm,
+  pendulumNormFromBeatPhase,
+  rebasePendulumClock,
   resolveFoldLayout,
   splitPegs,
   tunerShowsBook,
@@ -147,6 +152,54 @@ assert.equal(pendulumAtExtreme(1), true)
 assert.equal(pendulumAtExtreme(-1), true)
 assert.equal(pendulumAtExtreme(0), false)
 
+assert.equal(pendulumNormFromBeatPhase(0), 1)
+assert.ok(Math.abs(pendulumNormFromBeatPhase(1) + 1) < 1e-9)
+assert.ok(Math.abs(pendulumNormFromBeatPhase(2) - 1) < 1e-9)
+assert.ok(Math.abs(pendulumNormFromBeatPhase(3) + 1) < 1e-9)
+assert.equal(pendulumBeatIndexFromPhase(0, 1), 0)
+assert.equal(pendulumBeatIndexFromPhase(1.2, 1), 0)
+assert.equal(pendulumBeatIndexFromPhase(2.1, 4), 2)
+
+const wrapOld = pendulumNorm(0.999, 1)
+const wrapNew = pendulumNormFromBeatPhase(0.999)
+assert.ok(wrapOld < -0.99 && wrapNew < -0.99)
+const afterWrapOld = pendulumNorm(0, 1)
+const afterWrapNew = pendulumNormFromBeatPhase(1.001)
+assert.equal(afterWrapOld, 1, 'bar-fraction wrap on 1-beat Click snaps back to left')
+assert.ok(afterWrapNew < -0.99, 'monotonic beat phase continues through the right extreme')
+
+let jump = 0
+let prev = pendulumNormFromBeatPhase(0)
+const frames: { t: number; side: string; norm: string }[] = []
+for (let i = 1; i <= 800; i += 1) {
+  const t = i / 200
+  const n = pendulumNormFromBeatPhase(t)
+  jump = Math.max(jump, Math.abs(n - prev))
+  if (pendulumAtExtreme(n) && (frames.length === 0 || Math.sign(n) !== Math.sign(Number(frames.at(-1)?.norm)))) {
+    frames.push({ t, side: n > 0 ? 'L' : 'R', norm: n.toFixed(3) })
+  }
+  prev = n
+}
+assert.ok(jump < 0.04, `continuous swing, max frame jump ${jump}`)
+assert.ok(frames.length >= 4, 'several extremes')
+const sides = frames.slice(0, 8).map((f) => f.side)
+for (let i = 1; i < sides.length; i += 1) {
+  assert.notEqual(sides[i], sides[i - 1], `alternating extremes, got ${sides.join('')}`)
+}
+assert.ok(sides.includes('L') && sides.includes('R'))
+console.log('pendulum frame log', frames.slice(0, 8))
+
+const rebased = rebasePendulumClock(1.2, 0, 0, 0.5, 0.25)
+assert.ok(Math.abs(pendulumBeatPhase(1.2, 0, 0, 0.5) - rebased.originBeatPhase) < 1e-12)
+const before = pendulumNormFromBeatPhase(pendulumBeatPhase(1.2, 0, 0, 0.5))
+const after = pendulumNormFromBeatPhase(
+  pendulumBeatPhase(1.2, rebased.originAudioTime, rebased.originBeatPhase, rebased.beatSec),
+)
+assert.ok(Math.abs(before - after) < 1e-12, 'tempo rebase does not jump')
+
+assert.ok(Math.abs(easePendulumToCenter(1, 0.5)) < 0.02)
+assert.equal(easePendulumToCenter(0.004, 0.016), 0)
+
 const pegs = splitPegs(['E', 'A', 'D', 'G', 'B', 'e'])
 assert.deepEqual(pegs.left, ['E', 'A', 'D'])
 assert.deepEqual(pegs.right, ['G', 'B', 'e'])
@@ -179,6 +232,10 @@ assert.doesNotMatch(tentSrc, /rotate\(180deg\)/)
 assert.doesNotMatch(tentSrc, /data-fold-face/)
 assert.match(tentSrc, /data-fold-tent/)
 assert.match(tentSrc, /data-fold-pendulum/)
+assert.match(tentSrc, /pendulumNormFromBeatPhase/)
+assert.match(tentSrc, /rebasePendulumClock/)
+assert.match(tentSrc, /easePendulumToCenter/)
+assert.doesNotMatch(tentSrc, /fracInBar/)
 assert.doesNotMatch(tentSrc, /data-fold-tent-exit/)
 assert.match(tentSrc, /data-fold-tent-caption/)
 assert.match(tentSrc, /--fold-safe-top/)

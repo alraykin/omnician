@@ -272,12 +272,44 @@ export function foldNeedleHidden(cents: number | null, inTune: boolean): boolean
 
 /**
  * Traditional pendulum: one extreme-to-extreme swing per beat.
- * +1 = left, −1 = right. Ticks land at each extreme (beat boundaries).
+ * +1 = left, −1 = right. Ticks land at each extreme (integer beat times).
+ *
+ * `beatPhase` is monotonic elapsed beats (0, 1, 2, …), not a 0–1 bar fraction.
+ * Wrapping a 1-beat bar’s fraction maps 0.999 → 0 and snaps −1 → +1.
  */
+export function pendulumNormFromBeatPhase(beatPhase: number): number {
+  if (!Number.isFinite(beatPhase)) return 0
+  return Math.cos(Math.PI * beatPhase)
+}
+
+export function pendulumBeatPhase(
+  audioTime: number,
+  originAudioTime: number,
+  originBeatPhase: number,
+  beatSec: number,
+): number {
+  if (!(beatSec > 0) || !Number.isFinite(audioTime) || !Number.isFinite(originAudioTime)) {
+    return originBeatPhase
+  }
+  return originBeatPhase + (audioTime - originAudioTime) / beatSec
+}
+
+export function rebasePendulumClock(
+  now: number,
+  originAudioTime: number,
+  originBeatPhase: number,
+  oldBeatSec: number,
+  newBeatSec: number,
+): { originAudioTime: number; originBeatPhase: number; beatSec: number } {
+  const phase = pendulumBeatPhase(now, originAudioTime, originBeatPhase, oldBeatSec)
+  return { originAudioTime: now, originBeatPhase: phase, beatSec: newBeatSec }
+}
+
+/** Within-bar helper. Prefer `pendulumNormFromBeatPhase` for motion (no bar wrap). */
 export function pendulumNorm(barFrac: number, beats: number): number {
   const n = Math.max(1, Math.floor(beats) || 1)
   const phase = ((barFrac % 1) + 1) % 1
-  return Math.cos(Math.PI * phase * n)
+  return pendulumNormFromBeatPhase(phase * n)
 }
 
 export function pendulumBeatIndex(barFrac: number, beats: number): number {
@@ -286,8 +318,24 @@ export function pendulumBeatIndex(barFrac: number, beats: number): number {
   return Math.min(n - 1, Math.floor(phase * n))
 }
 
+export function pendulumBeatIndexFromPhase(beatPhase: number, beats: number): number {
+  const n = Math.max(1, Math.floor(beats) || 1)
+  if (!Number.isFinite(beatPhase) || beatPhase < 0) return 0
+  return ((Math.floor(beatPhase) % n) + n) % n
+}
+
 export function pendulumAtExtreme(norm: number, epsilon = 0.035): boolean {
   return Math.abs(Math.abs(norm) - 1) < epsilon
+}
+
+export const PENDULUM_STOP_TAU_SEC = 0.09
+
+/** Ease `from` toward center (0). tau is a time constant in seconds. */
+export function easePendulumToCenter(from: number, dtSec: number, tau = PENDULUM_STOP_TAU_SEC): number {
+  if (!Number.isFinite(from)) return 0
+  if (!(dtSec > 0) || !(tau > 0)) return 0
+  const next = from * Math.exp(-dtSec / tau)
+  return Math.abs(next) < 0.008 ? 0 : next
 }
 
 export function splitPegs<T>(pegs: readonly T[]): { left: T[]; right: T[] } {
