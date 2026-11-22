@@ -125,12 +125,23 @@ STREAM_PIDS=()
 trap - EXIT
 
 new_crashes() {
+  # Do not glob App* — that matches AppIntentsLiveEntityService and other system
+  # simulator processes. Only our binary: App- / App_ / App. plus .ips headers.
   find "$HOME/Library/Logs/DiagnosticReports" \
     "$HOME/Library/Logs/CrashReporter" \
     "$HOME/Library/Developer/CoreSimulator/Devices/$UDID/data/Library/Logs/CrashReporter" \
     "$HOME/Library/Developer/CoreSimulator/Devices/$UDID/data/Library/Logs/DiagnosticReports" \
-    -type f \( -name 'App*' -o -name '*Omnician*' -o -name '*app.omnician*' \) \
-    -newer "$CRASH_MARK" 2>/dev/null || true
+    -type f \( -name '*.ips' -o -name '*.crash' \) \
+    -newer "$CRASH_MARK" 2>/dev/null \
+  | while IFS= read -r f; do
+      base="$(basename "$f")"
+      case "$base" in
+        App-*|App_*|App.*) printf '%s\n' "$f"; continue ;;
+      esac
+      if head -c 16384 "$f" 2>/dev/null | grep -Eq '"app_name"[[:space:]]*:[[:space:]]*"App"|"bundleID"[[:space:]]*:[[:space:]]*"app\.omnician"'; then
+        printf '%s\n' "$f"
+      fi
+    done
 }
 
 dump_logs() {
