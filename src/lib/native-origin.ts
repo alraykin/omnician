@@ -12,12 +12,18 @@ type CapacitorBridge = {
   isNativePlatform?: () => boolean
 }
 
+function runtimeWindow(): (Window & { Capacitor?: CapacitorBridge }) | undefined {
+  if (typeof window !== 'undefined') return window
+  const win = (globalThis as { window?: Window & { Capacitor?: CapacitorBridge } }).window
+  return win
+}
+
 export function isNativeApp(): boolean {
-  if (typeof window === 'undefined') return false
-  const protocol = window.location.protocol
+  const win = runtimeWindow()
+  if (!win) return false
+  const protocol = win.location?.protocol
   if (protocol === 'capacitor:' || protocol === 'ionic:' || protocol === 'omnician:') return true
-  const capacitor = (window as Window & { Capacitor?: CapacitorBridge }).Capacitor
-  return capacitor?.isNativePlatform?.() === true
+  return win.Capacitor?.isNativePlatform?.() === true
 }
 
 /** Public Worker routes the native app must load from omnician.app, not capacitor://localhost. */

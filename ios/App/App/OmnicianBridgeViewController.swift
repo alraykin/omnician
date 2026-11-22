@@ -1,5 +1,6 @@
 import Capacitor
 import UIKit
+import WebKit
 
 /// Fills the window on fold/unfold and rotation so Duo layouts see the real viewport.
 class OmnicianBridgeViewController: CAPBridgeViewController {
@@ -10,6 +11,13 @@ class OmnicianBridgeViewController: CAPBridgeViewController {
         super.capacitorDidLoad()
         bridge?.registerPluginInstance(OmnicianPosturePlugin())
         bridge?.registerPluginInstance(OmnicianAudioPlugin())
+    }
+
+    override func webViewConfiguration(for instanceConfiguration: InstanceConfiguration) -> WKWebViewConfiguration {
+        let config = super.webViewConfiguration(for: instanceConfiguration)
+        // Web Audio only — AirPlay/Now Playing targets HTML media in the webview.
+        config.allowsAirPlayForMediaPlayback = false
+        return config
     }
 
     override func viewDidLoad() {

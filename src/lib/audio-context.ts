@@ -1,3 +1,4 @@
+import { isNativeApp } from '@/lib/native-origin'
 import { applyNativeAudioSession } from '@/native/ios-audio-session'
 
 type AudioContextCtor = typeof AudioContext
@@ -176,9 +177,66 @@ function writeAudioSession(type: AudioSessionKind): boolean {
   }
 }
 
+const MEDIA_SESSION_ACTIONS = [
+  'play',
+  'pause',
+  'stop',
+  'seekbackward',
+  'seekforward',
+  'seekto',
+  'previoustrack',
+  'nexttrack',
+  'skipad',
+] as const
+
+/** Drop any Now Playing / Media Session entry. Never set metadata or handlers. */
+function clearMediaSession(): void {
+  if (typeof navigator === 'undefined') return
+  const session = navigator.mediaSession
+  if (!session) return
+  try {
+    session.metadata = null
+  } catch {
+    /* some WebViews reject metadata writes */
+  }
+  try {
+    session.playbackState = 'none'
+  } catch {
+    /* playbackState is optional */
+  }
+  for (const action of MEDIA_SESSION_ACTIONS) {
+    try {
+      session.setActionHandler(action, null)
+    } catch {
+      /* unsupported action */
+    }
+  }
+}
+
+function stopSilentHtmlAudio(): void {
+  if (!silentHtml) {
+    silentHtmlState = 'none'
+    return
+  }
+  try {
+    silentHtml.pause()
+  } catch {
+    /* already detached */
+  }
+  try {
+    silentHtml.remove()
+  } catch {
+    /* already detached */
+  }
+  silentHtml = null
+  silentHtmlState = 'none'
+}
+
 /**
- * Older iOS: a looping silent <audio playsinline> started in the first tap
- * puts the page in the media-playback category so Web Audio is not ringer-muted.
+ * Older iOS Safari only: a looping silent <audio playsinline> started in the
+ * first tap puts the page in the media-playback category so Web Audio is not
+ * ringer-muted. Never run this in the native app — iOS publishes that element
+ * as Now Playing titled "localhost".
  */
 function startSilentHtmlAudioFromGesture(): void {
   if (typeof document === 'undefined') return
@@ -225,17 +283,25 @@ function startSilentHtmlAudioFromGesture(): void {
  * /lab/silent step 1: write playback in the user-gesture stack, THEN create or
  * resume the AudioContext. Changing the session after clicks are already
  * running still fades Web Audio after one or two hits — do not do that.
- * Older iOS without navigator.audioSession gets the silent HTML loop instead.
+ * Older iOS Safari without navigator.audioSession gets the silent HTML loop.
+ * The native app must not: AVAudioSession + HTMLAudioElement became Now Playing.
  */
 export function claimPlaybackSessionFromGesture(): void {
   wantedSession = countLiveMicTracks().live > 0 ? 'play-and-record' : 'playback'
+  clearMediaSession()
   const wrote = writeAudioSession(wantedSession)
+  if (isNativeApp()) {
+    stopSilentHtmlAudio()
+    return
+  }
   if (!safariAudioSession() || !wrote) startSilentHtmlAudioFromGesture()
 }
 
 export function claimPlayAndRecordSessionFromGesture(): void {
   wantedSession = 'play-and-record'
+  clearMediaSession()
   writeAudioSession('play-and-record')
+  if (isNativeApp()) stopSilentHtmlAudio()
 }
 
 export function restorePlaybackSessionAfterMic(): void {

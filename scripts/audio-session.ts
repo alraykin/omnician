@@ -54,6 +54,36 @@ assert.match(src, /restorePlaybackSessionAfterMic\(\)/)
 assert.match(src, /wantedSession = countLiveMicTracks\(\)\.live > 0 \? 'play-and-record' : 'playback'/)
 assert.match(src, /applyNativeAudioSession\(type\)/)
 assert.match(src, /from '@\/native\/ios-audio-session'/)
+assert.match(src, /from '@\/lib\/native-origin'/)
+assert.match(src, /isNativeApp\(\)/)
+assert.match(src, /clearMediaSession\(\)/)
+assert.match(src, /stopSilentHtmlAudio\(\)/)
+assert.doesNotMatch(src, /new MediaMetadata/)
+assert.doesNotMatch(src, /playbackState = 'playing'/)
+assert.match(src, /session\.metadata = null/)
+assert.match(src, /playbackState = 'none'/)
+assert.match(src, /setActionHandler\(action, null\)/)
+
+const claimFn = src.slice(src.indexOf('export function claimPlaybackSessionFromGesture'))
+const nativeGuard = claimFn.indexOf('if (isNativeApp())')
+const htmlUnlock = claimFn.indexOf('startSilentHtmlAudioFromGesture()')
+assert.ok(nativeGuard > 0, 'native app must skip HTMLAudioElement unlock')
+assert.ok(htmlUnlock > nativeGuard, 'HTMLAudioElement unlock must come after the native skip')
+assert.match(claimFn.slice(nativeGuard, htmlUnlock), /return/)
+
+const nativeSession = readFileSync(new URL('../src/native/ios-audio-session.ts', import.meta.url), 'utf8')
+assert.match(nativeSession, /category: 'playAndRecord'/)
+assert.doesNotMatch(nativeSession, /kind === 'play-and-record' \? 'playAndRecord' : 'playback'/)
+
+const rhythmSrc = readFileSync(new URL('../src/lib/rhythm-audio.ts', import.meta.url), 'utf8')
+assert.doesNotMatch(rhythmSrc, /document\.createElement\(\s*['"]audio['"]/)
+assert.doesNotMatch(rhythmSrc, /mediaSession/)
+const toneSrc = readFileSync(new URL('../src/lib/reference-tone.ts', import.meta.url), 'utf8')
+assert.doesNotMatch(toneSrc, /document\.createElement\(\s*['"]audio['"]/)
+assert.doesNotMatch(toneSrc, /mediaSession/)
+const chimeSrc = readFileSync(new URL('../src/lib/in-tune-chime.ts', import.meta.url), 'utf8')
+assert.doesNotMatch(chimeSrc, /document\.createElement\(\s*['"]audio['"]/)
+assert.doesNotMatch(chimeSrc, /mediaSession/)
 
 const wav = silentWavDataUrl()
 assert.match(wav, /^data:audio\/wav;base64,/)
@@ -152,6 +182,24 @@ assert.ok(created[0]?.attrs.includes('playsinline'))
 assert.ok(created[0]?.attrs.includes('webkit-playsinline'))
 assert.match(created[0]?.src ?? '', /^data:audio\/wav;base64,/)
 assert.equal(getSilentHtmlState(), 'playing')
+
+resetAudioSessionForTests()
+created.length = 0
+const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+Object.defineProperty(globalThis, 'window', {
+  configurable: true,
+  value: {
+    location: { protocol: 'capacitor:' },
+    Capacitor: { isNativePlatform: () => true },
+  },
+})
+removeSession()
+claimPlaybackSessionFromGesture()
+assert.equal(getWantedAudioSession(), 'playback')
+assert.equal(created.length, 0, 'native app must not unlock with HTMLAudioElement')
+assert.equal(getSilentHtmlState(), 'none')
+if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow)
+else delete (globalThis as { window?: unknown }).window
 
 resetAudioSessionForTests()
 Object.defineProperty(globalThis, 'document', { configurable: true, value: previousDocument })

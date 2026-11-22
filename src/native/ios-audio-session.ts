@@ -8,7 +8,7 @@ export type NativeDecodedSample = {
 }
 
 type NativeAudioPlugin = {
-  setSession?: (options: { category: 'playback' | 'playAndRecord' }) => Promise<unknown>
+  setSession?: (options: { category: 'playAndRecord' }) => Promise<unknown>
   decodeSample?: (options: { base64: string; ext?: string }) => Promise<NativeDecodedSample>
 }
 
@@ -22,13 +22,14 @@ function nativePlugin(): NativeAudioPlugin | null {
 
 /**
  * Talks to the iOS OmnicianAudio plugin when running inside Capacitor.
- * No-ops in the browser so the live web app is unchanged.
+ * Always requests playAndRecord (mixWithOthers / speaker / A2DP) so the
+ * native app never enters exclusive `.playback` Now Playing. No-ops in
+ * Safari so the live web app is unchanged.
  */
-export function applyNativeAudioSession(kind: 'playback' | 'play-and-record'): boolean {
+export function applyNativeAudioSession(_kind: 'playback' | 'play-and-record'): boolean {
   const plugin = nativePlugin()
   if (!plugin?.setSession) return false
-  const category = kind === 'play-and-record' ? 'playAndRecord' : 'playback'
-  void plugin.setSession({ category }).catch(() => {
+  void plugin.setSession({ category: 'playAndRecord' }).catch(() => {
     /* Native session is best-effort; Safari audioSession still applies. */
   })
   return true

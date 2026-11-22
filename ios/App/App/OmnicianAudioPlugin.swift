@@ -1,14 +1,16 @@
 import AVFoundation
 import Capacitor
 import Foundation
+import MediaPlayer
+import UIKit
 
-/// Native AVAudioSession bridge so Click/Drums stay audible with the silent switch on.
-/// mixWithOthers stays off. Playback uses empty options; tuner mic uses playAndRecord + defaultToSpeaker.
+/// Native AVAudioSession + licensed-sample decode. This plugin does not play
+/// drums, clicks, or fork tones — WKWebView Web Audio does.
 ///
-/// This plugin does not play drums or clicks. WKWebView's decodeAudioData often fails on
-/// AAC/m4a (and sometimes mp3) from the custom app scheme, which made RhythmKit fall
-/// back to baked synth hits. `decodeSample` turns the same licensed bytes into PCM so
-/// the shared JS KitEngine can play them.
+/// Category is always `.playAndRecord` with mixWithOthers / defaultToSpeaker /
+/// allowBluetoothA2DP. `.playback` (exclusive media) plus a looping silent
+/// `<audio>` in the Capacitor webview is what published a Now Playing widget
+/// titled "localhost" after `registerPluginInstance` made this plugin live.
 @objc(OmnicianAudioPlugin)
 public class OmnicianAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "OmnicianAudioPlugin"
@@ -24,19 +26,16 @@ public class OmnicianAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc public static func activatePlayback() {
         do {
-            try activate(category: .playback, playAndRecord: false)
+            try activate()
         } catch {
             NSLog("OmnicianAudio: %@", error.localizedDescription)
         }
     }
 
     @objc func setSession(_ call: CAPPluginCall) {
-        let name = call.getString("category") ?? "playback"
-        let playAndRecord = name == "playAndRecord" || name == "play-and-record"
-        let category: AVAudioSession.Category = playAndRecord ? .playAndRecord : .playback
         do {
-            try Self.activate(category: category, playAndRecord: playAndRecord)
-            call.resolve(["category": playAndRecord ? "playAndRecord" : "playback"])
+            try Self.activate()
+            call.resolve(["category": "playAndRecord"])
         } catch {
             call.reject("Failed to set AVAudioSession", nil, error)
         }
@@ -61,15 +60,44 @@ public class OmnicianAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @discardableResult
-    static func activate(category: AVAudioSession.Category, playAndRecord: Bool) throws {
+    static func activate() throws {
         let session = AVAudioSession.sharedInstance()
-        // Empty options: mixWithOthers is off so this app owns the session.
-        var options: AVAudioSession.CategoryOptions = []
-        if playAndRecord {
-            options.insert(.defaultToSpeaker)
-        }
-        try session.setCategory(category, mode: .default, options: options)
+        try session.setCategory(
+            .playAndRecord,
+            mode: .default,
+            options: [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP]
+        )
         try session.setActive(true)
+        suppressNowPlaying()
+    }
+
+    /// Never publish lock-screen / Dynamic Island transport for Web Audio.
+    static func suppressNowPlaying() {
+        let apply = {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            UIApplication.shared.endReceivingRemoteControlEvents()
+            let remote = MPRemoteCommandCenter.shared()
+            let commands: [MPRemoteCommand] = [
+                remote.playCommand,
+                remote.pauseCommand,
+                remote.stopCommand,
+                remote.togglePlayPauseCommand,
+                remote.nextTrackCommand,
+                remote.previousTrackCommand,
+                remote.skipForwardCommand,
+                remote.skipBackwardCommand,
+                remote.changePlaybackPositionCommand,
+            ]
+            for command in commands {
+                command.isEnabled = false
+                command.removeTarget(nil)
+            }
+        }
+        if Thread.isMainThread {
+            apply()
+        } else {
+            DispatchQueue.main.async(execute: apply)
+        }
     }
 
     private static func safeExt(_ raw: String?) -> String {
