@@ -59,7 +59,7 @@ export function TunerLandscape({
           paddingBottom: 'max(0.35rem, var(--fold-safe-bottom))',
           paddingLeft: 'max(0.7rem, var(--fold-safe-left))',
           paddingRight: duoOuterPreview()
-            ? '4.4rem'
+            ? 'max(0.8rem, var(--safe-right), 4.25rem)'
             : 'max(0.8rem, var(--fold-safe-right))',
         }}
       >

@@ -11,9 +11,9 @@ export const DUO_OUTER_LANDSCAPE = { width: 678, height: 466 } as const
 export const DUO_INNER_LAPTOP = { width: 626, height: 890 } as const
 export const DUO_INNER_BOOK = { width: 890, height: 626 } as const
 
-/** Right-edge system strip ≈ 14.5% of outer portrait width (68/466). */
+/** Right-edge system band ≈ 14.5% of outer portrait width (68/466). Rail lives in this band. */
 export const DUO_STATUS_STRIP_PX = 68
-export const DUO_RAIL_WIDTH_PX = 48
+export const DUO_RAIL_WIDTH_PX = 68
 
 function readDuoQuery(): string | null {
   if (typeof window === 'undefined') return null

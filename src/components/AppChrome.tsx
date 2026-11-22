@@ -94,6 +94,7 @@ export function AppChrome({
           shell,
           fit ? 'pb-0' : 'pb-4',
           align === 'center' && 'items-center justify-center px-2 text-center',
+          coverRail && 'pr-[var(--duo-rail-width)]',
           align === 'fill' &&
             (coverRail ? 'min-h-0 overflow-x-hidden overflow-y-auto pt-1' : fit ? 'min-h-0 overflow-hidden pt-1' : 'pt-4'),
         )}

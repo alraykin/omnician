@@ -73,7 +73,7 @@
   --cluster-clear-top: 0px;
   --cluster-clear-height: 3.35rem;
   --duo-status-strip: 0px;
-  --duo-rail-width: 3rem;
+  --duo-rail-width: 4.25rem;
   color-scheme: dark;
 }
 
@@ -94,10 +94,11 @@
 }
 
 .duo-cover-shell {
+  /* Rail sits in the ~68pt right status band. Do not pad the frame — glow/bg go edge-to-edge. */
   --duo-status-strip: 4.25rem;
-  --duo-rail-width: 3rem;
+  --duo-rail-width: 4.25rem;
   padding-top: max(0.35rem, var(--safe-top));
-  padding-right: calc(var(--duo-rail-width) + var(--duo-status-strip) + 0.15rem);
+  padding-right: 0;
   padding-left: max(0.55rem, var(--safe-left));
   padding-bottom: max(0.4rem, var(--safe-bottom));
 }

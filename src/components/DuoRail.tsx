@@ -23,7 +23,7 @@ function activeTab(pathname: string): TabId {
   return 'home'
 }
 
-/** Vertical tool rail for the Duo outer cover, inset from the right status strip. */
+/** Vertical tool rail in the Duo outer right status band (thumb-reach, below island/clock). */
 export function DuoRail() {
   const location = useLocation()
   const current = activeTab(location.pathname)
@@ -34,8 +34,11 @@ export function DuoRail() {
     <aside
       data-duo-rail
       aria-label="Omnician tools"
-      className="pointer-events-auto absolute bottom-[max(0.65rem,var(--safe-bottom))] top-[max(0.55rem,var(--safe-top))] z-30 flex w-[var(--duo-rail-width)] flex-col items-center"
-      style={{ right: 'var(--duo-status-strip)' }}
+      className="pointer-events-auto absolute right-0 z-30 flex w-[var(--duo-rail-width)] flex-col items-center"
+      style={{
+        bottom: 'max(0.45rem, var(--safe-bottom))',
+        top: 'max(7.25rem, calc(var(--safe-top) + 5.75rem), var(--cluster-clear-height))',
+      }}
     >
       <nav className="mt-auto flex w-full min-h-0 flex-col items-stretch justify-end gap-1 pb-1">
         {RAIL.map((tab) => {
