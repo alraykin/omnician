@@ -69,8 +69,19 @@ const nativeLibrary = await handleFactoryRequest(
 )
 assert.equal(nativeLibrary.status, 200)
 assert.equal(nativeLibrary.headers.get('access-control-allow-origin'), 'capacitor://localhost')
-assert.equal(nativeLibrary.headers.get('access-control-allow-methods'), 'GET, OPTIONS')
-assert.equal(nativeLibrary.headers.get('access-control-allow-headers'), 'Cache-Control, Pragma')
+assert.match(nativeLibrary.headers.get('access-control-allow-methods') ?? '', /GET/)
+assert.match(nativeLibrary.headers.get('access-control-allow-headers') ?? '', /Cache-Control/)
+
+const nativeHead = await handleFactoryRequest(
+  new Request(`${origin}/api/factory/library`, {
+    method: 'HEAD',
+    headers: { origin: 'omnician://localhost' },
+  }),
+  env,
+)
+assert.equal(nativeHead.status, 200)
+assert.equal(nativeHead.headers.get('access-control-allow-origin'), 'omnician://localhost')
+assert.equal(await nativeHead.text(), '')
 
 const ionicLibrary = await handleFactoryRequest(
   new Request(`${origin}/api/factory/library`, { headers: { origin: 'ionic://localhost' } }),

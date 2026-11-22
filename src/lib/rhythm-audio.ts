@@ -1,5 +1,5 @@
-import { bundledAssetUrl } from '@/lib/bundled-assets'
 import { getSharedAudioContext, onPlaybackRetiring, resumeSharedAudioContext } from '@/lib/audio-context'
+import { HAT_CHOKE_SEC, nextHatChokeTime } from '@/lib/hat-choke'
 import {
   DEFAULT_INTENSITY_STYLE,
   DEFAULT_KIT_INTENSITY,
@@ -18,10 +18,22 @@ import {
   mixFaderToGain,
   type KitMix,
 } from '@/lib/kit-mix'
+import {
+  CLICK_ACCENT_GAIN,
+  CLICK_SAMPLE_FILES,
+  SAMPLE_GAIN,
+  VOICE_PIECE,
+  announceSamplePath,
+  drumSamplePath,
+  type CrocellPiece,
+} from '@/lib/kit-samples'
+import { mediaUrlCandidates } from '@/lib/native-origin'
 import { CLICK_SOUNDS, hitTimeInBar, VOICES, type ClickSoundId, type VoiceId } from '@/lib/rhythm'
 import { barsForPreset, findPreset, type RhythmStyleId } from '@/lib/rhythm-presets'
 import { clampSbPct, MAX_SB_PCT, MIN_SB_PCT } from '@/lib/speed-builder'
-import { HAT_CHOKE_SEC, nextHatChokeTime } from '@/lib/hat-choke'
+import { decodeSampleNative, nativePcmToAudioBuffer } from '@/native/ios-audio-session'
+
+export { CLICK_ACCENT_GAIN, SAMPLE_GAIN } from '@/lib/kit-samples'
 
 export type DrumPlayOpts = {
   tier?: CrocellTier
@@ -37,40 +49,6 @@ export function createRhythmContext(): AudioContext {
   return getSharedAudioContext()
 }
 
-type CrocellPiece =
-  | 'kick'
-  | 'snare_snappy_p2'
-  | 'rimshot_snappy_p2'
-  | 'sidestick'
-  | 'hihat_closed'
-  | 'hihat_open'
-  | 'crash'
-  | 'ride'
-  | 'ride_bell'
-  | 'tom_high'
-  | 'tom_mid'
-  | 'tom_low'
-  | 'china'
-  | 'splash'
-  | 'stack'
-
-const VOICE_PIECE: Record<VoiceId, CrocellPiece> = {
-  kick: 'kick',
-  snare: 'snare_snappy_p2',
-  rim: 'sidestick',
-  highTom: 'tom_high',
-  midTom: 'tom_mid',
-  floorTom: 'tom_low',
-  closedHat: 'hihat_closed',
-  openHat: 'hihat_open',
-  ride: 'ride',
-  rideBell: 'ride_bell',
-  crash: 'crash',
-  stack: 'stack',
-  splash: 'splash',
-  china: 'china',
-}
-
 type CrocellFile = {
   piece: CrocellPiece
   tier: CrocellTier
@@ -79,44 +57,6 @@ type CrocellFile = {
 }
 
 type LayerBank = Partial<Record<CrocellPiece, Partial<Record<CrocellTier, AudioBuffer[]>>>>
-
-const CLICK_FILES: Record<ClickSoundId, { normal: string; accent: string }> = {
-  wood: {
-    normal: bundledAssetUrl('rhythm/clicks/wood-soft-tick.wav'),
-    accent: bundledAssetUrl('rhythm/clicks/wood-soft-accent.wav'),
-  },
-  clave: {
-    normal: bundledAssetUrl('rhythm/clicks/clave-tick.wav'),
-    accent: bundledAssetUrl('rhythm/clicks/clave-accent.wav'),
-  },
-  digital: {
-    normal: bundledAssetUrl('rhythm/clicks/digital-soft-tick.wav'),
-    accent: bundledAssetUrl('rhythm/clicks/digital-soft-accent.wav'),
-  },
-  mechanical: {
-    normal: bundledAssetUrl('rhythm/clicks/mechanical-soft-tick.wav'),
-    accent: bundledAssetUrl('rhythm/clicks/mechanical-soft-accent.wav'),
-  },
-}
-
-/** Hidden per-lane trims under the 75% / 0 dB fader rest. Kick+snare lead.
- *  Rim (sidestick) is matched to ~85% of snare by peak×RMS of the rendered Crocell hits. */
-const SAMPLE_GAIN: Record<VoiceId, number> = {
-  kick: 1.2,
-  snare: 1.28,
-  rim: 11.5,
-  highTom: 1.22,
-  midTom: 1.2,
-  floorTom: 1.18,
-  closedHat: 2.15,
-  openHat: 1.58,
-  ride: 3.25,
-  rideBell: 4.35,
-  crash: 0.88,
-  stack: 1.05,
-  splash: 2.45,
-  china: 1.92,
-}
 
 /**
  * Device volume is the user control. Master is a fixed makeup gain into a
@@ -127,14 +67,6 @@ export const MASTER_CEILING_DB = -0.3
 export const MASTER_GAIN_DB = 6.5
 const MASTER_GAIN = Math.pow(10, MASTER_GAIN_DB / 20)
 const MASTER_CEILING = Math.pow(10, MASTER_CEILING_DB / 20)
-
-/** Per-voice accent gain so each click sample peaks at MASTER_CEILING_DB. */
-export const CLICK_ACCENT_GAIN: Record<ClickSoundId, number> = {
-  wood: 0.87,
-  clave: 0.56,
-  digital: 0.75,
-  mechanical: 0.70,
-}
 const CLICK_SOFT_RATIO = 0.72
 const CLICK_OFF_RATIO = 0.4
 
@@ -398,6 +330,26 @@ function bakeSynthDrums(ctx: BaseAudioContext): Record<VoiceId, AudioBuffer> {
 
 const decodedCache = new Map<string, AudioBuffer>()
 
+export type SampleLoadStats = {
+  webDecode: number
+  nativeDecode: number
+  liveHost: number
+  bundled: number
+  failed: number
+}
+
+const sampleLoadStats: SampleLoadStats = {
+  webDecode: 0,
+  nativeDecode: 0,
+  liveHost: 0,
+  bundled: 0,
+  failed: 0,
+}
+
+export function getSampleLoadStats(): SampleLoadStats {
+  return { ...sampleLoadStats }
+}
+
 function decodeAudio(ctx: BaseAudioContext, data: ArrayBuffer): Promise<AudioBuffer> {
   const copy = data.slice(0)
   return new Promise((resolve, reject) => {
@@ -423,29 +375,87 @@ function decodeAudio(ctx: BaseAudioContext, data: ArrayBuffer): Promise<AudioBuf
   })
 }
 
-async function loadSample(ctx: BaseAudioContext, url: string): Promise<AudioBuffer> {
-  const hit = decodedCache.get(url)
-  if (hit) return hit
-  const response = await fetch(url, { cache: 'force-cache' })
+function sampleExt(path: string): string {
+  const match = path.toLowerCase().match(/\.([a-z0-9]+)(?:\?|$)/)
+  return match?.[1] ?? 'm4a'
+}
+
+function isLiveHostUrl(url: string): boolean {
+  return url.startsWith('https://omnician.app/')
+}
+
+async function fetchSampleBytes(url: string): Promise<ArrayBuffer> {
+  const live = isLiveHostUrl(url)
+  const response = await fetch(url, {
+    cache: 'force-cache',
+    mode: live ? 'cors' : 'same-origin',
+    credentials: 'omit',
+  })
   if (!response.ok) throw new Error(`Failed to load ${url} (${response.status})`)
-  const data = await response.arrayBuffer()
-  const buffer = await decodeAudio(ctx, data)
-  decodedCache.set(url, buffer)
-  return buffer
+  const type = response.headers.get('content-type') ?? ''
+  if (type.includes('text/html')) throw new Error(`HTML instead of audio: ${url}`)
+  return response.arrayBuffer()
 }
 
-function crocellUrl(file: string): string {
-  return bundledAssetUrl(`rhythm/drums/crocell/${file}`)
+async function decodeSampleBytes(
+  ctx: BaseAudioContext,
+  data: ArrayBuffer,
+  ext: string,
+): Promise<{ buffer: AudioBuffer; native: boolean }> {
+  try {
+    return { buffer: await decodeAudio(ctx, data), native: false }
+  } catch {
+    const decoded = await decodeSampleNative(data, ext)
+    if (!decoded) throw new Error('native decode unavailable')
+    return { buffer: nativePcmToAudioBuffer(ctx, decoded), native: true }
+  }
 }
 
-function announceUrl(pct: number): string {
-  return bundledAssetUrl(`rhythm/announce/af_heart/${String(clampSbPct(pct)).padStart(3, '0')}.mp3`)
+/** Shared web/native loader. Native tries omnician.app then the app bundle; AAC uses AVAudioFile if Web Audio fails. */
+async function loadSample(ctx: BaseAudioContext, relativePath: string): Promise<AudioBuffer> {
+  const hit = decodedCache.get(relativePath)
+  if (hit) return hit
+  const ext = sampleExt(relativePath)
+  let lastError: unknown
+  for (const url of mediaUrlCandidates(relativePath)) {
+    try {
+      const data = await fetchSampleBytes(url)
+      const decoded = await decodeSampleBytes(ctx, data, ext)
+      if (decoded.native) sampleLoadStats.nativeDecode += 1
+      else sampleLoadStats.webDecode += 1
+      if (isLiveHostUrl(url)) sampleLoadStats.liveHost += 1
+      else sampleLoadStats.bundled += 1
+      decodedCache.set(relativePath, decoded.buffer)
+      return decoded.buffer
+    } catch (error) {
+      lastError = error
+    }
+  }
+  sampleLoadStats.failed += 1
+  throw lastError instanceof Error ? lastError : new Error(`Failed to load ${relativePath}`)
+}
+
+async function loadJson(relativePath: string): Promise<unknown> {
+  let lastError: unknown
+  for (const url of mediaUrlCandidates(relativePath)) {
+    try {
+      const live = isLiveHostUrl(url)
+      const response = await fetch(url, {
+        cache: 'force-cache',
+        mode: live ? 'cors' : 'same-origin',
+        credentials: 'omit',
+      })
+      if (!response.ok) throw new Error(`${url} ${response.status}`)
+      return await response.json()
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(`Failed to load ${relativePath}`)
 }
 
 async function loadCrocellManifest(): Promise<CrocellFile[]> {
-  const response = await fetch(crocellUrl('manifest.json'), { cache: 'force-cache' })
-  if (!response.ok) throw new Error('crocell manifest')
-  const data = (await response.json()) as { files?: CrocellFile[] }
+  const data = (await loadJson(drumSamplePath('manifest.json'))) as { files?: CrocellFile[] }
   return Array.isArray(data.files) ? data.files : []
 }
 
@@ -486,7 +496,7 @@ async function loadCrocellLayers(
       const row = queue.shift()
       if (!row) return
       try {
-        const buffer = await loadSample(ctx, crocellUrl(row.file))
+        const buffer = await loadSample(ctx, drumSamplePath(row.file))
         storeLayer(bank, row.piece, row.tier, buffer)
       } catch {
         // Synth / already-loaded neighbor covers this hit.
@@ -585,8 +595,8 @@ async function loadClicks(
     CLICK_SOUNDS.map(async (id) => {
       try {
         const [normal, accent] = await Promise.all([
-          loadSample(ctx, CLICK_FILES[id].normal),
-          loadSample(ctx, CLICK_FILES[id].accent),
+          loadSample(ctx, CLICK_SAMPLE_FILES[id].normal),
+          loadSample(ctx, CLICK_SAMPLE_FILES[id].accent),
         ])
         clicks[id] = { normal, accent }
       } catch {
@@ -863,6 +873,8 @@ function exposeDrumDebug(): void {
         style: kit?.styleId ?? null,
         brightnessDb: kit?.brightnessDb ?? null,
         loadedLayers: kit?.loadedLayerCount() ?? 0,
+        synthFallback: kit?.synthFallbackVoices() ?? [],
+        sampleLoads: getSampleLoadStats(),
         scheduled: kit?.scheduledVoices() ?? [],
         baseLatencyMs:
           kit && 'baseLatency' in kit.ctx ? Math.round((kit.ctx.baseLatency as number) * 1000) : null,
@@ -953,6 +965,16 @@ export class RhythmKit {
     return count
   }
 
+  /** Voices still on baked oscillators because no Crocell layer decoded. */
+  synthFallbackVoices(): VoiceId[] {
+    return VOICES.filter((voice) => {
+      const piece = VOICE_PIECE[voice]
+      const rows = this.layers[piece]
+      if (!rows) return true
+      return !Object.values(rows).some((bank) => (bank?.length ?? 0) > 0)
+    })
+  }
+
   setIntensity(next: KitIntensity): void {
     this.setPerformance(this.styleId, next)
   }
@@ -1040,7 +1062,7 @@ export class RhythmKit {
     if (hit) return hit
     const pending = this.announceLoads.get(n)
     if (pending) return pending
-    const load = loadSample(this.ctx, announceUrl(n))
+    const load = loadSample(this.ctx, announceSamplePath(String(n).padStart(3, '0')))
       .then((buffer) => {
         this.announceBuffers.set(n, buffer)
         return buffer

@@ -14,44 +14,12 @@ import {
   type KitIntensity,
 } from '../src/lib/kit-intensity.ts'
 import { realizeDrumBar } from '../src/lib/kit-intensity-play.ts'
+import { SAMPLE_GAIN, VOICE_PIECE } from '../src/lib/kit-samples.ts'
 import { hitTimeInBar, type VoiceId } from '../src/lib/rhythm.ts'
 import { barsForPreset, findPreset } from '../src/lib/rhythm-presets.ts'
 
 const RATE = 44100
 const ROOT = new URL('../public/rhythm/drums/crocell/', import.meta.url)
-const SAMPLE_GAIN: Record<string, number> = {
-  kick: 1.2,
-  snare: 1.28,
-  rim: 11.5,
-  highTom: 1.22,
-  midTom: 1.2,
-  floorTom: 1.18,
-  closedHat: 2.15,
-  openHat: 1.58,
-  ride: 3.25,
-  rideBell: 4.35,
-  crash: 0.88,
-  stack: 1.05,
-  splash: 2.45,
-  china: 1.92,
-}
-
-const VOICE_PIECE: Record<string, string> = {
-  kick: 'kick',
-  snare: 'snare_snappy_p2',
-  rim: 'sidestick',
-  highTom: 'tom_high',
-  midTom: 'tom_mid',
-  floorTom: 'tom_low',
-  closedHat: 'hihat_closed',
-  openHat: 'hihat_open',
-  ride: 'ride',
-  rideBell: 'ride_bell',
-  crash: 'crash',
-  stack: 'stack',
-  splash: 'splash',
-  china: 'china',
-}
 
 const PIECES: VoiceId[] = ['kick', 'snare', 'closedHat', 'openHat', 'ride', 'crash', 'highTom', 'floorTom']
 

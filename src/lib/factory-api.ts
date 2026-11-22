@@ -7,7 +7,7 @@ import {
   type FactoryHistoryItem,
   type FactoryLibrary,
 } from './factory-library.ts'
-import { corsOriginForNativeWebview } from './native-origin.ts'
+import { applyNativeGetCors } from './native-origin.ts'
 import {
   FACTORY_SESSION_TTL_SEC,
   clearFactoryCookieHeader,
@@ -50,17 +50,7 @@ function error(status: number, message: string, headers?: HeadersInit): Response
 
 /** GET/OPTIONS CORS for the public library only. Admin routes stay same-origin. */
 export function applyPublicLibraryCors(request: Request, response: Response): Response {
-  const method = request.method.toUpperCase()
-  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') return response
-  const allow = corsOriginForNativeWebview(request.headers.get('origin'))
-  if (!allow) return response
-  const headers = new Headers(response.headers)
-  headers.set('Access-Control-Allow-Origin', allow)
-  headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
-  headers.set('Access-Control-Allow-Headers', 'Cache-Control, Pragma')
-  headers.set('Access-Control-Max-Age', '86400')
-  headers.append('Vary', 'Origin')
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
+  return applyNativeGetCors(request, response)
 }
 
 async function readLibrary(env: FactoryApiEnv): Promise<FactoryLibrary> {
@@ -125,9 +115,13 @@ export async function handleFactoryRequest(request: Request, env: FactoryApiEnv)
     return applyPublicLibraryCors(request, new Response(null, { status: 204 }))
   }
 
-  if (path === '/api/factory/library' && request.method === 'GET') {
+  if (path === '/api/factory/library' && (request.method === 'GET' || request.method === 'HEAD')) {
     const library = await readLibrary(env)
-    return applyPublicLibraryCors(request, json({ library }))
+    const body = json({ library })
+    if (request.method === 'HEAD') {
+      return applyPublicLibraryCors(request, new Response(null, { status: body.status, headers: body.headers }))
+    }
+    return applyPublicLibraryCors(request, body)
   }
 
   if (path === '/api/factory/login' && request.method === 'POST') {

@@ -100,15 +100,17 @@ Haptics stay on `navigator.vibrate` for now.
 
 ## Native vs web sounds
 
-Safari on omnician.app loads Factory beats from same-origin `GET /api/factory/library` and samples from `/rhythm/...` on that host.
+Safari on omnician.app and the native app share **one KitEngine** (`src/lib/rhythm-audio.ts`), the same Crocell/click files under `public/rhythm/`, and the same `SAMPLE_GAIN` / fader defaults / hat choke / intensity dynamics.
 
-The TestFlight webview origin is `omnician://localhost` (also `capacitor://localhost` / `ionic://localhost`). A relative `/api/factory/library` fetch there misses the Worker, so the app used bundled code defaults and beats sounded different.
+Safari loads Factory beats from same-origin `GET /api/factory/library` and samples from `/rhythm/...` on that host.
 
-Native now calls `https://omnician.app/api/factory/library` when `Capacitor.isNativePlatform()` is true. The Worker sends CORS only on that public GET (and OPTIONS) for those three webview origins. Login, PUT, history, restore, and `FACTORY_ADMIN_PASSWORD` stay same-origin with no CORS.
+The TestFlight webview origin is `omnician://localhost` (also `capacitor://localhost` / `ionic://localhost`). Native fetches `https://omnician.app/api/factory/library` and `https://omnician.app/rhythm/...` first, then the files copied into the app bundle by `cap sync`. The Worker sends GET/HEAD/OPTIONS CORS for those three webview origins on the public library **and** `/rhythm/*` (`run_worker_first` so static samples cannot skip the Worker). Login, PUT, history, restore, and `FACTORY_ADMIN_PASSWORD` stay same-origin with no CORS.
 
-Click, Crocell drums, and Speed Builder announce files ship in `public/rhythm/` and copy into the iOS app via `cap sync`. They resolve as bundled paths (`/rhythm/...`), same files as the live site.
+WKWebView `decodeAudioData` often fails on the licensed AAC/m4a drum hits (and sometimes mp3 announce files) when they come from the custom app scheme, which used to drop every drum to the baked synth fallback. `OmnicianAudio.decodeSample` turns those **same bytes** into PCM with `AVAudioFile`. The plugin still does not play audio; it only sets `AVAudioSession` playback (silent switch) and decodes.
 
 `localStorage` is still per-origin (webview vs omnician.app). Factory-published library JSON is the shared default.
+
+CI `npm run test:sound-sources` asserts native and web reference the same sample files and per-drum gains.
 
 ## iPhone Duo inner display
 

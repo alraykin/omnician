@@ -1,5 +1,6 @@
 import { handleFactoryRequest } from '../src/lib/factory-api.ts'
 import { bundledFactoryLibrary } from '../src/lib/factory-store.ts'
+import { applyNativeGetCors, isRhythmAssetPath } from '../src/lib/native-origin.ts'
 
 type WorkerKv = {
   get(key: string): Promise<string | null>
@@ -27,7 +28,11 @@ export default {
         secure: url.protocol === 'https:',
       })
     }
+    if (isRhythmAssetPath(url.pathname) && request.method.toUpperCase() === 'OPTIONS') {
+      return applyNativeGetCors(request, new Response(null, { status: 204 }))
+    }
     const response = await env.ASSETS.fetch(request)
+    if (isRhythmAssetPath(url.pathname)) return applyNativeGetCors(request, response)
     const contentType = response.headers.get('content-type') ?? ''
     if (!contentType.includes('text/html')) return response
     const headers = new Headers(response.headers)

@@ -1,5 +1,5 @@
 import type { AudioDebugSnapshot } from '@/lib/audio-context'
-import { bundledAssetUrl } from '@/lib/bundled-assets'
+import { mediaUrlCandidates } from '@/lib/native-origin'
 import {
   LOOKAHEAD_MS,
   START_LEAD_SEC,
@@ -348,20 +348,28 @@ function fireBuffer(ctx: AudioContext, buffer: AudioBuffer, time: number, gain: 
   src.start(time)
 }
 
-async function decodeUrl(ctx: AudioContext, url: string): Promise<AudioBuffer> {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`${url} ${response.status}`)
-  const data = await response.arrayBuffer()
-  return ctx.decodeAudioData(data.slice(0))
+async function decodeUrl(ctx: AudioContext, relativePath: string): Promise<AudioBuffer> {
+  let lastError: unknown
+  for (const url of mediaUrlCandidates(relativePath)) {
+    try {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error(`${url} ${response.status}`)
+      const data = await response.arrayBuffer()
+      return await ctx.decodeAudioData(data.slice(0))
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(relativePath)
 }
 
 async function preloadLongKit(ctx: AudioContext): Promise<void> {
   try {
     const [click, accent, kick, snare] = await Promise.all([
-      decodeUrl(ctx, bundledAssetUrl('rhythm/clicks/wood-soft-tick.wav')),
-      decodeUrl(ctx, bundledAssetUrl('rhythm/clicks/wood-soft-accent.wav')),
-      decodeUrl(ctx, bundledAssetUrl('rhythm/drums/crocell/kick/t1_rr1.m4a')),
-      decodeUrl(ctx, bundledAssetUrl('rhythm/drums/crocell/snare_snappy_p2/t1_rr1.m4a')),
+      decodeUrl(ctx, 'rhythm/clicks/wood-soft-tick.wav'),
+      decodeUrl(ctx, 'rhythm/clicks/wood-soft-accent.wav'),
+      decodeUrl(ctx, 'rhythm/drums/crocell/kick/t1_rr1.m4a'),
+      decodeUrl(ctx, 'rhythm/drums/crocell/snare_snappy_p2/t1_rr1.m4a'),
     ])
     longClick = click
     longAccent = accent

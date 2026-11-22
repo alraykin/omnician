@@ -16,6 +16,9 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "html_handling": "none",
+    // Static /rhythm files would otherwise skip the User Worker and omit CORS
+    // for the native webview. /api/* already misses the asset graph.
+    "run_worker_first": ["/api/*", "/rhythm/*"],
   },
   "workers_dev": true,
   "preview_urls": true,
