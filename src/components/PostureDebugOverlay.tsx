@@ -34,6 +34,7 @@ const ROWS: { key: keyof PostureDiagnostics; label: string }[] = [
   { key: 'source', label: 'source' },
   { key: 'orientation', label: 'orientation' },
   { key: 'audio', label: 'audio' },
+  { key: 'audioLog', label: 'audio log' },
 ]
 
 export function PostureDebugOverlay() {
@@ -72,7 +73,9 @@ export function PostureDebugOverlay() {
           {ROWS.map((row) => (
             <div key={row.key} className="contents">
               <dt className="text-slate-500">{row.label}</dt>
-              <dd className="min-w-0 break-words text-white">{snap[row.key]}</dd>
+              <dd className={`min-w-0 break-words text-white${row.key === 'audioLog' ? ' whitespace-pre-wrap leading-4' : ''}`}>
+                {row.key === 'audioLog' ? snap.audioLog.replace(/ · /g, '\n') : snap[row.key]}
+              </dd>
             </div>
           ))}
         </dl>

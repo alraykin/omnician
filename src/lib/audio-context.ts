@@ -1,5 +1,11 @@
+import { audioEventLog, noteAudioEvent, resetAudioEventsForTests } from '@/lib/audio-log'
 import { isNativeApp } from '@/lib/native-origin'
-import { applyNativeAudioSession } from '@/native/ios-audio-session'
+import {
+  applyNativeAudioSession,
+  listenNativeSession,
+  pullNativeAudioSession,
+  resetNativeAudioSessionForTests,
+} from '@/native/ios-audio-session'
 import { clearNowPlaying, primeNowPlayingMetadata } from '@/lib/now-playing'
 
 type AudioContextCtor = typeof AudioContext
@@ -29,6 +35,7 @@ export type AudioDebugSnapshot = {
   captureUsed: boolean
   lastStop: string
   lastStopStack: string
+  events: string[]
 }
 
 let playback: AudioContext | null = null
@@ -105,6 +112,7 @@ export function noteTransportStop(reason: string): void {
   lastStop = reason
   lastStopStack = truncateStack(stack)
   lastError = `stop: ${reason}`
+  noteAudioEvent(`stop ${reason}`)
   if (typeof console !== 'undefined') {
     console.warn(`[omnician stop] ${reason}`, stack)
   }
@@ -170,13 +178,22 @@ function writeAudioSession(type: AudioSessionKind): boolean {
     lastSessionWrite = `${type}:already`
     return true
   }
+  // Changing navigator.audioSession.type while Web Audio is running
+  // interrupts WKWebView after one or two hits.
+  if (playback && contextState(playback) === 'running') {
+    lastSessionWrite = `${type}:deferred`
+    noteAudioEvent(`session ${type} deferred (ctx running)`)
+    return native || true
+  }
   try {
     session.type = type
     lastSessionWrite = `${type}:set`
+    noteAudioEvent(`session ${type}`)
     return true
   } catch (error) {
     noteAudioError(error, `audioSession.${type}`)
     lastSessionWrite = `${type}:error`
+    noteAudioEvent(`session ${type} error`)
     return false
   }
 }
@@ -282,6 +299,8 @@ export function resetAudioSessionForTests(): void {
   lastSessionWrite = 'none'
   silentHtmlState = 'none'
   holdPlaybackSuspended = false
+  resetAudioEventsForTests()
+  resetNativeAudioSessionForTests()
   releasePlaybackGraph()
   if (silentHtml) {
     try {
@@ -487,6 +506,7 @@ function wirePlayback(ctx: AudioContext): void {
     if (ctx !== playback) return
     const state = contextState(ctx)
     const stack = truncateStack(new Error(`statechange ${state}`).stack)
+    noteAudioEvent(`ctx ${state}`)
     if (typeof console !== 'undefined') {
       console.warn(`[omnician] playback ${state}`, stack)
     }
@@ -497,6 +517,7 @@ function wirePlayback(ctx: AudioContext): void {
     lastRecovery = `${state}-resume`
     recoveries += 1
     noteAudioError(`AudioContext ${state}; resume, transport kept running`, 'statechange')
+    noteAudioEvent(`ctx ${state} → resume`)
     resumeFromGesture(ctx)
   })
 }
@@ -687,6 +708,7 @@ export function getAudioDebugSnapshot(): AudioDebugSnapshot {
     captureUsed: captureUsedSincePlayback,
     lastStop,
     lastStopStack,
+    events: audioEventLog(),
   }
 }
 
@@ -711,17 +733,35 @@ function exposeAudioDebug(): void {
   })
 }
 
+function resumeAfterNativeInterruption(event: string): void {
+  noteAudioEvent(`av ${event}`)
+  if (event !== 'interrupt-ended' && event !== 'interrupt-resume') return
+  if (holdPlaybackSuspended) return
+  if (!playback) return
+  noteAudioEvent('ctx resume after interrupt')
+  resumeFromGesture(playback)
+}
+
 function wireLifecycle(): void {
   if (lifecycleWired || typeof window === 'undefined') return
   lifecycleWired = true
   exposeAudioDebug()
+  pullNativeAudioSession()
+  listenNativeSession(resumeAfterNativeInterruption)
 
   const onHidden = () => {
+    noteAudioEvent(`page ${document.visibilityState}`)
     releaseAllCapture()
   }
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') onHidden()
+    else {
+      noteAudioEvent('page visible')
+      if (!holdPlaybackSuspended && playback && contextNeedsResume(playback)) {
+        resumeFromGesture(playback)
+      }
+    }
   })
   window.addEventListener('pagehide', onHidden)
 }

@@ -20,7 +20,10 @@ type NativeAudioPlugin = {
   setNowPlaying?: (options: { title: string; subtitle: string; playing: boolean; artworkUrl?: string }) => Promise<unknown>
   clearNowPlaying?: () => Promise<unknown>
   decodeSample?: (options: { base64: string; ext?: string }) => Promise<NativeDecodedSample>
-  addListener?: (event: string, cb: (data: { action?: string }) => void) => Promise<{ remove: () => Promise<void> }> | { remove: () => Promise<void> }
+  addListener?: (
+    event: string,
+    cb: (data: { action?: string; event?: string }) => void,
+  ) => Promise<{ remove: () => Promise<void> }> | { remove: () => Promise<void> }
 }
 
 const OmnicianAudio = registerPlugin<NativeAudioPlugin>('OmnicianAudio')
@@ -32,16 +35,29 @@ function nativePlugin(): NativeAudioPlugin | null {
 }
 
 let lastNativeSession: NativeSessionSnapshot | null = null
+let lastAskedCategory: 'playback' | 'playAndRecord' | null = null
+let sessionListenerWired = false
+const sessionListeners = new Set<(event: string) => void>()
 
 /**
  * Talks to the iOS OmnicianAudio plugin when running inside Capacitor.
  * Click/Drums use exclusive `.playback`; tuner mic uses playAndRecord.
  * No-ops in Safari so the live web app is unchanged.
+ * Skips the native bridge when the category is already what we asked for —
+ * re-setCategory while Web Audio runs interrupts WKWebView.
  */
 export function applyNativeAudioSession(kind: 'playback' | 'play-and-record'): boolean {
   const plugin = nativePlugin()
   if (!plugin?.setSession) return false
   const category = kind === 'play-and-record' ? 'playAndRecord' : 'playback'
+  if (lastAskedCategory === category && lastNativeSession?.category === category) {
+    return true
+  }
+  if (lastNativeSession?.category === category) {
+    lastAskedCategory = category
+    return true
+  }
+  lastAskedCategory = category
   void plugin.setSession({ category }).then((row) => {
     if (row && typeof row === 'object' && 'category' in row) {
       lastNativeSession = row as NativeSessionSnapshot
@@ -54,6 +70,13 @@ export function applyNativeAudioSession(kind: 'playback' | 'play-and-record'): b
 
 export function peekNativeAudioSession(): NativeSessionSnapshot | null {
   return lastNativeSession
+}
+
+export function resetNativeAudioSessionForTests(): void {
+  lastNativeSession = null
+  lastAskedCategory = null
+  sessionListenerWired = false
+  sessionListeners.clear()
 }
 
 export function pullNativeAudioSession(): void {
@@ -84,6 +107,37 @@ export function clearNativeNowPlaying(): void {
   if (!plugin?.clearNowPlaying) return
   void plugin.clearNowPlaying().catch(() => {
     /* ignore */
+  })
+}
+
+export function listenNativeSession(onEvent: (event: string) => void): () => void {
+  sessionListeners.add(onEvent)
+  wireNativeSessionListener()
+  return () => {
+    sessionListeners.delete(onEvent)
+  }
+}
+
+function wireNativeSessionListener(): void {
+  if (sessionListenerWired) return
+  const plugin = nativePlugin()
+  if (!plugin?.addListener) return
+  sessionListenerWired = true
+  void Promise.resolve(
+    plugin.addListener('session', (data) => {
+      const event = typeof data?.event === 'string' ? data.event : ''
+      if (!event) return
+      if (event.startsWith('keepCategory-') || event.startsWith('setCategory-')) {
+        const cat = event.slice(event.indexOf('-') + 1)
+        if (cat === 'playback' || cat === 'playAndRecord') {
+          lastAskedCategory = cat
+          if (lastNativeSession) lastNativeSession = { ...lastNativeSession, category: cat }
+        }
+      }
+      for (const listener of sessionListeners) listener(event)
+    }),
+  ).catch(() => {
+    sessionListenerWired = false
   })
 }
 

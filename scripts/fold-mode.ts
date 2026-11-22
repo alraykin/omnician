@@ -582,5 +582,6 @@ assert.match(readFileSync(new URL('../src/lib/posture-debug.ts', import.meta.url
 assert.match(readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8'), /PostureDebugOverlay/)
 assert.match(readFileSync(new URL('../src/lib/posture-debug.ts', import.meta.url), 'utf8'), /audioDiagnosticsLine/)
 assert.match(readFileSync(new URL('../src/components/PostureDebugOverlay.tsx', import.meta.url), 'utf8'), /key: 'audio'/)
+assert.match(readFileSync(new URL('../src/components/PostureDebugOverlay.tsx', import.meta.url), 'utf8'), /key: 'audioLog'/)
 
 console.log('fold-mode ok')

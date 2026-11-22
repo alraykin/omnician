@@ -885,5 +885,6 @@ export function getLabAudioSnapshot(): AudioDebugSnapshot {
     captureUsed: mics.live > 0 || phase === 'mic' || (strategy === 'G' && !!stream),
     lastStop,
     lastStopStack,
+    events: [],
   }
 }

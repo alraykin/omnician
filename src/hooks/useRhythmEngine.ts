@@ -393,6 +393,7 @@ export function useRhythmEngine({
     }
 
     let cancelled = false
+    let onHiddenPump: (() => void) | null = null
 
     const start = () => {
       claimListenPreview()
@@ -932,13 +933,19 @@ export function useRhythmEngine({
       tick()
       timerRef.current = window.setInterval(tick, LOOKAHEAD_MS)
       rafRef.current = window.requestAnimationFrame(pumpVisuals)
-      const stopPump =
-        typeof AudioContext !== 'undefined' && kit.ctx instanceof AudioContext
-          ? armAudioClockPump(kit.ctx, () => {
-              if (!cancelled && playingRef.current) tick()
-            })
-          : () => {}
-      stopPumpRef.current = stopPump
+
+      onHiddenPump = () => {
+        stopPumpRef.current()
+        stopPumpRef.current = () => {}
+        if (typeof document === 'undefined' || document.visibilityState !== 'hidden') return
+        if (typeof AudioContext === 'undefined' || !(kit.ctx instanceof AudioContext)) return
+        stopPumpRef.current = armAudioClockPump(kit.ctx, () => {
+          if (!cancelled && playingRef.current) tick()
+        })
+        tick()
+      }
+      onHiddenPump()
+      document.addEventListener('visibilitychange', onHiddenPump)
     }
 
     start()
@@ -946,6 +953,7 @@ export function useRhythmEngine({
     return () => {
       cancelled = true
       retargetRef.current = () => undefined
+      if (onHiddenPump) document.removeEventListener('visibilitychange', onHiddenPump)
       stopPumpRef.current()
       stopPumpRef.current = () => {}
       if (timerRef.current !== null) {

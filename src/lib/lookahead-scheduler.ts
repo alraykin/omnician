@@ -103,7 +103,11 @@ export function armAudioClockPump(ctx: AudioContext, onTick: () => void): () => 
     const silent = ctx.createGain()
     silent.gain.value = 0
     node.onaudioprocess = () => {
-      onTick()
+      try {
+        onTick()
+      } catch {
+        /* keep the processor alive */
+      }
     }
     node.connect(silent)
     silent.connect(ctx.destination)

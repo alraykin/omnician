@@ -1,3 +1,4 @@
+import { noteAudioEvent } from '@/lib/audio-log'
 import { isNativeApp } from '@/lib/native-origin'
 import {
   clearNativeNowPlaying,
@@ -23,6 +24,18 @@ let transport: NowPlayingTransport | null = null
 let current: NowPlayingInfo | null = null
 let remoteWired = false
 let clearTimer = 0
+let ignoreRemoteUntil = 0
+const REMOTE_ECHO_MS = 800
+
+function ignoreRemoteEcho(): boolean {
+  if (typeof performance === 'undefined') return false
+  return performance.now() < ignoreRemoteUntil
+}
+
+function markRemoteEchoWindow(): void {
+  if (typeof performance === 'undefined') return
+  ignoreRemoteUntil = performance.now() + REMOTE_ECHO_MS
+}
 
 const DISABLED_REMOTE_ACTIONS = [
   'seekbackward',
@@ -77,14 +90,33 @@ function mediaSession(): MediaSession | null {
 }
 
 function onRemotePlay(): void {
-  if (!transport?.playing()) transport?.toggle()
+  if (ignoreRemoteEcho()) {
+    noteAudioEvent('remote play ignored echo')
+    return
+  }
+  if (!transport?.playing()) {
+    noteAudioEvent('remote play')
+    transport?.toggle()
+  }
 }
 
 function onRemotePause(): void {
-  if (transport?.playing()) transport?.toggle()
+  if (ignoreRemoteEcho()) {
+    noteAudioEvent('remote pause ignored echo')
+    return
+  }
+  if (transport?.playing()) {
+    noteAudioEvent('remote pause')
+    transport.toggle()
+  }
 }
 
 function onRemoteToggle(): void {
+  if (ignoreRemoteEcho()) {
+    noteAudioEvent('remote toggle ignored echo')
+    return
+  }
+  noteAudioEvent('remote toggle')
   transport?.toggle()
 }
 
@@ -140,6 +172,10 @@ function writeMediaSession(info: NowPlayingInfo): void {
       /* WebView without MediaMetadata */
     }
   }
+  // Native: never write playbackState or JS pause handlers. WebKit treats
+  // that as a pause command and echoes it back, which Stop's the transport.
+  // Dynamic Island remotes go through MPRemoteCommandCenter instead.
+  if (isNativeApp()) return
   try {
     session.playbackState = info.playing ? 'playing' : 'paused'
   } catch {
@@ -156,6 +192,7 @@ function wipeMediaSession(): void {
   } catch {
     /* ignore */
   }
+  if (isNativeApp()) return
   try {
     session.playbackState = 'none'
   } catch {
@@ -196,8 +233,10 @@ export function publishNowPlaying(info: NowPlayingInfo): void {
     window.clearTimeout(clearTimer)
     clearTimer = 0
   }
+  markRemoteEchoWindow()
   current = { ...info, title: TITLE }
   writeMediaSession(current)
+  noteAudioEvent(`nowplaying ${current.subtitle}`)
   if (isNativeApp()) {
     wireNativeRemote()
     publishNativeNowPlaying({
@@ -238,6 +277,7 @@ export function resetNowPlayingForTests(): void {
   transport = null
   current = null
   remoteWired = false
+  ignoreRemoteUntil = 0
   if (clearTimer) {
     try {
       window.clearTimeout(clearTimer)

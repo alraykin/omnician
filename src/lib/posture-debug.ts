@@ -7,6 +7,7 @@ import { detectFoldedLayout, resolveFoldLayout, readFoldChoice } from '@/lib/fol
 import { isNativeApp } from '@/lib/native-origin'
 import { readNativeFoldLayout, readNativePosture, subscribeNativePosture } from '@/lib/native-fold'
 import { nativePosturePluginPresent, nativePosturePluginRegistered } from '@/native/ios-posture'
+import { audioEventLine } from '@/lib/audio-log'
 import { getAudioDebugSnapshot } from '@/lib/audio-context'
 import {
   countDomMediaElements,
@@ -88,6 +89,7 @@ export type PostureDiagnostics = {
   source: string
   orientation: string
   audio: string
+  audioLog: string
 }
 
 export function readPostureDiagnostics(): PostureDiagnostics {
@@ -134,6 +136,7 @@ export function readPostureDiagnostics(): PostureDiagnostics {
     source: native?.source ?? '—',
     orientation: native?.orientation ?? (width > height ? 'landscape' : 'portrait'),
     audio: audioDiagnosticsLine(),
+    audioLog: audioEventLine(),
   }
 }
 

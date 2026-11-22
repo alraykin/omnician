@@ -14,6 +14,11 @@ import {
   silentWavDataUrl,
 } from '../src/lib/audio-context.ts'
 import {
+  audioEventLine,
+  noteAudioEvent,
+  resetAudioEventsForTests,
+} from '../src/lib/audio-log.ts'
+import {
   formatNowPlayingSubtitle,
   peekNowPlaying,
   primeNowPlayingMetadata,
@@ -67,6 +72,11 @@ assert.match(src, /stopSilentHtmlAudio\(\)/)
 assert.match(src, /suspendPlaybackAfterStop\(\)/)
 assert.match(src, /from '@\/lib\/now-playing'/)
 assert.match(src, /primeNowPlayingMetadata\(\)/)
+assert.match(src, /session \$\{type\} deferred/)
+assert.match(src, /listenNativeSession/)
+assert.match(readFileSync(new URL('../src/hooks/useRhythmEngine.ts', import.meta.url), 'utf8'), /visibilityState !== 'hidden'/)
+assert.match(readFileSync(new URL('../src/lib/now-playing.ts', import.meta.url), 'utf8'), /ignoreRemoteEcho/)
+assert.match(readFileSync(new URL('../src/lib/audio-log.ts', import.meta.url), 'utf8'), /MAX_EVENTS = 10/)
 
 const claimFn = src.slice(src.indexOf('export function claimPlaybackSessionFromGesture'))
 const nativeGuard = claimFn.indexOf('if (isNativeApp())')
@@ -259,6 +269,12 @@ assert.equal(fakeMediaSession.metadata?.title, 'Omnician')
 assert.equal(fakeMediaSession.metadata?.artist, 'Click · 120 BPM · 4/4')
 assert.notEqual(fakeMediaSession.metadata?.title, 'localhost')
 assert.equal(fakeMediaSession.playbackState, 'playing')
+
+resetAudioEventsForTests()
+noteAudioEvent('ctx running')
+noteAudioEvent('av interrupt-began')
+assert.match(audioEventLine(), /ctx running/)
+assert.match(audioEventLine(), /interrupt-began/)
 
 assert.match(rhythm, /publishNowPlaying/)
 assert.match(rhythm, /bindNowPlayingTransport/)

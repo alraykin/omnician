@@ -94,14 +94,20 @@ public class OmnicianAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     static func activate(playAndRecord panr: Bool) throws {
         playAndRecord = panr
         let session = AVAudioSession.sharedInstance()
-        if panr {
-            try session.setCategory(
-                .playAndRecord,
-                mode: .default,
-                options: [.defaultToSpeaker, .allowBluetoothA2DP]
-            )
-        } else {
-            try session.setCategory(.playback, mode: .default, options: [])
+        let category: AVAudioSession.Category = panr ? .playAndRecord : .playback
+        let options: AVAudioSession.CategoryOptions = panr
+            ? [.defaultToSpeaker, .allowBluetoothA2DP]
+            : []
+        // Re-setting the category while WKWebView Web Audio is running
+        // interrupts the AudioContext after a couple of hits.
+        let needsCategory = session.category != category || session.categoryOptions != options
+        if needsCategory {
+            if panr {
+                try session.setCategory(.playAndRecord, mode: .default, options: options)
+            } else {
+                try session.setCategory(.playback, mode: .default, options: [])
+            }
+            emitSession("setCategory-\(shortCategory(category))")
         }
         try session.setActive(true)
     }
@@ -234,6 +240,11 @@ public class OmnicianAudioPlugin: CAPPlugin, CAPBridgedPlugin {
         shared?.notifyListeners("remote", data: ["action": action])
     }
 
+    private static func emitSession(_ event: String) {
+        NSLog("OmnicianAudio: session %@", event)
+        shared?.notifyListeners("session", data: ["event": event])
+    }
+
     private static func installSessionObservers() {
         if observersReady { return }
         observersReady = true
@@ -241,12 +252,19 @@ public class OmnicianAudioPlugin: CAPPlugin, CAPBridgedPlugin {
         let nc = NotificationCenter.default
         nc.addObserver(forName: AVAudioSession.interruptionNotification, object: session, queue: .main) { note in
             let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            if raw == AVAudioSession.InterruptionType.began.rawValue {
+                emitSession("interrupt-began")
+                return
+            }
             if raw == AVAudioSession.InterruptionType.ended.rawValue {
+                emitSession("interrupt-ended")
                 activatePlayback()
+                emitSession("interrupt-resume")
             }
         }
         nc.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: .main) { _ in
-            activatePlayback()
+            emitSession("route-change")
+            try? AVAudioSession.sharedInstance().setActive(true)
         }
         nc.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { _ in
             activatePlayback()
