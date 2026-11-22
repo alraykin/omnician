@@ -25,6 +25,7 @@ import { SpeedBuilderPopup } from '@/components/rhythm/SpeedBuilderPopup'
 import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { useFactoryEditor } from '@/hooks/useFactoryEditor'
+import { useCoverPortraitRail } from '@/hooks/useDuoLayout'
 import { useToolFoldLayout } from '@/hooks/useFoldMode'
 import { useCompactViewport, usePortraitViewport } from '@/hooks/usePhoneViewport'
 import { usePlayhead, useRhythmEngine, type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
@@ -181,6 +182,7 @@ export function RhythmPage() {
   const [editorOpen, setEditorOpen] = useState(false)
   const compact = useCompactViewport()
   const portrait = usePortraitViewport()
+  const coverRail = useCoverPortraitRail()
   const drumsFold = useToolFoldLayout('drums')
   const clickFold = useToolFoldLayout('click')
   const [, setStyleTick] = useState(0)
@@ -1496,11 +1498,18 @@ export function RhythmPage() {
         <PlayheadBarSync getClock={getTransportClock} playing={playing} onBar={setBarIndex} />
         <TransportDock
           place="sticky"
-          className="rhythm-glass z-40 shrink-0 border-t border-white/10 pt-2 pb-[max(0.7rem,env(safe-area-inset-bottom,0px))] wide:hidden compact:!block"
+          className={cn(
+            'rhythm-glass z-40 shrink-0 border-t border-white/10 wide:hidden compact:!block',
+            coverRail
+              ? 'pt-1 pb-[max(0.28rem,env(safe-area-inset-bottom,0px))]'
+              : 'pt-2 pb-[max(0.7rem,env(safe-area-inset-bottom,0px))]',
+          )}
           playing={playing}
           onToggle={() => void startStop()}
           holdUntilCycle={holdUntilCycle}
           extra={recordControl}
+          slim={coverRail}
+          hideReadout={coverRail}
         >
           <TransportReadout
             store={playheadStore}
@@ -1811,6 +1820,8 @@ function TransportDock({
   place,
   extra,
   children,
+  slim = false,
+  hideReadout = false,
 }: {
   playing: boolean
   onToggle: () => void
@@ -1819,22 +1830,26 @@ function TransportDock({
   place: 'inline' | 'sticky'
   extra?: ReactNode
   children: ReactNode
+  slim?: boolean
+  hideReadout?: boolean
 }) {
   return (
     <div
       data-section="transport"
       data-transport-place={place}
+      data-transport-slim={slim ? '1' : undefined}
       data-hold-until-cycle={holdUntilCycle ? 'true' : 'false'}
       className={className}
     >
-      <div className="mb-1.5 text-[0.7rem] text-slate-200">{children}</div>
+      {hideReadout ? null : <div className="mb-1.5 text-[0.7rem] text-slate-200">{children}</div>}
       <div className={cn('flex items-center gap-2', extra && 'pr-0.5')}>
         <Button
           type="button"
           size="lg"
           variant={playing ? 'outline' : 'default'}
           className={cn(
-            'h-14 min-w-0 flex-1 touch-manipulation text-base',
+            'min-w-0 flex-1 touch-manipulation',
+            slim ? 'h-10 text-sm' : 'h-14 text-base',
             playing && 'border-white/15 bg-[#141A28] text-white hover:bg-[#1A2033]',
           )}
           data-transport="play"
