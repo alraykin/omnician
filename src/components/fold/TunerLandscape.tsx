@@ -1,4 +1,5 @@
 import { FoldShell } from '@/components/fold/FoldShell'
+import { duoOuterPreview } from '@/lib/duo-layout'
 import { A4ReferenceControl } from '@/components/tuner/A4ReferenceControl'
 import { Headstock } from '@/components/tuner/Headstock'
 import { TunerTarget } from '@/components/tuner/TunerTarget'
@@ -54,10 +55,12 @@ export function TunerLandscape({
         data-tuner-landscape
         className="flex h-full min-h-0 w-full items-stretch gap-3 px-4"
         style={{
-          paddingTop: 'max(0.45rem, var(--fold-safe-top))',
-          paddingBottom: 'max(0.45rem, var(--fold-safe-bottom))',
+          paddingTop: 'max(0.35rem, var(--fold-safe-top))',
+          paddingBottom: 'max(0.35rem, var(--fold-safe-bottom))',
           paddingLeft: 'max(0.7rem, var(--fold-safe-left))',
-          paddingRight: 'max(5.5rem, var(--fold-status-right))',
+          paddingRight: duoOuterPreview()
+            ? '4.4rem'
+            : 'max(0.8rem, var(--fold-safe-right))',
         }}
       >
         <div className="flex min-w-0 flex-1 flex-col justify-center">
@@ -68,7 +71,7 @@ export function TunerLandscape({
             <span
               data-fold-note-letter
               className={cn(
-                'text-[clamp(3rem,18dvh,5.2rem)] font-extrabold leading-none tracking-tight',
+                'text-[clamp(3.6rem,22dvh,6.2rem)] font-extrabold leading-none tracking-tight',
                 inTune && live ? 'text-emerald-300' : live ? 'text-white' : 'text-white/30',
               )}
             >
@@ -93,7 +96,7 @@ export function TunerLandscape({
             <TunerTarget cents={cents} inTune={inTune} active={live} />
           </div>
         </div>
-        <div className="flex w-[min(18rem,42%)] shrink-0 flex-col items-center justify-center">
+        <div className="flex w-[min(20rem,46%)] shrink-0 flex-col items-center justify-center">
           <Headstock
             strings={strings}
             config={instrumentId}

@@ -103,7 +103,6 @@ export function DrumsLaptop({
         <div
           data-fold-drums-meta
           className="flex h-10 shrink-0 items-baseline gap-2"
-          style={{ maxWidth: 'calc(100% - min(var(--fold-status-portrait), 38%))' }}
         >
           <p className="text-[0.58rem] font-semibold uppercase tracking-[0.14em] text-[#C084FC]">Beat</p>
           <p className="min-w-0 truncate text-[1.02rem] font-semibold leading-none text-white">{beatName}</p>

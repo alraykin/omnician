@@ -475,6 +475,12 @@ export function TunerPage() {
           data-all-tuned={celebrate ? '1' : '0'}
           data-tuned-count={tunedIds.size}
         >
+          <div
+            className={cn(
+              coverRail &&
+                'grid w-full grid-cols-[minmax(0,1fr)_minmax(9.25rem,38%)] items-center gap-x-2 gap-y-1',
+            )}
+          >
           {instrumentMode ? (
             <div
               className={cn(
@@ -524,7 +530,7 @@ export function TunerPage() {
             </p>
           )}
 
-          <div className="mt-1.5 flex w-full flex-col items-center">
+          <div className={cn('mt-1.5 flex w-full flex-col items-center', coverRail && 'mt-0 min-w-0')}>
             <NoteDisplay
               live={live}
               inTune={inTune}
@@ -580,6 +586,7 @@ export function TunerPage() {
                 active={live}
               />
             </div>
+          </div>
           </div>
 
           <p

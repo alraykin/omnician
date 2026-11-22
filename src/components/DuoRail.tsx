@@ -41,7 +41,7 @@ export function DuoRail() {
         {RAIL.map((tab) => {
           const active = current === tab.id
           const className = cn(
-            'flex min-h-11 w-full items-center justify-center rounded-2xl px-0.5 text-center text-[0.58rem] font-semibold leading-tight tracking-tight touch-manipulation',
+            'flex min-h-12 w-full items-center justify-center rounded-2xl px-0.5 text-center text-[0.62rem] font-semibold leading-tight tracking-tight touch-manipulation',
             active ? 'bg-[#A855F7] text-white' : 'text-slate-300 hover:bg-white/8 hover:text-white',
           )
           if (tab.id === 'tuner') {

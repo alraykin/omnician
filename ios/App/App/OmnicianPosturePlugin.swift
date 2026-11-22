@@ -247,7 +247,7 @@ public class OmnicianPosturePlugin: CAPPlugin, CAPBridgedPlugin {
         let display: String
         if shortest <= 0 {
             display = "unknown"
-        } else if shortest >= 640 {
+        } else if shortest >= 600 {
             display = "inner"
         } else {
             display = "outer"

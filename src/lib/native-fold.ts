@@ -1,7 +1,7 @@
 import type { FoldLayout } from '@/lib/fold-mode'
 
-/** Inner Duo / tablet shortest side. Outer cover is well below this. */
-export const NATIVE_INNER_MIN_PX = 640
+/** Inner Duo shortest side is ~626pt; outer cover is ~466pt. */
+export const NATIVE_INNER_MIN_PX = 600
 
 /** User-facing laptop band (~70–130°). Hold band is wider so the layout does not flicker. */
 export const LAPTOP_HINGE_ENTER_MIN = 70

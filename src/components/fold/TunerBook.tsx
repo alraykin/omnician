@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import { FoldCrease, FoldHalf, FoldShell } from '@/components/fold/FoldShell'
 import { A4ReferenceControl } from '@/components/tuner/A4ReferenceControl'
 import { OmnicianWordmark } from '@/components/OmnicianMark'
-import { FOLD_NEEDLE_REACH_PX, splitPegs } from '@/lib/fold-mode'
+import { splitPegs } from '@/lib/fold-mode'
 import { formatTenths } from '@/lib/feel'
 import { formatHz } from '@/lib/notes'
 import { cn } from '@/lib/utils'
@@ -201,10 +201,10 @@ function BookScale({
       }
       const node = needleRef.current
       if (node) {
-        const x = (shownRef.current / 50) * FOLD_NEEDLE_REACH_PX
-        const inDead = Math.abs(x) < 16
+        const pct = (shownRef.current / 50) * 50
+        const inDead = Math.abs(shownRef.current) < 2
         const showInDead = inTuneRef.current && Math.abs(shownRef.current) <= 1.05
-        node.style.transform = `translateX(${x}px)`
+        node.style.left = `${50 + pct}%`
         node.style.opacity = inDead && !showInDead ? '0' : liveRef.current ? '1' : '0.35'
       }
       raf = requestAnimationFrame(tick)
@@ -218,9 +218,11 @@ function BookScale({
   return (
     <div
       data-fold-tuner-scale
-      className="absolute left-[104px] z-10 h-[90px] w-[min(816px,calc(100%-104px-var(--fold-status-right)-8px))]"
+      className="absolute z-10 h-[90px]"
       style={{
-        top: 'min(400px, calc(100dvh - var(--fold-peg-h) - max(12px, var(--fold-safe-bottom)) - 118px))',
+        left: 'max(1.5rem, var(--fold-safe-left))',
+        right: 'max(1.5rem, var(--fold-status-right))',
+        top: 'min(52dvh, calc(100dvh - var(--fold-peg-h) - max(12px, var(--fold-safe-bottom)) - 118px))',
       }}
     >
       <div className="absolute inset-x-0 top-[28px] h-px bg-white/25" />

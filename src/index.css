@@ -42,7 +42,7 @@
   }
 }
 
-/* Phones plus unfolded foldable inner (Duo \u2248 704–720). iPad Mini is 768. */
+/* Phones plus unfolded foldable inner (Duo inner \u2248 626pt). iPad Mini is 768. */
 @custom-variant compact {
   @media (max-width: 767px) {
     @slot;
@@ -72,8 +72,8 @@
   --cluster-clear-right: 0px;
   --cluster-clear-top: 0px;
   --cluster-clear-height: 3.35rem;
-  --duo-status-strip: 2.125rem;
-  --duo-rail-width: 3.35rem;
+  --duo-status-strip: 0px;
+  --duo-rail-width: 3rem;
   color-scheme: dark;
 }
 
@@ -94,47 +94,48 @@
 }
 
 .duo-cover-shell {
-  --duo-status-strip: 2.125rem;
-  --duo-rail-width: 3.35rem;
+  --duo-status-strip: 4.25rem;
+  --duo-rail-width: 3rem;
   padding-top: max(0.35rem, var(--safe-top));
-  padding-right: calc(var(--duo-rail-width) + var(--duo-status-strip) + 0.2rem);
+  padding-right: calc(var(--duo-rail-width) + var(--duo-status-strip) + 0.15rem);
   padding-left: max(0.55rem, var(--safe-left));
+  padding-bottom: max(0.4rem, var(--safe-bottom));
 }
 
 [data-tuner-cover='1'] {
-  gap: 0.1rem;
-}
-
-[data-tuner-cover='1'] [data-tuner-note] {
-  font-size: 1.85rem;
+  gap: 0.35rem;
 }
 
 [data-tuner-cover='1'] [data-headstock-stage] {
-  height: min(10.8rem, 32dvh) !important;
-  max-width: 12.8rem !important;
+  height: min(16rem, 42dvh) !important;
+  max-width: 15rem !important;
 }
 
 [data-tuner-cover='1'] [data-tuner-target] {
-  height: 4.55rem !important;
+  height: 5.4rem !important;
 }
 
 [data-tuner-cover='1'] [data-tuning-change] {
-  padding-top: 0.4rem;
-  padding-bottom: 0.4rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
 }
 
 [data-tuner-cover='1'] [data-tuner-page-controls] {
-  margin-top: 0.25rem;
+  margin-top: 0.2rem;
 }
 
-[data-tuner-cover='1'] [data-tuner-input] {
-  min-height: 2rem;
+[data-tuner-landscape] [data-headstock-stage] {
+  height: min(18rem, 72dvh) !important;
+  max-width: 15.5rem !important;
 }
 
-[data-tuner-landscape] [data-headstock-stage],
-[data-fold-layout='laptop'] [data-headstock-stage] {
-  height: min(12.8rem, 52dvh) !important;
-  max-width: 14.5rem !important;
+[data-fold-layout='laptop'] [data-fold-half='bottom'] [data-headstock-stage] {
+  height: min(16rem, 46dvh) !important;
+  max-width: 16rem !important;
+}
+
+[data-fold-layout='laptop'] [data-fold-half='top'] [data-tuner-target] {
+  height: min(13rem, 38dvh) !important;
 }
 
 .safe-overlay {

@@ -4,7 +4,8 @@ import { isNativeApp } from '@/lib/native-origin'
 import { readNativeFoldLayout, readNativePosture, subscribeNativePosture } from '@/lib/native-fold'
 
 export const FOLD_STORAGE_KEY = 'omnician.fold-mode.v1'
-export const FOLD_MIN_SIDE_PX = 640
+/** Inner Duo shortest side is ~626pt; outer cover is ~466pt. */
+export const FOLD_MIN_SIDE_PX = 600
 export const FOLD_DEAD_PX = 16
 export const FOLD_CREASE = 512
 export const FOLD_GRID_ROWS = 14
@@ -13,8 +14,8 @@ export const FOLD_GRID_FLOOR_H = 1
 export const FOLD_GRID_ROW_MIN = 22
 export const FOLD_STATUS_RIGHT_PX = 88
 export const FOLD_PEG_H = 72
-export const FOLD_LAPTOP = { width: 720, height: 1024 } as const
-export const FOLD_BOOK = { width: 1024, height: 720 } as const
+export const FOLD_LAPTOP = { width: 626, height: 890 } as const
+export const FOLD_BOOK = { width: 890, height: 626 } as const
 export const FOLD_STATUS_PORTRAIT = { x: 496, y: 0, w: 224, h: 88 } as const
 export const FOLD_STATUS_LANDSCAPE = { x: 936, y: 0, w: 88, h: 260 } as const
 export const FOLD_STATUS_TENT_A = { x: 496, y: 0, w: 224, h: 80 } as const

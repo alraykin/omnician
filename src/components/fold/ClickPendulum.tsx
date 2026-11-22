@@ -12,8 +12,8 @@ import {
 import { beatAccentAt, beatDurationSec, type RhythmBar } from '@/lib/rhythm'
 import { activateOnPointer, cn } from '@/lib/utils'
 
-const MAX_DEG = 32
-const BOB_R = 22
+const MAX_DEG = 36
+const BOB_R = 24
 
 type PendulumClock = {
   originAudioTime: number
@@ -41,7 +41,7 @@ export function ClickPendulum({
   const rodRef = useRef<HTMLDivElement>(null)
   const bobRef = useRef<HTMLSpanElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
-  const [rodPx, setRodPx] = useState(180)
+  const [rodPx, setRodPx] = useState(240)
   const playingRef = useRef(playing)
   const barRef = useRef(bar)
   const bpmRef = useRef(bpm)

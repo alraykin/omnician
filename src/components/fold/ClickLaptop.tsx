@@ -63,9 +63,9 @@ export function ClickLaptop({
   return (
     <FoldShell layout="laptop">
       <FoldHalf side="top" className="flex flex-col px-5 pt-3">
-        <div className="flex shrink-0 items-end justify-between gap-3 pr-[min(14rem,36%)]">
+        <div className="flex shrink-0 items-end justify-between gap-3">
           <div>
-            <p data-fold-click-bpm className="text-[2.6rem] font-extrabold leading-none tabular-nums text-white">
+            <p data-fold-click-bpm className="text-[clamp(2.8rem,9dvh,4.2rem)] font-extrabold leading-none tabular-nums text-white">
               {shownBpm}
             </p>
             <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#C084FC]">BPM</p>

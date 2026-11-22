@@ -3,7 +3,7 @@ export const PHONE_SHORTEST_PX = 600
 
 /**
  * Shortest side below this is a compact inner display: phones and unfolded
- * foldables (iPhone Duo inner \u2248 704–720). iPad Mini shortest side is 768.
+ * foldables (iPhone Duo inner \u2248 626pt). iPad Mini shortest side is 768.
  */
 export const COMPACT_SHORTEST_PX = 768
 

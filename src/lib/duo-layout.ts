@@ -2,12 +2,18 @@ import { FOLD_MIN_SIDE_PX } from '@/lib/fold-mode'
 import { readNativePosture } from '@/lib/native-fold'
 import { isPortraitViewport } from '@/lib/phone-viewport'
 
-/** Cover / outer CSS pixels used for Duo preview screenshots. */
-export const DUO_OUTER = { width: 402, height: 874 } as const
-export const DUO_OUTER_LANDSCAPE = { width: 874, height: 402 } as const
+/**
+ * iPhone Duo CSS points (Apple px / 3).
+ * Outer 1398×2034 @460ppi; inner 1878×2670 @430ppi.
+ */
+export const DUO_OUTER = { width: 466, height: 678 } as const
+export const DUO_OUTER_LANDSCAPE = { width: 678, height: 466 } as const
+export const DUO_INNER_LAPTOP = { width: 626, height: 890 } as const
+export const DUO_INNER_BOOK = { width: 890, height: 626 } as const
 
-export const DUO_STATUS_STRIP_PX = 34
-export const DUO_RAIL_WIDTH_PX = 54
+/** Right-edge system strip ≈ 14.5% of outer portrait width (68/466). */
+export const DUO_STATUS_STRIP_PX = 68
+export const DUO_RAIL_WIDTH_PX = 48
 
 function readDuoQuery(): string | null {
   if (typeof window === 'undefined') return null
@@ -30,7 +36,7 @@ export function isDuoOuterDisplay(): boolean {
   return native?.display === 'outer'
 }
 
-/** Outer cover portrait: right-hand tab rail, compact tuner. */
+/** Outer cover portrait: right-hand tab rail, compact tuner. Inner shortest ~626 never gets this. */
 export function isCoverPortraitRail(width: number, height: number): boolean {
   if (!(width > 0) || !(height > 0)) return false
   if (!isPortraitViewport(width, height)) return false

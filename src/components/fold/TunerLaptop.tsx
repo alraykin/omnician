@@ -69,14 +69,15 @@ export function TunerLaptop({
     <FoldShell layout="laptop">
       <FoldHalf
         side="top"
-        className="flex flex-col items-center justify-center px-6"
-        style={{ paddingTop: 'max(0.4rem, var(--fold-safe-top))' }}
+        className="flex flex-col items-center justify-between px-6 pb-2 pt-4"
+        style={{ paddingTop: 'max(0.5rem, var(--fold-safe-top))' }}
       >
-        <div className="flex w-full max-w-lg items-end justify-center gap-2">
+        <div className="flex w-full max-w-2xl flex-col items-center pt-2">
+        <div className="flex w-full items-end justify-center gap-2">
           <span
             data-fold-note-letter
             className={cn(
-              'text-[clamp(3.4rem,12dvh,5.8rem)] font-extrabold leading-none tracking-tight',
+              'text-[clamp(6.2rem,24dvh,9.5rem)] font-extrabold leading-none tracking-tight',
               inTune && live ? 'text-emerald-300' : live ? 'text-white' : 'text-white/30',
             )}
           >
@@ -85,21 +86,21 @@ export function TunerLaptop({
           <span
             data-fold-note-octave
             className={cn(
-              'mb-2 text-[clamp(1.4rem,5dvh,2.2rem)] font-semibold',
+              'mb-3 text-[clamp(2rem,7dvh,3.2rem)] font-semibold',
               inTune && live ? 'text-emerald-300/80' : 'text-slate-400',
             )}
           >
             {octave ?? ''}
           </span>
         </div>
-        <p className="mt-1 font-mono text-sm tabular-nums text-slate-400">
+        <p className="font-mono text-base tabular-nums text-slate-400">
           {detectedHz ? <span data-detected-hz>{formatHz(detectedHz)}</span> : null}
           {detectedHz && targetHz ? <span className="text-slate-600"> · </span> : null}
           {targetHz ? <span data-target-hz>{detectedHz ? `target ${formatHz(targetHz)}` : formatHz(targetHz)}</span> : null}
         </p>
         <p
           className={cn(
-            'mt-0.5 text-sm font-semibold tabular-nums',
+            'text-lg font-semibold tabular-nums',
             live && inTune && 'text-emerald-300',
             live && !inTune && cents != null && cents < 0 && 'text-sky-300',
             live && !inTune && cents != null && cents > 0 && 'text-orange-300',
@@ -108,7 +109,8 @@ export function TunerLaptop({
         >
           {live && cents != null ? `${formatTenths(cents)} cents` : '— cents'}
         </p>
-        <div className="mt-2 w-full max-w-xl px-2">
+        </div>
+        <div className="w-full max-w-3xl px-1 pb-1">
           <TunerTarget cents={cents} inTune={inTune} active={live} />
         </div>
       </FoldHalf>

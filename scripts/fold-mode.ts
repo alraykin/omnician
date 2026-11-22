@@ -52,17 +52,20 @@ assert.deepEqual([...foldChoicesForSize(390, 844)], [...FOLD_COVER_CHOICES])
 assert.equal(cycleFoldChoice('auto', false), 'tent')
 assert.equal(cycleFoldChoice('tent', false), 'off')
 
-assert.equal(FOLD_MIN_SIDE_PX, 640)
+assert.equal(FOLD_MIN_SIDE_PX, 600)
 assert.equal(FOLD_DEAD_PX, 16)
-assert.deepEqual(FOLD_LAPTOP, { width: 720, height: 1024 })
-assert.deepEqual(FOLD_BOOK, { width: 1024, height: 720 })
+assert.deepEqual(FOLD_LAPTOP, { width: 626, height: 890 })
+assert.deepEqual(FOLD_BOOK, { width: 890, height: 626 })
 assert.deepEqual(FOLD_STATUS_PORTRAIT, { x: 496, y: 0, w: 224, h: 88 })
 assert.deepEqual(FOLD_STATUS_LANDSCAPE, { x: 936, y: 0, w: 88, h: 260 })
 
+assert.equal(canUseFoldLayout(626, 890), true)
+assert.equal(canUseFoldLayout(890, 626), true)
 assert.equal(canUseFoldLayout(720, 1024), true)
 assert.equal(canUseFoldLayout(1024, 720), true)
 assert.equal(canUseFoldLayout(430, 932), false, 'phone never enters fold layouts')
-assert.equal(canUseFoldLayout(639, 1024), false)
+assert.equal(canUseFoldLayout(466, 678), false, 'Duo outer cover is not inner')
+assert.equal(canUseFoldLayout(599, 900), false)
 
 assert.equal(detectFoldedLayout({ verticalSegments: 2 }), 'laptop')
 assert.equal(detectFoldedLayout({ horizontalSegments: 2 }), 'book')
@@ -105,27 +108,35 @@ assert.equal(clickShowsTent('off', false), false)
 
 assert.equal(layoutForTool('laptop', 'drums'), 'laptop')
 assert.equal(layoutForTool('laptop', 'click'), 'laptop')
+assert.equal(layoutForTool('laptop', 'tuner', 626, 890), 'laptop', 'inner laptop Tuner splits at the crease')
 assert.equal(layoutForTool('laptop', 'tuner', 720, 1024), 'laptop', 'inner laptop Tuner splits at the crease')
+assert.equal(layoutForTool('off', 'tuner', 890, 626), 'book', 'large landscape Tuner is Book even when Fold is Off')
 assert.equal(layoutForTool('off', 'tuner', 1024, 720), 'book', 'large landscape Tuner is Book even when Fold is Off')
 assert.equal(layoutForTool('off', 'tuner', 1024, 704), 'book')
-assert.equal(layoutForTool('off', 'tuner', 874, 402), 'book', 'phone landscape Tuner is landscape')
-assert.equal(layoutForTool('tent', 'tuner', 874, 402), 'book')
-assert.equal(layoutForTool('off', 'tuner', 720, 1024), 'off', 'large portrait Tuner stays normal')
+assert.equal(layoutForTool('off', 'tuner', 678, 466), 'book', 'outer landscape Tuner is landscape')
+assert.equal(layoutForTool('tent', 'tuner', 678, 466), 'book')
+assert.equal(layoutForTool('off', 'tuner', 626, 890), 'off', 'large portrait Tuner stays normal')
 assert.equal(layoutForTool('off', 'tuner', 390, 844), 'off')
-assert.equal(layoutForTool('book', 'tuner', 1024, 720), 'book')
+assert.equal(layoutForTool('book', 'tuner', 890, 626), 'book')
 assert.equal(layoutForTool('book', 'click'), 'off')
 assert.equal(layoutForTool('tent', 'click'), 'tent')
 assert.equal(layoutForTool('tent', 'drums'), 'off')
 assert.equal(layoutForTool('off', 'click'), 'off')
+assert.equal(tunerShowsBook(890, 626), true)
 assert.equal(tunerShowsBook(1024, 720), true)
 assert.equal(tunerShowsBook(1024, 704), true)
+assert.equal(tunerShowsBook(626, 890), false)
 assert.equal(tunerShowsBook(720, 1024), false)
 assert.equal(tunerShowsBook(390, 844), false)
+assert.equal(tunerShowsBook(466, 678), false)
 assert.equal(FOLD_GRID_ROWS, 14)
 assert.equal(FOLD_PEG_H, 72)
 assert.equal(foldBookPegBottom(0), 12)
 assert.equal(foldBookPegBottom(20), 20)
 {
+  const atLaptop = foldLaptopGridMetrics(890, 40)
+  assert.ok(atLaptop.row >= 22, `890 laptop rows ${atLaptop.row}`)
+  assert.equal(atLaptop.crease, 445)
   const at1024 = foldLaptopGridMetrics(1024, 40)
   assert.ok(at1024.row >= 22, `1024 laptop rows ${at1024.row}`)
   assert.equal(at1024.crease, 512)
@@ -266,6 +277,11 @@ assert.match(railSrc, /data-duo-rail/)
 assert.match(railSrc, /data-settings-gear/)
 assert.match(railSrc, /--duo-status-strip/)
 
+const duoLayoutSrc = readFileSync(new URL('../src/lib/duo-layout.ts', import.meta.url), 'utf8')
+assert.match(duoLayoutSrc, /width: 466/)
+assert.match(duoLayoutSrc, /height: 678/)
+assert.match(duoLayoutSrc, /DUO_STATUS_STRIP_PX = 68/)
+
 const landscapeSrc = readFileSync(new URL('../src/components/fold/TunerLandscape.tsx', import.meta.url), 'utf8')
 assert.match(landscapeSrc, /data-tuner-landscape/)
 assert.doesNotMatch(landscapeSrc, /FoldCrease/)
@@ -280,6 +296,7 @@ assert.match(laptopTunerSrc, /Headstock/)
 const clickLaptopSrc = readFileSync(new URL('../src/components/fold/ClickLaptop.tsx', import.meta.url), 'utf8')
 assert.match(clickLaptopSrc, /ClickPendulum/)
 assert.match(clickLaptopSrc, /side="bottom"[\s\S]*scroll/)
+assert.match(readFileSync(new URL('../src/components/fold/FoldShell.tsx', import.meta.url), 'utf8'), /data-fold-crease-line/)
 
 const drumsLaptopSrc = readFileSync(new URL('../src/components/fold/DrumsLaptop.tsx', import.meta.url), 'utf8')
 assert.match(drumsLaptopSrc, /data-fold-drums-grid/)
@@ -290,8 +307,7 @@ assert.match(pickerSrc, /return null/)
 assert.doesNotMatch(pickerSrc, /data-fold-button/)
 
 const bookSrc = readFileSync(new URL('../src/components/fold/TunerBook.tsx', import.meta.url), 'utf8')
-assert.match(bookSrc, /left-\[104px\]/)
-assert.match(bookSrc, /816px/)
+assert.match(bookSrc, /data-fold-tuner-scale/)
 assert.match(bookSrc, /right-\[calc\(50%\+16px\)\]/)
 assert.match(bookSrc, /left-\[calc\(50%\+16px\)\]/)
 assert.match(bookSrc, /data-fold-pegs/)
@@ -306,8 +322,8 @@ const innerPortrait = {
   ...emptyNativePosture(),
   display: 'inner' as const,
   orientation: 'portrait' as const,
-  windowWidth: 720,
-  windowHeight: 1024,
+  windowWidth: 626,
+  windowHeight: 890,
 }
 assert.equal(resolveNativeFoldLayout({ ...innerPortrait, hingeAvailable: true, hingeStatus: 'fullyOpen', hingeAngleDeg: 180 }), 'off')
 assert.equal(
@@ -342,8 +358,8 @@ assert.equal(
     ...emptyNativePosture(),
     display: 'inner',
     orientation: 'landscape',
-    windowWidth: 1024,
-    windowHeight: 720,
+    windowWidth: 890,
+    windowHeight: 626,
     hingeAvailable: true,
     hingeStatus: 'fullyOpen',
     hingeAngleDeg: 180,
