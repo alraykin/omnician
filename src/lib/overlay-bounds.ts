@@ -20,18 +20,30 @@ export function laptopTopHalfRect(width: number, height: number): ViewportSegmen
   }
 }
 
-/** Laptop overlays live in the top half only. Book/tent/off use the full viewport. */
+/** Below the hinge: crease + 16px dead zone through the bottom of the viewport. */
+export function laptopBottomHalfRect(width: number, height: number): ViewportSegmentBox {
+  const y = height / 2 + FOLD_DEAD_PX
+  return {
+    x: 0,
+    y,
+    width: Math.max(0, width),
+    height: Math.max(0, height - y),
+  }
+}
+
+/** Laptop overlays live in the bottom half only. Book/tent/off use the full viewport. */
 export function overlayHostRect(
   layout: FoldLayout | string,
   width: number,
   height: number,
 ): ViewportSegmentBox {
-  if (layout === 'laptop') return laptopTopHalfRect(width, height)
+  if (layout === 'laptop') return laptopBottomHalfRect(width, height)
   return { x: 0, y: 0, width: Math.max(0, width), height: Math.max(0, height) }
 }
 
-export function overlayBottomStaysAboveFold(overlayBottom: number, viewportHeight: number): boolean {
-  return overlayBottom <= laptopTopHalfRect(0, viewportHeight).height + 1e-6
+export function overlayStaysInLaptopBottom(top: number, bottom: number, viewportHeight: number): boolean {
+  const host = laptopBottomHalfRect(0, viewportHeight)
+  return top >= host.y - 1e-6 && bottom <= host.y + host.height + 1e-6
 }
 
 /**

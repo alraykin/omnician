@@ -4,7 +4,7 @@ import { ClickPendulum } from '@/components/fold/ClickPendulum'
 import { FoldShell } from '@/components/fold/FoldShell'
 import { type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
 import { beatAccentAt, meterLabel, type RhythmBar } from '@/lib/rhythm'
-import { activateOnPointer, cn } from '@/lib/utils'
+import { activateOnPointer, CLICK_BEATS_PER_ROW, cn } from '@/lib/utils'
 
 export function ClickTent({
   bpm,
@@ -93,8 +93,10 @@ export function ClickTent({
         />
 
         <div
-          className="flex min-h-10 shrink-0 items-center justify-center gap-3 pt-1"
+          className="grid w-full max-w-sm grid-cols-8 justify-items-center gap-1.5 pt-1"
           data-fold-tent-accents
+          data-beat-wrap="true"
+          data-beat-row-size={CLICK_BEATS_PER_ROW}
         >
           {Array.from({ length: bar.beats }, (_, beat) => {
             const level = beatAccentAt(bar.beatAccents, beat)

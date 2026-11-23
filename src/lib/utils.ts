@@ -31,6 +31,9 @@ export function accumulatedScroll(node: EventTarget | null): number {
   return total
 }
 
+/** Click beat / accent circles wrap into rows of this many so 9 sits under 1. */
+export const CLICK_BEATS_PER_ROW = 8
+
 export function chunkRows<T>(items: readonly T[], size: number): T[][] {
   const rows: T[][] = []
   for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size) as T[])

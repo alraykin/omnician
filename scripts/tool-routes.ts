@@ -33,5 +33,13 @@ assert.match(home, /to: '\/click'/)
 assert.match(home, /to: '\/drums'/)
 assert.match(home, /to: '\/tuner'/)
 assert.doesNotMatch(home, /\/rhythm\?mode=/)
+assert.match(home, /items-start/)
+assert.match(home, /sm:justify-start/)
+assert.match(home, /h-full/)
+assert.doesNotMatch(home, /sm:justify-between/)
+assert.doesNotMatch(home, /items-center gap-4/)
+
+const homePage = readFileSync(new URL('../src/pages/HomePage.tsx', import.meta.url), 'utf8')
+assert.match(homePage, /items-stretch/)
 
 console.log('tool-routes: ok')

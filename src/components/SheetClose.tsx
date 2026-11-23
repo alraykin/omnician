@@ -93,7 +93,7 @@ type OverlayHostProps = HTMLAttributes<HTMLDivElement> & {
 }
 
 /**
- * Full-screen overlay root. CSS pins it to the laptop top half and pads Duo
+ * Full-screen overlay root. CSS pins it to the laptop bottom half and pads Duo
  * camera / status-cluster safe areas. Portals to `document.body` stay in this box.
  */
 export const OverlayHost = forwardRef<HTMLDivElement, OverlayHostProps>(function OverlayHost(

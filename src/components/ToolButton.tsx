@@ -35,7 +35,7 @@ export const HOME_TOOLS: readonly HomeTool[] = [
 ]
 
 const cardClass =
-  'group relative flex min-h-[5.75rem] w-full items-center gap-4 overflow-hidden rounded-3xl border border-white/10 bg-[#141A28]/90 px-5 py-4 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.9)] transition duration-200 hover:-translate-y-0.5 hover:border-[#A855F7]/55 hover:bg-[#1A2033] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0F1A] sm:min-h-[10rem] sm:flex-col sm:items-start sm:justify-between sm:px-6 sm:py-6'
+  'group relative flex h-full min-h-[5.75rem] w-full items-start gap-4 overflow-hidden rounded-3xl border border-white/10 bg-[#141A28]/90 px-5 py-4 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.9)] transition duration-200 hover:-translate-y-0.5 hover:border-[#A855F7]/55 hover:bg-[#1A2033] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A855F7] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0F1A] sm:min-h-[10rem] sm:flex-col sm:items-start sm:justify-start sm:px-6 sm:py-6'
 
 export function ToolButton({ tool }: { tool: HomeTool }) {
   const body = (

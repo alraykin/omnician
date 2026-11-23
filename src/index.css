@@ -187,24 +187,24 @@ html[data-fold-layout='laptop'] {
   --cluster-clear-top: max(0.2rem, var(--safe-top), env(safe-area-inset-top, 0px));
 }
 
-/* Laptop: anything opened stays on the top half, never bent over the hinge. */
-html[data-fold-layout='laptop'] [data-overlay-host],
-html[data-fold-layout='laptop'] [data-page-in-half] {
-  top: 0;
+/* Laptop: anything opened stays on the bottom half, never bent over the hinge. */
+html[data-fold-layout='laptop'] [data-overlay-host] {
+  top: calc(50% + 16px);
   left: 0;
   right: 0;
-  bottom: calc(50% + 16px);
+  bottom: 0;
   height: auto;
   max-height: none;
 }
 
 html[data-fold-layout='laptop'] [data-overlay-host]:not([data-overlay-flush='1']) {
-  padding-bottom: 0.4rem;
+  padding-top: 0.4rem;
 }
 
 html[data-fold-layout='laptop'] [data-page-in-half] {
   position: relative;
   min-height: 0 !important;
+  margin-top: calc(50dvh + 16px);
   height: calc(50dvh - 16px);
   max-height: calc(50dvh - 16px);
   overflow-x: hidden;

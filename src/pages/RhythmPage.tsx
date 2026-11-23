@@ -1172,12 +1172,12 @@ export function RhythmPage() {
                 <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
                   Subdivision
                 </p>
-                <div className="max-w-full overflow-x-hidden pb-0.5">
+                <div className="max-w-full pb-0.5">
                   <div
                     role="group"
                     aria-label="Subdivision for all beats"
                     data-section="subdivision"
-                    className="flex w-full min-w-0 flex-nowrap items-center gap-0.5 sm:gap-1"
+                    className="flex w-full min-w-0 flex-wrap items-center gap-0.5 sm:gap-1"
                   >
                     {SUBDIVISIONS.map((steps) => {
                       const selected = current.beatSubdivisions.every((item) => item === steps)

@@ -11,7 +11,9 @@ import {
   type RhythmBar,
   type SubdivisionId,
 } from '@/lib/rhythm'
-import { activateOnPointer, chunkRows, cn } from '@/lib/utils'
+import { activateOnPointer, CLICK_BEATS_PER_ROW, cn } from '@/lib/utils'
+
+export { CLICK_BEATS_PER_ROW }
 
 type ClickAccentGridProps = {
   bar: RhythmBar
@@ -33,7 +35,6 @@ function accentTone(level: AccentLevel) {
 }
 
 const LEVEL_NAME = ['unaccented', 'soft accent', 'strong accent'] as const
-const BEATS_PER_ROW = 8
 
 export function ClickAccentGrid({
   bar,
@@ -52,7 +53,6 @@ export function ClickAccentGrid({
   const liveBeat = playhead.beat
   const rootRef = useRef<HTMLDivElement>(null)
   const beats = Array.from({ length: bar.beats }, (_, beat) => beat)
-  const rows = chunkRows(beats, BEATS_PER_ROW)
 
   useEffect(() => {
     if (pickerBeat === null) return
@@ -66,59 +66,57 @@ export function ClickAccentGrid({
 
   return (
     <div ref={rootRef} data-section="beats" data-accent-edit={accentEdit ? 'true' : 'false'}>
-      <div className="flex flex-col items-center gap-1.5" data-beat-wrap="true" data-beat-count={bar.beats}>
-        {rows.map((row, rowIndex) => (
-          <div
-            key={`beat-row-${rowIndex}`}
-            data-beat-row={rowIndex}
-            className="flex w-full justify-center gap-1"
-          >
-            {row.map((beat) => {
-              const level = beatAccentAt(bar.beatAccents, beat)
-              const subdiv = beatSubdivisionAt(bar, beat)
-              const now = live && liveBeat === beat
-              const open = pickerBeat === beat
-              return (
-                <div
-                  key={`beat-${beat}`}
-                  className="flex w-9 shrink-0 flex-col items-center sm:w-10"
-                >
-                  <button
-                    type="button"
-                    data-accent-row="beat"
-                    data-beat={beat}
-                    data-live={now ? 'true' : 'false'}
-                    data-level={level}
-                    aria-label={`Beat ${beat + 1}, ${LEVEL_NAME[level]}`}
-                    {...activateOnPointer(() => (accentEdit ? onCycleAccent(beat) : onPreviewBeat(beat)))}
-                    className={cn(
-                      'flex size-9 shrink-0 touch-manipulation items-center justify-center rounded-full border text-sm font-bold tabular-nums sm:size-10',
-                      accentTone(level),
-                      accentEdit && 'ring-1 ring-[#A855F7]/55',
-                      now && 'omni-beat-pulse',
-                    )}
-                  >
-                    {beat + 1}
-                  </button>
-                  <button
-                    type="button"
-                    data-beat-note={beat}
-                    data-subdivision={subdiv}
-                    aria-label={`Beat ${beat + 1} subdivision, ${subdivisionLabel(subdiv, bar.beatUnit)}`}
-                    aria-expanded={open}
-                    {...activateOnPointer(() => onPickerBeat(open ? null : beat))}
-                    className={cn(
-                      'mt-0.5 flex h-6 w-full items-center justify-center rounded-sm text-slate-300',
-                      open && 'text-[#E9D5FF]',
-                    )}
-                  >
-                    <SubdivIcon steps={subdiv} beatUnit={bar.beatUnit} tiny />
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        ))}
+      <div
+        className="grid w-full grid-cols-8 justify-items-center gap-x-1 gap-y-1.5"
+        data-beat-wrap="true"
+        data-beat-count={bar.beats}
+        data-beat-row-size={CLICK_BEATS_PER_ROW}
+      >
+        {beats.map((beat) => {
+          const level = beatAccentAt(bar.beatAccents, beat)
+          const subdiv = beatSubdivisionAt(bar, beat)
+          const now = live && liveBeat === beat
+          const open = pickerBeat === beat
+          return (
+            <div
+              key={`beat-${beat}`}
+              data-beat-cell={beat}
+              className="flex w-full min-w-0 max-w-10 flex-col items-center"
+            >
+              <button
+                type="button"
+                data-accent-row="beat"
+                data-beat={beat}
+                data-live={now ? 'true' : 'false'}
+                data-level={level}
+                aria-label={`Beat ${beat + 1}, ${LEVEL_NAME[level]}`}
+                {...activateOnPointer(() => (accentEdit ? onCycleAccent(beat) : onPreviewBeat(beat)))}
+                className={cn(
+                  'flex aspect-square w-full max-w-10 min-h-8 touch-manipulation items-center justify-center rounded-full border text-sm font-bold tabular-nums',
+                  accentTone(level),
+                  accentEdit && 'ring-1 ring-[#A855F7]/55',
+                  now && 'omni-beat-pulse',
+                )}
+              >
+                {beat + 1}
+              </button>
+              <button
+                type="button"
+                data-beat-note={beat}
+                data-subdivision={subdiv}
+                aria-label={`Beat ${beat + 1} subdivision, ${subdivisionLabel(subdiv, bar.beatUnit)}`}
+                aria-expanded={open}
+                {...activateOnPointer(() => onPickerBeat(open ? null : beat))}
+                className={cn(
+                  'mt-0.5 flex h-6 w-full min-w-0 items-center justify-center rounded-sm text-slate-300',
+                  open && 'text-[#E9D5FF]',
+                )}
+              >
+                <SubdivIcon steps={subdiv} beatUnit={bar.beatUnit} tiny />
+              </button>
+            </div>
+          )
+        })}
       </div>
       {pickerBeat !== null ? (
         <div

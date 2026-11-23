@@ -4,23 +4,31 @@ import { readFileSync } from 'node:fs'
 import { FOLD_DEAD_PX, FOLD_LAPTOP, FOLD_BOOK } from '../src/lib/fold-mode.ts'
 import {
   clampMenuToOverlayHost,
+  laptopBottomHalfRect,
   laptopTopHalfRect,
-  overlayBottomStaysAboveFold,
   overlayCloseOnLeft,
   overlayHostRect,
   overlayListColumns,
+  overlayStaysInLaptopBottom,
   OVERLAY_CLUSTER_RIGHT_PX,
   OVERLAY_OUTER_CLUSTER_RIGHT_PX,
 } from '../src/lib/overlay-bounds.ts'
+import { chunkRows, CLICK_BEATS_PER_ROW } from '../src/lib/utils.ts'
 
-const laptop = laptopTopHalfRect(FOLD_LAPTOP.width, FOLD_LAPTOP.height)
+const laptopTop = laptopTopHalfRect(FOLD_LAPTOP.width, FOLD_LAPTOP.height)
+assert.equal(laptopTop.x, 0)
+assert.equal(laptopTop.y, 0)
+assert.equal(laptopTop.width, 626)
+assert.equal(laptopTop.height, FOLD_LAPTOP.height / 2 - FOLD_DEAD_PX)
+
+const laptop = laptopBottomHalfRect(FOLD_LAPTOP.width, FOLD_LAPTOP.height)
 assert.equal(laptop.x, 0)
-assert.equal(laptop.y, 0)
+assert.equal(laptop.y, FOLD_LAPTOP.height / 2 + FOLD_DEAD_PX)
 assert.equal(laptop.width, 626)
 assert.equal(laptop.height, FOLD_LAPTOP.height / 2 - FOLD_DEAD_PX)
-assert.ok(laptop.height < FOLD_LAPTOP.height / 2, 'top half stops above the 16px crease')
-assert.equal(overlayBottomStaysAboveFold(laptop.height, FOLD_LAPTOP.height), true)
-assert.equal(overlayBottomStaysAboveFold(laptop.height + 40, FOLD_LAPTOP.height), false)
+assert.ok(laptop.y > FOLD_LAPTOP.height / 2, 'bottom half starts below the 16px crease')
+assert.equal(overlayStaysInLaptopBottom(laptop.y, laptop.y + laptop.height, FOLD_LAPTOP.height), true)
+assert.equal(overlayStaysInLaptopBottom(0, laptop.y + 40, FOLD_LAPTOP.height), false)
 
 assert.deepEqual(overlayHostRect('laptop', 626, 890), laptop)
 assert.deepEqual(overlayHostRect('book', 890, 626), { x: 0, y: 0, width: 890, height: 626 })
@@ -33,8 +41,9 @@ assert.equal(overlayListColumns({ width: 890, outer: false }), 2, 'inner book ca
 assert.equal(overlayListColumns({ width: 1280, outer: false }), 2)
 assert.equal(overlayCloseOnLeft(), true)
 
-const menu = clampMenuToOverlayHost(400, 800, 196, 280, laptop)
-assert.ok(menu.top + 8 <= laptop.height, 'bar menu stays in the laptop top half')
+const menu = clampMenuToOverlayHost(400, 100, 196, 280, laptop)
+assert.ok(menu.top >= laptop.y, 'bar menu stays in the laptop bottom half')
+assert.ok(menu.top + 8 <= laptop.y + laptop.height)
 assert.ok(menu.left >= 8)
 
 assert.equal(OVERLAY_CLUSTER_RIGHT_PX, 88)
@@ -45,7 +54,11 @@ assert.match(css, /\.overlay-host/)
 assert.match(css, /env\(safe-area-inset-right/)
 assert.match(css, /env\(safe-area-inset-left/)
 assert.match(css, /html\[data-fold-layout='laptop'\] \[data-overlay-host\]/)
-assert.match(css, /bottom: calc\(50% \+ 16px\)/)
+assert.match(css, /top: calc\(50% \+ 16px\)/)
+assert.doesNotMatch(
+  css,
+  /html\[data-fold-layout='laptop'\] \[data-overlay-host\][\s\S]{0,180}bottom: calc\(50% \+ 16px\)/,
+)
 assert.match(css, /html\[data-duo-display='outer'\]/)
 assert.match(css, /html\[data-fold-layout='book'\]/)
 
@@ -77,6 +90,7 @@ assert.match(page, /listLayout \? 'grid-cols-1'/)
 assert.doesNotMatch(page, /compact \? 'grid-cols-3'/)
 assert.match(page, /SheetHeader/)
 assert.match(page, /whitespace-normal break-words/)
+assert.match(page, /flex-wrap items-center/)
 
 const header = readFileSync(new URL('../src/components/SheetClose.tsx', import.meta.url), 'utf8')
 assert.match(header, /data-sheet-close-side="left"/)
@@ -85,9 +99,36 @@ assert.ok(
   header.indexOf('{onClose ? <SheetCloseX') < header.indexOf('<h2'),
   'close X is rendered before the sheet title',
 )
+assert.match(header, /laptop bottom half/)
 
 const bookInner = overlayHostRect('book', FOLD_BOOK.width, FOLD_BOOK.height)
 assert.equal(bookInner.width, 890)
 assert.ok(OVERLAY_CLUSTER_RIGHT_PX < bookInner.width / 4, 'right cluster is a side strip, not half the sheet')
+
+assert.equal(CLICK_BEATS_PER_ROW, 8)
+const sixteen = chunkRows(Array.from({ length: 16 }, (_, i) => i), CLICK_BEATS_PER_ROW)
+assert.equal(sixteen.length, 2)
+assert.deepEqual(sixteen[0], [0, 1, 2, 3, 4, 5, 6, 7])
+assert.equal(sixteen[1]?.[0], 8, 'beat 9 sits under beat 1')
+
+const accent = readFileSync(new URL('../src/components/rhythm/ClickAccentGrid.tsx', import.meta.url), 'utf8')
+assert.match(accent, /grid-cols-8/)
+assert.match(accent, /data-beat-wrap="true"/)
+assert.doesNotMatch(accent, /flex w-full justify-center gap-1/)
+
+const laptopClick = readFileSync(new URL('../src/components/fold/ClickLaptop.tsx', import.meta.url), 'utf8')
+assert.match(laptopClick, /grid-cols-8/)
+assert.match(laptopClick, /data-beat-wrap="true"/)
+assert.match(laptopClick, /FoldPlayButton/)
+assert.doesNotMatch(laptopClick, /flex h-11 items-center gap-1" data-fold-click-accent-edit/)
+
+const tent = readFileSync(new URL('../src/components/fold/ClickTent.tsx', import.meta.url), 'utf8')
+assert.match(tent, /grid-cols-8/)
+assert.match(tent, /data-beat-wrap="true"/)
+
+const home = readFileSync(new URL('../src/components/ToolButton.tsx', import.meta.url), 'utf8')
+assert.match(home, /items-start/)
+assert.match(home, /sm:justify-start/)
+assert.doesNotMatch(home, /sm:justify-between/)
 
 console.log('overlay-bounds ok')

@@ -16,7 +16,7 @@ import {
   type RhythmBar,
   type SubdivisionId,
 } from '@/lib/rhythm'
-import { activateOnPointer, cn } from '@/lib/utils'
+import { activateOnPointer, CLICK_BEATS_PER_ROW, cn } from '@/lib/utils'
 
 export function ClickLaptop({
   bpm,
@@ -106,10 +106,11 @@ export function ClickLaptop({
             <div className="h-11">
               <ClickSoundPicker value={clickSound} onChange={onSound} />
             </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <div
               role="group"
               aria-label="Subdivision"
-              className="mt-2 flex h-11 gap-1"
+              className="mt-2 flex flex-wrap gap-1"
               data-section="subdivision"
             >
               {SUBDIVISIONS.map((steps) => {
@@ -122,7 +123,7 @@ export function ClickLaptop({
                     aria-pressed={selected}
                     {...activateOnPointer(() => onSubdivision(steps))}
                     className={cn(
-                      'flex h-10 min-h-10 min-w-0 flex-1 items-center justify-center rounded-lg',
+                      'flex h-10 min-h-10 min-w-0 flex-1 basis-[calc(12.5%-0.25rem)] items-center justify-center rounded-lg',
                       selected ? 'bg-[#A855F7] text-white' : 'border border-white/10 bg-white/4 text-slate-100',
                     )}
                     aria-label={subdivisionLabel(steps, bar.beatUnit)}
@@ -132,7 +133,12 @@ export function ClickLaptop({
                 )
               })}
             </div>
-            <div className="mt-2 flex h-11 items-center gap-1" data-fold-click-accent-edit>
+            <div
+              className="mt-2 grid w-full grid-cols-8 justify-items-center gap-1"
+              data-fold-click-accent-edit
+              data-beat-wrap="true"
+              data-beat-row-size={CLICK_BEATS_PER_ROW}
+            >
               {Array.from({ length: bar.beats }, (_, beat) => {
                 const level = beatAccentAt(bar.beatAccents, beat)
                 return (
@@ -142,7 +148,7 @@ export function ClickLaptop({
                     data-accent-beat={beat}
                     {...activateOnPointer(() => onCycleAccent(beat))}
                     className={cn(
-                      'flex h-10 min-h-10 min-w-10 flex-1 items-center justify-center rounded-full text-[0.82rem] font-semibold',
+                      'flex aspect-square w-full max-w-10 min-h-8 min-w-0 items-center justify-center rounded-full text-[0.82rem] font-semibold',
                       level === 2
                         ? 'bg-[#A855F7] text-white'
                         : level === 1
@@ -155,7 +161,8 @@ export function ClickLaptop({
                 )
               })}
             </div>
-            <div className="mt-auto pb-3">
+            </div>
+            <div className="shrink-0 pb-3 pt-2">
               <FoldPlayButton playing={playing} onToggle={onTogglePlay} />
             </div>
           </div>
