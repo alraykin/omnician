@@ -1,6 +1,7 @@
 import { ClickPendulum } from '@/components/fold/ClickPendulum'
 import { FoldCrease, FoldHalf, FoldShell } from '@/components/fold/FoldShell'
 import { FoldPlayButton, FoldTempoColumn } from '@/components/fold/FoldTempoColumn'
+import { ClickBeatCircles } from '@/components/rhythm/ClickBeatCircles'
 import { ClickPresetChip } from '@/components/rhythm/ClickPresets'
 import { ClickSoundPicker } from '@/components/rhythm/ClickSoundPicker'
 import { CompactMeter } from '@/components/rhythm/CompactMeter'
@@ -8,7 +9,6 @@ import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { usePlayhead, type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
 import {
   SUBDIVISIONS,
-  beatAccentAt,
   meterLabel,
   subdivisionLabel,
   type BeatUnit,
@@ -16,7 +16,7 @@ import {
   type RhythmBar,
   type SubdivisionId,
 } from '@/lib/rhythm'
-import { activateOnPointer, CLICK_BEATS_PER_ROW, cn } from '@/lib/utils'
+import { activateOnPointer, cn } from '@/lib/utils'
 
 export function ClickLaptop({
   bpm,
@@ -133,33 +133,14 @@ export function ClickLaptop({
                 )
               })}
             </div>
-            <div
-              className="mt-2 grid w-full grid-cols-8 justify-items-center gap-1"
-              data-fold-click-accent-edit
-              data-beat-wrap="true"
-              data-beat-row-size={CLICK_BEATS_PER_ROW}
-            >
-              {Array.from({ length: bar.beats }, (_, beat) => {
-                const level = beatAccentAt(bar.beatAccents, beat)
-                return (
-                  <button
-                    key={beat}
-                    type="button"
-                    data-accent-beat={beat}
-                    {...activateOnPointer(() => onCycleAccent(beat))}
-                    className={cn(
-                      'flex aspect-square w-full max-w-10 min-h-8 min-w-0 items-center justify-center rounded-full text-[0.82rem] font-semibold',
-                      level === 2
-                        ? 'bg-[#A855F7] text-white'
-                        : level === 1
-                          ? 'bg-[#C4B5FD] text-[#2E1064]'
-                          : 'border border-white/14 bg-white/6 text-slate-200',
-                    )}
-                  >
-                    {beat + 1}
-                  </button>
-                )
-              })}
+            <div className="mt-2" data-fold-click-accent-edit>
+              <ClickBeatCircles
+                bar={bar}
+                barIndex={barIndex}
+                playing={playing}
+                playheadStore={playheadStore}
+                onCycleAccent={onCycleAccent}
+              />
             </div>
             </div>
             <div className="shrink-0 pb-3 pt-2">

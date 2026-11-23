@@ -13,6 +13,7 @@ import {
   OVERLAY_CLUSTER_RIGHT_PX,
   OVERLAY_OUTER_CLUSTER_RIGHT_PX,
 } from '../src/lib/overlay-bounds.ts'
+import { clickBeatCircleClass } from '../src/components/rhythm/ClickBeatCircles.tsx'
 import { chunkRows, CLICK_BEATS_PER_ROW } from '../src/lib/utils.ts'
 
 const laptopTop = laptopTopHalfRect(FOLD_LAPTOP.width, FOLD_LAPTOP.height)
@@ -110,6 +111,16 @@ const sixteen = chunkRows(Array.from({ length: 16 }, (_, i) => i), CLICK_BEATS_P
 assert.equal(sixteen.length, 2)
 assert.deepEqual(sixteen[0], [0, 1, 2, 3, 4, 5, 6, 7])
 assert.equal(sixteen[1]?.[0], 8, 'beat 9 sits under beat 1')
+assert.match(clickBeatCircleClass(0, false), /text-slate-400/)
+assert.match(clickBeatCircleClass(0, true), /bg-white/)
+assert.match(clickBeatCircleClass(2, true), /bg-\[#A855F7\]/)
+assert.match(clickBeatCircleClass(1, false), /text-\[#C4B5FD\]/)
+assert.match(clickBeatCircleClass(2, false), /text-\[#E9D5FF\]/)
+
+const circles = readFileSync(new URL('../src/components/rhythm/ClickBeatCircles.tsx', import.meta.url), 'utf8')
+assert.match(circles, /data-click-beat-circles/)
+assert.match(circles, /onCycleAccent/)
+assert.match(circles, /CLICK_BEATS_PER_ROW/)
 
 const accent = readFileSync(new URL('../src/components/rhythm/ClickAccentGrid.tsx', import.meta.url), 'utf8')
 assert.match(accent, /grid-cols-8/)
@@ -117,14 +128,14 @@ assert.match(accent, /data-beat-wrap="true"/)
 assert.doesNotMatch(accent, /flex w-full justify-center gap-1/)
 
 const laptopClick = readFileSync(new URL('../src/components/fold/ClickLaptop.tsx', import.meta.url), 'utf8')
-assert.match(laptopClick, /grid-cols-8/)
-assert.match(laptopClick, /data-beat-wrap="true"/)
+assert.match(laptopClick, /ClickBeatCircles/)
 assert.match(laptopClick, /FoldPlayButton/)
 assert.doesNotMatch(laptopClick, /flex h-11 items-center gap-1" data-fold-click-accent-edit/)
 
 const tent = readFileSync(new URL('../src/components/fold/ClickTent.tsx', import.meta.url), 'utf8')
-assert.match(tent, /grid-cols-8/)
-assert.match(tent, /data-beat-wrap="true"/)
+assert.match(tent, /ClickBeatCircles/)
+assert.match(tent, /tap a number to accent/)
+assert.doesNotMatch(tent, /block size-4 rounded-full/)
 
 const home = readFileSync(new URL('../src/components/ToolButton.tsx', import.meta.url), 'utf8')
 assert.match(home, /items-start/)

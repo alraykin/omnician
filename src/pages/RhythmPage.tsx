@@ -1639,10 +1639,16 @@ export function RhythmPage() {
           liveBpm={speedBuilder.enabled && playing ? liveBpm : bpm}
           playing={playing}
           bar={current}
+          barIndex={barIndex}
           playheadStore={playheadStore}
           getClock={getTransportClock}
           onTogglePlay={() => void startStop()}
           onBpm={changeBpm}
+          onCycleAccent={(beat) => {
+            const next = cycleBeatAccent(current.beatAccents, beat, current.beats)
+            previewClick(clickSound, beatAccentAt(next, beat), true)
+            patchBar(barIndex, { ...current, beatAccents: next })
+          }}
         />
       ) : null}
 

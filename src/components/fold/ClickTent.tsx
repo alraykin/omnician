@@ -2,28 +2,33 @@ import { Minus, Plus } from 'lucide-react'
 
 import { ClickPendulum } from '@/components/fold/ClickPendulum'
 import { FoldShell } from '@/components/fold/FoldShell'
+import { ClickBeatCircles } from '@/components/rhythm/ClickBeatCircles'
 import { type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
-import { beatAccentAt, meterLabel, type RhythmBar } from '@/lib/rhythm'
-import { activateOnPointer, CLICK_BEATS_PER_ROW, cn } from '@/lib/utils'
+import { meterLabel, type RhythmBar } from '@/lib/rhythm'
+import { activateOnPointer } from '@/lib/utils'
 
 export function ClickTent({
   bpm,
   liveBpm,
   playing,
   bar,
+  barIndex,
   playheadStore,
   getClock,
   onTogglePlay,
   onBpm,
+  onCycleAccent,
 }: {
   bpm: number
   liveBpm: number
   playing: boolean
   bar: RhythmBar
+  barIndex: number
   playheadStore: PlayheadStore
   getClock: () => TransportClock
   onTogglePlay: () => void
   onBpm: (next: number, tick?: boolean) => void
+  onCycleAccent: (beat: number) => void
 }) {
   const shownBpm = Math.round(liveBpm || bpm)
 
@@ -57,7 +62,9 @@ export function ClickTent({
               data-fold-tent-caption
               className="mt-1.5 text-[0.72rem] leading-4 text-slate-500"
             >
-              {meterLabel(bar.beats, bar.beatUnit)} · tap pendulum to {playing ? 'stop' : 'start'}
+              {playing
+                ? `${meterLabel(bar.beats, bar.beatUnit)} · tap pendulum to stop`
+                : `${meterLabel(bar.beats, bar.beatUnit)} · tap a number to accent`}
             </p>
           </div>
           <button
@@ -89,28 +96,17 @@ export function ClickTent({
           playheadStore={playheadStore}
           getClock={getClock}
           onTogglePlay={onTogglePlay}
-          className="mt-2"
+          className="mt-2 min-h-0 flex-1"
         />
 
-        <div
-          className="grid w-full max-w-sm grid-cols-8 justify-items-center gap-1.5 pt-1"
-          data-fold-tent-accents
-          data-beat-wrap="true"
-          data-beat-row-size={CLICK_BEATS_PER_ROW}
-        >
-          {Array.from({ length: bar.beats }, (_, beat) => {
-            const level = beatAccentAt(bar.beatAccents, beat)
-            return (
-              <span
-                key={beat}
-                data-accent-beat={beat}
-                className={cn(
-                  'block size-4 rounded-full',
-                  level === 2 ? 'bg-[#A855F7]' : level === 1 ? 'bg-[#C4B5FD]' : 'bg-white/25',
-                )}
-              />
-            )
-          })}
+        <div data-fold-tent-accents className="mx-auto w-full shrink-0 pt-2">
+          <ClickBeatCircles
+            bar={bar}
+            barIndex={barIndex}
+            playing={playing}
+            playheadStore={playheadStore}
+            onCycleAccent={onCycleAccent}
+          />
         </div>
       </div>
     </FoldShell>
