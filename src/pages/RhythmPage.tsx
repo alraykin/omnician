@@ -26,7 +26,7 @@ import { SubdivIcon } from '@/components/rhythm/SubdivIcons'
 import { Button } from '@/components/ui/button'
 import { useFactoryEditor } from '@/hooks/useFactoryEditor'
 import { useCoverPortraitRail, useDuoOuterDisplay } from '@/hooks/useDuoLayout'
-import { useToolFoldLayout } from '@/hooks/useFoldMode'
+import { useFoldLayout, useToolFoldLayout } from '@/hooks/useFoldMode'
 import { useCompactViewport, usePortraitViewport, useViewportSize } from '@/hooks/usePhoneViewport'
 import { usePlayhead, useRhythmEngine, type PlayheadStore, type TransportClock } from '@/hooks/useRhythmEngine'
 import { defaultIntensityForStyle, type KitIntensity } from '@/lib/kit-intensity'
@@ -61,6 +61,7 @@ import {
   type SubdivisionId,
   type VoiceId,
 } from '@/lib/rhythm'
+import { clickUsesHingeSplit } from '@/lib/fold-mode'
 import { loadRecordClick } from '@/lib/drum-recorder'
 import { AUTO_COMPLETE_ENABLED, RECORDER_ENABLED } from '@/lib/features'
 import { setPhoneDrumsSurface } from '@/lib/phone-viewport'
@@ -194,8 +195,11 @@ export function RhythmPage() {
   const compact = useCompactViewport()
   const portrait = usePortraitViewport()
   const coverRail = useCoverPortraitRail()
+  const foldLayout = useFoldLayout()
+  const viewportSize = useViewportSize()
   const drumsFold = useToolFoldLayout('drums')
   const clickFold = useToolFoldLayout('click')
+  const clickHingeSplit = clickUsesHingeSplit(foldLayout, viewportSize.width, viewportSize.height)
   const [, setStyleTick] = useState(0)
 
   useEffect(() => subscribeRhythmStyles(() => setStyleTick((value) => value + 1)), [])
@@ -1166,19 +1170,38 @@ export function RhythmPage() {
 
           {mode === 'click' ? (
           <div data-rhythm-mode="click" className="mt-1.5 flex flex-col gap-1.5">
-          <ClickPresetChip
-            name={loadedClickPreset?.name ?? 'Click presets'}
-            onOpen={() => setClickPresetsOpen(true)}
-          />
+          {clickHingeSplit ? null : (
+            <ClickPresetChip
+              name={loadedClickPreset?.name ?? 'Click presets'}
+              onOpen={() => setClickPresetsOpen(true)}
+            />
+          )}
           <div
             data-rhythm-layout
             data-rhythm-mode="click"
-            className="flex flex-col gap-1.5 wide:flex-row wide:items-start wide:gap-3 xl:gap-4"
+            data-click-split={clickHingeSplit ? 'hinge' : undefined}
+            className={cn(
+              'gap-1.5',
+              clickHingeSplit
+                ? undefined
+                : 'flex flex-col wide:flex-row wide:items-start wide:gap-3 xl:gap-4',
+            )}
           >
             <div
-              className="flex h-fit w-full shrink-0 flex-col gap-1.5 wide:w-[min(32.5rem,48%)] wide:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem]"
+              className={cn(
+                'flex h-fit w-full shrink-0 flex-col gap-1.5',
+                clickHingeSplit
+                  ? 'min-w-0'
+                  : 'wide:w-[min(32.5rem,48%)] wide:max-w-[32.5rem] xl:w-[34rem] xl:max-w-[34rem]',
+              )}
               data-rhythm-stack="controls"
             >
+              {clickHingeSplit ? (
+                <ClickPresetChip
+                  name={loadedClickPreset?.name ?? 'Click presets'}
+                  onOpen={() => setClickPresetsOpen(true)}
+                />
+              ) : null}
               <RhythmTempoCard
                 bpm={bpm}
                 liveBpm={liveBpm}
@@ -1208,63 +1231,6 @@ export function RhythmPage() {
                 </p>
                 <ClickSoundPicker value={clickSound} onChange={setClickSound} />
               </section>
-
-              <section>
-                <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Subdivision
-                </p>
-                <div className="max-w-full pb-0.5">
-                  <div
-                    role="group"
-                    aria-label="Subdivision for all beats"
-                    data-section="subdivision"
-                    className="flex w-full min-w-0 flex-wrap items-center gap-0.5 sm:gap-1"
-                  >
-                    {SUBDIVISIONS.map((steps) => {
-                      const selected = current.beatSubdivisions.every((item) => item === steps)
-                      return (
-                        <button
-                          key={steps}
-                          type="button"
-                          aria-label={subdivisionLabel(steps, current.beatUnit)}
-                          title={subdivisionLabel(steps, current.beatUnit)}
-                          aria-pressed={selected}
-                          data-subdivision={steps}
-                          data-subdivision-label={subdivisionLabel(steps, current.beatUnit)}
-                          {...activateOnPointer(() => setSubdivision(steps))}
-                          className={cn(
-                            'flex h-10 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-11',
-                            selected
-                              ? 'bg-[#A855F7] text-white'
-                              : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
-                          )}
-                        >
-                          <SubdivIcon steps={steps} beatUnit={current.beatUnit} compact />
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </section>
-
-              <TransportDock
-                place="inline"
-                className="hidden shrink-0 wide:flex wide:flex-col"
-                playing={playing}
-                onToggle={() => void startStop()}
-                holdUntilCycle={holdUntilCycle}
-              >
-                <TransportReadout
-                  store={playheadStore}
-                  playing={playing}
-                  bars={bars.length}
-                  bpm={speedBuilder.enabled && playing ? liveBpm : bpm}
-                  liveMeter={liveMeter}
-                  mode={mode}
-                  clickSound={clickSound}
-                  holdUntilCycle={holdUntilCycle}
-                />
-              </TransportDock>
             </div>
 
             <div
@@ -1329,6 +1295,44 @@ export function RhythmPage() {
                 onAdd={addBar}
                 onRemove={() => removeBar(clickBarIndex)}
               />
+            </section>
+
+            <section>
+              <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Subdivision
+              </p>
+              <div className="max-w-full pb-0.5">
+                <div
+                  role="group"
+                  aria-label="Subdivision for all beats"
+                  data-section="subdivision"
+                  className="flex w-full min-w-0 flex-wrap items-center gap-0.5 sm:gap-1"
+                >
+                  {SUBDIVISIONS.map((steps) => {
+                    const selected = current.beatSubdivisions.every((item) => item === steps)
+                    return (
+                      <button
+                        key={steps}
+                        type="button"
+                        aria-label={subdivisionLabel(steps, current.beatUnit)}
+                        title={subdivisionLabel(steps, current.beatUnit)}
+                        aria-pressed={selected}
+                        data-subdivision={steps}
+                        data-subdivision-label={subdivisionLabel(steps, current.beatUnit)}
+                        {...activateOnPointer(() => setSubdivision(steps))}
+                        className={cn(
+                          'flex h-10 min-w-0 flex-1 items-center justify-center rounded-lg touch-manipulation sm:h-11',
+                          selected
+                            ? 'bg-[#A855F7] text-white'
+                            : 'border border-white/10 bg-white/4 text-slate-100 hover:border-[#A855F7]/50',
+                        )}
+                      >
+                        <SubdivIcon steps={steps} beatUnit={current.beatUnit} compact />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </section>
 
             </div>
@@ -1587,7 +1591,8 @@ export function RhythmPage() {
         <TransportDock
           place="sticky"
           className={cn(
-            'rhythm-glass z-40 shrink-0 border-t border-white/10 wide:hidden compact:!block',
+            'rhythm-glass z-40 shrink-0 border-t border-white/10',
+            mode === 'click' ? undefined : 'wide:hidden compact:!block',
             coverRail
               ? 'pt-1 pb-[max(0.28rem,env(safe-area-inset-bottom,0px))]'
               : 'pt-2 pb-[max(0.7rem,env(safe-area-inset-bottom,0px))]',

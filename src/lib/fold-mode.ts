@@ -225,6 +225,21 @@ export function clickShowsTent(layout: FoldLayout, portrait: boolean): boolean {
   return layout === 'tent' && !portrait
 }
 
+/**
+ * Duo inner landscape (book or partially folded): Click is two equal columns
+ * split at the vertical hinge. Not tent, laptop, phone, or desktop.
+ */
+export function clickUsesHingeSplit(
+  layout: FoldLayout,
+  width: number,
+  height: number,
+): boolean {
+  if (!(width > height)) return false
+  if (layout === 'tent' || layout === 'laptop') return false
+  if (layout === 'book') return true
+  return canUseFoldLayout(width, height) && height <= 767
+}
+
 /** Unfolded inner landscape always uses Tuner Book, including Fold mode Off. */
 export function tunerShowsBook(width: number, height: number): boolean {
   return canUseFoldLayout(width, height) && width > height

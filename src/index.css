@@ -1300,3 +1300,18 @@ html.fold-overlay [data-fold-shell] {
 [data-fold-layout='book'] [data-fold-tuner-scale] [data-fold-dead-label] {
   display: none;
 }
+
+/* Duo inner landscape Click: equal columns with a hinge gutter, no divider line. */
+[data-click-split='hinge'][data-rhythm-layout] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 2rem;
+  align-items: start;
+}
+
+[data-click-split='hinge'] > [data-rhythm-stack] {
+  min-width: 0;
+  width: auto;
+  max-width: none;
+  flex: none;
+}

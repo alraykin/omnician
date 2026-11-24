@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 
 import { chromium, type Page } from 'playwright-core'
 
-import { FOLD_LAPTOP } from '../src/lib/fold-mode.ts'
+import { FOLD_BOOK, FOLD_LAPTOP } from '../src/lib/fold-mode.ts'
 import { overlaySheetVisibleInLaptopBottom } from '../src/lib/overlay-bounds.ts'
 
 const BASE = process.env.OMNICIAN_BASE_URL ?? 'http://127.0.0.1:43121'
@@ -77,6 +77,23 @@ try {
   await page.locator('[data-fold-shell] [data-editor-beat-name]').click()
   const library = await sheetBox(page, '[data-beat-library-sheet]')
   assertBottomHalf('Beat library', library, FOLD_LAPTOP.height)
+
+  await page.setViewportSize({ width: FOLD_BOOK.width, height: FOLD_BOOK.height })
+  await page.goto(`${BASE}/click?fold=book`, { waitUntil: 'domcontentloaded' })
+  await page.locator('[data-click-split="hinge"]').waitFor({ state: 'visible' })
+  const left = page.locator('[data-click-split="hinge"] [data-rhythm-stack="controls"]')
+  const right = page.locator('[data-click-split="hinge"] [data-rhythm-stack="stage"]')
+  const leftBox = await left.boundingBox()
+  const rightBox = await right.boundingBox()
+  assert.ok(leftBox && rightBox, 'Click hinge split columns rendered')
+  assert.ok(Math.abs(leftBox.width - rightBox.width) < 8, `equal columns (L=${leftBox.width} R=${rightBox.width})`)
+  assert.ok(rightBox.x - (leftBox.x + leftBox.width) >= 16, 'hinge gutter between columns')
+  assert.equal(await page.locator('[data-click-split="hinge"] [data-transport-place="inline"]').count(), 0)
+  const subdivBox = await page.locator('[data-click-split="hinge"] [data-section="subdivision"]').boundingBox()
+  const barsBox = await page.locator('[data-click-split="hinge"] [data-rhythm-stack="stage"]').boundingBox()
+  assert.ok(subdivBox && barsBox)
+  assert.ok(subdivBox.x >= barsBox.x - 1, 'subdivision sits in the right column')
+  assert.equal(await page.locator('[data-fold-crease-line]').count(), 0)
 
   console.log('laptop-sheets: ok')
 } finally {

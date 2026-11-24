@@ -13,6 +13,7 @@ import {
   FOLD_STATUS_PORTRAIT,
   canUseFoldLayout,
   clickShowsTent,
+  clickUsesHingeSplit,
   cycleFoldChoice,
   detectFoldedLayout,
   foldChoicesForSize,
@@ -333,7 +334,21 @@ assert.match(laptopTunerSrc, /Headstock/)
 const clickLaptopSrc = readFileSync(new URL('../src/components/fold/ClickLaptop.tsx', import.meta.url), 'utf8')
 assert.match(clickLaptopSrc, /ClickPendulum/)
 assert.match(clickLaptopSrc, /side="bottom"[\s\S]*scroll/)
-assert.match(readFileSync(new URL('../src/components/fold/FoldShell.tsx', import.meta.url), 'utf8'), /data-fold-crease-line/)
+const foldShellSrc = readFileSync(new URL('../src/components/fold/FoldShell.tsx', import.meta.url), 'utf8')
+assert.match(foldShellSrc, /data-fold-crease/)
+assert.doesNotMatch(foldShellSrc, /data-fold-crease-line/)
+assert.doesNotMatch(foldShellSrc, /bg-white\/28/)
+
+assert.equal(clickUsesHingeSplit('book', 890, 626), true)
+assert.equal(clickUsesHingeSplit('off', 890, 626), true, 'inner landscape / partial fold')
+assert.equal(clickUsesHingeSplit('tent', 678, 466), false)
+assert.equal(clickUsesHingeSplit('laptop', 626, 890), false)
+assert.equal(clickUsesHingeSplit('off', 1440, 900), false, 'desktop stays on the existing Click columns')
+assert.equal(clickUsesHingeSplit('off', 844, 390), false, 'phone landscape is tent, not hinge split')
+
+const indexCss = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+assert.match(indexCss, /data-click-split='hinge'/)
+assert.match(indexCss, /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/)
 
 const drumsLaptopSrc = readFileSync(new URL('../src/components/fold/DrumsLaptop.tsx', import.meta.url), 'utf8')
 assert.match(drumsLaptopSrc, /data-fold-drums-grid/)

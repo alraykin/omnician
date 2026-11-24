@@ -67,6 +67,7 @@ export function FoldHalf({
   )
 }
 
+/** Invisible hinge gutter. Halves already stop 16px short of center; no drawn line. */
 export function FoldCrease({ axis }: { axis: 'horizontal' | 'vertical' }) {
   return (
     <div
@@ -77,15 +78,6 @@ export function FoldCrease({ axis }: { axis: 'horizontal' | 'vertical' }) {
           ? 'pointer-events-none absolute inset-x-0 top-1/2 z-20 h-8 -translate-y-1/2 bg-[#0B0F1A]'
           : 'pointer-events-none absolute inset-y-0 left-1/2 z-20 w-8 -translate-x-1/2 bg-[#0B0F1A]'
       }
-    >
-      <span
-        data-fold-crease-line
-        className={
-          axis === 'horizontal'
-            ? 'absolute inset-x-[6%] top-1/2 h-px -translate-y-1/2 bg-white/28'
-            : 'absolute inset-y-[8%] left-1/2 w-px -translate-x-1/2 bg-white/28'
-        }
-      />
-    </div>
+    />
   )
 }
