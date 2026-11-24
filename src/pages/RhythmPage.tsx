@@ -74,7 +74,11 @@ import {
   normalizeDrumInput,
   type InputDivision,
 } from '@/lib/beat-boxes'
-import { onCaptureStarting, preparePlaybackFromGesture } from '@/lib/audio-context'
+import {
+  onCaptureStarting,
+  preparePlaybackFromGesture,
+  waitUntilPlaybackRunning,
+} from '@/lib/audio-context'
 import {
   bindNowPlayingTransport,
   clearNowPlaying,
@@ -689,21 +693,35 @@ export function RhythmPage() {
   const claimNowPlaying = useCallback(() => {
     publishNowPlaying({ title: 'Omnician', subtitle: nowPlayingSubtitle, playing: true })
   }, [nowPlayingSubtitle])
+  const playGenRef = useRef(0)
+  const startingRef = useRef(false)
   const startStop = useCallback(() => {
-    if (playingRef.current) {
+    if (playingRef.current || startingRef.current) {
+      startingRef.current = false
+      playGenRef.current += 1
       halt('user-stop')
       setPlaying(false)
       return
     }
+    const gen = ++playGenRef.current
+    startingRef.current = true
     claimNowPlaying()
-    preparePlaybackFromGesture()
+    const ctx = preparePlaybackFromGesture()
     void ensureKit().then((kit) => {
       if (speedBuilder.enabled && speedBuilder.announce) {
         kit?.preloadAnnounce()
         void kit?.ensureAnnounce(speedBuilder.fromPct)
       }
     })
-    setPlaying(true)
+    void waitUntilPlaybackRunning(ctx).then((running) => {
+      if (playGenRef.current !== gen) {
+        startingRef.current = false
+        return
+      }
+      startingRef.current = false
+      if (!running) return
+      setPlaying(true)
+    })
   }, [claimNowPlaying, ensureKit, halt, speedBuilder.announce, speedBuilder.enabled, speedBuilder.fromPct])
   const startStopRef = useRef(startStop)
   startStopRef.current = startStop
@@ -825,17 +843,29 @@ export function RhythmPage() {
 
   const toggleRecord = useCallback(() => {
     if (recording) {
+      playGenRef.current += 1
       halt('recorder-stop')
       setPlaying(false)
       setRecording(false)
       return
     }
+    const gen = ++playGenRef.current
     claimNowPlaying()
-    preparePlaybackFromGesture()
+    const ctx = preparePlaybackFromGesture()
     void ensureKit()
     setDrumBarIndex(0)
     setRecording(true)
-    setPlaying(true)
+    void waitUntilPlaybackRunning(ctx).then((running) => {
+      if (playGenRef.current !== gen) {
+        setRecording(false)
+        return
+      }
+      if (!running) {
+        setRecording(false)
+        return
+      }
+      setPlaying(true)
+    })
   }, [claimNowPlaying, ensureKit, halt, recording])
 
   const patchRecordBar = useCallback(
@@ -909,12 +939,23 @@ export function RhythmPage() {
 
   const startNewBeatAndRecord = useCallback(() => {
     startNewBeat({ keepBpm: true })
+    const gen = ++playGenRef.current
     claimNowPlaying()
-    preparePlaybackFromGesture()
+    const ctx = preparePlaybackFromGesture()
     void ensureKit()
     setDrumBarIndex(0)
     setRecording(true)
-    setPlaying(true)
+    void waitUntilPlaybackRunning(ctx).then((running) => {
+      if (playGenRef.current !== gen) {
+        setRecording(false)
+        return
+      }
+      if (!running) {
+        setRecording(false)
+        return
+      }
+      setPlaying(true)
+    })
   }, [claimNowPlaying, ensureKit, startNewBeat])
 
   const openSave = (asNew = false) => {

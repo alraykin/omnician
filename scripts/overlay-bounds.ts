@@ -9,6 +9,7 @@ import {
   overlayCloseOnLeft,
   overlayHostRect,
   overlayListColumns,
+  overlaySheetVisibleInLaptopBottom,
   overlayStaysInLaptopBottom,
   OVERLAY_CLUSTER_RIGHT_PX,
   OVERLAY_OUTER_CLUSTER_RIGHT_PX,
@@ -30,6 +31,29 @@ assert.equal(laptop.height, FOLD_LAPTOP.height / 2 - FOLD_DEAD_PX)
 assert.ok(laptop.y > FOLD_LAPTOP.height / 2, 'bottom half starts below the 16px crease')
 assert.equal(overlayStaysInLaptopBottom(laptop.y, laptop.y + laptop.height, FOLD_LAPTOP.height), true)
 assert.equal(overlayStaysInLaptopBottom(0, laptop.y + 40, FOLD_LAPTOP.height), false)
+assert.equal(
+  overlaySheetVisibleInLaptopBottom(
+    { top: laptop.y, bottom: laptop.y + laptop.height, height: laptop.height, width: 626 },
+    FOLD_LAPTOP.height,
+  ),
+  true,
+)
+assert.equal(
+  overlaySheetVisibleInLaptopBottom(
+    { top: 0, bottom: 40, height: 40, width: 626 },
+    FOLD_LAPTOP.height,
+  ),
+  false,
+  'a sheet parked in the top half is not visible',
+)
+assert.equal(
+  overlaySheetVisibleInLaptopBottom(
+    { top: laptop.y, bottom: laptop.y, height: 0, width: 626 },
+    FOLD_LAPTOP.height,
+  ),
+  false,
+  'zero-height sheets are not visible',
+)
 
 assert.deepEqual(overlayHostRect('laptop', 626, 890), laptop)
 assert.deepEqual(overlayHostRect('book', 890, 626), { x: 0, y: 0, width: 890, height: 626 })
@@ -94,6 +118,11 @@ assert.match(page, /whitespace-normal break-words/)
 assert.match(page, /flex-wrap items-center/)
 
 const header = readFileSync(new URL('../src/components/SheetClose.tsx', import.meta.url), 'utf8')
+assert.match(header, /createPortal/)
+assert.match(header, /z-\[90\]/)
+assert.match(header, /OVERLAY_HOST_Z_CLASS/)
+assert.match(readFileSync(new URL('../src/components/fold/FoldShell.tsx', import.meta.url), 'utf8'), /z-\[82\]/)
+assert.match(readFileSync(new URL('../src/components/rhythm/BarMenu.tsx', import.meta.url), 'utf8'), /className="fixed overflow-hidden/)
 assert.match(header, /data-sheet-close-side="left"/)
 assert.match(header, /SheetCloseX label=\{closeLabel/)
 assert.ok(

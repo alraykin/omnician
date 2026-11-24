@@ -46,6 +46,16 @@ export function overlayStaysInLaptopBottom(top: number, bottom: number, viewport
   return top >= host.y - 1e-6 && bottom <= host.y + host.height + 1e-6
 }
 
+/** Sheet is on-screen in the laptop bottom half — not zero-height, clipped, or parked above the hinge. */
+export function overlaySheetVisibleInLaptopBottom(
+  rect: { top: number; bottom: number; height: number; width: number },
+  viewportHeight: number,
+  minHeight = 48,
+): boolean {
+  if (!(rect.width > 8) || !(rect.height >= minHeight)) return false
+  return overlayStaysInLaptopBottom(rect.top, rect.bottom, viewportHeight)
+}
+
 /**
  * 1-column groove list on the outer cover and any sheet narrower than a tablet.
  * Never 3 columns — style cards in a tight grid truncate names to "Bac…".

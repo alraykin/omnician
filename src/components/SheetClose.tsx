@@ -1,7 +1,11 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 import { activateOnPointer, cn } from '@/lib/utils'
+
+/** Above FoldShell (z-82) so laptop/book sheets are not covered by the pose overlay. */
+export const OVERLAY_HOST_Z_CLASS = 'z-[90]'
 
 export function SheetBackdrop({
   label,
@@ -94,13 +98,15 @@ type OverlayHostProps = HTMLAttributes<HTMLDivElement> & {
 
 /**
  * Full-screen overlay root. CSS pins it to the laptop bottom half and pads Duo
- * camera / status-cluster safe areas. Portals to `document.body` stay in this box.
+ * camera / status-cluster safe areas. Always portals to `document.body` above
+ * FoldShell so sheets are visible in laptop/book poses.
  */
 export const OverlayHost = forwardRef<HTMLDivElement, OverlayHostProps>(function OverlayHost(
   { children, className, stretch = false, flush = false, ...rest },
   ref,
 ) {
-  return (
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div
       ref={ref}
       data-overlay-host="1"
@@ -108,12 +114,15 @@ export const OverlayHost = forwardRef<HTMLDivElement, OverlayHostProps>(function
       data-overlay-flush={flush ? '1' : undefined}
       className={cn(
         'fixed inset-0 flex min-h-0 justify-center',
+        OVERLAY_HOST_Z_CLASS,
         flush ? 'p-0' : 'overlay-host',
         className,
+        OVERLAY_HOST_Z_CLASS,
       )}
       {...rest}
     >
       {children}
-    </div>
+    </div>,
+    document.body,
   )
 })

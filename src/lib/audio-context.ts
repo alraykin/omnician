@@ -5,6 +5,7 @@ import {
   listenNativeSession,
   pullNativeAudioSession,
   resetNativeAudioSessionForTests,
+  waitNativeAudioSession,
 } from '@/native/ios-audio-session'
 import { clearNowPlaying, primeNowPlayingMetadata } from '@/lib/now-playing'
 
@@ -80,6 +81,11 @@ function contextState(ctx: AudioContext | null): SafariAudioState | 'none' {
 export function contextNeedsResume(ctx: AudioContext): boolean {
   const state = contextState(ctx)
   return state === 'suspended' || state === 'interrupted'
+}
+
+/** Interrupted/closed playback graphs cannot be scheduled into — rebuild in the Play tap. */
+export function playbackContextShouldRebuild(state: string): boolean {
+  return state === 'interrupted' || state === 'closed'
 }
 
 export function formatAudioError(error: unknown): string {
@@ -178,9 +184,14 @@ function writeAudioSession(type: AudioSessionKind): boolean {
     lastSessionWrite = `${type}:already`
     return true
   }
-  // Changing navigator.audioSession.type while Web Audio is running
-  // interrupts WKWebView after one or two hits.
-  if (playback && contextState(playback) === 'running') {
+  // Changing navigator.audioSession.type while Click/Drums are running
+  // interrupts WKWebView after one or two hits — defer .playback only.
+  // Tuner/Listen getUserMedia needs a record-capable session immediately.
+  if (
+    type !== 'play-and-record' &&
+    playback &&
+    contextState(playback) === 'running'
+  ) {
     lastSessionWrite = `${type}:deferred`
     noteAudioEvent(`session ${type} deferred (ctx running)`)
     return native || true
@@ -284,6 +295,19 @@ export function claimPlaybackSessionFromGesture(): void {
 
 export function claimPlayAndRecordSessionFromGesture(): void {
   wantedSession = 'play-and-record'
+  // Park leftover Click/Drums so we can write a record-capable session.
+  // The playback statechange handler would otherwise resume the keep-alive
+  // and steal the category back to .playback before getUserMedia.
+  holdPlaybackSuspended = true
+  releasePlaybackGraph()
+  const play = playback
+  if (play && contextState(play) === 'running') {
+    try {
+      void play.suspend()
+    } catch {
+      /* already closed */
+    }
+  }
   writeAudioSession('play-and-record')
   if (isNativeApp()) stopSilentHtmlAudio()
 }
@@ -614,9 +638,25 @@ export function beginCaptureFromGesture(): AudioContext {
   return ctx
 }
 
+function rebuildPlaybackIfInterrupted(): void {
+  const ctx = playback
+  if (!ctx) return
+  if (!playbackContextShouldRebuild(contextState(ctx))) return
+  playback = null
+  releasePlaybackGraph()
+  try {
+    if (contextState(ctx) !== 'closed') void ctx.close()
+  } catch {
+    /* already closed */
+  }
+  lastRecovery = 'interrupted-rebuild'
+  recoveries += 1
+  noteAudioEvent('ctx rebuild after interrupt')
+}
+
 /**
  * Stop leftover mic hardware, write playback (or keep play-and-record if the
- * mic is still live), then resume() the SAME playback context in this tap.
+ * mic is still live), then resume() playback in this tap.
  * Session is claimed before create/resume — never after clicks are running.
  */
 export function preparePlaybackFromGesture(): AudioContext {
@@ -631,10 +671,32 @@ export function preparePlaybackFromGesture(): AudioContext {
   return unlockPlaybackFromGesture()
 }
 
-/** Resume (or create) playback. Does not rebuild after mic. */
+/**
+ * Await native playAndRecord→playback and AudioContext.resume() after Tuner
+ * so the first Click/Drums Play actually schedules into a running graph.
+ */
+export async function waitUntilPlaybackRunning(ctx?: AudioContext | BaseAudioContext | null): Promise<boolean> {
+  await waitNativeAudioSession()
+  const play = ctx && contextState(ctx as AudioContext) !== 'closed' ? (ctx as AudioContext) : playback
+  if (!play || contextState(play) === 'closed') return false
+  if (contextState(play) === 'running') {
+    holdPlaybackGraph()
+    return true
+  }
+  const ok = await resumeCtx(play)
+  if (ok || contextState(play) === 'running') {
+    holdPlaybackGraph()
+    return true
+  }
+  noteAudioEvent(`ctx still ${contextState(play)} after resume`)
+  return false
+}
+
+/** Resume (or create) playback. Rebuilds an interrupted graph in this tap. */
 export function unlockPlaybackFromGesture(): AudioContext {
   holdPlaybackSuspended = false
   claimPlaybackSessionFromGesture()
+  rebuildPlaybackIfInterrupted()
   const ctx = getPlaybackAudioContext()
   resumeFromGesture(ctx)
   holdPlaybackGraph()
@@ -648,6 +710,13 @@ export function unlockAudioFromGesture(): void {
 export async function resumeSharedAudioContext(): Promise<boolean> {
   claimPlaybackSessionFromGesture()
   const ctx = getPlaybackAudioContext()
+  return resumeCtx(ctx)
+}
+
+/** Tuner/Listen capture context. Never claims exclusive .playback. */
+export async function resumeCaptureAudioContext(): Promise<boolean> {
+  claimPlayAndRecordSessionFromGesture()
+  const ctx = getCaptureAudioContext()
   return resumeCtx(ctx)
 }
 

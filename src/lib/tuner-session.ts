@@ -6,7 +6,7 @@ import {
   markCaptureUsed,
   onHiddenReleaseCapture,
   releaseMicStream,
-  resumeSharedAudioContext,
+  resumeCaptureAudioContext,
 } from '@/lib/audio-context'
 import { clampA4 } from '@/lib/custom-presets'
 import { analyzeFrequency, A4_HZ, rms } from '@/lib/notes'
@@ -324,7 +324,7 @@ async function resumeContext(): Promise<boolean> {
       // fall through to playback resume
     }
   }
-  const ok = await resumeSharedAudioContext()
+  const ok = await resumeCaptureAudioContext()
   if (ok) {
     if (snapshot.needsGesture) emit({ needsGesture: false })
     return true
@@ -496,7 +496,7 @@ export async function startTuner(options: StartOptions = {}): Promise<void> {
     try {
       await ctx.resume()
     } catch {
-      await resumeSharedAudioContext()
+      await resumeCaptureAudioContext()
     }
   }
 

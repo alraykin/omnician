@@ -2,7 +2,7 @@ import {
   adoptMicStream,
   getCaptureAudioContext,
   prepareCaptureFromGesture,
-  resumeSharedAudioContext,
+  resumeCaptureAudioContext,
 } from '@/lib/audio-context'
 
 type ChromeAudioTrack = MediaTrackConstraints & {
@@ -178,7 +178,7 @@ export async function createTunerContext(): Promise<AudioContext> {
   try {
     await audio.resume()
   } catch {
-    await resumeSharedAudioContext()
+    await resumeCaptureAudioContext()
   }
   return audio
 }

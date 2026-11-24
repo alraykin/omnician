@@ -63,7 +63,7 @@ export function BarMenu({
         role="menu"
         data-bar-menu
         style={{ left, top, width }}
-        className="absolute overflow-hidden rounded-2xl border border-white/12 bg-[#141A28] py-1 shadow-2xl shadow-black/50"
+        className="fixed overflow-hidden rounded-2xl border border-white/12 bg-[#141A28] py-1 shadow-2xl shadow-black/50"
       >
         {items.map((item) =>
           item.hidden ? null : (

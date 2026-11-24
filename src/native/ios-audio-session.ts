@@ -28,16 +28,34 @@ type NativeAudioPlugin = {
 
 const OmnicianAudio = registerPlugin<NativeAudioPlugin>('OmnicianAudio')
 
+let lastNativeSession: NativeSessionSnapshot | null = null
+let lastAskedCategory: 'playback' | 'playAndRecord' | null = null
+let sessionListenerWired = false
+const sessionListeners = new Set<(event: string) => void>()
+let applySeq = 0
+let applyChain: Promise<void> = Promise.resolve()
+let testPlugin: NativeAudioPlugin | null | undefined
+
 function nativePlugin(): NativeAudioPlugin | null {
+  if (testPlugin !== undefined) return testPlugin
   if (typeof window === 'undefined') return null
   if (!Capacitor.isNativePlatform()) return null
   return OmnicianAudio
 }
 
-let lastNativeSession: NativeSessionSnapshot | null = null
-let lastAskedCategory: 'playback' | 'playAndRecord' | null = null
-let sessionListenerWired = false
-const sessionListeners = new Set<(event: string) => void>()
+/** Tests inject a fake OmnicianAudio plugin so session writes can be asserted in Node. */
+export function installNativeAudioPluginForTests(plugin: NativeAudioPlugin | null | undefined): void {
+  testPlugin = plugin
+}
+
+/** Resolves after the latest native setSession write (or skip) has finished. */
+export async function waitNativeAudioSession(): Promise<void> {
+  await applyChain.catch(() => undefined)
+}
+
+export async function flushNativeAudioSessionForTests(): Promise<void> {
+  await waitNativeAudioSession()
+}
 
 /**
  * Talks to the iOS OmnicianAudio plugin when running inside Capacitor.
@@ -50,20 +68,30 @@ export function applyNativeAudioSession(kind: 'playback' | 'play-and-record'): b
   const plugin = nativePlugin()
   if (!plugin?.setSession) return false
   const category = kind === 'play-and-record' ? 'playAndRecord' : 'playback'
-  if (lastAskedCategory === category && lastNativeSession?.category === category) {
-    return true
-  }
-  if (lastNativeSession?.category === category) {
-    lastAskedCategory = category
+  // Only skip a confirmed redundant .playback write. Re-setCategory while
+  // Click/Drums are live interrupts WKWebView. Never skip playAndRecord:
+  // Click may have an in-flight .playback write, and lastNativeSession can
+  // still show the previous tuner snapshot.
+  if (
+    category === 'playback' &&
+    lastAskedCategory === 'playback' &&
+    lastNativeSession?.category === 'playback'
+  ) {
     return true
   }
   lastAskedCategory = category
-  void plugin.setSession({ category }).then((row) => {
-    if (row && typeof row === 'object' && 'category' in row) {
-      lastNativeSession = row as NativeSessionSnapshot
+  const seq = ++applySeq
+  applyChain = applyChain.catch(() => undefined).then(async () => {
+    if (seq !== applySeq || lastAskedCategory !== category) return
+    try {
+      const row = await plugin.setSession!({ category })
+      if (seq !== applySeq) return
+      if (row && typeof row === 'object' && 'category' in row) {
+        lastNativeSession = row as NativeSessionSnapshot
+      }
+    } catch {
+      /* Native session is best-effort; Safari audioSession still applies. */
     }
-  }).catch(() => {
-    /* Native session is best-effort; Safari audioSession still applies. */
   })
   return true
 }
@@ -77,6 +105,9 @@ export function resetNativeAudioSessionForTests(): void {
   lastAskedCategory = null
   sessionListenerWired = false
   sessionListeners.clear()
+  applySeq = 0
+  applyChain = Promise.resolve()
+  testPlugin = undefined
 }
 
 export function pullNativeAudioSession(): void {

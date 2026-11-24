@@ -1,4 +1,4 @@
-import { preparePlaybackFromGesture } from '@/lib/audio-context'
+import { preparePlaybackFromGesture, waitUntilPlaybackRunning } from '@/lib/audio-context'
 import { getOrCreateRhythmKit } from '@/lib/rhythm-audio'
 
 let previewGeneration = 0
@@ -35,19 +35,29 @@ export function playListenTempoPreview(bpm: number, onEnded?: () => void): void 
     onEnded?.()
     return
   }
-  void kit.unlock()
-  kit.stopAll()
   const generation = previewGeneration
-  const beat = 60 / Math.max(30, Math.min(300, bpm))
-  const beats = Math.min(8, Math.max(4, Math.floor(4 / beat)))
-  const start = kit.ctx.currentTime + 0.03
-  for (let i = 0; i < beats; i += 1) {
-    kit.click(start + i * beat, i % 4 === 0 ? 2 : 0, 'wood', true)
-  }
-  previewTimer = window.setTimeout(() => {
-    previewTimer = 0
-    if (generation !== previewGeneration) return
+  void waitUntilPlaybackRunning(kit.ctx).then(async (running) => {
+    if (!running || generation !== previewGeneration) {
+      onEnded?.()
+      return
+    }
+    await kit.unlock()
+    if (generation !== previewGeneration) {
+      onEnded?.()
+      return
+    }
     kit.stopAll()
-    onEnded?.()
-  }, beats * beat * 1000 + 60)
+    const beat = 60 / Math.max(30, Math.min(300, bpm))
+    const beats = Math.min(8, Math.max(4, Math.floor(4 / beat)))
+    const start = kit.ctx.currentTime + 0.03
+    for (let i = 0; i < beats; i += 1) {
+      kit.click(start + i * beat, i % 4 === 0 ? 2 : 0, 'wood', true)
+    }
+    previewTimer = window.setTimeout(() => {
+      previewTimer = 0
+      if (generation !== previewGeneration) return
+      kit.stopAll()
+      onEnded?.()
+    }, beats * beat * 1000 + 60)
+  })
 }

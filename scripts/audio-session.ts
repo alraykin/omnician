@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { applyNativeAudioSession } from '../src/native/ios-audio-session.ts'
+import {
+  applyNativeAudioSession,
+  flushNativeAudioSessionForTests,
+  installNativeAudioPluginForTests,
+  peekNativeAudioSession,
+  resetNativeAudioSessionForTests,
+} from '../src/native/ios-audio-session.ts'
 import {
   claimPlayAndRecordSessionFromGesture,
   claimPlaybackSessionFromGesture,
+  playbackContextShouldRebuild,
   getAudioSessionType,
   getSilentHtmlState,
   getWantedAudioSession,
@@ -73,6 +80,13 @@ assert.match(src, /suspendPlaybackAfterStop\(\)/)
 assert.match(src, /from '@\/lib\/now-playing'/)
 assert.match(src, /primeNowPlayingMetadata\(\)/)
 assert.match(src, /session \$\{type\} deferred/)
+assert.match(src, /type !== 'play-and-record'/)
+assert.match(src, /waitUntilPlaybackRunning/)
+assert.match(src, /rebuildPlaybackIfInterrupted/)
+assert.equal(playbackContextShouldRebuild('interrupted'), true)
+assert.equal(playbackContextShouldRebuild('closed'), true)
+assert.equal(playbackContextShouldRebuild('running'), false)
+assert.equal(playbackContextShouldRebuild('suspended'), false)
 assert.match(src, /listenNativeSession/)
 assert.match(readFileSync(new URL('../src/hooks/useRhythmEngine.ts', import.meta.url), 'utf8'), /visibilityState !== 'hidden'/)
 assert.match(readFileSync(new URL('../src/lib/now-playing.ts', import.meta.url), 'utf8'), /ignoreRemoteEcho/)
@@ -223,6 +237,8 @@ const rhythm = readFileSync(new URL('../src/pages/RhythmPage.tsx', import.meta.u
 assert.match(rhythm, /preparePlaybackFromGesture\(\)/)
 const playTap = rhythm.slice(rhythm.indexOf('const startStop = useCallback'))
 assert.ok(playTap.indexOf('claimNowPlaying()') < playTap.indexOf('preparePlaybackFromGesture()'))
+assert.ok(playTap.indexOf('waitUntilPlaybackRunning(ctx)') < playTap.indexOf('setPlaying(true)'))
+assert.ok(playTap.indexOf('preparePlaybackFromGesture()') < playTap.indexOf('waitUntilPlaybackRunning(ctx)'))
 
 const mic = readFileSync(new URL('../src/lib/mic-capture.ts', import.meta.url), 'utf8')
 assert.match(mic, /prepareCaptureFromGesture\(\)/)
@@ -275,6 +291,35 @@ noteAudioEvent('ctx running')
 noteAudioEvent('av interrupt-began')
 assert.match(audioEventLine(), /ctx running/)
 assert.match(audioEventLine(), /interrupt-began/)
+
+resetNativeAudioSessionForTests()
+const nativeCalls: string[] = []
+let nativeCategory = 'playAndRecord'
+installNativeAudioPluginForTests({
+  async setSession({ category }) {
+    nativeCalls.push(`start:${category}`)
+    await new Promise((resolve) => setTimeout(resolve, 15))
+    nativeCategory = category
+    nativeCalls.push(`done:${category}`)
+    return { category, options: 'none', otherAudioPlaying: false }
+  },
+})
+assert.equal(applyNativeAudioSession('playback'), true)
+assert.equal(applyNativeAudioSession('play-and-record'), true, 'tuner must not skip playAndRecord after an in-flight playback write')
+await flushNativeAudioSessionForTests()
+assert.deepEqual(nativeCalls, ['start:playAndRecord', 'done:playAndRecord'])
+assert.equal(peekNativeAudioSession()?.category, 'playAndRecord')
+assert.equal(nativeCategory, 'playAndRecord')
+
+nativeCalls.length = 0
+assert.equal(applyNativeAudioSession('playback'), true)
+await flushNativeAudioSessionForTests()
+assert.deepEqual(nativeCalls, ['start:playback', 'done:playback'])
+nativeCalls.length = 0
+assert.equal(applyNativeAudioSession('playback'), true, 'confirmed redundant playback may skip')
+await flushNativeAudioSessionForTests()
+assert.deepEqual(nativeCalls, [])
+resetNativeAudioSessionForTests()
 
 assert.match(rhythm, /publishNowPlaying/)
 assert.match(rhythm, /bindNowPlayingTransport/)
